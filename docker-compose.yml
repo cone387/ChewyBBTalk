@@ -1,0 +1,46 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: bbtalk-backend
+    restart: unless-stopped
+    environment:
+      - DEBUG=False
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-in-production}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-*}
+      - DATABASE_URL=${DATABASE_URL:-}
+      - KEYCLOAK_URL=${KEYCLOAK_URL:-https://cone387.top}
+      - KEYCLOAK_REALM=${KEYCLOAK_REALM:-cone}
+      - QINIU_ACCESS_KEY=${QINIU_ACCESS_KEY:-}
+      - QINIU_SECRET_KEY=${QINIU_SECRET_KEY:-}
+      - QINIU_BUCKET_NAME=${QINIU_BUCKET_NAME:-}
+      - QINIU_BUCKET_DOMAIN=${QINIU_BUCKET_DOMAIN:-}
+    volumes:
+      - backend_data:/app/chewy_space/data
+      - backend_media:/app/chewy_space/media
+    ports:
+      - "8000:8000"
+    networks:
+      - bbtalk-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: bbtalk-frontend
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    networks:
+      - bbtalk-network
+
+volumes:
+  backend_data:
+  backend_media:
+
+networks:
+  bbtalk-network:
+    driver: bridge
