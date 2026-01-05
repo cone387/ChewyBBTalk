@@ -1,5 +1,5 @@
 from django.contrib import admin
-from common.admin import BaseAdmin
+from bbtalk.admin import BaseAdmin
 from .models import Media
 
 

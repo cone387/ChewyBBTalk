@@ -1,9 +1,15 @@
 from django.db import models
 from django.db.models.fields.files import FieldFile
 from django.utils import timezone
+from django.conf import settings
 from .storage import QiniuPrivateStorage, LocalStorage
 from .choices import MediaEngine, MediaType
-from common.models import BaseModel, generate_uid
+import base64
+from uuid import uuid4
+
+
+def generate_uid():
+    return base64.urlsafe_b64encode(uuid4().bytes).decode()[:22]
 
 
 def get_file_storage(engine=None):
@@ -29,7 +35,12 @@ def media_upload_to(instance: 'Media', filename: str):
     )
 
 
-class Media(BaseModel):
+class Media(models.Model):
+    id = models.AutoField(primary_key=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.DO_NOTHING, verbose_name="用户",
+                             db_constraint=False, db_index=True)
+    create_time = models.DateTimeField(default=timezone.now, verbose_name="创建时间", db_index=True)
+    update_time = models.DateTimeField(auto_now=True, verbose_name="更新时间", db_index=True)
     uid = models.CharField(max_length=22, unique=True, verbose_name="uid", default=generate_uid, editable=False)
     """媒体文件模型（专注于文件存储）"""
     file = MediaFileFiled(
