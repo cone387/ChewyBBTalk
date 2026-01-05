@@ -1,38 +1,43 @@
+from typing import Any
+
+# 路径关键词 -> 标签名称映射
+PATH_TAG_MAPPING = (
+    ('/bbtalk/', 'BBTalk'),
+    ('/tags/', 'Tag'),
+    ('/media/', 'Media'),
+    ('/auth/', 'Auth'),
+    ('/user/', 'User'),
+)
 
 
-def add_tags_by_path(result, generator, request, public):
+def get_tag_by_path(path: str) -> str:
+    """根据路径获取对应的标签名称"""
+    for keyword, tag in PATH_TAG_MAPPING:
+        if keyword in path:
+            return tag
+    return 'Other'
+
+
+def add_tags_by_path(
+    result: dict[str, Any],
+    generator: Any,
+    request: Any,
+    public: bool
+) -> dict[str, Any]:
     """
-    自动根据 path 分组，例如:
+    drf-spectacular 后处理钩子：自动根据路径为 API 添加标签分组
+    
+    示例:
       /api/v1/bbtalk/... → tags = ['BBTalk']
       /api/v1/media/... → tags = ['Media']
     """
-    # result 是整个 openapi 字典，可以直接操作
     paths = result.get('paths', {})
 
     for path, path_item in paths.items():
-        if '/bbtalk/' in path:
-            tag_name = 'BBTalk'
-        elif '/tag/' in path:
-            tag_name = 'Tag'
-        elif '/media/' in path:
-            tag_name = 'Media'
-        elif '/auth/' in path:
-            tag_name = 'Auth'
-        elif '/todo/group/' in path:
-            tag_name = 'TodoGroup'
-        elif '/todo/project/' in path:
-            tag_name = 'TodoProject'
-        elif '/todo/task/' in path:
-            tag_name = 'TodoTask'
-        elif '/todo/activity/' in path:
-            tag_name = 'TodoActivity'
-        else:
-            tag_name = 'Other'
-
-        # 给 path 下所有方法打标签
+        tag_name = get_tag_by_path(path)
+        
         for method, operation in path_item.items():
             if isinstance(operation, dict):
                 operation['tags'] = [tag_name]
 
-    # ✅ 最后别忘了返回修改后的 result
     return result

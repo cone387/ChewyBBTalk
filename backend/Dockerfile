@@ -1,23 +1,29 @@
-FROM python:3.11-slim
+FROM python:3.13-slim
 
 WORKDIR /app
 
-# Install dependencies
+# Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libpq-dev \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
+# Copy project files
+COPY pyproject.toml .
 COPY chewy_space/ ./chewy_space/
+
+# Install dependencies using uv
+RUN uv sync --no-dev
 
 WORKDIR /app/chewy_space
 
 # Collect static files
-RUN python manage.py collectstatic --noinput || true
+RUN uv run python manage.py collectstatic --noinput || true
 
 EXPOSE 8000
 
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "2", "chewy_space.wsgi:application"]
+CMD ["uv", "run", "gunicorn", "--bind", "0.0.0.0:8000", "--workers", "2", "chewy_space.wsgi:application"]
