@@ -5,7 +5,7 @@ from .models import BBTalk, Tag, generate_tag_color
 from .serializers import BBTalkSerializer, TagSerializer
 from drf_spectacular.utils import extend_schema
 from django.shortcuts import get_object_or_404
-from django.db.models import Count, Q
+from django.db.models import Count
 
 
 class BBTalkViewSet(viewsets.ModelViewSet):
@@ -59,7 +59,7 @@ class TagViewSet(viewsets.ModelViewSet):
         user = self.request.user
         queryset = Tag.objects.filter(user=user)
         queryset = queryset.annotate(
-            bbtalk_count=Count('bbtalks', filter=Q(bbtalks__is_deleted=False), distinct=True)
+            bbtalk_count=Count('bbtalks', distinct=True)
         )
         # 只返回有 bbtalk 关联的标签
         queryset = queryset.filter(bbtalk_count__gt=0)
@@ -76,7 +76,6 @@ class TagViewSet(viewsets.ModelViewSet):
         tag, created = Tag.objects.update_or_create(
             user=user,
             name=name,
-            is_deleted=False,
             defaults={
                 'color': request.data.get('color', generate_tag_color()),
                 'sort_order': request.data.get('sort_order', 0)
@@ -109,12 +108,11 @@ class PublicBBTalkViewSet(viewsets.ViewSet):
         """
         获取单个公开的 BBTalk
         """
-        # 只查询公开且未删除的 BBTalk
+        # 只查询公开的 BBTalk
         bbtalk = get_object_or_404(
             BBTalk.objects.prefetch_related('tags', 'media'),
             uid=pk,
-            visibility='public',
-            is_deleted=False
+            visibility='public'
         )
         
         serializer = BBTalkSerializer(bbtalk, context={'request': request})

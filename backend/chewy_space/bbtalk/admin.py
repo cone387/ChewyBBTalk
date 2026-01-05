@@ -1,10 +1,10 @@
 from django.contrib import admin
 from .models import BBTalk, Tag
-from common.admin import SoftDeleteModelAdmin
+from common.admin import BaseAdmin
 
 
 @admin.register(Tag)
-class TagAdmin(SoftDeleteModelAdmin):
+class TagAdmin(BaseAdmin):
     list_display = ('id', 'uid', 'name', 'color', 'sort_order', 'update_time')
     list_filter = ('create_time', 'update_time')
     search_fields = ('name',)
@@ -12,18 +12,18 @@ class TagAdmin(SoftDeleteModelAdmin):
 
 
 @admin.register(BBTalk)
-class BBTalkAdmin(SoftDeleteModelAdmin):
+class BBTalkAdmin(BaseAdmin):
     list_display = ('id', 'uid', 'content', 'visibility', 'formated_tags', 'update_time',)
     list_filter = ('create_time', 'update_time')
     search_fields = ('content', )
     date_hierarchy = 'create_time'
     filter_horizontal = ('tags', 'media')
-    readonly_fields = ('context', 'create_time', 'update_time', 'is_deleted', 'deleted_time')
+    readonly_fields = ('context', 'create_time', 'update_time')
     fields = (
         'content',
         ('tags', 'media'),
         'context',
-        'is_deleted', 'deleted_time', 'create_time', 'update_time'
+        'create_time', 'update_time'
     )
     
     def formated_tags(self, obj: BBTalk):

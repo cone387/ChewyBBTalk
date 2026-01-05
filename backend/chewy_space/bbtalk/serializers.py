@@ -58,7 +58,7 @@ class BBTalkSerializer(serializers.ModelSerializer):
         # 过滤掉 None/null 值，只保留有效的 UID
         valid_uids = [uid for uid in media_uids if uid is not None]
         # 根据UID列表查询媒体文件
-        media_files = Media.objects.filter(user=self.context['request'].user, uid__in=valid_uids, is_deleted=False)
+        media_files = Media.objects.filter(user=self.context['request'].user, uid__in=valid_uids)
         instance.media.set(media_files)
 
     def create(self, validated_data):

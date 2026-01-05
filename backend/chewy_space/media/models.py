@@ -3,7 +3,7 @@ from django.db.models.fields.files import FieldFile
 from django.utils import timezone
 from .storage import QiniuPrivateStorage, LocalStorage
 from .choices import MediaEngine, MediaType
-from common.models import SoftDeleteModel, generate_uid
+from common.models import BaseModel, generate_uid
 
 
 def get_file_storage(engine=None):
@@ -29,7 +29,7 @@ def media_upload_to(instance: 'Media', filename: str):
     )
 
 
-class Media(SoftDeleteModel):
+class Media(BaseModel):
     uid = models.CharField(max_length=22, unique=True, verbose_name="uid", default=generate_uid, editable=False)
     """媒体文件模型（专注于文件存储）"""
     file = MediaFileFiled(

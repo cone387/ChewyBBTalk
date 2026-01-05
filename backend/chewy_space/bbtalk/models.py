@@ -1,6 +1,6 @@
 from django.db import models
 from media.models import Media
-from common.models import SoftDeleteModel, generate_uid
+from common.models import BaseModel, generate_uid
 import random
 import colorsys
 
@@ -14,27 +14,27 @@ def generate_tag_color():
     return "#{:02x}{:02x}{:02x}".format(int(r*255), int(g*255), int(b*255))
 
 
-class Tag(SoftDeleteModel):
+class Tag(BaseModel):
     uid = models.CharField(max_length=22, unique=True, verbose_name="uid", default=generate_uid, editable=False)
     name = models.CharField(max_length=50, help_text="标签名称", verbose_name="名称")
     color = models.CharField(max_length=7, default=generate_tag_color, help_text="十六进制，如#ff0000", verbose_name="颜色")
     sort_order = models.FloatField(default=0, verbose_name="排序")
 
     class Meta:
-        unique_together = ["name", "user", "is_deleted"]
+        unique_together = ["name", "user"]
         verbose_name = verbose_name_plural = "标签"
         ordering = ["-update_time"]
         db_table = "user_tags"
         indexes = [
-            models.Index(fields=['user', 'is_deleted', '-update_time'], name='tag_user_deleted_time_idx'),
-            models.Index(fields=['user', 'is_deleted', 'name'], name='tag_user_deleted_name_idx'),
+            models.Index(fields=['user', '-update_time'], name='tag_user_time_idx'),
+            models.Index(fields=['user', 'name'], name='tag_user_name_idx'),
         ]
 
     def __str__(self):
         return self.name
 
 
-class BBTalk(SoftDeleteModel):
+class BBTalk(BaseModel):
     uid = models.CharField(max_length=22, unique=True, verbose_name="uid", default=generate_uid, editable=False)
     content = models.TextField(help_text="支持 Markdown", verbose_name="内容")
     visibility = models.CharField(
@@ -73,8 +73,6 @@ class BBTalk(SoftDeleteModel):
         verbose_name = verbose_name_plural = "碎碎念"
         db_table = "user_bbtalks"
         indexes = [
-            # 复合索引：优化常见查询模式 (user + is_deleted + update_time)
-            models.Index(fields=['user', 'is_deleted', '-update_time'], name='bbtalk_user_deleted_time_idx'),
-            # 优化按创建时间查询
-            models.Index(fields=['user', 'is_deleted', '-create_time'], name='bbtalk_user_deleted_create_idx'),
+            models.Index(fields=['user', '-update_time'], name='bbtalk_user_time_idx'),
+            models.Index(fields=['user', '-create_time'], name='bbtalk_user_create_idx'),
         ]
