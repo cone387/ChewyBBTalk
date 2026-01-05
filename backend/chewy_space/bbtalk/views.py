@@ -51,15 +51,13 @@ class BBTalkViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         # 自动设置当前用户为创建者
-        serializer.save(user=self.request.user)
+        serializer.save(user_id=self.request.user.id)
     
     def get_queryset(self):
         # 只返回当前用户的记录，并优化关联查询
-        user = self.request.user
+        user_id = self.request.user.id
         return BBTalk.objects.filter(
-            user=user
-        ).select_related(
-            'user'  # 如果需要用户信息，一次性加载
+            user_id=user_id
         ).prefetch_related(
             'tags',  # 预加载标签
             'media'  # 预加载媒体文件
@@ -87,8 +85,8 @@ class TagViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
     
     def get_queryset(self):
-        user = self.request.user
-        queryset = Tag.objects.filter(user=user)
+        user_id = self.request.user.id
+        queryset = Tag.objects.filter(user_id=user_id)
         queryset = queryset.annotate(
             bbtalk_count=Count('bbtalks', distinct=True)
         )
@@ -98,14 +96,14 @@ class TagViewSet(viewsets.ModelViewSet):
     
     def create(self, request, *args, **kwargs):
         """创建标签，如果标签已存在则返回现有标签"""
-        user = request.user
+        user_id = request.user.id
         name = request.data.get('name', '').strip()
         
         if not name:
             return Response({'error': '标签名称不能为空'}, status=status.HTTP_400_BAD_REQUEST)
         
         tag, created = Tag.objects.update_or_create(
-            user=user,
+            user_id=user_id,
             name=name,
             defaults={
                 'color': request.data.get('color', generate_tag_color()),
@@ -117,7 +115,7 @@ class TagViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
     
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        serializer.save(user_id=self.request.user.id)
 
 
 class PublicBBTalkViewSet(viewsets.ReadOnlyModelViewSet):

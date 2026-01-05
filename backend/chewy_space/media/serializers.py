@@ -5,7 +5,6 @@ import os
 
 
 class MediaSerializer(serializers.ModelSerializer):
-    user = serializers.HiddenField(default=serializers.CurrentUserDefault())
     url = serializers.SerializerMethodField()
     filename = serializers.SerializerMethodField()
     original_filename = serializers.SerializerMethodField()
@@ -14,8 +13,8 @@ class MediaSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Media
-        fields = ('uid', 'user', 'file', 'url', 'filename', 'original_filename', 'file_size', 'engine', 'media_type', 'description', 'create_time', 'update_time')
-        read_only_fields = ('uid', 'user', 'url', 'filename', 'original_filename', 'file_size', 'create_time', 'update_time')
+        fields = ('uid', 'file', 'url', 'filename', 'original_filename', 'file_size', 'engine', 'media_type', 'description', 'create_time', 'update_time')
+        read_only_fields = ('uid', 'url', 'filename', 'original_filename', 'file_size', 'create_time', 'update_time')
     
     def get_url(self, obj):
         """获取文件访问 URL"""

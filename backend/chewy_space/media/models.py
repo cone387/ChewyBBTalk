@@ -1,7 +1,6 @@
 from django.db import models
 from django.db.models.fields.files import FieldFile
 from django.utils import timezone
-from django.conf import settings
 from .storage import QiniuPrivateStorage, LocalStorage
 from .choices import MediaEngine, MediaType
 import base64
@@ -37,8 +36,7 @@ def media_upload_to(instance: 'Media', filename: str):
 
 class Media(models.Model):
     id = models.AutoField(primary_key=True)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.DO_NOTHING, verbose_name="用户",
-                             db_constraint=False, db_index=True)
+    user_id = models.CharField(max_length=36, verbose_name="用户ID", db_index=True)
     create_time = models.DateTimeField(default=timezone.now, verbose_name="创建时间", db_index=True)
     update_time = models.DateTimeField(auto_now=True, verbose_name="更新时间", db_index=True)
     uid = models.CharField(max_length=22, unique=True, verbose_name="uid", default=generate_uid, editable=False)

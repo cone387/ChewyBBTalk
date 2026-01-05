@@ -2,11 +2,29 @@ import jwt
 import requests
 from rest_framework.authentication import BaseAuthentication
 from rest_framework import exceptions
-from django.contrib.auth import get_user_model
 from django.conf import settings
 from functools import lru_cache
 
-User = get_user_model()
+
+class KeycloakUser:
+    """轻量级用户对象，不存数据库，只满足 DRF 认证要求"""
+    
+    def __init__(self, user_id: str, username: str, email: str = ''):
+        self.id = user_id
+        self.pk = user_id
+        self.username = username
+        self.email = email
+    
+    @property
+    def is_authenticated(self):
+        return True
+    
+    @property
+    def is_anonymous(self):
+        return False
+    
+    def __str__(self):
+        return self.username
 
 
 class KeycloakAuthentication(BaseAuthentication):
@@ -56,14 +74,12 @@ class KeycloakAuthentication(BaseAuthentication):
                 options={'verify_aud': False}
             )
             
-            # 获取或创建用户
-            username = payload.get('preferred_username') or payload.get('sub')
+            # 构建轻量级用户对象
+            user_id = payload.get('sub')
+            username = payload.get('preferred_username') or user_id
             email = payload.get('email', '')
             
-            user, created = User.objects.get_or_create(
-                username=username,
-                defaults={'email': email}
-            )
+            user = KeycloakUser(user_id=user_id, username=username, email=email)
             
             return (user, None)
             

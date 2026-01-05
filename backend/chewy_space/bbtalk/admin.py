@@ -3,11 +3,12 @@ from .models import BBTalk, Tag
 
 
 class BaseAdmin(admin.ModelAdmin):
-    exclude = ('user', )
+    exclude = ('user_id', )
 
     def save_model(self, request, obj, form, change):
         if not change:
-            obj.user = request.user
+            # Admin 不支持 Keycloak 用户，需要手动设置 user_id
+            obj.user_id = str(request.user.id) if request.user.is_authenticated else ''
         super().save_model(request, obj, form, change)
 
 
