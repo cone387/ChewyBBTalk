@@ -17,7 +17,6 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from rest_framework import permissions
-from rest_framework.authtoken.views import obtain_auth_token
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 from user_auth import views as user_views
 
@@ -26,8 +25,6 @@ schema_url_patterns = [
     path('api/v1/bbtalk/', include('bbtalk.urls')),
     path('api/v1/tags/', include('tags.urls')),
     path('api/v1/media/', include('media.urls')),
-    # 用户相关接口
-    path('api/v1/user/register/', user_views.register, name='user_register'),
     path('api/v1/user/me/', user_views.get_current_user, name='user_me'),
 ]
 schema_view = SpectacularAPIView(
