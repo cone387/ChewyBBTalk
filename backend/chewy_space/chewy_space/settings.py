@@ -43,8 +43,6 @@ INSTALLED_APPS = [
     'drf_spectacular',
     'bbtalk',
     'media',
-    'user_auth',
-    'common',
 ]
 
 MIDDLEWARE = [
@@ -140,7 +138,7 @@ CORS_ALLOW_CREDENTIALS = True
 # REST Framework
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'user_auth.keycloak_auth.KeycloakAuthentication',
+        'bbtalk.authentication.KeycloakAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',

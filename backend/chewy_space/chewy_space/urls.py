@@ -18,13 +18,11 @@ from django.contrib import admin
 from django.urls import path, include
 from rest_framework import permissions
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
-from user_auth import views as user_views
 
 
 schema_url_patterns = [
     path('api/v1/bbtalk/', include('bbtalk.urls')),
     path('api/v1/media/', include('media.urls')),
-    path('api/v1/user/me/', user_views.get_current_user, name='user_me'),
 ]
 schema_view = SpectacularAPIView(
     urlconf=schema_url_patterns,
@@ -48,5 +46,4 @@ urlpatterns = [
     path('api/schema/redoc/', schema_redoc_view.as_view(url_name='schema'), name='redoc-ui'),
     path('api/schema/swagger-ui/', schema_swagger_view.as_view(url_name='schema'), name='swagger-ui'),
     path('api-auth/', include('rest_framework.urls')),
-    path('api/auth/', include('user_auth.urls')),
 ] + schema_url_patterns

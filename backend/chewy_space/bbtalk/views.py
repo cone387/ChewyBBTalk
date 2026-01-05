@@ -1,4 +1,5 @@
 from rest_framework import viewsets, filters, permissions, status
+from rest_framework.decorators import api_view, permission_classes as permission_classes_decorator
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import BBTalk, Tag, generate_tag_color
@@ -6,6 +7,36 @@ from .serializers import BBTalkSerializer, TagSerializer
 from drf_spectacular.utils import extend_schema
 from django.shortcuts import get_object_or_404
 from django.db.models import Count
+
+
+@extend_schema(
+    tags=['User'],
+    responses={
+        200: {
+            'description': '获取当前用户成功',
+            'content': {
+                'application/json': {
+                    'type': 'object',
+                    'properties': {
+                        'id': {'type': 'integer'},
+                        'username': {'type': 'string'},
+                        'email': {'type': 'string'},
+                    }
+                }
+            }
+        }
+    }
+)
+@api_view(['GET'])
+@permission_classes_decorator([permissions.IsAuthenticated])
+def get_current_user(request):
+    """获取当前登录用户信息"""
+    user = request.user
+    return Response({
+        'id': user.id,
+        'username': user.username,
+        'email': user.email,
+    })
 
 
 class BBTalkViewSet(viewsets.ModelViewSet):
