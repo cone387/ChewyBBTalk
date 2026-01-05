@@ -23,7 +23,6 @@ from user_auth import views as user_views
 
 schema_url_patterns = [
     path('api/v1/bbtalk/', include('bbtalk.urls')),
-    path('api/v1/tags/', include('tags.urls')),
     path('api/v1/media/', include('media.urls')),
     path('api/v1/user/me/', user_views.get_current_user, name='user_me'),
 ]

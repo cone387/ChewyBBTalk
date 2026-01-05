@@ -1,9 +1,9 @@
 from typing import Any
 
-# 路径关键词 -> 标签名称映射
+# 路径关键词 -> 标签名称映射 (顺序很重要，更具体的匹配应该在前面)
 PATH_TAG_MAPPING = (
+    ('/bbtalk/tags/', 'Tag'),
     ('/bbtalk/', 'BBTalk'),
-    ('/tags/', 'Tag'),
     ('/media/', 'Media'),
     ('/auth/', 'Auth'),
     ('/user/', 'User'),

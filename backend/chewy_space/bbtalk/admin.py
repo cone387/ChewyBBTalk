@@ -1,6 +1,14 @@
 from django.contrib import admin
-from .models import BBTalk
+from .models import BBTalk, Tag
 from common.admin import SoftDeleteModelAdmin
+
+
+@admin.register(Tag)
+class TagAdmin(SoftDeleteModelAdmin):
+    list_display = ('id', 'uid', 'name', 'color', 'sort_order', 'update_time')
+    list_filter = ('create_time', 'update_time')
+    search_fields = ('name',)
+    readonly_fields = ('uid', 'create_time', 'update_time')
 
 
 @admin.register(BBTalk)
