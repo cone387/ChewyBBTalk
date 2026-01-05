@@ -120,31 +120,19 @@ class TagViewSet(viewsets.ModelViewSet):
         serializer.save(user=self.request.user)
 
 
-class PublicBBTalkViewSet(viewsets.ViewSet):
+class PublicBBTalkViewSet(viewsets.ReadOnlyModelViewSet):
     """
     公开访问的 BBTalk 视图集
     只允许访问公开的 BBTalk，无需登录
     """
-    permission_classes = [permissions.AllowAny]  # 允许未登录访问
+    serializer_class = BBTalkSerializer
+    permission_classes = [permissions.AllowAny]
+    lookup_field = 'uid'
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ['tags__name']
+    search_fields = ['content', 'tags__name']
     
-    @extend_schema(
-        summary='获取公开的 BBTalk 详情',
-        description='无需登录即可访问公开的 BBTalk',
-        responses={
-            200: BBTalkSerializer,
-            404: {'description': 'BBTalk 不存在或不是公开的'}
-        }
-    )
-    def retrieve(self, request, pk=None):
-        """
-        获取单个公开的 BBTalk
-        """
-        # 只查询公开的 BBTalk
-        bbtalk = get_object_or_404(
-            BBTalk.objects.prefetch_related('tags', 'media'),
-            uid=pk,
+    def get_queryset(self):
+        return BBTalk.objects.filter(
             visibility='public'
-        )
-        
-        serializer = BBTalkSerializer(bbtalk, context={'request': request})
-        return Response(serializer.data)
+        ).prefetch_related('tags', 'media').order_by('-update_time')

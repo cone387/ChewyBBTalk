@@ -45,5 +45,4 @@ urlpatterns = [
     path('api/schema/', schema_view.as_view(), name='schema'),
     path('api/schema/redoc/', schema_redoc_view.as_view(url_name='schema'), name='redoc-ui'),
     path('api/schema/swagger-ui/', schema_swagger_view.as_view(url_name='schema'), name='swagger-ui'),
-    path('api-auth/', include('rest_framework.urls')),
 ] + schema_url_patterns
