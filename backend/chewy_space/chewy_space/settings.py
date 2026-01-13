@@ -42,7 +42,7 @@ INSTALLED_APPS = [
     'django_filters',
     'drf_spectacular',
     'bbtalk',
-    'media',
+    'chewy_attachment.django_app',
 ]
 
 MIDDLEWARE = [

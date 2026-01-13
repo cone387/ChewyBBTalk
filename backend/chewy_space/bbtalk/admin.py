@@ -26,11 +26,12 @@ class BBTalkAdmin(BaseAdmin):
     list_filter = ('create_time', 'update_time')
     search_fields = ('content', )
     date_hierarchy = 'create_time'
-    filter_horizontal = ('tags', 'media')
-    readonly_fields = ('context', 'create_time', 'update_time')
+    filter_horizontal = ('tags',)
+    readonly_fields = ('context', 'attachments', 'create_time', 'update_time')
     fields = (
         'content',
-        ('tags', 'media'),
+        'tags',
+        'attachments',
         'context',
         'create_time', 'update_time'
     )

@@ -16,13 +16,15 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
 from rest_framework import permissions
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 
 
 schema_url_patterns = [
     path('api/v1/bbtalk/', include('bbtalk.urls')),
-    path('api/v1/media/', include('media.urls')),
+    path('api/v1/attachments/', include('chewy_attachment.django_app.urls')),
 ]
 schema_view = SpectacularAPIView(
     urlconf=schema_url_patterns,
@@ -45,4 +47,4 @@ urlpatterns = [
     path('api/schema/', schema_view.as_view(), name='schema'),
     path('api/schema/redoc/', schema_redoc_view.as_view(url_name='schema'), name='redoc-ui'),
     path('api/schema/swagger-ui/', schema_swagger_view.as_view(url_name='schema'), name='swagger-ui'),
-] + schema_url_patterns
+] + schema_url_patterns + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

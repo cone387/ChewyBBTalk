@@ -1,6 +1,5 @@
 from django.db import models
 from django.utils import timezone
-from media.models import Media
 import random
 import colorsys
 import base64
@@ -68,11 +67,11 @@ class BBTalk(BaseModel):
         verbose_name="标签",
         db_table="bbtalk_tags_relations"
     )
-    media = models.ManyToManyField(
-        Media,
-        related_name="bbtalks",
-        verbose_name="媒体附件",
-        db_table="bbtalk_media_relations"
+    attachments = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="附件列表，存储附件元信息的字典列表",
+        verbose_name="附件"
     )
     context = models.JSONField(
         default=dict,

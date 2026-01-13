@@ -59,8 +59,7 @@ class BBTalkViewSet(viewsets.ModelViewSet):
         return BBTalk.objects.filter(
             user_id=user_id
         ).prefetch_related(
-            'tags',  # 预加载标签
-            'media'  # 预加载媒体文件
+            'tags'  # 预加载标签
         ).order_by('-update_time')
 
 
@@ -133,4 +132,4 @@ class PublicBBTalkViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         return BBTalk.objects.filter(
             visibility='public'
-        ).prefetch_related('tags', 'media').order_by('-update_time')
+        ).prefetch_related('tags').order_by('-update_time')
