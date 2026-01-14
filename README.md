@@ -6,7 +6,7 @@
 
 - 📝 发布、编辑、删除碎碎念
 - 🏷️ 标签管理与分类
-- 📷 媒体文件上传（图片、视频）
+- 📎 附件上传（图片、视频、文件）
 - 🔐 Authelia 认证集成
 - 🧩 支持 wujie 微前端嵌入
 
@@ -17,47 +17,41 @@
 - Vite 构建工具
 - Redux Toolkit 状态管理
 - Tailwind CSS 样式
-- React Router v6
 
 **后端**
 - Django 5.2 + Django REST Framework
 - SQLite（开发）/ PostgreSQL（生产）
 - Authelia 认证
+- chewy-attachment 附件管理
 
 ## 环境要求
 
 - Node.js >= 18
-- Python >= 3.10
-- pip 或 uv 包管理器
+- Python >= 3.13
+- uv 包管理器
 
 ## 项目结构
 
 ```
-chewy_bbtalk/
-├── frontend/                    # React 前端
+ChewyBBTalk/
+├── frontend/                # React 前端
 │   ├── src/
-│   │   ├── components/          # 组件
-│   │   ├── pages/               # 页面
-│   │   ├── services/            # API 服务 + 认证模块
-│   │   ├── store/               # Redux 状态管理
-│   │   ├── types/               # TypeScript 类型
-│   │   ├── App.tsx
-│   │   └── main.tsx
-│   ├── .env.example
-│   ├── package.json
-│   ├── vite.config.ts
-│   └── tsconfig.json
-└── backend/                     # Django 后端
-    └── chewy_space/
-        ├── bbtalk/              # 碎碎念模块
-        ├── tags/                # 标签模块
-        ├── user_auth/           # 认证模块
-        ├── common/              # 公共模块
-        ├── media/               # 媒体文件
-        ├── chewy_space/         # Django 配置
-        │   ├── settings.py
-        │   └── urls.py
-        └── manage.py
+│   │   ├── components/      # 组件
+│   │   ├── pages/           # 页面
+│   │   ├── services/        # API 服务
+│   │   ├── store/           # Redux 状态管理
+│   │   └── types/           # TypeScript 类型
+│   └── package.json
+├── backend/                 # Django 后端
+│   └── chewy_space/
+│       ├── bbtalk/          # 碎碎念模块（含用户、标签）
+│       ├── chewy_space/     # Django 配置
+│       └── configs/         # 环境配置（不提交）
+├── .env.example             # 环境变量模板
+├── .env.dev                 # 开发环境配置
+├── start_backend.sh         # 本地启动脚本
+├── deploy.sh                # Docker 部署脚本
+└── docker-compose.yml       # 多容器编排
 ```
 
 ## 快速开始
@@ -65,104 +59,118 @@ chewy_bbtalk/
 ### 1. 后端启动
 
 ```bash
-cd backend/chewy_space
+# 一键启动（推荐）
+./start_backend.sh dev
 
-# 安装依赖
-pip install django djangorestframework django-cors-headers python-keycloak
-# 或使用 uv
-uv pip install django djangorestframework django-cors-headers python-keycloak
-
-# 数据库迁移
-python manage.py migrate
-
-# 启动服务（端口 8011）
-python manage.py runserver 8011
+# 或手动启动
+cd backend
+uv sync
+export CHEWYBBTALK_SETTINGS_MODULE=configs.dev_settings
+uv run python chewy_space/manage.py migrate
+uv run python chewy_space/manage.py runserver 0.0.0.0:8000
 ```
 
 ### 2. 前端启动
 
 ```bash
 cd frontend
-
-# 安装依赖
 npm install
-
-# 复制环境变量配置
 cp .env.example .env
-
-# 启动开发服务器（端口 4010）
 npm run dev
 ```
 
 ### 3. 访问
 
 - 前端：http://localhost:4010
-- 后端 API：http://localhost:8011/v1/
+- 后端 API：http://localhost:8000/api/v1/
+- API 文档：http://localhost:8000/api/schema/swagger-ui/
+- Admin 后台：http://localhost:8000/admin/
 
 ## 环境变量配置
 
-### 前端 (.env)
+### 统一配置文件
+
+项目使用统一的 `.env` 文件，同时用于 `start_backend.sh` 和 `docker-compose.yml`：
 
 ```bash
-# API 地址
-VITE_API_BASE_URL=http://localhost:8011
+# 复制模板
+cp .env.example .env
+# 或使用开发环境配置
+cp .env.dev .env
 ```
 
-### 后端 (settings.py)
+### 主要配置项
 
-```python
-# Authelia 通过反向代理认证，无需额外配置
-# 用户信息通过 HTTP 请求头传递：
-# - Remote-User: 用户名
-# - Remote-Email: 邮箱
-# - Remote-Groups: 用户组
-```
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| ENV | 运行环境 (dev/prod/test) | dev |
+| DEBUG | 调试模式 | true |
+| DATABASE_URL | 数据库连接 | sqlite:///./db.sqlite3 |
+| SECRET_KEY | Django 密钥 | 需要修改 |
+| CHEWYBBTALK_SETTINGS_MODULE | 配置模块 | configs.dev_settings |
 
 ## API 端点
 
-| 方法 | 端点 | 说明 | 认证 |
-|------|------|------|------|
-| GET | `/v1/bbtalk/` | 获取碎碎念列表 | 需要 |
-| POST | `/v1/bbtalk/` | 创建碎碎念 | 需要 |
-| GET | `/v1/bbtalk/{id}/` | 获取单条详情 | 需要 |
-| PATCH | `/v1/bbtalk/{id}/` | 更新碎碎念 | 需要 |
-| DELETE | `/v1/bbtalk/{id}/` | 删除碎碎念 | 需要 |
-| GET | `/v1/bbtalk/public/{id}/` | 获取公开内容 | 不需要 |
-| GET | `/v1/tags/` | 获取标签列表 | 需要 |
+| 方法 | 端点 | 说明 |
+|------|------|------|
+| GET | `/api/v1/bbtalk/` | 获取碎碎念列表 |
+| POST | `/api/v1/bbtalk/` | 创建碎碎念 |
+| GET | `/api/v1/bbtalk/{uid}/` | 获取单条详情 |
+| PATCH | `/api/v1/bbtalk/{uid}/` | 更新碎碎念 |
+| DELETE | `/api/v1/bbtalk/{uid}/` | 删除碎碎念 |
+| GET | `/api/v1/tag/` | 获取标签列表 |
+| POST | `/api/v1/tag/` | 创建标签 |
+| GET | `/api/v1/user/me/` | 获取当前用户 |
+| POST | `/api/v1/attachments/files/` | 上传附件 |
 
-## 构建部署
+## 认证机制
 
-### 前端构建
+项目使用 **Authelia** 进行统一认证：
+
+1. **生产环境** - Authelia 反向代理注入用户信息
+   - `Remote-User`: 用户名
+   - `Remote-Email`: 邮箱
+   - `Remote-Groups`: 用户组
+
+2. **开发环境** - 支持测试请求头（DEBUG=True 时）
+   - `X-Authelia-User-Id`: 用户ID
+   - `X-Username`: 用户名
+   - `X-Groups`: 用户组
+
+## 部署
+
+### Docker Compose 部署
 
 ```bash
-cd frontend
-npm run build  # 输出到 dist/
+# 使用开发环境配置
+docker-compose --env-file .env.dev up -d
+
+# 使用生产环境配置
+docker-compose --env-file .env.prod up -d
 ```
 
-### 后端部署
+### 单容器部署
 
 ```bash
-# 生产环境配置
-DEBUG = False
-ALLOWED_HOSTS = ['your-domain.com']
+# 构建并启动
+./deploy.sh build
+./deploy.sh start
 
-# 静态文件收集
-python manage.py collectstatic
+# 查看状态
+./deploy.sh status
 
-# 使用 gunicorn 启动
-gunicorn chewy_space.wsgi:application -b 0.0.0.0:8011
+# 查看日志
+./deploy.sh logs
 ```
 
 ## wujie 微前端集成
 
 作为子应用嵌入主应用时：
 
-### 主应用配置
-
 ```typescript
 import { startApp } from 'wujie';
 
-// 注入认证桥接（可选）
+// 注入认证桥接
 window.__AUTH_BRIDGE__ = {
   getToken: () => localStorage.getItem('token'),
   getUserInfo: async () => ({ id: '123', name: 'User' })
@@ -171,31 +179,10 @@ window.__AUTH_BRIDGE__ = {
 // 加载子应用
 startApp({
   name: 'bbtalk',
-  url: 'http://localhost:4010',  // 开发环境
-  el: '#subapp-container',
-  props: {}
+  url: 'http://localhost:4010',
+  el: '#subapp-container'
 });
 ```
-
-### 认证机制
-
-1. **Authelia 认证** - 通过反向代理统一认证
-2. **开发模式** - 支持测试请求头（DEBUG=True 时）
-
-### 技术规范
-
-**路由**
-- 使用 `BrowserRouter`，支持 wujie 传递 basename
-- 子应用路由独立管理
-
-**样式**
-- Tailwind CSS（完全 scoped）
-- 无全局样式污染
-- 不依赖主应用样式
-
-**生命周期**
-- 支持多次挂载/卸载
-- 自动清理副作用（定时器、监听器等）
 
 ## License
 
