@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { store } from './store'
 import BBTalkPage from './pages/BBTalkPage'
 import BBTalkDetailPage from './pages/BBTalkDetailPage'
-import { initKeycloak, loginWithKeycloak } from './services/auth'
+import { initAuth } from './services/auth'
 
 interface AppProps {
   basename?: string;
@@ -31,34 +31,25 @@ export default function App({ basename = '/' }: AppProps) {
     // 创建初始化 Promise
     authPromise = new Promise(async (resolve) => {
       try {
-        // 1. 如果是子应用，直接使用主应用 token
+        // 1. 如果是子应用，直接使用主应用认证
         if (isWujie) {
-          console.log('[BBTalk] 子应用模式，使用主应用 token')
+          console.log('[BBTalk] 子应用模式，使用主应用认证')
           resolve({ ready: true, error: null })
           return
         }
 
-        // 2. 独立运行模式，初始化 Keycloak
-        console.log('[BBTalk] 独立运行模式，初始化 Keycloak')
+        // 2. 独立运行模式，初始化 Authelia 认证
+        console.log('[BBTalk] 独立运行模式，检查 Authelia 认证')
         
-        const isCallback = window.location.hash.includes('state=') || 
-                           window.location.hash.includes('code=')
-        
-        const authenticated = await initKeycloak()
-        console.log('[BBTalk] Keycloak 初始化结果:', authenticated)
-        
-        if (!authenticated && !isCallback) {
-          loginWithKeycloak()
-          resolve({ ready: false, error: null })
-          return
-        }
+        const authenticated = await initAuth()
+        console.log('[BBTalk] Authelia 认证结果:', authenticated)
         
         if (authenticated) {
           resolve({ ready: true, error: null })
-        } else if (isCallback) {
-          window.history.replaceState({}, document.title, window.location.pathname)
-          loginWithKeycloak()
-          resolve({ ready: false, error: null })
+        } else {
+          // 未认证，由 Authelia 反向代理处理重定向
+          console.log('[BBTalk] 未认证，等待 Authelia 重定向...')
+          resolve({ ready: false, error: '未认证，请等待重定向到登录页' })
         }
       } catch (error) {
         console.error('[BBTalk] 初始化错误:', error)

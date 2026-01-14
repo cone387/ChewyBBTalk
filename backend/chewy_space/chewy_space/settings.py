@@ -138,7 +138,7 @@ CORS_ALLOW_CREDENTIALS = True
 # REST Framework
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'bbtalk.authentication.KeycloakAuthentication',
+        'bbtalk.authentication.AutheliaAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
@@ -146,9 +146,11 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
-# Keycloak
-KEYCLOAK_URL = 'https://cone387.top'
-KEYCLOAK_REALM = 'cone'
+# Authelia (通过反向代理认证，无需额外配置)
+# Authelia 会在 HTTP 请求头中注入用户信息：
+# - Remote-User: 用户名
+# - Remote-Email: 邮箱
+# - Remote-Groups: 用户组
 
 # Qiniu Cloud Storage (七牛云存储配置)
 QINIU_ACCESS_KEY = ''

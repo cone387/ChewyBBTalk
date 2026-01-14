@@ -1,189 +1,164 @@
-import Keycloak from 'keycloak-js';
+/**
+ * Authelia 认证服务
+ * 
+ * Authelia 通过反向代理进行认证，前端不需要处理 token
+ * - 独立运行：用户未认证时会被重定向到 Authelia 登录页
+ * - 子应用模式：从主应用获取用户信息
+ */
 
-let keycloakInstance: Keycloak | null = null;
+interface UserInfo {
+  id: string;
+  username: string;
+  email?: string;
+}
+
+let currentUser: UserInfo | null = null;
 
 /**
- * 初始化 Keycloak（仅在配置了环境变量时）
+ * 初始化认证（检查用户是否已认证）
  */
-export async function initKeycloak(): Promise<boolean> {
-  const keycloakUrl = import.meta.env.VITE_KEYCLOAK_URL;
-  const realm = import.meta.env.VITE_KEYCLOAK_REALM;
-  const clientId = import.meta.env.VITE_KEYCLOAK_CLIENT_ID;
-
-  console.log('[Keycloak] 配置:', { keycloakUrl, realm, clientId });
-
-  // 如果没有配置 Keycloak，直接返回 false
-  if (!keycloakUrl || !realm || !clientId) {
-    console.info('[Keycloak] 未配置');
-    return false;
-  }
-
+export async function initAuth(): Promise<boolean> {
   try {
-    keycloakInstance = new Keycloak({
-      url: keycloakUrl,
-      realm: realm,
-      clientId: clientId,
-    });
-
-    console.log('[Keycloak] 开始初始化...');
-
-    const authenticated = await keycloakInstance.init({
-      onLoad: 'check-sso',
-      checkLoginIframe: false,
-      pkceMethod: 'S256',
-    });
-
-    console.log('[Keycloak] 初始化完成, authenticated:', authenticated);
-
-    if (authenticated) {
-      console.info('[Keycloak] 认证成功，token:', keycloakInstance.token?.substring(0, 20) + '...');
-      setupTokenRefresh();
-      
-      // 清理 URL hash（延迟执行，确保 Keycloak 处理完毕）
-      setTimeout(() => {
-        if (window.location.hash.includes('state=') || window.location.hash.includes('code=')) {
-          console.info('[Keycloak] 清理认证回调参数');
-          window.history.replaceState({}, document.title, window.location.pathname);
-        }
-      }, 100);
-    } else {
-      console.info('[Keycloak] 未认证');
+    // 如果是子应用，从主应用获取用户信息
+    if (window.__POWERED_BY_WUJIE__) {
+      const userInfo = await getUserInfoFromParent();
+      if (userInfo) {
+        currentUser = userInfo;
+        return true;
+      }
     }
-
-    return authenticated;
+    
+    // 独立运行模式：尝试获取当前用户信息
+    const userInfo = await fetchCurrentUser();
+    if (userInfo) {
+      currentUser = userInfo;
+      return true;
+    }
+    
+    // 未认证，由 Authelia 反向代理处理重定向
+    return false;
   } catch (error) {
-    console.error('[Keycloak] 初始化失败:', error);
+    console.error('[Auth] 初始化失败:', error);
     return false;
   }
 }
 
 /**
- * 登录跳转（Keycloak）
+ * 从主应用获取用户信息
  */
-export function loginWithKeycloak() {
-  if (keycloakInstance) {
-    keycloakInstance.login();
-  }
-}
-
-/**
- * 登出（Keycloak）
- */
-export function logoutWithKeycloak() {
-  if (keycloakInstance) {
-    keycloakInstance.logout();
-  }
-}
-
-/**
- * 刷新 Token
- */
-async function refreshToken(): Promise<boolean> {
-  if (!keycloakInstance) return false;
-  
+async function getUserInfoFromParent(): Promise<UserInfo | null> {
   try {
-    const refreshed = await keycloakInstance.updateToken(30);
-    if (refreshed) {
-      console.info('Token 已刷新');
+    // 尝试从 wujie props 获取
+    if (window.__WUJIE?.props?.getUserInfo) {
+      const userInfo = await window.__WUJIE.props.getUserInfo();
+      if (userInfo) return userInfo;
     }
-    return true;
+    
+    // 尝试从 __AUTH_BRIDGE__ 获取
+    if (window.__AUTH_BRIDGE__?.getUserInfo) {
+      const userInfo = await window.__AUTH_BRIDGE__.getUserInfo();
+      if (userInfo) return userInfo;
+    }
+    
+    return null;
   } catch (error) {
-    console.error('Token 刷新失败:', error);
-    return false;
-  }
-}
-
-/**
- * 设置 Token 自动刷新
- */
-function setupTokenRefresh() {
-  if (!keycloakInstance) return;
-  
-  // 每 60 秒检查一次 token
-  setInterval(async () => {
-    try {
-      await keycloakInstance!.updateToken(70);
-    } catch (error) {
-      console.error('Token 自动刷新失败:', error);
-    }
-  }, 60000);
-}
-
-/**
- * 获取认证 Token（优先级：主应用桥接 > Keycloak > null）
- */
-export function getAuthToken(): string | null {
-  // 1. wujie 子应用模式：从多个源尝试获取 token
-  if (window.__POWERED_BY_WUJIE__) {
-    // 1.1 从 props 中获取
-    const propsToken = window.__WUJIE?.props?.getToken?.();
-    if (propsToken) {
-      return propsToken;
-    }
-    
-    // 1.2 尝试当前窗口的 __AUTH_BRIDGE__
-    if (window.__AUTH_BRIDGE__?.getToken) {
-      const token = window.__AUTH_BRIDGE__.getToken();
-      if (token) return token;
-    }
-    
-    // 1.3 尝试从主窗口获取 __AUTH_BRIDGE__
-    try {
-      const parentBridge = (window.parent as any).__AUTH_BRIDGE__;
-      if (parentBridge?.getToken) {
-        const token = parentBridge.getToken();
-        if (token) return token;
-      }
-    } catch (e) {
-      // 跨域访问可能失败
-    }
-    
-    // 1.4 尝试从 top 窗口获取
-    try {
-      const topBridge = (window.top as any).__AUTH_BRIDGE__;
-      if (topBridge?.getToken) {
-        const token = topBridge.getToken();
-        if (token) return token;
-      }
-    } catch (e) {
-      // 跨域访问可能失败
-    }
-    
-    console.warn('[Auth] 子应用模式下无法获取 token');
+    console.error('[Auth] 获取主应用用户信息失败:', error);
     return null;
   }
+}
 
-  // 2. 独立运行模式：使用 Keycloak
-  if (keycloakInstance?.token) {
-    return keycloakInstance.token;
+/**
+ * 获取当前用户信息（从后端 API）
+ */
+async function fetchCurrentUser(): Promise<UserInfo | null> {
+  try {
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '';
+    const response = await fetch(`${apiBaseUrl}/api/v1/bbtalk/user/me/`, {
+      credentials: 'include', // 重要：带上 cookie
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      return {
+        id: data.id,
+        username: data.username,
+        email: data.email,
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('[Auth] 获取用户信息失败:', error);
+    return null;
   }
+}
 
-  return null;
+/**
+ * 获取当前用户
+ */
+export function getCurrentUser(): UserInfo | null {
+  return currentUser;
 }
 
 /**
  * 获取用户信息
  */
-export async function getUserInfo(): Promise<any> {
-  // 优先使用主应用桥接
-  if (window.__AUTH_BRIDGE__?.getUserInfo) {
-    try {
-      return await window.__AUTH_BRIDGE__.getUserInfo();
-    } catch (error) {
-      console.error('获取用户信息失败:', error);
+export async function getUserInfo(): Promise<UserInfo | null> {
+  if (currentUser) {
+    return currentUser;
+  }
+  
+  // 如果是子应用，尝试从主应用获取
+  if (window.__POWERED_BY_WUJIE__) {
+    const userInfo = await getUserInfoFromParent();
+    if (userInfo) {
+      currentUser = userInfo;
+      return userInfo;
     }
   }
+  
+  // 尝试从后端获取
+  const userInfo = await fetchCurrentUser();
+  if (userInfo) {
+    currentUser = userInfo;
+  }
+  
+  return userInfo;
+}
 
-  // 使用 Keycloak
-  if (keycloakInstance) {
-    try {
-      await keycloakInstance.loadUserProfile();
-      return keycloakInstance.profile;
-    } catch (error) {
-      console.error('加载 Keycloak 用户信息失败:', error);
+/**
+ * 登出（重定向到 Authelia 登出页）
+ */
+export function logout() {
+  const autheliaUrl = import.meta.env.VITE_AUTHELIA_URL || '';
+  if (autheliaUrl) {
+    window.location.href = `${autheliaUrl}/api/logout`;
+  } else {
+    // 如果没有配置 Authelia URL，尝试相对路径
+    window.location.href = '/api/logout';
+  }
+}
+
+/**
+ * 获取认证 Token（优先级：主应用桥接 > null）
+ * 
+ * Authelia 通过 cookie 认证，前端不需要显式的 token
+ */
+export function getAuthToken(): string | null {
+  // 如果是子应用，尝试从主应用获取 token
+  if (window.__POWERED_BY_WUJIE__) {
+    // 从 wujie props 获取
+    const propsToken = window.__WUJIE?.props?.getToken?.();
+    if (propsToken) return propsToken;
+    
+    // 从 __AUTH_BRIDGE__ 获取
+    if (window.__AUTH_BRIDGE__?.getToken) {
+      const token = window.__AUTH_BRIDGE__.getToken();
+      if (token) return token;
     }
   }
-
+  
+  // Authelia 不使用 token，返回 null
   return null;
 }
 
@@ -191,6 +166,5 @@ export async function getUserInfo(): Promise<any> {
  * 检查是否已认证
  */
 export function isAuthenticated(): boolean {
-  const token = getAuthToken();
-  return !!token;
+  return currentUser !== null;
 }
