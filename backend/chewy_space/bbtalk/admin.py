@@ -3,17 +3,17 @@ from .models import BBTalk, Tag
 
 
 class BaseAdmin(admin.ModelAdmin):
-    exclude = ('user_id',)
+    exclude = ('user',)
     
     def save_model(self, request, obj, form, change):
-        if not change and hasattr(obj, 'user_id'):
-            # 新建时自动设置user_id
+        if not change and hasattr(obj, 'user'):
+            # 新建时自动设置user
             from .models import User
             if request.user.is_authenticated:
                 # 尝试获取对应的 User 记录
                 try:
                     user = User.objects.get(username=request.user.username)
-                    obj.user_id = user.id
+                    obj.user = user
                 except User.DoesNotExist:
                     # 如果用户不存在，创建一个
                     user = User.objects.create(
@@ -21,7 +21,7 @@ class BaseAdmin(admin.ModelAdmin):
                         username=request.user.username,
                         email=getattr(request.user, 'email', ''),
                     )
-                    obj.user_id = user.id
+                    obj.user = user
         super().save_model(request, obj, form, change)
 
 

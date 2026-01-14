@@ -1,402 +1,565 @@
-from django.contrib.auth import get_user_model
-from rest_framework.test import APITestCase
-import os
-import uuid
-from .models import BBTalk
-from tags.models import Tag
-from django.core.files.uploadedfile import SimpleUploadedFile
-
-User = get_user_model()
+from django.test import TestCase, override_settings, TransactionTestCase
+from django.db import transaction, IntegrityError
+from rest_framework.test import APITestCase, APIClient
+from rest_framework import status
+from .models import User, Tag, BBTalk
+import json
 
 
-class BaseBBTalkTest(APITestCase):
-    """BBTalk测试基础类，提供通用的测试设置和清理功能"""
+class UserModelTest(TransactionTestCase):
+    """User 模型测试"""
     
-    def setUp(self):
-        """测试前的设置"""
-        # 清空数据库中所有相关数据，确保测试隔离
-        BBTalk.objects.all().delete()
-        Tag.objects.all().delete()
-    
-    def tearDown(self):
-        """测试后的清理"""
-        # 清理测试中创建的临时文件
-        pass
-    
-    def _generate_unique_id(self):
-        """生成全局唯一标识符"""
-        return str(uuid.uuid4())[:12]
-    
-    def _create_test_file(self, name_suffix=""):
-        """创建测试文件"""
-        return SimpleUploadedFile(
-            name=f'test_bbtalk_{self._generate_unique_id()}{name_suffix}.txt',
-            content=b'test file content',
-            content_type='text/plain'
+    def test_create_user(self):
+        """测试创建用户"""
+        user = User.objects.create(
+            username='testuser',
+            authelia_user_id='test123',
+            email='test@example.com',
+            display_name='测试用户'
         )
-
-
-class BBTalkModelTest(BaseBBTalkTest):
-    """测试BBTalk模型功能"""
+        self.assertEqual(user.username, 'testuser')
+        self.assertEqual(user.authelia_user_id, 'test123')
+        self.assertTrue(user.is_active)
+        self.assertFalse(user.is_staff)
     
-    def setUp(self):
-        super().setUp()
+    def test_user_str(self):
+        """测试用户字符串表示"""
+        user = User.objects.create(
+            username='testuser',
+            authelia_user_id='test123'
+        )
+        self.assertEqual(str(user), 'testuser')
+    
+    def test_user_is_staff_property(self):
+        """测试管理员属性"""
+        user = User.objects.create(
+            username='testuser',
+            authelia_user_id='test123'
+        )
+        self.assertFalse(user.is_staff)
         
-        # 创建测试用户
-        self.unique_id = self._generate_unique_id()
-        self.user = User.objects.create_user(
-            username=f'bm_user_{self.unique_id}',
-            password='testpass123'
-        )
+        user.groups = ['admin']
+        user.save()
+        self.assertTrue(user.is_staff)
     
-    def test_create_bbtalk(self):
-        """测试创建碎碎念"""
-        # 创建BBTalk对象
+    def test_user_unique_constraints(self):
+        """测试用户唯一性约束"""
+        User.objects.create(
+            username='testuser',
+            authelia_user_id='test123'
+        )
+        
+        # username 必须唯一
+        with self.assertRaises(IntegrityError):
+            User.objects.create(
+                username='testuser',
+                authelia_user_id='test456'
+            )
+
+
+class TagModelTest(TransactionTestCase):
+    """Tag 模型测试"""
+    
+    def test_create_tag(self):
+        """测试创建标签"""
+        user = User.objects.create(
+            username='testuser',
+            authelia_user_id='test123'
+        )
+        tag = Tag.objects.create(
+            name='测试',
+            user=user,
+            color='#ff0000'
+        )
+        self.assertEqual(tag.name, '测试')
+        self.assertEqual(tag.color, '#ff0000')
+        self.assertIsNotNone(tag.uid)
+    
+    def test_tag_auto_color(self):
+        """测试标签自动生成颜色"""
+        user = User.objects.create(
+            username='testuser',
+            authelia_user_id='test123'
+        )
+        tag = Tag.objects.create(
+            name='测试',
+            user=user
+        )
+        self.assertIsNotNone(tag.color)
+        self.assertTrue(tag.color.startswith('#'))
+        self.assertEqual(len(tag.color), 7)
+    
+    def test_tag_unique_per_user(self):
+        """测试标签在用户内唯一"""
+        user = User.objects.create(
+            username='testuser',
+            authelia_user_id='test123'
+        )
+        Tag.objects.create(name='测试', user=user)
+        
+        # 同一用户不能创建同名标签
+        with self.assertRaises(IntegrityError):
+            Tag.objects.create(name='测试', user=user)
+    
+    def test_different_users_same_tag_name(self):
+        """测试不同用户可以创建同名标签"""
+        user1 = User.objects.create(
+            username='testuser1',
+            authelia_user_id='test123'
+        )
+        user2 = User.objects.create(
+            username='testuser2',
+            authelia_user_id='test456'
+        )
+        Tag.objects.create(name='测试', user=user1)
+        tag2 = Tag.objects.create(name='测试', user=user2)
+        self.assertEqual(tag2.name, '测试')
+
+
+class BBTalkModelTest(TestCase):
+    """BBTalk 模型测试"""
+    
+    def setUp(self):
+        self.user = User.objects.create(
+            username='testuser',
+            authelia_user_id='test123'
+        )
+        self.tag1 = Tag.objects.create(name='生活', user=self.user)
+        self.tag2 = Tag.objects.create(name='工作', user=self.user)
+    
+    def test_create_bbtalk_basic(self):
+        """测试创建基本 BBTalk"""
         bbtalk = BBTalk.objects.create(
             user=self.user,
-            content=f'Test content {self.unique_id}',
-            visibility='private',
-            context={'test': 'context'}
+            content='测试内容',
+            visibility='public'
         )
-        
-        # 验证创建成功
+        self.assertEqual(bbtalk.content, '测试内容')
+        self.assertEqual(bbtalk.visibility, 'public')
         self.assertIsNotNone(bbtalk.uid)
-        self.assertEqual(bbtalk.user, self.user)
-        self.assertEqual(bbtalk.content, f'Test content {self.unique_id}')
-        self.assertEqual(bbtalk.visibility, 'private')
+        self.assertEqual(bbtalk.attachments, [])
+        self.assertEqual(bbtalk.context, {})
     
-    def test_soft_delete_bbtalk(self):
-        """测试碎碎念软删除"""
-        # 创建BBTalk对象
+    def test_create_bbtalk_with_attachments(self):
+        """测试创建带附件的 BBTalk"""
+        attachments = [
+            {'url': 'https://example.com/image1.jpg', 'type': 'image'},
+            {'url': 'https://example.com/video1.mp4', 'type': 'video'},
+            {'url': 'https://example.com/audio1.mp3', 'type': 'audio'}
+        ]
         bbtalk = BBTalk.objects.create(
             user=self.user,
-            content=f'Test content {self.unique_id}',
-            visibility='private'
+            content='带附件的内容',
+            visibility='public',
+            attachments=attachments
         )
-        
-        # 保存ID用于后续查询
-        bbtalk_id = bbtalk.id
-        
-        # 软删除
-        bbtalk.delete()
-        
-        # 验证已被标记为删除
-        self.assertTrue(bbtalk.is_deleted)
-        
-        # 验证正常查询不返回已删除的记录
-        self.assertFalse(BBTalk.objects.filter(id=bbtalk_id).exists())
-        
-        # 验证使用deleted()方法可以查询到已删除的记录
-        deleted_bbtalk = BBTalk.objects.deleted().filter(id=bbtalk_id).first()
-        self.assertIsNotNone(deleted_bbtalk)
+        self.assertEqual(len(bbtalk.attachments), 3)
+        self.assertEqual(bbtalk.attachments[0]['type'], 'image')
+        self.assertEqual(bbtalk.attachments[1]['type'], 'video')
+        self.assertEqual(bbtalk.attachments[2]['type'], 'audio')
     
-    def test_save_tags(self):
-        """测试保存标签关联"""
-        # 创建BBTalk对象
+    def test_create_bbtalk_with_context(self):
+        """测试创建带上下文的 BBTalk"""
+        context = {
+            'device': 'iPhone',
+            'location': 'Beijing',
+            'weather': 'sunny'
+        }
         bbtalk = BBTalk.objects.create(
             user=self.user,
-            content=f'Test content {self.unique_id}',
-            visibility='private'
-        )
-        
-        # 创建标签
-        tag1 = Tag.objects.create(name=f'Tag1 {self.unique_id}', user=self.user)
-        tag2 = Tag.objects.create(name=f'Tag2 {self.unique_id}', user=self.user)
-        
-        # 保存标签关联 - 使用ManyToManyField的set方法
-        bbtalk.tags.set([tag1, tag2])
-        
-        # 验证标签关联成功
-        self.assertEqual(bbtalk.tags.count(), 2)
-        self.assertIn(tag1, bbtalk.tags.all())
-        self.assertIn(tag2, bbtalk.tags.all())
-    
-    def test_save_attachments(self):
-        """测试保存附件列表"""
-        # 创建BBTalk对象
-        bbtalk = BBTalk.objects.create(
-            user=self.user,
-            content=f'Test content {self.unique_id}',
+            content='带上下文的内容',
             visibility='private',
-            attachments=[
-                {'id': 1, 'filename': 'test1.jpg', 'url': '/media/test1.jpg'},
-                {'id': 2, 'filename': 'test2.png', 'url': '/media/test2.png'}
-            ]
+            context=context
         )
+        self.assertEqual(bbtalk.context['device'], 'iPhone')
+        self.assertEqual(bbtalk.context['location'], 'Beijing')
+    
+    def test_bbtalk_with_tags(self):
+        """测试 BBTalk 关联标签"""
+        bbtalk = BBTalk.objects.create(
+            user=self.user,
+            content='测试内容',
+            visibility='public'
+        )
+        bbtalk.tags.add(self.tag1, self.tag2)
         
-        # 验证附件关联成功
-        self.assertEqual(len(bbtalk.attachments), 2)
-        self.assertEqual(bbtalk.attachments[0]['filename'], 'test1.jpg')
-        self.assertEqual(bbtalk.attachments[1]['filename'], 'test2.png')
+        self.assertEqual(bbtalk.tags.count(), 2)
+        self.assertIn(self.tag1, bbtalk.tags.all())
+        self.assertIn(self.tag2, bbtalk.tags.all())
+    
+    def test_bbtalk_visibility_choices(self):
+        """测试 BBTalk 可见性选项"""
+        # 测试 public
+        bbtalk_public = BBTalk.objects.create(
+            user=self.user,
+            content='公开内容',
+            visibility='public'
+        )
+        self.assertEqual(bbtalk_public.visibility, 'public')
+        
+        # 测试 private
+        bbtalk_private = BBTalk.objects.create(
+            user=self.user,
+            content='私密内容',
+            visibility='private'
+        )
+        self.assertEqual(bbtalk_private.visibility, 'private')
 
 
-class BBTalkSerializerTest(BaseBBTalkTest):
-    """测试BBTalkSerializer"""
+@override_settings(DEBUG=True)
+class BBTalkAPITest(APITestCase):
+    """BBTalk API 测试"""
     
     def setUp(self):
-        super().setUp()
-        
-        # 创建测试用户
-        self.unique_id = self._generate_unique_id()
-        self.user = User.objects.create_user(
-            username=f'bs_user_{self.unique_id}',
-            password='testpass123'
+        self.client = APIClient()
+        self.user = User.objects.create(
+            username='testuser',
+            authelia_user_id='test123',
+            email='test@example.com'
         )
-    
-    def test_serialize_bbtalk(self):
-        """测试序列化BBTalk对象"""
-        from .serializers import BBTalkSerializer
-        
-        # 创建BBTalk对象
-        bbtalk = BBTalk.objects.create(
-            user=self.user,
-            content=f'Test content {self.unique_id}',
-            visibility='private'
+        self.user2 = User.objects.create(
+            username='testuser2',
+            authelia_user_id='test456',
+            email='test2@example.com'
         )
         
-        # 创建模拟请求对象
-        mock_request = type('obj', (object,), {'user': self.user})
-        
-        # 序列化
-        serializer = BBTalkSerializer(bbtalk, context={'request': mock_request})
-        data = serializer.data
-        
-        # 验证序列化数据
-        self.assertEqual(data['uid'], bbtalk.uid)
-        self.assertEqual(data['user'], self.user.id)
-        self.assertEqual(data['content'], bbtalk.content)
-        self.assertIn('tags', data)
-        self.assertIn('attachments', data)
-    
-    def test_deserialize_bbtalk(self):
-        """测试反序列化BBTalk数据"""
-        from .serializers import BBTalkSerializer
-        
-        # 准备BBTalk数据
-        bbtalk_data = {
-            'content': f'Test content {self.unique_id}',
-            'visibility': 'private',
-            'post_tags': f'Tag1,Tag2,Tag3',
-            'attachments': []
+        # 设置认证头
+        self.auth_headers = {
+            'HTTP_X_AUTHELIA_USER_ID': 'test123',
+            'HTTP_X_USERNAME': 'testuser',
+            'HTTP_X_EMAIL': 'test@example.com'
         }
         
-        # 创建模拟请求对象
-        mock_request = type('obj', (object,), {
-            'user': self.user,
-            'META': {
-                'REMOTE_ADDR': '127.0.0.1',
-                'HTTP_USER_AGENT': 'test-agent'
-            }
-        })
-        
-        # 反序列化并验证
-        serializer = BBTalkSerializer(data=bbtalk_data, context={'request': mock_request})
-        self.assertTrue(serializer.is_valid())
-        
-        # 保存BBTalk
-        bbtalk = serializer.save()
-        
-        # 验证BBTalk已创建
-        self.assertIsNotNone(bbtalk)
-        self.assertEqual(bbtalk.user, self.user)
-        self.assertEqual(bbtalk.content, bbtalk_data['content'])
-        self.assertEqual(bbtalk.visibility, bbtalk_data['visibility'])
-
-
-class BBTalkViewSetTest(BaseBBTalkTest):
-    """测试BBTalkViewSet"""
-    
-    def setUp(self):
-        super().setUp()
-        
-        # 创建测试用户
-        self.unique_id = self._generate_unique_id()
-        self.user1 = User.objects.create_user(
-            username=f'bv_user1_{self.unique_id}',
-            password='testpass123'
-        )
-        self.user2 = User.objects.create_user(
-            username=f'bv_user2_{self.unique_id}',
-            password='testpass123'
-        )
-        
-        # 创建用户1的BBTalk
-        self.bbtalk1 = BBTalk.objects.create(
-            user=self.user1,
-            content=f'User1 content {self.unique_id}',
-            visibility='private'
-        )
-        
-        # 创建用户2的BBTalk
-        self.bbtalk2 = BBTalk.objects.create(
-            user=self.user2,
-            content=f'User2 content {self.unique_id}',
-            visibility='private'
-        )
+        self.auth_headers2 = {
+            'HTTP_X_AUTHELIA_USER_ID': 'test456',
+            'HTTP_X_USERNAME': 'testuser2',
+            'HTTP_X_EMAIL': 'test2@example.com'
+        }
         
         # 创建测试标签
-        self.tag1 = Tag.objects.create(name=f'Tag1 {self.unique_id}', user=self.user1)
+        self.tag1 = Tag.objects.create(name='生活', user=self.user)
+        self.tag2 = Tag.objects.create(name='工作', user=self.user)
         
-        # 关联标签 - 使用ManyToManyField的set方法
-        self.bbtalk1.tags.set([self.tag1])
-        
-        # 设置URL，考虑到URL配置中使用了/api/v1/bbtalk/前缀
-        # 直接使用路径而不是反向解析，以避免命名空间问题
-        self.url = '/api/v1/bbtalk/'
+        # 创建测试 BBTalk
+        self.bbtalk_public = BBTalk.objects.create(
+            user=self.user,
+            content='公开内容',
+            visibility='public'
+        )
+        self.bbtalk_private = BBTalk.objects.create(
+            user=self.user,
+            content='私密内容',
+            visibility='private'
+        )
     
-    def test_list_bbtalk(self):
-        """测试获取BBTalk列表"""
-        # 认证用户1
-        self.client.force_authenticate(user=self.user1)
+    def test_list_bbtalks(self):
+        """测试获取 BBTalk 列表"""
+        url = '/api/v1/bbtalk/'
+        response = self.client.get(url, **self.auth_headers)
         
-        # 获取BBTalk列表
-        response = self.client.get(self.url)
-        
-        # 暂时只检查响应是否返回，不验证状态码
-        # 后续会修复URL配置问题
-        self.assertIsNotNone(response)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('results', response.data)
+        self.assertEqual(len(response.data['results']), 2)
     
-    def test_retrieve_bbtalk(self):
-        """测试获取单个BBTalk详情"""
-        # 认证用户1
-        self.client.force_authenticate(user=self.user1)
+    def test_list_bbtalks_filter_visibility(self):
+        """测试按可见性过滤 BBTalk"""
+        url = '/api/v1/bbtalk/'
+        response = self.client.get(url, {'visibility': 'public'}, **self.auth_headers)
         
-        # 获取自己的BBTalk详情
-        detail_url = f'/api/v1/bbtalk/{self.bbtalk1.uid}/'
-        response = self.client.get(detail_url)
-        
-        # 暂时只检查响应是否返回，不验证状态码和数据
-        # 后续会修复URL配置问题
-        self.assertIsNotNone(response)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        results = response.data['results']
+        self.assertTrue(all(item['visibility'] == 'public' for item in results))
     
-    def test_create_bbtalk(self):
-        """测试创建BBTalk"""
-        # 认证用户1
-        self.client.force_authenticate(user=self.user1)
-        
-        # 准备BBTalk数据
+    def test_create_bbtalk_basic(self):
+        """测试创建基本 BBTalk"""
+        url = '/api/v1/bbtalk/'
         data = {
-            'content': f'New content {self.unique_id}',
-            'visibility': 'private',
-            'post_tags': 'TagA,TagB',
+            'content': '新的碎碎念',
+            'visibility': 'public'
+        }
+        response = self.client.post(url, data, format='json', **self.auth_headers)
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['content'], '新的碎碎念')
+        self.assertEqual(response.data['visibility'], 'public')
+        self.assertIsNotNone(response.data['uid'])
+    
+    def test_create_bbtalk_with_attachments(self):
+        """测试创建带附件的 BBTalk"""
+        url = '/api/v1/bbtalk/'
+        data = {
+            'content': '带附件的碎碎念',
+            'visibility': 'public',
             'attachments': [
-                {'id': 1, 'filename': 'test.jpg', 'url': '/media/test.jpg'}
+                {'url': 'https://example.com/photo.jpg', 'type': 'image'},
+                {'url': 'https://example.com/video.mp4', 'type': 'video'},
+                {'url': 'https://example.com/audio.mp3', 'type': 'audio'}
             ]
         }
+        response = self.client.post(url, data, format='json', **self.auth_headers)
         
-        # 发送创建请求
-        response = self.client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(len(response.data['attachments']), 3)
+        self.assertEqual(response.data['attachments'][0]['type'], 'image')
+        self.assertEqual(response.data['attachments'][1]['type'], 'video')
+        self.assertEqual(response.data['attachments'][2]['type'], 'audio')
+    
+    def test_create_bbtalk_with_multiple_image_attachments(self):
+        """测试创建带多个图片附件的 BBTalk"""
+        url = '/api/v1/bbtalk/'
+        data = {
+            'content': '带多个图片的碎碎念',
+            'visibility': 'public',
+            'attachments': [
+                {'url': 'https://example.com/photo1.jpg', 'type': 'image'},
+                {'url': 'https://example.com/photo2.png', 'type': 'image'},
+                {'url': 'https://example.com/photo3.gif', 'type': 'image'}
+            ]
+        }
+        response = self.client.post(url, data, format='json', **self.auth_headers)
         
-        # 暂时只检查响应是否返回，不验证状态码
-        # 后续会修复URL配置问题
-        self.assertIsNotNone(response)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(len(response.data['attachments']), 3)
+        self.assertTrue(all(att['type'] == 'image' for att in response.data['attachments']))
+    
+    def test_create_bbtalk_with_tags(self):
+        """测试创建带标签的 BBTalk"""
+        url = '/api/v1/bbtalk/'
+        data = {
+            'content': '带标签的碎碎念',
+            'visibility': 'public',
+            'post_tags': '生活,工作'  # 使用 post_tags 字段传递标签名称
+        }
+        response = self.client.post(url, data, format='json', **self.auth_headers)
         
-        # 验证创建成功
-        self.assertEqual(response.status_code, 201, response.content)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(len(response.data['tags']), 2)
+    
+    def test_create_bbtalk_with_context(self):
+        """测试创建带上下文的 BBTalk"""
+        url = '/api/v1/bbtalk/'
+        data = {
+            'content': '带上下文的碎碎念',
+            'visibility': 'public',
+            'context': {
+                'location': 'Beijing',
+                'weather': {'temp': 20, 'condition': 'sunny'}
+            }
+        }
+        response = self.client.post(url, data, format='json', **self.auth_headers)
         
-        # 检查数据库中是否创建了BBTalk
-        bbtalk = BBTalk.objects.filter(user=self.user1, content=data['content']).first()
-        self.assertIsNotNone(bbtalk, "BBTalk对象未创建")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        # context.device 会被 serializer 自动设置为 IP 和 UA 信息
+        self.assertIn('device', response.data['context'])
+        # 用户传入的其他字段应该保留
+        self.assertEqual(response.data['context']['location'], 'Beijing')
+    
+    def test_create_bbtalk_with_empty_attachments(self):
+        """测试创建空附件列表的 BBTalk"""
+        url = '/api/v1/bbtalk/'
+        data = {
+            'content': '无附件的碎碎念',
+            'visibility': 'public',
+            'attachments': []
+        }
+        response = self.client.post(url, data, format='json', **self.auth_headers)
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['attachments'], [])
     
     def test_update_bbtalk(self):
-        """测试更新BBTalk"""
-        # 认证用户1
-        self.client.force_authenticate(user=self.user1)
-        
-        # 准备更新数据
-        update_data = {
-            'content': f'Updated content {self.unique_id}',
-            'post_tags': 'TagC'
+        """测试更新 BBTalk"""
+        url = f'/api/v1/bbtalk/{self.bbtalk_public.uid}/'
+        data = {
+            'content': '更新后的内容',
+            'visibility': 'private'
         }
+        response = self.client.patch(url, data, format='json', **self.auth_headers)
         
-        # 更新自己的BBTalk
-        update_url = f'/api/v1/bbtalk/{self.bbtalk1.uid}/'
-        response = self.client.patch(update_url, update_data)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['content'], '更新后的内容')
+        self.assertEqual(response.data['visibility'], 'private')
+    
+    def test_update_bbtalk_attachments(self):
+        """测试更新 BBTalk 附件"""
+        url = f'/api/v1/bbtalk/{self.bbtalk_public.uid}/'
+        data = {
+            'attachments': [
+                {'url': 'https://example.com/new_photo.jpg', 'type': 'image'},
+                {'url': 'https://example.com/new_video.mp4', 'type': 'video'}
+            ]
+        }
+        response = self.client.patch(url, data, format='json', **self.auth_headers)
         
-        # 暂时只检查响应是否返回，不验证状态码
-        # 后续会修复URL配置问题
-        self.assertIsNotNone(response)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['attachments']), 2)
+        self.assertEqual(response.data['attachments'][0]['type'], 'image')
+        self.assertEqual(response.data['attachments'][1]['type'], 'video')
+    
+    def test_update_bbtalk_clear_attachments(self):
+        """测试清空 BBTalk 附件"""
+        # 先创建带附件的 BBTalk
+        bbtalk_with_att = BBTalk.objects.create(
+            user=self.user,
+            content='有附件',
+            visibility='public',
+            attachments=[{'url': 'https://example.com/test.jpg', 'type': 'image'}]
+        )
+        
+        url = f'/api/v1/bbtalk/{bbtalk_with_att.uid}/'
+        data = {'attachments': []}
+        response = self.client.patch(url, data, format='json', **self.auth_headers)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['attachments'], [])
     
     def test_delete_bbtalk(self):
-        """测试删除BBTalk"""
-        # 认证用户1
-        self.client.force_authenticate(user=self.user1)
+        """测试删除 BBTalk"""
+        url = f'/api/v1/bbtalk/{self.bbtalk_public.uid}/'
+        response = self.client.delete(url, **self.auth_headers)
         
-        # 删除自己的BBTalk
-        delete_url = f'/api/v1/bbtalk/{self.bbtalk1.uid}/'
-        response = self.client.delete(delete_url)
-        
-        # 暂时只检查响应是否返回，不验证状态码
-        # 后续会修复URL配置问题
-        self.assertIsNotNone(response)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(BBTalk.objects.filter(id=self.bbtalk_public.id).exists())
     
-    def test_soft_delete_action(self):
-        """测试软删除动作"""
-        # 认证用户1
-        self.client.force_authenticate(user=self.user1)
+    def test_cannot_update_others_bbtalk(self):
+        """测试不能更新他人的 BBTalk"""
+        url = f'/api/v1/bbtalk/{self.bbtalk_public.uid}/'
+        data = {'content': '尝试更新'}
+        response = self.client.patch(url, data, format='json', **self.auth_headers2)
         
-        # 执行软删除
-        delete_url = f'/api/v1/bbtalk/{self.bbtalk1.uid}/delete-soft/'
-        response = self.client.post(delete_url)
-        
-        # 暂时只检查响应是否返回，不验证状态码
-        # 后续会修复URL配置问题
-        self.assertIsNotNone(response)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
     
-    def test_restore_action(self):
-        """测试恢复动作"""
-        # 先软删除BBTalk
-        self.bbtalk1.delete()
+    def test_cannot_delete_others_bbtalk(self):
+        """测试不能删除他人的 BBTalk"""
+        url = f'/api/v1/bbtalk/{self.bbtalk_public.uid}/'
+        response = self.client.delete(url, **self.auth_headers2)
         
-        # 认证用户1
-        self.client.force_authenticate(user=self.user1)
-        
-        # 执行恢复
-        restore_url = f'/api/v1/bbtalk/{self.bbtalk1.uid}/restore/'
-        response = self.client.post(restore_url)
-        
-        # 暂时只检查响应是否返回，不验证状态码
-        # 后续会修复URL配置问题
-        self.assertIsNotNone(response)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+@override_settings(DEBUG=True)
+class TagAPITest(APITestCase):
+    """Tag API 测试"""
     
-    def test_deleted_action(self):
-        """测试获取已删除列表动作"""
-        # 先软删除BBTalk
-        self.bbtalk1.delete()
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create(
+            username='testuser',
+            authelia_user_id='test123'
+        )
         
-        # 认证用户1
-        self.client.force_authenticate(user=self.user1)
+        self.auth_headers = {
+            'HTTP_X_AUTHELIA_USER_ID': 'test123',
+            'HTTP_X_USERNAME': 'testuser'
+        }
         
-        # 获取已删除列表
-        deleted_url = '/api/v1/bbtalk/deleted/'
-        response = self.client.get(deleted_url)
+        # 创建标签
+        self.tag = Tag.objects.create(
+            name='测试标签',
+            user=self.user,
+            color='#ff0000'
+        )
         
-        # 暂时只检查响应是否返回，不验证状态码
-        # 后续会修复URL配置问题
-        self.assertIsNotNone(response)
+        # 创建关联的 BBTalk（因为 TagViewSet 只返回有 BBTalk 关联的标签）
+        self.bbtalk = BBTalk.objects.create(
+            user=self.user,
+            content='测试内容',
+            visibility='public'
+        )
+        self.bbtalk.tags.add(self.tag)
     
-    def test_search_bbtalk(self):
-        """测试搜索BBTalk"""
-        # 认证用户1
-        self.client.force_authenticate(user=self.user1)
+    def test_list_tags(self):
+        """测试获取标签列表"""
+        url = '/api/v1/bbtalk/tags/'
+        response = self.client.get(url, **self.auth_headers)
         
-        # 使用搜索参数
-        search_url = f'{self.url}?search=User1 content'
-        response = self.client.get(search_url)
-        
-        # 暂时只检查响应是否返回，不验证状态码
-        # 后续会修复URL配置问题
-        self.assertIsNotNone(response)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertGreater(len(response.data), 0)
     
-    def test_filter_by_tag(self):
-        """测试按标签过滤BBTalk"""
-        # 认证用户1
-        self.client.force_authenticate(user=self.user1)
+    def test_create_tag(self):
+        """测试创建标签"""
+        url = '/api/v1/bbtalk/tags/'
+        data = {
+            'name': '新标签',
+            'color': '#00ff00'
+        }
+        response = self.client.post(url, data, format='json', **self.auth_headers)
         
-        # 使用标签过滤
-        filter_url = f'{self.url}?tags_relation__tag__name={self.tag1.name}'
-        response = self.client.get(filter_url)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['name'], '新标签')
+        self.assertEqual(response.data['color'], '#00ff00')
+    
+    def test_create_tag_auto_color(self):
+        """测试创建标签自动生成颜色"""
+        url = '/api/v1/bbtalk/tags/'
+        data = {'name': '自动颜色标签'}
+        response = self.client.post(url, data, format='json', **self.auth_headers)
         
-        # 暂时只检查响应是否返回，不验证状态码
-        # 后续会修复URL配置问题
-        self.assertIsNotNone(response)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertIsNotNone(response.data['color'])
+        self.assertTrue(response.data['color'].startswith('#'))
+    
+    def test_update_tag(self):
+        """测试更新标签"""
+        url = f'/api/v1/bbtalk/tags/{self.tag.uid}/'
+        data = {
+            'name': '更新后的标签',
+            'color': '#0000ff'
+        }
+        response = self.client.patch(url, data, format='json', **self.auth_headers)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['name'], '更新后的标签')
+        self.assertEqual(response.data['color'], '#0000ff')
+    
+    def test_delete_tag(self):
+        """测试删除标签"""
+        url = f'/api/v1/bbtalk/tags/{self.tag.uid}/'
+        response = self.client.delete(url, **self.auth_headers)
+        
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Tag.objects.filter(id=self.tag.id).exists())
+
+
+@override_settings(DEBUG=True)
+class UserAPITest(APITestCase):
+    """User API 测试"""
+    
+    def setUp(self):
+        self.client = APIClient()
+        self.auth_headers = {
+            'HTTP_X_AUTHELIA_USER_ID': 'test123',
+            'HTTP_X_USERNAME': 'testuser',
+            'HTTP_X_EMAIL': 'test@example.com'
+        }
+    
+    def test_get_current_user(self):
+        """测试获取当前用户信息"""
+        url = '/api/v1/bbtalk/user/me/'
+        response = self.client.get(url, **self.auth_headers)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['username'], 'testuser')
+        self.assertEqual(response.data['email'], 'test@example.com')
+    
+    def test_auto_create_user_on_first_request(self):
+        """测试首次请求自动创建用户"""
+        # 确保用户不存在
+        User.objects.filter(authelia_user_id='newuser123').delete()
+        
+        new_auth_headers = {
+            'HTTP_X_AUTHELIA_USER_ID': 'newuser123',
+            'HTTP_X_USERNAME': 'newuser',
+            'HTTP_X_EMAIL': 'newuser@example.com'
+        }
+        
+        url = '/api/v1/bbtalk/user/me/'
+        response = self.client.get(url, **new_auth_headers)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['username'], 'newuser')
+        
+        # 验证用户已创建
+        user = User.objects.get(authelia_user_id='newuser123')
+        self.assertEqual(user.username, 'newuser')
+        self.assertEqual(user.email, 'newuser@example.com')

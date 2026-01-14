@@ -13,7 +13,6 @@ class TagSerializer(serializers.ModelSerializer):
 
 
 class BBTalkSerializer(serializers.ModelSerializer):
-    user_id = serializers.IntegerField(read_only=True)
     # 嵌套显示标签
     tags = TagSerializer(many=True, read_only=True)
     # attachments 字段用于存储附件元信息列表
@@ -36,18 +35,18 @@ class BBTalkSerializer(serializers.ModelSerializer):
 
     def save_tags(self, instance, tag_names):
         tags = []
-        user_id = instance.user_id
+        user = instance.user
         for tag in tag_names.split(','):
             tag = tag.strip()
             if tag:  # 确保标签不为空
-                tag, created = Tag.objects.get_or_create(name=tag, user_id=user_id)
+                tag, created = Tag.objects.get_or_create(name=tag, user=user)
                 tags.append(tag)
         instance.tags.set(tags)
 
     def create(self, validated_data):
-        # 确保user_id字段被设置为当前用户
-        if 'user_id' not in validated_data and 'request' in self.context:
-            validated_data['user_id'] = self.context['request'].user.id
+        # 确保user字段被设置为当前用户
+        if 'user' not in validated_data and 'request' in self.context:
+            validated_data['user'] = self.context['request'].user
         tag_names: str = validated_data.pop('post_tags', '').strip()
         instance: BBTalk = super().create(validated_data)
         self.save_tags(instance, tag_names)
@@ -60,6 +59,6 @@ class BBTalkSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = BBTalk
-        fields = ('uid', 'user_id', 'post_tags', 'content', 'visibility', 'context', 'tags', 'attachments', 'create_time', 'update_time')
-        read_only_fields = ('uid', 'user_id', 'create_time', 'update_time')
+        fields = ('uid', 'user', 'post_tags', 'content', 'visibility', 'context', 'tags', 'attachments', 'create_time', 'update_time')
+        read_only_fields = ('uid', 'user', 'create_time', 'update_time')
 

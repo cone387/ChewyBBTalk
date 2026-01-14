@@ -181,6 +181,8 @@ REST_FRAMEWORK = {
         'rest_framework.filters.OrderingFilter',
     ],
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    # 测试时关闭验证，使测试更简单
+    'TEST_REQUEST_DEFAULT_FORMAT': 'json',
 }
 
 # DRF Spectacular (API 文档)

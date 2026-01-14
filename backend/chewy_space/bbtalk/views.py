@@ -47,19 +47,19 @@ class BBTalkViewSet(viewsets.ModelViewSet):
     serializer_class = BBTalkSerializer
     permission_classes = [permissions.IsAuthenticated,]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    filterset_fields = ['tags__name']
+    filterset_fields = ['tags__name', 'visibility']
     search_fields = ['content', "tags__name"]
     lookup_field = 'uid'
     
     def perform_create(self, serializer):
         # 自动设置当前用户为创建者
-        serializer.save(user_id=self.request.user.id)
+        serializer.save(user=self.request.user)
     
     def get_queryset(self):
         # 只返回当前用户的记录，并优化关联查询
-        user_id = self.request.user.id
+        user = self.request.user
         return BBTalk.objects.filter(
-            user_id=user_id
+            user=user
         ).prefetch_related(
             'tags'  # 预加载标签
         ).order_by('-update_time')
@@ -86,8 +86,8 @@ class TagViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
     
     def get_queryset(self):
-        user_id = self.request.user.id
-        queryset = Tag.objects.filter(user_id=user_id)
+        user = self.request.user
+        queryset = Tag.objects.filter(user=user)
         queryset = queryset.annotate(
             bbtalk_count=Count('bbtalks', distinct=True)
         )
@@ -97,14 +97,14 @@ class TagViewSet(viewsets.ModelViewSet):
     
     def create(self, request, *args, **kwargs):
         """创建标签，如果标签已存在则返回现有标签"""
-        user_id = request.user.id
+        user = request.user
         name = request.data.get('name', '').strip()
         
         if not name:
             return Response({'error': '标签名称不能为空'}, status=status.HTTP_400_BAD_REQUEST)
         
         tag, created = Tag.objects.update_or_create(
-            user_id=user_id,
+            user=user,
             name=name,
             defaults={
                 'color': request.data.get('color', generate_tag_color()),
@@ -116,7 +116,7 @@ class TagViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
     
     def perform_create(self, serializer):
-        serializer.save(user_id=self.request.user.id)
+        serializer.save(user=self.request.user)
 
 
 class PublicBBTalkViewSet(viewsets.ReadOnlyModelViewSet):
