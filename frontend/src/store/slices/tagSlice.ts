@@ -19,9 +19,9 @@ const initialState: TagState = {
 // 异步Actions
 export const loadTags = createAsyncThunk(
   'tag/loadTags',
-  async (params: { app?: 'bbtalk' | 'todo' } = {}, { rejectWithValue }) => {
+  async (_, { rejectWithValue }) => {
     try {
-      const tags = await tagApi.getTags(params)
+      const tags = await tagApi.getTags()
       return tags
     } catch (error: any) {
       return rejectWithValue(error.message || '加载标签失败')

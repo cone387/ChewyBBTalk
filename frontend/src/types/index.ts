@@ -1,31 +1,38 @@
 export interface Tag {
-  id: string;
+  id: string;       // uid
   name: string;
   color: string;
   sortOrder?: number;
   bbtalkCount?: number;
 }
 
-export interface Media {
-  id: string;
+export interface Attachment {
+  uid: string;
   url: string;
-  mediaType: string;
-  originalFilename?: string;
+  type: string;     // image, video, audio, file
   filename?: string;
+  originalFilename?: string;
   fileSize?: number;
+  mimeType?: string;
 }
 
 export interface BBTalk {
-  id: string;
+  id: string;       // uid
   content: string;
-  visibility: 'public' | 'private';
+  visibility: 'public' | 'private' | 'friends';
   tags: Tag[];
-  media: Media[];
+  attachments: Attachment[];
   context?: Record<string, any>;
   createdAt: string;
   updatedAt: string;
-  isDeleted: boolean;
-  deletedAt: string | null;
+}
+
+export interface User {
+  id: number;
+  username: string;
+  email?: string;
+  displayName?: string;
+  avatar?: string;
 }
 
 export interface PaginatedResponse<T> {

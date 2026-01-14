@@ -2,6 +2,27 @@ import { getAuthToken } from '../auth';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
+/**
+ * 获取开发环境的认证请求头
+ * 用于本地开发时模拟 Authelia 认证
+ */
+function getDevAuthHeaders(): Record<string, string> {
+  // 开发环境：从环境变量或 localStorage 获取测试用户信息
+  const devUserId = import.meta.env.VITE_DEV_USER_ID || localStorage.getItem('dev_user_id');
+  const devUsername = import.meta.env.VITE_DEV_USERNAME || localStorage.getItem('dev_username');
+  
+  if (devUserId && devUsername) {
+    return {
+      'X-Authelia-User-Id': devUserId,
+      'X-Username': devUsername,
+      'X-Email': import.meta.env.VITE_DEV_EMAIL || localStorage.getItem('dev_email') || '',
+      'X-Groups': import.meta.env.VITE_DEV_GROUPS || localStorage.getItem('dev_groups') || '',
+    };
+  }
+  
+  return {};
+}
+
 class ApiClient {
   private baseUrl: string;
 
@@ -20,13 +41,19 @@ class ApiClient {
       ...(options.headers as Record<string, string> || {}),
     };
 
+    // Bearer token 认证（wujie 子应用模式）
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
+    
+    // 开发环境认证头
+    const devHeaders = getDevAuthHeaders();
+    Object.assign(headers, devHeaders);
 
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       ...options,
       headers,
+      credentials: 'include', // 重要：支持 cookie 认证
     });
 
     if (!response.ok) {

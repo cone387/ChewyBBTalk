@@ -83,14 +83,47 @@ uv run python chewy_space/manage.py test bbtalk
 
 ## API 路由
 
+### BBTalk 接口
+
+| 方法 | 路径 | 说明 | 认证 |
+|------|------|------|------|
+| GET | `/api/v1/bbtalk/` | 获取当前用户的 BBTalk 列表 | 需要 |
+| POST | `/api/v1/bbtalk/` | 创建 BBTalk | 需要 |
+| GET | `/api/v1/bbtalk/{uid}/` | 获取单条 BBTalk | 需要 |
+| PUT | `/api/v1/bbtalk/{uid}/` | 更新 BBTalk | 需要 |
+| DELETE | `/api/v1/bbtalk/{uid}/` | 删除 BBTalk | 需要 |
+| GET | `/api/v1/bbtalk/public/` | 公开 BBTalk 列表 | 不需要 |
+| GET | `/api/v1/bbtalk/public/{uid}/` | 获取公开 BBTalk 详情 | 不需要 |
+
+### 标签接口
+
+| 方法 | 路径 | 说明 | 认证 |
+|------|------|------|------|
+| GET | `/api/v1/bbtalk/tags/` | 获取标签列表（只返回有 BBTalk 的标签） | 需要 |
+| POST | `/api/v1/bbtalk/tags/` | 创建标签（已存在则返回现有） | 需要 |
+| GET | `/api/v1/bbtalk/tags/{uid}/` | 获取标签详情 | 需要 |
+| PUT | `/api/v1/bbtalk/tags/{uid}/` | 更新标签 | 需要 |
+| DELETE | `/api/v1/bbtalk/tags/{uid}/` | 删除标签 | 需要 |
+
+### 用户接口
+
+| 方法 | 路径 | 说明 | 认证 |
+|------|------|------|------|
+| GET | `/api/v1/bbtalk/user/me/` | 获取当前用户信息 | 需要 |
+
+### 附件接口（chewy-attachment）
+
+| 方法 | 路径 | 说明 | 认证 |
+|------|------|------|------|
+| POST | `/api/v1/attachments/files/` | 上传附件 | 需要 |
+| GET | `/api/v1/attachments/files/` | 获取附件列表 | 需要 |
+| GET | `/api/v1/attachments/files/{uid}/` | 获取附件详情 | 需要 |
+| DELETE | `/api/v1/attachments/files/{uid}/` | 删除附件 | 需要 |
+
+### 其他
+
 | 路径 | 说明 | 认证 |
 |------|------|------|
-| `/api/v1/bbtalk/` | BBTalk CRUD | 需要 |
-| `/api/v1/bbtalk/{uid}/` | BBTalk 详情（按 uid） | 需要 |
-| `/api/v1/bbtalk/tags/` | 标签管理 | 需要 |
-| `/api/v1/bbtalk/public/` | 公开 BBTalk 列表 | 不需要 |
-| `/api/v1/bbtalk/user/me/` | 当前用户信息 | 需要 |
-| `/api/v1/attachments/files/` | 附件上传/管理 | 需要 |
 | `/api/schema/swagger-ui/` | Swagger API 文档 | 不需要 |
 | `/api/schema/redoc/` | ReDoc API 文档 | 不需要 |
 | `/admin/` | Django Admin | 需要（Authelia） |
@@ -128,12 +161,25 @@ curl -X GET "http://localhost:8000/api/v1/bbtalk/user/me/" \
   -H "X-Authelia-User-Id: test123" \
   -H "X-Username: testuser"
 
-# 创建 BBTalk
+# 创建 BBTalk（带标签和附件）
 curl -X POST "http://localhost:8000/api/v1/bbtalk/" \
   -H "X-Authelia-User-Id: test123" \
   -H "X-Username: testuser" \
   -H "Content-Type: application/json" \
-  -d '{"content": "Hello World!", "visibility": "public"}'
+  -d '{
+    "content": "Hello World!",
+    "visibility": "public",
+    "post_tags": "日常,随想",
+    "attachments": [{"uid": "xxx", "url": "/media/xxx.jpg", "type": "image"}]
+  }'
+
+# 获取公开 BBTalk（无需认证）
+curl -X GET "http://localhost:8000/api/v1/bbtalk/public/"
+
+# 获取标签列表
+curl -X GET "http://localhost:8000/api/v1/bbtalk/tags/" \
+  -H "X-Authelia-User-Id: test123" \
+  -H "X-Username: testuser"
 ```
 
 ### 访问 Admin
@@ -230,14 +276,67 @@ docker run -p 8000:8000 \
 - visibility: CharField (public/private/friends)
 - tags: ManyToManyField → Tag
 - attachments: JSONField (附件元信息)
-- context: JSONField (上下文信息)
+- context: JSONField (上下文信息，如设备、IP)
+- create_time: DateTimeField
+- update_time: DateTimeField
 ```
 
 ### Tag
 
 ```python
+- uid: CharField (唯一标识)
 - name: CharField
 - user: ForeignKey → User
 - color: CharField (HEX 颜色)
 - sort_order: IntegerField
+- create_time: DateTimeField
+- update_time: DateTimeField
+```
+
+## API 响应格式
+
+### BBTalk 响应示例
+
+```json
+{
+  "uid": "abc123xyz",
+  "user": 1,
+  "content": "今天天气真好！",
+  "visibility": "public",
+  "tags": [
+    {"uid": "tag1", "name": "日常", "color": "#3498db", "sort_order": 0}
+  ],
+  "attachments": [
+    {"uid": "file1", "url": "/media/xxx.jpg", "type": "image"}
+  ],
+  "context": {"device": {"ip": "127.0.0.1", "ua": "..."}},
+  "create_time": "2024-01-01T12:00:00Z",
+  "update_time": "2024-01-01T12:00:00Z"
+}
+```
+
+### 当前用户响应示例
+
+```json
+{
+  "id": 1,
+  "username": "testuser",
+  "email": "test@example.com",
+  "display_name": "Test User",
+  "avatar": null
+}
+```
+
+### 标签响应示例
+
+```json
+{
+  "uid": "tag1",
+  "name": "日常",
+  "color": "#3498db",
+  "sort_order": 0,
+  "bbtalk_count": 5,
+  "create_time": "2024-01-01T12:00:00Z",
+  "update_time": "2024-01-01T12:00:00Z"
+}
 ```

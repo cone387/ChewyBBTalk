@@ -82,27 +82,19 @@ start() {
     
     log_info "启动 ${CONTAINER_NAME} 容器..."
     
-    # 加载环境变量
+    # 获取端口配置
     source .env
+    local port=${PORT:-80}
     
     # 创建必要的目录
     mkdir -p ./data/media ./data/db ./data/authelia ./logs
     
-    # 运行容器
+    # 运行容器（使用 --env-file 加载所有环境变量）
     docker run -d \
         --name ${CONTAINER_NAME} \
-        -p ${PORT}:80 \
+        -p ${port}:80 \
+        --env-file .env \
         -e DJANGO_SETTINGS_MODULE=chewy_space.settings \
-        -e CHEWYBBTALK_SETTINGS_MODULE=${CHEWYBBTALK_SETTINGS_MODULE:-} \
-        -e DEBUG=${DEBUG:-false} \
-        -e SECRET_KEY="${SECRET_KEY}" \
-        -e ALLOWED_HOSTS=${ALLOWED_HOSTS:-*} \
-        -e DATABASE_URL="${DATABASE_URL:-sqlite:///./db.sqlite3}" \
-        -e CORS_ALLOWED_ORIGINS="${CORS_ALLOWED_ORIGINS:-}" \
-        -e LANGUAGE_CODE=${LANGUAGE_CODE:-zh-hans} \
-        -e TIME_ZONE=${TIME_ZONE:-Asia/Shanghai} \
-        -e AUTHELIA_SESSION_SECRET="${AUTHELIA_SESSION_SECRET}" \
-        -e AUTHELIA_ENCRYPTION_KEY="${AUTHELIA_ENCRYPTION_KEY}" \
         -v "$(pwd)/data/media:/app/media" \
         -v "$(pwd)/data/db:/app/backend/db" \
         -v "$(pwd)/data/authelia:/data" \

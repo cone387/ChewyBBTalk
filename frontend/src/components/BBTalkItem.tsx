@@ -6,7 +6,7 @@ interface BBTalkItemProps {
   onDelete: (id: string) => void;
 }
 
-export default function BBTalkItem({ bbtalk, onUpdate, onDelete }: BBTalkItemProps) {
+export default function BBTalkItem({ bbtalk, onDelete }: BBTalkItemProps) {
   const handleDelete = () => {
     if (confirm('确定要删除这条 BBTalk 吗?')) {
       onDelete(bbtalk.id);

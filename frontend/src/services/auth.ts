@@ -6,13 +6,37 @@
  * - 子应用模式：从主应用获取用户信息
  */
 
+import type { User as _User } from '../types';
+
 interface UserInfo {
-  id: string;
+  id: number;
   username: string;
   email?: string;
+  displayName?: string;
+  avatar?: string;
+  groups?: string[];
 }
 
 let currentUser: UserInfo | null = null;
+
+/**
+ * 获取开发环境的认证请求头
+ */
+export function getDevAuthHeaders(): Record<string, string> {
+  const devUserId = import.meta.env.VITE_DEV_USER_ID || localStorage.getItem('dev_user_id');
+  const devUsername = import.meta.env.VITE_DEV_USERNAME || localStorage.getItem('dev_username');
+  
+  if (devUserId && devUsername) {
+    return {
+      'X-Authelia-User-Id': devUserId,
+      'X-Username': devUsername,
+      'X-Email': import.meta.env.VITE_DEV_EMAIL || localStorage.getItem('dev_email') || '',
+      'X-Groups': import.meta.env.VITE_DEV_GROUPS || localStorage.getItem('dev_groups') || '',
+    };
+  }
+  
+  return {};
+}
 
 /**
  * 初始化认证（检查用户是否已认证）
@@ -73,8 +97,14 @@ async function getUserInfoFromParent(): Promise<UserInfo | null> {
 async function fetchCurrentUser(): Promise<UserInfo | null> {
   try {
     const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '';
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...getDevAuthHeaders(),
+    };
+    
     const response = await fetch(`${apiBaseUrl}/api/v1/bbtalk/user/me/`, {
-      credentials: 'include', // 重要：带上 cookie
+      credentials: 'include',
+      headers,
     });
     
     if (response.ok) {
@@ -83,6 +113,9 @@ async function fetchCurrentUser(): Promise<UserInfo | null> {
         id: data.id,
         username: data.username,
         email: data.email,
+        displayName: data.display_name,
+        avatar: data.avatar,
+        groups: data.groups,
       };
     }
     
@@ -137,6 +170,30 @@ export function logout() {
     // 如果没有配置 Authelia URL，尝试相对路径
     window.location.href = '/api/logout';
   }
+}
+
+/**
+ * 设置开发环境用户（用于本地测试）
+ */
+export function setDevUser(userId: string, username: string, email?: string, groups?: string): void {
+  localStorage.setItem('dev_user_id', userId);
+  localStorage.setItem('dev_username', username);
+  if (email) localStorage.setItem('dev_email', email);
+  if (groups) localStorage.setItem('dev_groups', groups);
+  
+  // 清除当前缓存，下次会重新获取
+  currentUser = null;
+}
+
+/**
+ * 清除开发环境用户
+ */
+export function clearDevUser(): void {
+  localStorage.removeItem('dev_user_id');
+  localStorage.removeItem('dev_username');
+  localStorage.removeItem('dev_email');
+  localStorage.removeItem('dev_groups');
+  currentUser = null;
 }
 
 /**

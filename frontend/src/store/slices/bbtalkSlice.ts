@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit'
 import { bbtalkApi } from '../../services/api'
-import type { BBTalk } from '../../types'
+import type { BBTalk, Attachment } from '../../types'
 
 interface BBTalkState {
   bbtalks: BBTalk[]
@@ -80,8 +80,8 @@ export const createBBTalkAsync = createAsyncThunk(
   async (data: {
     content: string
     tags?: string[]
-    mediaUids?: string[]
-    visibility?: 'public' | 'private'
+    attachments?: Attachment[]
+    visibility?: 'public' | 'private' | 'friends'
     context?: Record<string, any>
   }, { rejectWithValue }) => {
     try {

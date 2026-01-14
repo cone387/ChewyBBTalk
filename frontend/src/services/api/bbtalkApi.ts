@@ -1,30 +1,63 @@
 import { apiClient } from './apiClient';
-import type { BBTalk, PaginatedResponse } from '../../types';
+import type { BBTalk, PaginatedResponse, Attachment } from '../../types';
+
+function transformAttachment(data: any): Attachment {
+  return {
+    uid: data.uid || data.id || '',
+    url: data.url || '',
+    type: data.type || 'file',
+    filename: data.filename,
+    originalFilename: data.original_filename,
+    fileSize: data.file_size,
+    mimeType: data.mime_type,
+  };
+}
 
 function transformBBTalk(data: any): BBTalk {
   return {
     id: data.uid,
     content: data.content,
     visibility: data.visibility || 'private',
-    tags: data.tags || [],
-    media: data.media || [],
+    tags: (data.tags || []).map((t: any) => ({
+      id: t.uid,
+      name: t.name,
+      color: t.color,
+      sortOrder: t.sort_order,
+      bbtalkCount: t.bbtalk_count,
+    })),
+    attachments: (data.attachments || []).map(transformAttachment),
     context: data.context || {},
     createdAt: data.create_time,
     updatedAt: data.update_time,
-    isDeleted: false,
-    deletedAt: null,
   };
 }
 
 function transformBBTalkToBackend(bbtalk: Partial<BBTalk>): any {
-  const result: any = {
-    content: bbtalk.content,
-    post_tags: bbtalk.tags?.map((t) => t.name).join(',') || '',
-    context: bbtalk.context,
-  };
+  const result: any = {};
 
-  if (bbtalk.media !== undefined) {
-    result.post_media = bbtalk.media.map((m) => m.id);
+  if (bbtalk.content !== undefined) {
+    result.content = bbtalk.content;
+  }
+
+  if (bbtalk.tags !== undefined) {
+    result.post_tags = bbtalk.tags.map((t) => t.name).join(',');
+  }
+
+  if (bbtalk.context !== undefined) {
+    result.context = bbtalk.context;
+  }
+
+  if (bbtalk.attachments !== undefined) {
+    // attachments 直接传递元信息列表
+    result.attachments = bbtalk.attachments.map((a) => ({
+      uid: a.uid,
+      url: a.url,
+      type: a.type,
+      filename: a.filename,
+      original_filename: a.originalFilename,
+      file_size: a.fileSize,
+      mime_type: a.mimeType,
+    }));
   }
 
   if (bbtalk.visibility) {
@@ -39,8 +72,9 @@ export const bbtalkApi = {
     page?: number;
     search?: string;
     tags__name?: string;
+    visibility?: string;
   }): Promise<PaginatedResponse<BBTalk>> {
-    const data = await apiClient.get<any>('/v1/bbtalk/', params);
+    const data = await apiClient.get<any>('/api/v1/bbtalk/', params);
     return {
       count: data.count,
       next: data.next,
@@ -49,43 +83,71 @@ export const bbtalkApi = {
     };
   },
 
+  async getBBTalk(uid: string): Promise<BBTalk> {
+    const data = await apiClient.get<any>(`/api/v1/bbtalk/${uid}/`);
+    return transformBBTalk(data);
+  },
+
   async createBBTalk(data: {
     content: string;
     tags?: string[];
-    mediaUids?: string[];
-    visibility?: 'public' | 'private';
+    attachments?: Attachment[];
+    visibility?: 'public' | 'private' | 'friends';
     context?: Record<string, any>;
   }): Promise<BBTalk> {
     const payload: any = {
       content: data.content,
       post_tags: data.tags?.join(',') || undefined,
-      post_media: data.mediaUids || [],
       context: data.context,
     };
+
+    if (data.attachments && data.attachments.length > 0) {
+      payload.attachments = data.attachments.map((a) => ({
+        uid: a.uid,
+        url: a.url,
+        type: a.type,
+        filename: a.filename,
+        original_filename: a.originalFilename,
+        file_size: a.fileSize,
+        mime_type: a.mimeType,
+      }));
+    }
 
     if (data.visibility) {
       payload.visibility = data.visibility;
     }
 
-    const response = await apiClient.post<any>('/v1/bbtalk/', payload);
+    const response = await apiClient.post<any>('/api/v1/bbtalk/', payload);
     return transformBBTalk(response);
   },
 
-  async updateBBTalk(id: string, bbtalk: Partial<BBTalk>): Promise<BBTalk> {
+  async updateBBTalk(uid: string, bbtalk: Partial<BBTalk>): Promise<BBTalk> {
     const data = await apiClient.patch<any>(
-      `/v1/bbtalk/${id}/`,
+      `/api/v1/bbtalk/${uid}/`,
       transformBBTalkToBackend(bbtalk)
     );
     return transformBBTalk(data);
   },
 
-  async deleteBBTalk(id: string): Promise<void> {
-    await apiClient.delete(`/v1/bbtalk/${id}/`);
+  async deleteBBTalk(uid: string): Promise<void> {
+    await apiClient.delete(`/api/v1/bbtalk/${uid}/`);
   },
 
-  async getPublicBBTalk(id: string): Promise<BBTalk> {
+  async getPublicBBTalks(params?: {
+    page?: number;
+  }): Promise<PaginatedResponse<BBTalk>> {
+    const data = await apiClient.get<any>('/api/v1/bbtalk/public/', params);
+    return {
+      count: data.count,
+      next: data.next,
+      previous: data.previous,
+      results: data.results.map(transformBBTalk),
+    };
+  },
+
+  async getPublicBBTalk(uid: string): Promise<BBTalk> {
     const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-    const response = await fetch(`${baseUrl}/v1/bbtalk/public/${id}/`, {
+    const response = await fetch(`${baseUrl}/api/v1/bbtalk/public/${uid}/`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

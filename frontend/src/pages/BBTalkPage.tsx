@@ -22,7 +22,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { Tag } from '../types'
+import type { Tag, Attachment } from '../types'
 
 // 可拖动的标签项组件
 function SortableTagItem({
@@ -124,7 +124,7 @@ export default function BBTalkPage() {
     // 加载初始数据
     console.log('[BBTalkPage] 初始加载 useEffect 触发')
     dispatch(loadBBTalks({}))
-    dispatch(loadTags({ app: 'bbtalk' }))
+    dispatch(loadTags())
     setIsInitialLoad(false)
   }, [dispatch])
 
@@ -206,8 +206,8 @@ export default function BBTalkPage() {
   const handlePublish = async (data: {
     content: string
     tags: string[]
-    mediaUids: string[]
-    visibility: 'public' | 'private'
+    attachments: Attachment[]
+    visibility: 'public' | 'private' | 'friends'
     context?: Record<string, any>
   }) => {
     setIsPublishing(true)
@@ -231,10 +231,10 @@ export default function BBTalkPage() {
           isDeleted: false
         }))
         
-        // 比较媒体文件是否有变化（不可变方式）
-        const originalMediaIds = [...(editingBBTalk.media?.map(m => m.id) || [])].sort()
-        const currentMediaIds = [...data.mediaUids].sort()
-        const mediaChanged = JSON.stringify(originalMediaIds) !== JSON.stringify(currentMediaIds)
+        // 比较附件文件是否有变化（不可变方式）
+        const originalAttachmentIds = [...(editingBBTalk.attachments?.map(a => a.uid) || [])].sort()
+        const currentAttachmentIds = [...data.attachments.map(a => a.uid)].sort()
+        const attachmentsChanged = JSON.stringify(originalAttachmentIds) !== JSON.stringify(currentAttachmentIds)
         
         // 构建更新数据
         const updateData: any = {
@@ -243,21 +243,9 @@ export default function BBTalkPage() {
           visibility: data.visibility
         }
         
-        // 只有当媒体有变化时才传递 media 字段
-        if (mediaChanged) {
-          // 将 mediaUids 转换为 Media 对象数组格式
-          const mediaObjects = data.mediaUids.map(uid => ({
-            id: uid,
-            url: '',
-            mediaType: 'image' as const,
-            filename: '',
-            originalFilename: '',
-            fileSize: 0,
-            engine: 1 as const,
-            createdAt: '',
-            updatedAt: ''
-          }))
-          updateData.media = mediaObjects
+        // 只有当附件有变化时才传递 attachments 字段
+        if (attachmentsChanged) {
+          updateData.attachments = data.attachments
         }
         
         await dispatch(updateBBTalkAsync({
@@ -279,7 +267,7 @@ export default function BBTalkPage() {
       
       // 只在有新标签时刷新标签列表
       if (hasNewTags) {
-        dispatch(loadTags({ app: 'bbtalk' }))
+        dispatch(loadTags())
       }
     } catch (error) {
       console.error(editingBBTalk ? '更新失败:' : '发布失败:', error)
@@ -369,7 +357,7 @@ export default function BBTalkPage() {
         console.error('更新标签排序失败:', error)
         alert('标签排序更新失败，请重试')
         // 失败后重新加载标签列表以恢复正确状态
-        dispatch(loadTags({ app: 'bbtalk' }))
+        dispatch(loadTags())
       })
     }
   }
@@ -688,46 +676,46 @@ export default function BBTalkPage() {
                       </div>
                     )}
                     
-                    {/* 媒体文件 */}
-                    {bbtalk.media && bbtalk.media.length > 0 && (
+                    {/* 附件文件 */}
+                    {bbtalk.attachments && bbtalk.attachments.length > 0 && (
                       <div className="mt-4">
-                        {/* 辅助函数：判断媒体类型 */}
+                        {/* 辅助函数：判断附件类型 */}
                         {(() => {
-                          const isImage = (media: typeof bbtalk.media[0]) => {
-                            if (media.mediaType === 'image') return true
-                            const url = media.url.toLowerCase()
+                          const isImage = (attachment: typeof bbtalk.attachments[0]) => {
+                            if (attachment.type === 'image') return true
+                            const url = attachment.url.toLowerCase()
                             const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.ico', '.tif', '.tiff']
                             return imageExts.some(ext => url.split('?')[0].endsWith(ext))
                           }
                           
-                          const isVideo = (media: typeof bbtalk.media[0]) => {
-                            if (media.mediaType === 'video') return true
-                            const url = media.url.toLowerCase()
+                          const isVideo = (attachment: typeof bbtalk.attachments[0]) => {
+                            if (attachment.type === 'video') return true
+                            const url = attachment.url.toLowerCase()
                             const videoExts = ['.mp4', '.webm', '.ogg', '.mov', '.avi', '.mkv', '.m4v']
                             return videoExts.some(ext => url.split('?')[0].endsWith(ext))
                           }
                           
-                          const images = bbtalk.media.filter(isImage)
-                          const videos = bbtalk.media.filter(m => !isImage(m) && isVideo(m))
-                          const files = bbtalk.media.filter(m => !isImage(m) && !isVideo(m))
+                          const images = bbtalk.attachments.filter(isImage)
+                          const videos = bbtalk.attachments.filter(a => !isImage(a) && isVideo(a))
+                          const files = bbtalk.attachments.filter(a => !isImage(a) && !isVideo(a))
                           
                           return (
                             <>
                               {/* 图片网格布局 */}
                               {images.length > 0 && (
                                 <div className="flex flex-wrap gap-2 mb-3">
-                                  {images.map((media) => (
-                                    <div key={media.id || media.url} className="relative group">
+                                  {images.map((attachment) => (
+                                    <div key={attachment.uid || attachment.url} className="relative group">
                                       <CachedImage
-                                        src={media.url}
-                                        alt={media.originalFilename || ''}
+                                        src={attachment.url}
+                                        alt={attachment.originalFilename || ''}
                                         className="max-w-xs max-h-64 object-contain bg-gray-50 rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                                        onClick={() => setPreviewImage({ src: media.url, alt: media.originalFilename || '' })}
+                                        onClick={() => setPreviewImage({ src: attachment.url, alt: attachment.originalFilename || '' })}
                                         objectFit="contain"
                                       />
-                                      {media.originalFilename && (
+                                      {attachment.originalFilename && (
                                         <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs p-1 rounded-b-lg opacity-0 group-hover:opacity-100 transition-opacity truncate">
-                                          {media.originalFilename}
+                                          {attachment.originalFilename}
                                         </div>
                                       )}
                                     </div>
@@ -738,10 +726,10 @@ export default function BBTalkPage() {
                               {/* 视频播放器 */}
                               {videos.length > 0 && (
                                 <div className="flex flex-wrap gap-3 mb-3">
-                                  {videos.map((media) => (
-                                    <div key={media.id || media.url} className="relative group max-w-md">
+                                  {videos.map((attachment) => (
+                                    <div key={attachment.uid || attachment.url} className="relative group max-w-md">
                                       <video
-                                        src={media.url}
+                                        src={attachment.url}
                                         controls
                                         preload="metadata"
                                         className="max-w-full max-h-80 rounded-lg bg-black"
@@ -749,9 +737,9 @@ export default function BBTalkPage() {
                                       >
                                         您的浏览器不支持视频播放
                                       </video>
-                                      {media.originalFilename && (
+                                      {attachment.originalFilename && (
                                         <div className="mt-1 text-xs text-gray-500 truncate">
-                                          {media.originalFilename}
+                                          {attachment.originalFilename}
                                         </div>
                                       )}
                                     </div>
@@ -762,7 +750,7 @@ export default function BBTalkPage() {
                               {/* 其他文件列表 */}
                               {files.length > 0 && (
                                 <div className="flex flex-wrap gap-2">
-                                  {files.map((media) => {
+                                  {files.map((attachment) => {
                                     const formatFileSize = (bytes?: number) => {
                                       if (!bytes) return ''
                                       if (bytes < 1024) return `${bytes} B`
@@ -790,19 +778,19 @@ export default function BBTalkPage() {
                                     
                                     return (
                                       <a
-                                        key={media.id || media.url}
-                                        href={media.url}
-                                        download={media.originalFilename}
+                                        key={attachment.uid || attachment.url}
+                                        href={attachment.url}
+                                        download={attachment.originalFilename}
                                         className="inline-flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 group"
                                       >
-                                        {getFileIcon(media.mediaType)}
+                                        {getFileIcon(attachment.type)}
                                         <div className="flex items-baseline gap-1.5">
                                           <span className="text-sm text-gray-800 font-medium">
-                                            {media.originalFilename || media.filename || '附件'}
+                                            {attachment.originalFilename || attachment.filename || '附件'}
                                           </span>
-                                          {media.fileSize && (
+                                          {attachment.fileSize && (
                                             <span className="text-xs text-gray-400 font-normal whitespace-nowrap">
-                                              ({formatFileSize(media.fileSize)})
+                                              ({formatFileSize(attachment.fileSize)})
                                             </span>
                                           )}
                                         </div>

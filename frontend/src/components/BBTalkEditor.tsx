@@ -1,17 +1,17 @@
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { mediaApi } from '../services/mediaApi'
+import { attachmentApi } from '../services/mediaApi'
 import { useAppSelector } from '../store/hooks'
 import CachedImage from './CachedImage'
 import Toast, { type ToastType } from './ui/Toast'
-import type { Media, BBTalk } from '../types'
+import type { Attachment, BBTalk } from '../types'
 
 interface BBTalkEditorProps {
   onPublish: (data: {
     content: string
     tags: string[]
-    mediaUids: string[]
-    visibility: 'public' | 'private'
+    attachments: Attachment[]
+    visibility: 'public' | 'private' | 'friends'
     context?: Record<string, any>
   }) => Promise<void>
   isPublishing?: boolean
@@ -22,20 +22,20 @@ interface BBTalkEditorProps {
 interface UploadedFile {
   uid: string
   url: string
-  type: 'image' | 'video' | 'audio' | 'attachment'
+  type: 'image' | 'video' | 'audio' | 'file'
   name: string
+  mimeType?: string
+  fileSize?: number
 }
 
 export default function BBTalkEditor({ onPublish, isPublishing = false, editing = null, onCancelEdit }: BBTalkEditorProps) {
   const [content, setContent] = useState('')
   const [tags, setTags] = useState<string[]>([])
-  const [tagInput, setTagInput] = useState('')
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
-  const [existingMedia, setExistingMedia] = useState<Media[]>([])  // 编辑模式下的现有媒体
-  const [showToolbar, setShowToolbar] = useState(true)  // 默认显示工具栏
+  const [existingAttachments, setExistingAttachments] = useState<Attachment[]>([])  // 编辑模式下的现有附件
   const [isUploading, setIsUploading] = useState(false)
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null)
-  const [visibility, setVisibility] = useState<'public' | 'private'>('private')  // 默认私有
+  const [visibility, setVisibility] = useState<'public' | 'private' | 'friends'>('private')  // 默认私有
   const [suggestedTag, setSuggestedTag] = useState<string | null>(null) // 建议创建的标签
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null) // Toast提示
   const [isDragOver, setIsDragOver] = useState(false) // 拖拽状态
@@ -84,13 +84,11 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
       setTags(tagNames)
       setVisibility(editing.visibility || 'private')
       
-      // 恢复现有媒体文件，过滤掉无效的媒体
-      // 注意：后端返回的是 uid 字段，但前端类型定义的是 id 字段
-      const validMedia = (editing.media || []).filter(m => {
-        const mediaId = m?.id || (m as any)?.uid  // 兼容后端的 uid 字段
-        return mediaId && mediaId.trim() !== ''
+      // 恢复现有附件文件，过滤掉无效的附件
+      const validAttachments = (editing.attachments || []).filter(a => {
+        return a?.uid && a.uid.trim() !== ''
       })
-      setExistingMedia(validMedia)
+      setExistingAttachments(validAttachments)
       // 编辑模式下清空新上传文件列表
       setUploadedFiles([])
       
@@ -198,7 +196,6 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
           document.body.removeChild(tempDiv)
           
           // 计算选择器位置：使用 window.scrollY 处理页面滚动
-          const lineHeight = parseInt(styles.lineHeight) || 24
           setTagSelectorPosition({
             top: rect.top + window.scrollY + divHeight,
             left: rect.left + window.scrollX + 16
@@ -296,7 +293,7 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
     setIsUploading(true)
     try {
       const uploadPromises = Array.from(files).map(async (file) => {
-        const response = await mediaApi.uploadMedia(file, {
+        const response = await attachmentApi.upload(file, {
           media_type: type === 'image' ? 'image' : 'auto'
         })
         console.log('上传成功:', response)
@@ -315,13 +312,15 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
         }
         
         // 确定文件类型
-        const fileType = isImageFile(response.mediaType, response.url) ? 'image' : response.mediaType as any
+        const fileType = isImageFile(response.type, response.url) ? 'image' : response.type as any
         
         return {
-          uid: response.id,
+          uid: response.uid,
           url: response.url,
           type: fileType,
-          name: file.name
+          name: file.name,
+          mimeType: response.mimeType,
+          fileSize: response.fileSize,
         }
       })
 
@@ -341,21 +340,9 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
     setUploadedFiles(prev => prev.filter(f => f.uid !== uid))
   }
   
-  // 移除现有媒体文件（编辑模式）
-  const handleRemoveExistingMedia = (mediaId: string) => {
-    setExistingMedia(prev => prev.filter(m => {
-      const currentId = m.id || (m as any).uid  // 兼容 id 和 uid 字段
-      return currentId !== mediaId
-    }))
-  }
-
-  // 添加标签
-  const handleAddTag = () => {
-    const tag = tagInput.trim()
-    if (tag && !tags.includes(tag)) {
-      setTags(prev => [...prev, tag])
-      setTagInput('')
-    }
+  // 移除现有附件文件（编辑模式）
+  const handleRemoveExistingAttachment = (uid: string) => {
+    setExistingAttachments(prev => prev.filter(a => a.uid !== uid))
   }
 
   // 移除标签
@@ -439,15 +426,23 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
     const cleanedContent = content.replace(/(?:^|\s)#([^\s#]+)\s/g, ' ').trim()
 
     try {
+      // 合并现有附件和新上传的文件
+      const allAttachments: Attachment[] = [
+        ...existingAttachments,
+        ...uploadedFiles.map(f => ({
+          uid: f.uid,
+          url: f.url,
+          type: f.type,
+          filename: f.name,
+          mimeType: f.mimeType,
+          fileSize: f.fileSize,
+        }))
+      ]
+
       await onPublish({
         content: cleanedContent,
         tags,
-        mediaUids: [
-          // 过滤并提取现有媒体 ID，兼容 id 和 uid 字段
-          ...existingMedia.filter(m => m && (m.id || (m as any).uid)).map(m => m.id || (m as any).uid),
-          // 过滤并提取新上传文件 UID
-          ...uploadedFiles.filter(f => f && f.uid).map(f => f.uid)
-        ],
+        attachments: allAttachments,
         visibility,
         context: Object.keys(context).length > 0 ? context : undefined
       })
@@ -457,7 +452,7 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
         setContent('')
         setTags([])
         setUploadedFiles([])
-        setExistingMedia([])
+        setExistingAttachments([])
         setLocation(null)
         setVisibility('private')
       }
@@ -677,23 +672,23 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
           document.body
         )}
 
-        {/* 现有媒体文件预览（编辑模式） */}
-        {existingMedia.length > 0 && (
+        {/* 现有附件文件预览（编辑模式） */}
+        {existingAttachments.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-2">
-            {existingMedia.map((media) => {
+            {existingAttachments.map((attachment) => {
               // 判断是否为图片
-              const isImage = media.mediaType === 'image' || (() => {
-                const url = media.url.toLowerCase()
+              const isImage = attachment.type === 'image' || (() => {
+                const url = attachment.url.toLowerCase()
                 const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.ico', '.tif', '.tiff']
                 return imageExts.some(ext => url.split('?')[0].endsWith(ext))
               })()
               
               return (
-                <div key={media.id} className="relative group">
+                <div key={attachment.uid} className="relative group">
                   {isImage ? (
                     <CachedImage
-                      src={getImageUrl(media.url)}
-                      alt={media.originalFilename || ''}
+                      src={getImageUrl(attachment.url)}
+                      alt={attachment.originalFilename || ''}
                       className="max-w-[160px] max-h-32 object-contain bg-gray-50 rounded-lg border border-gray-200"
                       objectFit="contain"
                       fallback={
@@ -710,11 +705,11 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
                       <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
-                      <span className="text-xs text-gray-500 mt-1 truncate max-w-full px-2">{media.originalFilename || media.filename || '附件'}</span>
+                      <span className="text-xs text-gray-500 mt-1 truncate max-w-full px-2">{attachment.originalFilename || attachment.filename || '附件'}</span>
                     </div>
                   )}
                   <button
-                    onClick={() => handleRemoveExistingMedia(media.id || (media as any).uid)}
+                    onClick={() => handleRemoveExistingAttachment(attachment.uid)}
                     className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-red-600"
                     title="删除"
                   >
