@@ -1,0 +1,90 @@
+---
+###############################################################
+#                   Authelia 配置文件                          #
+###############################################################
+
+server:
+  host: 127.0.0.1
+  port: 9091
+  path: "authelia"
+  enable_pprof: false
+  enable_expvars: false
+
+log:
+  level: info
+  format: text
+  file_path: /app/logs/authelia.log
+
+theme: auto
+
+totp:
+  issuer: ChewyBBTalk
+  period: 30
+  skew: 1
+
+authentication_backend:
+  password_reset:
+    disable: false
+  refresh_interval: 5m
+  file:
+    path: /app/authelia/users_database.yml
+    password:
+      algorithm: argon2id
+      iterations: 1
+      salt_length: 16
+      parallelism: 8
+      memory: 64
+
+access_control:
+  default_policy: deny
+  rules:
+    # 允许访问前端静态资源（无需认证）
+    - domain: "*"
+      policy: bypass
+      resources:
+        - "^/$"
+        - "^/assets/.*$"
+        - "^/favicon.ico$"
+        - "^/manifest.json$"
+    
+    # Authelia 自身端点
+    - domain: "*"
+      policy: bypass
+      resources:
+        - "^/authelia/.*$"
+    
+    # API 端点需要认证
+    - domain: "*"
+      policy: one_factor
+      resources:
+        - "^/api/.*$"
+    
+    # 媒体文件需要认证
+    - domain: "*"
+      policy: one_factor
+      resources:
+        - "^/media/.*$"
+
+session:
+  name: authelia_session
+  domain: localhost  # 生产环境改为你的域名
+  same_site: lax
+  secret: insecure_session_secret  # 生产环境必须修改
+  expiration: 1h
+  inactivity: 5m
+  remember_me_duration: 1M
+
+regulation:
+  max_retries: 3
+  find_time: 2m
+  ban_time: 5m
+
+storage:
+  encryption_key: you_must_generate_a_random_string_of_more_than_twenty_chars_and_configure_this  # 生产环境必须修改
+  local:
+    path: /app/authelia/data/db.sqlite3
+
+notifier:
+  disable_startup_check: true
+  filesystem:
+    filename: /app/authelia/data/notification.txt

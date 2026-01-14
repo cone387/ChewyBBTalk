@@ -1,0 +1,35 @@
+---
+###############################################################
+#                        用户数据库                            #
+# 生产环境建议使用 LDAP 或其他认证后端                          #
+###############################################################
+
+users:
+  # 管理员用户
+  # 用户名: admin
+  # 密码: password (生产环境必须修改)
+  admin:
+    displayname: "Admin User"
+    password: "$argon2id$v=19$m=65536,t=3,p=4$BpLnSg0NDQ0NDQ0NDQ0NDQ$qrySJvIk5mKwGWFaGWvKEw+dKb4zUB+OuFhX6I0tRyY"
+    email: admin@example.com
+    groups:
+      - admins
+      - users
+
+  # 普通用户
+  # 用户名: testuser
+  # 密码: password (生产环境必须修改)
+  testuser:
+    displayname: "Test User"
+    password: "$argon2id$v=19$m=65536,t=3,p=4$BpLnSg0NDQ0NDQ0NDQ0NDQ$qrySJvIk5mKwGWFaGWvKEw+dKb4zUB+OuFhX6I0tRyY"
+    email: test@example.com
+    groups:
+      - users
+
+# ============================================
+# 生成新密码的命令:
+# ============================================
+# docker run --rm authelia/authelia:latest authelia crypto hash generate argon2 --password 'your-password'
+#
+# 或者使用在线工具:
+# https://argon2.online/
