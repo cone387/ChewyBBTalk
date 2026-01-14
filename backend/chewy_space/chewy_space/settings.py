@@ -221,6 +221,12 @@ MEDIA_ROOT = os.getenv('MEDIA_ROOT', str(BASE_DIR / 'media'))
 # Static files (collected)
 STATIC_ROOT = os.getenv('STATIC_ROOT', str(BASE_DIR / 'staticfiles'))
 
+# ChewyAttachment 配置
+CHEWY_ATTACHMENT = {
+    # 文件存储根目录
+    "STORAGE_ROOT": BASE_DIR / "media" / "attachments",
+}
+
 
 # Logging configuration
 LOGGING = {
