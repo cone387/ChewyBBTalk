@@ -152,13 +152,6 @@ REST_FRAMEWORK = {
 # - Remote-Email: 邮箱
 # - Remote-Groups: 用户组
 
-# Qiniu Cloud Storage (七牛云存储配置)
-QINIU_ACCESS_KEY = ''
-QINIU_SECRET_KEY = ''
-QINIU_BUCKET_NAME = ''
-QINIU_BUCKET_DOMAIN = ''
-QINIU_SECURE_URL = False
-
 # Media files
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'

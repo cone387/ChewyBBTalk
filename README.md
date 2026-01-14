@@ -7,7 +7,7 @@
 - 📝 发布、编辑、删除碎碎念
 - 🏷️ 标签管理与分类
 - 📷 媒体文件上传（图片、视频）
-- 🔐 Keycloak 认证集成
+- 🔐 Authelia 认证集成
 - 🧩 支持 wujie 微前端嵌入
 
 ## 技术栈
@@ -22,8 +22,7 @@
 **后端**
 - Django 5.2 + Django REST Framework
 - SQLite（开发）/ PostgreSQL（生产）
-- Keycloak 认证
-- 七牛云存储（可选）
+- Authelia 认证
 
 ## 环境要求
 
@@ -107,25 +106,16 @@ npm run dev
 ```bash
 # API 地址
 VITE_API_BASE_URL=http://localhost:8011
-
-# Keycloak 配置（独立运行时需要）
-VITE_KEYCLOAK_URL=https://keycloak.example.com
-VITE_KEYCLOAK_REALM=your-realm
-VITE_KEYCLOAK_CLIENT_ID=your-client-id
 ```
 
 ### 后端 (settings.py)
 
 ```python
-# Keycloak
-KEYCLOAK_URL = 'https://keycloak.example.com'
-KEYCLOAK_REALM = 'your-realm'
-
-# 七牛云存储（可选）
-QINIU_ACCESS_KEY = ''
-QINIU_SECRET_KEY = ''
-QINIU_BUCKET_NAME = ''
-QINIU_BUCKET_DOMAIN = ''
+# Authelia 通过反向代理认证，无需额外配置
+# 用户信息通过 HTTP 请求头传递：
+# - Remote-User: 用户名
+# - Remote-Email: 邮箱
+# - Remote-Groups: 用户组
 ```
 
 ## API 端点
@@ -189,8 +179,8 @@ startApp({
 
 ### 认证机制
 
-1. **主应用 Token 桥接**（推荐）- 通过 `window.__AUTH_BRIDGE__` 获取
-2. **Keycloak 独立登录** - 配置环境变量后自动启用
+1. **Authelia 认证** - 通过反向代理统一认证
+2. **开发模式** - 支持测试请求头（DEBUG=True 时）
 
 ### 技术规范
 

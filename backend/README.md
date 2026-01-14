@@ -6,8 +6,8 @@
 
 - **Python**: >= 3.13
 - **框架**: Django 5.2 + Django REST Framework
-- **认证**: Keycloak JWT（无本地用户表，直接使用 Keycloak ID）
-- **存储**: 七牛云 / 本地存储
+- **认证**: Authelia（通过反向代理）
+- **存储**: 本地存储
 - **数据库**: SQLite (开发) / PostgreSQL (生产)
 - **包管理**: uv
 
@@ -83,20 +83,17 @@ DJANGO_SETTINGS_MODULE=configs.dev_settings uv run python manage.py migrate
 | `SECRET_KEY` | Django Secret Key | - |
 | `ALLOWED_HOSTS` | 允许的主机 | `*` |
 | `DATABASE_URL` | 数据库连接 | SQLite |
-| `KEYCLOAK_URL` | Keycloak 地址 | - |
-| `KEYCLOAK_REALM` | Keycloak Realm | - |
-| `QINIU_ACCESS_KEY` | 七牛云 Access Key | - |
-| `QINIU_SECRET_KEY` | 七牛云 Secret Key | - |
-| `QINIU_BUCKET_NAME` | 七牛云 Bucket 名称 | - |
-| `QINIU_BUCKET_DOMAIN` | 七牛云 Bucket 域名 | - |
+| `AUTHELIA_SESSION_SECRET` | Authelia Session 密钥 | - |
+| `AUTHELIA_ENCRYPTION_KEY` | Authelia 加密密钥 | - |
 
 ## 认证说明
 
-项目使用 Keycloak JWT 认证，特点：
+项目使用 Authelia 认证，特点：
 
-- **无本地用户表**：直接使用 Keycloak 的 `sub` 作为 `user_id`
-- **轻量级用户对象**：`KeycloakUser` 类只在内存中，不存数据库
-- **请求头**：`Authorization: Bearer <token>`
+- **反向代理认证**：通过 Nginx + Authelia 统一认证
+- **HTTP 请求头**：用户信息通过 `Remote-User`、`Remote-Email`、`Remote-Groups` 传递
+- **轻量级用户对象**：`AutheliaUser` 类只在内存中，不存数据库
+- **开发模式**：支持测试请求头 `X-User-Id`、`X-Username`（DEBUG=True 时）
 
 ## Docker 部署
 
