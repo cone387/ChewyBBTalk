@@ -1,4 +1,4 @@
-FROM python:3.13-slim
+FROM m.daocloud.io/docker.io/python:3.13-slim
 
 WORKDIR /app
 
@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 # Copy project files
-COPY pyproject.toml .
+COPY pyproject.toml README.md ./
 COPY chewy_space/ ./chewy_space/
 
 # Install dependencies using uv
