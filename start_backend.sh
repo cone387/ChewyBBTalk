@@ -104,6 +104,20 @@ kill_old_process() {
 load_env() {
     log_step "加载环境变量..."
     
+    # 优先加载环境特定的配置文件
+    ENV_FILE=".env.${ENV}"
+    if [ -f "$ENV_FILE" ]; then
+        log_info "从 $ENV_FILE 加载环境变量"
+        set -a
+        source "$ENV_FILE"
+        set +a
+    elif [ -f .env ]; then
+        log_info "从 .env 加载环境变量"
+        set -a
+        source .env
+        set +a
+    fi
+    
     # 设置环境特定配置模块（如果未通过环境变量指定）
     if [ -z "$CHEWYBBTALK_SETTINGS_MODULE" ]; then
         export CHEWYBBTALK_SETTINGS_MODULE="configs.${ENV}_settings"
@@ -111,19 +125,13 @@ load_env() {
     
     export DJANGO_SETTINGS_MODULE="chewy_space.settings"
     
-    # 如果存在 .env 文件，加载它
-    if [ -f .env ]; then
-        log_info "从 .env 文件加载环境变量"
-        set -a
-        source .env
-        set +a
-    fi
-    
     # 开发环境默认设置
     export DEBUG="${DEBUG:-true}"
     export ALLOWED_HOSTS="${ALLOWED_HOSTS:-*}"
     export LANGUAGE_CODE="${LANGUAGE_CODE:-zh-hans}"
     export TIME_ZONE="${TIME_ZONE:-Asia/Shanghai}"
+    export HOST="${BACKEND_HOST:-$HOST}"
+    export PORT="${BACKEND_PORT:-$PORT}"
     
     log_info "环境: $ENV"
     log_info "配置模块: $CHEWYBBTALK_SETTINGS_MODULE"
