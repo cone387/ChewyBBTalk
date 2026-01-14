@@ -182,12 +182,20 @@ class AutheliaAdminMiddleware:
     def __call__(self, request):
         # 只处理 admin 路径
         if request.path.startswith('/admin/'):
-            # 如果用户未登录，尝试从 Authelia 头部认证
-            if not request.user.is_authenticated:
-                from django.contrib.auth import authenticate, login
+            from django.contrib.auth import authenticate, login
+            
+            # 检查当前用户是否是我们的 User 模型
+            is_valid_user = (
+                request.user.is_authenticated and 
+                isinstance(request.user, User)
+            )
+            
+            if not is_valid_user:
+                # 尝试从 Authelia 头部认证
                 user = authenticate(request)
                 if user:
                     login(request, user)
+                    request.user = user
         
         return self.get_response(request)
 

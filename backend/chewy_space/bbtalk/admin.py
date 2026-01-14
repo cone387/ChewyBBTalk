@@ -14,8 +14,8 @@ class BaseAdmin(admin.ModelAdmin):
     exclude = ('user',)
     
     def save_model(self, request, obj, form, change):
-        if not change and hasattr(obj, 'user'):
-            # 新建时自动设置 user，request.user 已经是我们自定义的 User 模型
+        if not change:
+            # 新建时自动设置 user
             obj.user = request.user
         super().save_model(request, obj, form, change)
 
