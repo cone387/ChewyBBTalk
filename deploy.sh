@@ -93,10 +93,14 @@ start() {
         --name ${CONTAINER_NAME} \
         -p ${PORT}:80 \
         -e DJANGO_SETTINGS_MODULE=chewy_space.settings \
+        -e CHEWYBBTALK_SETTINGS_MODULE=${CHEWYBBTALK_SETTINGS_MODULE:-} \
         -e DEBUG=${DEBUG:-false} \
         -e SECRET_KEY="${SECRET_KEY}" \
-        -e ALLOWED_HOSTS=* \
+        -e ALLOWED_HOSTS=${ALLOWED_HOSTS:-*} \
         -e DATABASE_URL="${DATABASE_URL:-sqlite:///./db.sqlite3}" \
+        -e CORS_ALLOWED_ORIGINS="${CORS_ALLOWED_ORIGINS:-}" \
+        -e LANGUAGE_CODE=${LANGUAGE_CODE:-zh-hans} \
+        -e TIME_ZONE=${TIME_ZONE:-Asia/Shanghai} \
         -e AUTHELIA_SESSION_SECRET="${AUTHELIA_SESSION_SECRET}" \
         -e AUTHELIA_ENCRYPTION_KEY="${AUTHELIA_ENCRYPTION_KEY}" \
         -v "$(pwd)/data/media:/app/media" \

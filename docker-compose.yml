@@ -22,14 +22,19 @@ services:
     container_name: chewybbtalk-backend
     environment:
       - DJANGO_SETTINGS_MODULE=chewy_space.settings
+      - CHEWYBBTALK_SETTINGS_MODULE=${CHEWYBBTALK_SETTINGS_MODULE:-}
       - DEBUG=${DEBUG:-false}
       - SECRET_KEY=${SECRET_KEY:-change-this-secret-key-in-production}
-      - ALLOWED_HOSTS=*
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-*}
       - DATABASE_URL=${DATABASE_URL:-sqlite:///./db.sqlite3}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-}
+      - LANGUAGE_CODE=${LANGUAGE_CODE:-zh-hans}
+      - TIME_ZONE=${TIME_ZONE:-Asia/Shanghai}
     volumes:
       - ./data/backend/db:/app/chewy_space/db
       - ./data/backend/media:/app/chewy_space/media
       - ./data/backend/staticfiles:/app/chewy_space/staticfiles
+      - ./backend/chewy_space/configs:/app/chewy_space/configs:ro
     restart: unless-stopped
     networks:
       - bbtalk-network
