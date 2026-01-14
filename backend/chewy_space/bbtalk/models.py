@@ -41,7 +41,7 @@ class User(models.Model):
     last_login = models.DateTimeField(null=True, blank=True, verbose_name="最后登录")
 
     class Meta:
-        db_table = "users"
+        db_table = "cb_users"
         verbose_name = verbose_name_plural = "用户"
         ordering = ["-create_time"]
         indexes = [
@@ -68,7 +68,7 @@ class User(models.Model):
 
 class BaseModel(models.Model):
     id = models.AutoField(primary_key=True)
-    user_id = models.BigIntegerField(verbose_name="用户ID", db_index=True)
+    user_id = models.ForeignKey(User, on_delete=models.CASCADE, db_constraint=False, verbose_name="用户ID", db_index=True)
     create_time = models.DateTimeField(default=timezone.now, verbose_name="创建时间", db_index=True)
     update_time = models.DateTimeField(auto_now=True, verbose_name="更新时间", db_index=True)
 
@@ -95,7 +95,7 @@ class Tag(BaseModel):
         unique_together = [["name", "user_id"]]
         verbose_name = verbose_name_plural = "标签"
         ordering = ["-update_time"]
-        db_table = "user_tags"
+        db_table = "cb_user_tags"
         indexes = [
             models.Index(fields=['user_id', '-update_time'], name='tag_user_time_idx'),
             models.Index(fields=['user_id', 'name'], name='tag_user_name_idx'),
@@ -121,7 +121,8 @@ class BBTalk(BaseModel):
         'Tag',
         related_name="bbtalks",
         verbose_name="标签",
-        db_table="bbtalk_tags_relations"
+        db_constraint=False,
+        db_table="cb_bbtalk_tags_relations"
     )
     attachments = models.JSONField(
         default=list,
@@ -142,7 +143,7 @@ class BBTalk(BaseModel):
     class Meta:
         ordering = ["-update_time"]
         verbose_name = verbose_name_plural = "碎碎念"
-        db_table = "user_bbtalks"
+        db_table = "cb_user_bbtalks"
         indexes = [
             models.Index(fields=['user_id', '-update_time'], name='bbtalk_user_time_idx'),
             models.Index(fields=['user_id', '-create_time'], name='bbtalk_user_create_idx'),
