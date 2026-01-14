@@ -2,6 +2,7 @@ from rest_framework.authentication import BaseAuthentication
 from rest_framework import exceptions
 from django.conf import settings
 from django.utils import timezone
+from drf_spectacular.extensions import OpenApiAuthenticationExtension
 from .models import User
 
 
@@ -86,3 +87,30 @@ class AutheliaAuthentication(BaseAuthentication):
     
     def authenticate_header(self, request):
         return 'Remote-User'
+
+
+class AutheliaAuthenticationScheme(OpenApiAuthenticationExtension):
+    """
+    DRF Spectacular 的 Authelia 认证扩展
+    用于生成正确的 OpenAPI 文档
+    """
+    target_class = 'bbtalk.authentication.AutheliaAuthentication'
+    name = 'AutheliaAuth'
+    
+    def get_security_definition(self, auto_schema):
+        """
+        定义 OpenAPI 安全方案
+        """
+        return {
+            'type': 'apiKey',
+            'in': 'header',
+            'name': 'Remote-User',
+            'description': (
+                'Authelia 认证通过反向代理注入的用户信息。'
+                '开发环境可使用以下测试请求头：\n'
+                '- X-Authelia-User-Id: 用户ID\n'
+                '- X-Username: 用户名\n'
+                '- X-Email: 邮箱\n'
+                '- X-Groups: 用户组（逗号分隔）'
+            )
+        }
