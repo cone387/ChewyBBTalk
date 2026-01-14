@@ -13,7 +13,7 @@ class TagSerializer(serializers.ModelSerializer):
 
 
 class BBTalkSerializer(serializers.ModelSerializer):
-    user_id = serializers.CharField(read_only=True)
+    user_id = serializers.IntegerField(read_only=True)
     # 嵌套显示标签
     tags = TagSerializer(many=True, read_only=True)
     # attachments 字段用于存储附件元信息列表
@@ -36,7 +36,7 @@ class BBTalkSerializer(serializers.ModelSerializer):
 
     def save_tags(self, instance, tag_names):
         tags = []
-        user_id = self.context['request'].user.id
+        user_id = instance.user_id
         for tag in tag_names.split(','):
             tag = tag.strip()
             if tag:  # 确保标签不为空

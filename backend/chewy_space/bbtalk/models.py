@@ -10,9 +10,65 @@ def generate_uid():
     return base64.urlsafe_b64encode(uuid4().bytes).decode()[:22]
 
 
+class User(models.Model):
+    """
+    本应用的基础用户模型，通过 authelia_user_id 等字段关联到外部认证服务
+    支持多种认证源：Authelia、Keycloak 等（通过不同的字段）
+    """
+    id = models.BigAutoField(primary_key=True, verbose_name="用户ID")
+    username = models.CharField(max_length=150, unique=True, verbose_name="用户名")
+    email = models.EmailField(blank=True, verbose_name="邮箱")
+    display_name = models.CharField(max_length=150, blank=True, verbose_name="显示名称")
+    avatar = models.URLField(blank=True, verbose_name="头像")
+    
+    # 认证服务字段（可扩展）
+    authelia_user_id = models.CharField(
+        max_length=255, 
+        unique=True,
+        null=True,
+        blank=True,
+        db_index=True,
+        verbose_name="Authelia用户ID",
+        help_text="来自 Authelia 认证服务的用户唯一标识"
+    )
+    # 将来如果需要支持 Keycloak，可以添加：
+    # keycloak_user_id = models.CharField(max_length=255, unique=True, null=True, blank=True, ...)
+    
+    groups = models.JSONField(default=list, blank=True, verbose_name="用户组")
+    is_active = models.BooleanField(default=True, verbose_name="激活状态")
+    create_time = models.DateTimeField(default=timezone.now, verbose_name="创建时间")
+    update_time = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+    last_login = models.DateTimeField(null=True, blank=True, verbose_name="最后登录")
+
+    class Meta:
+        db_table = "users"
+        verbose_name = verbose_name_plural = "用户"
+        ordering = ["-create_time"]
+        indexes = [
+            models.Index(fields=['authelia_user_id'], name='user_authelia_idx'),
+            models.Index(fields=['username'], name='user_username_idx'),
+        ]
+
+    def __str__(self):
+        return self.username
+
+    @property
+    def is_staff(self):
+        """是否为管理员"""
+        return 'admin' in self.groups or 'admins' in self.groups
+
+    @property
+    def is_authenticated(self):
+        return True
+
+    @property
+    def is_anonymous(self):
+        return False
+
+
 class BaseModel(models.Model):
     id = models.AutoField(primary_key=True)
-    user_id = models.CharField(max_length=36, verbose_name="用户ID", db_index=True)
+    user_id = models.BigIntegerField(verbose_name="用户ID", db_index=True)
     create_time = models.DateTimeField(default=timezone.now, verbose_name="创建时间", db_index=True)
     update_time = models.DateTimeField(auto_now=True, verbose_name="更新时间", db_index=True)
 
@@ -36,7 +92,7 @@ class Tag(BaseModel):
     sort_order = models.FloatField(default=0, verbose_name="排序")
 
     class Meta:
-        unique_together = ["name", "user_id"]
+        unique_together = [["name", "user_id"]]
         verbose_name = verbose_name_plural = "标签"
         ordering = ["-update_time"]
         db_table = "user_tags"

@@ -36,6 +36,8 @@ def get_current_user(request):
         'id': user.id,
         'username': user.username,
         'email': user.email,
+        'display_name': user.display_name,
+        'avatar': user.avatar,
     })
 
 

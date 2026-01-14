@@ -3,12 +3,25 @@ from .models import BBTalk, Tag
 
 
 class BaseAdmin(admin.ModelAdmin):
-    exclude = ('user_id', )
-
+    exclude = ('user_id',)
+    
     def save_model(self, request, obj, form, change):
-        if not change:
-            # Admin 不支持 Keycloak 用户，需要手动设置 user_id
-            obj.user_id = str(request.user.id) if request.user.is_authenticated else ''
+        if not change and hasattr(obj, 'user_id'):
+            # 新建时自动设置user_id
+            from .models import User
+            if request.user.is_authenticated:
+                # 尝试获取对应的 User 记录
+                try:
+                    user = User.objects.get(username=request.user.username)
+                    obj.user_id = user.id
+                except User.DoesNotExist:
+                    # 如果用户不存在，创建一个
+                    user = User.objects.create(
+                        authelia_user_id=request.user.username,
+                        username=request.user.username,
+                        email=getattr(request.user, 'email', ''),
+                    )
+                    obj.user_id = user.id
         super().save_model(request, obj, form, change)
 
 
