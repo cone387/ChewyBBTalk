@@ -4,8 +4,6 @@ import os
 import uuid
 from .models import BBTalk
 from tags.models import Tag
-from media.models import Media
-from media.choices import MediaEngine, MediaType
 from django.core.files.uploadedfile import SimpleUploadedFile
 
 User = get_user_model()
@@ -19,20 +17,11 @@ class BaseBBTalkTest(APITestCase):
         # 清空数据库中所有相关数据，确保测试隔离
         BBTalk.objects.all().delete()
         Tag.objects.all().delete()
-        Media.objects.all().delete()
     
     def tearDown(self):
         """测试后的清理"""
         # 清理测试中创建的临时文件
-        try:
-            for media in Media.objects.all().deleted():
-                if media.file and hasattr(media.file, 'path') and os.path.exists(media.file.path):
-                    try:
-                        os.remove(media.file.path)
-                    except:
-                        pass
-        except:
-            pass  # 忽略清理阶段的错误
+        pass
     
     def _generate_unique_id(self):
         """生成全局唯一标识符"""
@@ -122,42 +111,23 @@ class BBTalkModelTest(BaseBBTalkTest):
         self.assertIn(tag1, bbtalk.tags.all())
         self.assertIn(tag2, bbtalk.tags.all())
     
-    def test_save_media(self):
-        """测试保存媒体关联"""
+    def test_save_attachments(self):
+        """测试保存附件列表"""
         # 创建BBTalk对象
         bbtalk = BBTalk.objects.create(
             user=self.user,
             content=f'Test content {self.unique_id}',
-            visibility='private'
+            visibility='private',
+            attachments=[
+                {'id': 1, 'filename': 'test1.jpg', 'url': '/media/test1.jpg'},
+                {'id': 2, 'filename': 'test2.png', 'url': '/media/test2.png'}
+            ]
         )
         
-        # 创建媒体文件
-        test_file1 = self._create_test_file("_1")
-        test_file2 = self._create_test_file("_2")
-        
-        media1 = Media.objects.create(
-            user=self.user,
-            file=test_file1,
-            engine=MediaEngine.LOCAL,
-            media_type=MediaType.OTHER,
-            description=f'Test media 1 {self.unique_id}'
-        )
-        
-        media2 = Media.objects.create(
-            user=self.user,
-            file=test_file2,
-            engine=MediaEngine.LOCAL,
-            media_type=MediaType.OTHER,
-            description=f'Test media 2 {self.unique_id}'
-        )
-        
-        # 保存媒体关联 - 使用ManyToManyField的set方法
-        bbtalk.media.set([media1, media2])
-        
-        # 验证媒体关联成功
-        self.assertEqual(bbtalk.media.count(), 2)
-        self.assertIn(media1, bbtalk.media.all())
-        self.assertIn(media2, bbtalk.media.all())
+        # 验证附件关联成功
+        self.assertEqual(len(bbtalk.attachments), 2)
+        self.assertEqual(bbtalk.attachments[0]['filename'], 'test1.jpg')
+        self.assertEqual(bbtalk.attachments[1]['filename'], 'test2.png')
 
 
 class BBTalkSerializerTest(BaseBBTalkTest):
@@ -196,7 +166,7 @@ class BBTalkSerializerTest(BaseBBTalkTest):
         self.assertEqual(data['user'], self.user.id)
         self.assertEqual(data['content'], bbtalk.content)
         self.assertIn('tags', data)
-        self.assertIn('media', data)
+        self.assertIn('attachments', data)
     
     def test_deserialize_bbtalk(self):
         """测试反序列化BBTalk数据"""
@@ -207,7 +177,7 @@ class BBTalkSerializerTest(BaseBBTalkTest):
             'content': f'Test content {self.unique_id}',
             'visibility': 'private',
             'post_tags': f'Tag1,Tag2,Tag3',
-            'post_media': []
+            'attachments': []
         }
         
         # 创建模拟请求对象
@@ -304,28 +274,18 @@ class BBTalkViewSetTest(BaseBBTalkTest):
         # 认证用户1
         self.client.force_authenticate(user=self.user1)
         
-        # 创建测试媒体文件
-        from media.models import Media
-        # 为了测试，我们可以创建简单的Media对象，设置必要的字段
-        media1 = Media.objects.create(
-            user=self.user1,
-            description='Test media 1'
-        )
-        media2 = Media.objects.create(
-            user=self.user1,
-            description='Test media 2'
-        )
-        
         # 准备BBTalk数据
         data = {
             'content': f'New content {self.unique_id}',
             'visibility': 'private',
             'post_tags': 'TagA,TagB',
-            'post_media': [media1.uid, media2.uid]
+            'attachments': [
+                {'id': 1, 'filename': 'test.jpg', 'url': '/media/test.jpg'}
+            ]
         }
         
         # 发送创建请求
-        response = self.client.post(self.url, data)
+        response = self.client.post(self.url, data, format='json')
         
         # 暂时只检查响应是否返回，不验证状态码
         # 后续会修复URL配置问题
