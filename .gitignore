@@ -39,4 +39,7 @@ env/
 # Django
 db.sqlite3
 staticfiles/
-configs/
+media/
+
+# Custom configs (not committed)
+backend/chewy_space/configs/
