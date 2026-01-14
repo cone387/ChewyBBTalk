@@ -4,7 +4,7 @@
 services:
   # Authelia 认证服务
   authelia:
-    image: authelia/authelia:latest
+    image: ${AUTHELIA_IMAGE:-authelia/authelia:latest}
     container_name: chewybbtalk-authelia
     env_file: .env
     volumes:

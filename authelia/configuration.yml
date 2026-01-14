@@ -1,20 +1,22 @@
 ---
 ###############################################################
-#                   Authelia 配置文件                          #
+#                   Authelia 配置文件 (4.37)                   #
 ###############################################################
 
 server:
   host: 0.0.0.0
   port: 9091
   path: "authelia"
-  enable_pprof: false
-  enable_expvars: false
 
 log:
   level: info
   format: text
 
 theme: auto
+
+jwt_secret: '{{ env "AUTHELIA_JWT_SECRET" }}'
+
+default_redirection_url: '{{ env "AUTHELIA_DEFAULT_REDIRECTION_URL" }}'
 
 totp:
   issuer: ChewyBBTalk
@@ -67,9 +69,9 @@ access_control:
 
 session:
   name: authelia_session
-  domain: localhost  # 生产环境改为你的域名
+  domain: '{{ env "AUTHELIA_SESSION_DOMAIN" }}'
   same_site: lax
-  secret: ${AUTHELIA_SESSION_SECRET:-insecure_session_secret_change_me}
+  secret: '{{ env "AUTHELIA_SESSION_SECRET" }}'
   expiration: 1h
   inactivity: 5m
   remember_me_duration: 1M
@@ -80,7 +82,7 @@ regulation:
   ban_time: 5m
 
 storage:
-  encryption_key: ${AUTHELIA_ENCRYPTION_KEY:-you_must_generate_a_random_string_of_more_than_twenty_chars}
+  encryption_key: '{{ env "AUTHELIA_STORAGE_ENCRYPTION_KEY" }}'
   local:
     path: /data/db.sqlite3
 
