@@ -82,31 +82,32 @@ start() {
     
     log_info "启动 ${CONTAINER_NAME} 容器..."
     
-    # 获取端口配置
+    # 加载环境变量
     source .env
-    local port=${PORT:-80}
+    local port=${PORT:-8020}
+    local data_dir=${DATA_DIR:-./data}
+    local authelia_config_dir=${AUTHELIA_CONFIG_DIR:-./authelia}
     
     # 创建必要的目录
-    mkdir -p ./data/media ./data/db ./data/authelia ./logs
+    mkdir -p "${data_dir}/media" "${data_dir}/db" "${data_dir}/authelia" ./logs
     
     # 运行容器（使用 --env-file 加载所有环境变量）
     docker run -d \
         --name ${CONTAINER_NAME} \
         -p ${port}:80 \
         --env-file .env \
-        -e DJANGO_SETTINGS_MODULE=chewy_space.settings \
-        -v "$(pwd)/data/media:/app/media" \
-        -v "$(pwd)/data/db:/app/backend/db" \
-        -v "$(pwd)/data/authelia:/data" \
+        -v "$(pwd)/${data_dir}/media:/app/media" \
+        -v "$(pwd)/${data_dir}/db:/app/backend/db" \
+        -v "$(pwd)/${data_dir}/authelia:/data" \
         -v "$(pwd)/logs:/app/logs" \
-        -v "$(pwd)/authelia/configuration.yml:/config/configuration.yml:ro" \
-        -v "$(pwd)/authelia/users_database.yml:/config/users_database.yml:ro" \
+        -v "$(pwd)/${authelia_config_dir}/configuration.yml:/config/configuration.yml:ro" \
+        -v "$(pwd)/${authelia_config_dir}/users_database.yml:/config/users_database.yml:ro" \
         --restart unless-stopped \
         ${IMAGE_NAME}:latest
     
     log_info "服务启动成功！"
-    log_info "访问地址: http://localhost:${PORT}"
-    log_info "Authelia 登录: http://localhost:${PORT}/authelia/"
+    log_info "访问地址: http://localhost:${port}"
+    log_info "Authelia 登录: http://localhost:${port}/authelia/"
     log_info "默认账号: admin / password (请立即修改)"
 }
 
@@ -199,6 +200,10 @@ shell() {
 
 # 备份数据
 backup() {
+    # 加载环境变量
+    source .env 2>/dev/null || true
+    local data_dir=${DATA_DIR:-./data}
+    
     BACKUP_DIR="./backups"
     BACKUP_FILE="${BACKUP_DIR}/backup-$(date +%Y%m%d-%H%M%S).tar.gz"
     
@@ -206,9 +211,9 @@ backup() {
     
     log_info "备份数据到 ${BACKUP_FILE}..."
     tar -czf ${BACKUP_FILE} \
-        ./data/media \
-        ./data/db \
-        ./data/authelia \
+        "${data_dir}/media" \
+        "${data_dir}/db" \
+        "${data_dir}/authelia" \
         .env \
         2>/dev/null || true
     
@@ -225,6 +230,10 @@ clean() {
         exit 0
     fi
     
+    # 加载环境变量
+    source .env 2>/dev/null || true
+    local data_dir=${DATA_DIR:-./data}
+    
     log_info "停止并删除容器..."
     docker rm -f ${CONTAINER_NAME} 2>/dev/null || true
     
@@ -232,7 +241,7 @@ clean() {
     docker rmi ${IMAGE_NAME}:latest 2>/dev/null || true
     
     log_info "删除数据..."
-    rm -rf ./data ./logs
+    rm -rf "${data_dir}" ./logs
     
     log_info "清理完成"
 }
