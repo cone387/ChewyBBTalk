@@ -134,6 +134,7 @@ class BBTalk(BaseModel):
         'Tag',
         related_name="bbtalks",
         verbose_name="标签",
+        blank=True,
         db_constraint=False,
         db_table="cb_bbtalk_tags_relations"
     )
