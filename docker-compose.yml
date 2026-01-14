@@ -57,10 +57,6 @@ services:
     restart: unless-stopped
     networks:
       - bbtalk-network
-    depends_on:
-      - authelia
-      - backend
-      - frontend
 
 networks:
   bbtalk-network:
