@@ -1,5 +1,13 @@
 from django.contrib import admin
-from .models import BBTalk, Tag
+from .models import BBTalk, Tag, User
+
+
+@admin.register(User)
+class UserAdmin(admin.ModelAdmin):
+    list_display = ('id', 'username', 'email', 'display_name', 'authelia_user_id', 'is_active', 'is_staff', 'last_login')
+    list_filter = ('is_active', 'create_time')
+    search_fields = ('username', 'email', 'authelia_user_id')
+    readonly_fields = ('authelia_user_id', 'create_time', 'update_time', 'last_login')
 
 
 class BaseAdmin(admin.ModelAdmin):
@@ -7,21 +15,8 @@ class BaseAdmin(admin.ModelAdmin):
     
     def save_model(self, request, obj, form, change):
         if not change and hasattr(obj, 'user'):
-            # 新建时自动设置user
-            from .models import User
-            if request.user.is_authenticated:
-                # 尝试获取对应的 User 记录
-                try:
-                    user = User.objects.get(username=request.user.username)
-                    obj.user = user
-                except User.DoesNotExist:
-                    # 如果用户不存在，创建一个
-                    user = User.objects.create(
-                        authelia_user_id=request.user.username,
-                        username=request.user.username,
-                        email=getattr(request.user, 'email', ''),
-                    )
-                    obj.user = user
+            # 新建时自动设置 user，request.user 已经是我们自定义的 User 模型
+            obj.user = request.user
         super().save_model(request, obj, form, change)
 
 
