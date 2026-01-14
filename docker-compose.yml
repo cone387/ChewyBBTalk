@@ -1,46 +1,44 @@
+version: '3.8'
+
 services:
-  backend:
+  app:
     build:
-      context: ./backend
+      context: .
       dockerfile: Dockerfile
-    container_name: bbtalk-backend
-    restart: unless-stopped
+    container_name: chewybbtalk
+    ports:
+      - "80:80"
     environment:
-      - DEBUG=False
-      - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-in-production}
-      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-*}
-      - DATABASE_URL=${DATABASE_URL:-}
-      - KEYCLOAK_URL=${KEYCLOAK_URL:-https://cone387.top}
-      - KEYCLOAK_REALM=${KEYCLOAK_REALM:-cone}
+      # Django 环境变量
+      - DJANGO_SETTINGS_MODULE=chewy_space.settings
+      - DEBUG=false
+      - SECRET_KEY=${SECRET_KEY:-change-this-secret-key-in-production}
+      - ALLOWED_HOSTS=*
+      - DATABASE_URL=${DATABASE_URL:-sqlite:///./db.sqlite3}
+      
+      # Authelia 配置
+      - AUTHELIA_SESSION_SECRET=${AUTHELIA_SESSION_SECRET:-change-this-in-production}
+      - AUTHELIA_ENCRYPTION_KEY=${AUTHELIA_ENCRYPTION_KEY:-you_must_generate_a_random_string_of_more_than_twenty_chars}
+      
+      # 七牛云配置(可选)
       - QINIU_ACCESS_KEY=${QINIU_ACCESS_KEY:-}
       - QINIU_SECRET_KEY=${QINIU_SECRET_KEY:-}
       - QINIU_BUCKET_NAME=${QINIU_BUCKET_NAME:-}
       - QINIU_BUCKET_DOMAIN=${QINIU_BUCKET_DOMAIN:-}
     volumes:
-      - backend_data:/app/chewy_space/data
-      - backend_media:/app/chewy_space/media
-    ports:
-      - "8000:8000"
-    networks:
-      - bbtalk-network
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: bbtalk-frontend
+      # 持久化数据
+      - ./data/media:/app/media
+      - ./data/db:/app/backend/db
+      - ./data/authelia:/data
+      - ./logs:/app/logs
+      
+      # 配置文件(可覆盖)
+      - ./authelia/configuration.yml:/config/configuration.yml:ro
+      - ./authelia/users_database.yml:/config/users_database.yml:ro
     restart: unless-stopped
-    ports:
-      - "8080:80"
-    depends_on:
-      - backend
-    networks:
-      - bbtalk-network
-
-volumes:
-  backend_data:
-  backend_media:
-
-networks:
-  bbtalk-network:
-    driver: bridge
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/api/v1/bbtalk/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

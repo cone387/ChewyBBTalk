@@ -69,19 +69,15 @@ COPY --from=backend-builder /app/chewy_space /app/backend
 # 复制前端构建产物
 COPY --from=frontend-builder /app/dist /app/frontend
 
-# 复制 nginx 配置
-COPY deploy/single-container/nginx.conf /etc/nginx/nginx.conf
-
-# 复制 Authelia 配置
-COPY deploy/single-container/authelia /app/authelia
-
-# 复制 supervisor 配置
-COPY deploy/single-container/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+# 复制配置文件
+COPY nginx.conf /etc/nginx/nginx.conf
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY authelia /config
 
 # 创建必要的目录
-RUN mkdir -p /app/logs /app/media /app/authelia/data /run/nginx && \
+RUN mkdir -p /app/logs /app/media /data /run/nginx && \
     chown -R www-data:www-data /app/media /app/logs && \
-    chown -R nobody:nogroup /app/authelia
+    chown -R nobody:nogroup /data
 
 # 暴露端口
 EXPOSE 80

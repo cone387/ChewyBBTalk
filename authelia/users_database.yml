@@ -26,10 +26,5 @@ users:
     groups:
       - users
 
-# ============================================
 # 生成新密码的命令:
-# ============================================
 # docker run --rm authelia/authelia:latest authelia crypto hash generate argon2 --password 'your-password'
-#
-# 或者使用在线工具:
-# https://argon2.online/
