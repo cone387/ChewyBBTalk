@@ -21,6 +21,9 @@ HOST="${BACKEND_HOST:-0.0.0.0}"
 PORT="${BACKEND_PORT:-8000}"
 PID_FILE=".backend.pid"
 
+# 环境参数（从命令行参数获取，默认为 dev）
+ENV="${1:-dev}"
+
 # 日志函数
 log_info() {
     echo -e "${GREEN}[INFO]${NC} $1"
@@ -103,8 +106,11 @@ kill_old_process() {
 load_env() {
     log_step "加载环境变量..."
     
-    # 设置开发环境配置模块
-    export CHEWYBBTALK_SETTINGS_MODULE="${CHEWYBBTALK_SETTINGS_MODULE:-configs.dev_settings}"
+    # 设置环境特定配置模块（如果未通过环境变量指定）
+    if [ -z "$CHEWYBBTALK_SETTINGS_MODULE" ]; then
+        export CHEWYBBTALK_SETTINGS_MODULE="configs.${ENV}_settings"
+    fi
+    
     export DJANGO_SETTINGS_MODULE="chewy_space.settings"
     
     # 如果存在 .env 文件，加载它
@@ -121,6 +127,7 @@ load_env() {
     export LANGUAGE_CODE="${LANGUAGE_CODE:-zh-hans}"
     export TIME_ZONE="${TIME_ZONE:-Asia/Shanghai}"
     
+    log_info "环境: $ENV"
     log_info "配置模块: $CHEWYBBTALK_SETTINGS_MODULE"
     log_info "调试模式: $DEBUG"
 }
@@ -219,6 +226,16 @@ main() {
     echo "    ChewyBBTalk 后端服务启动脚本"
     echo "=========================================="
     echo ""
+    
+    # 验证环境参数
+    if [[ ! "$ENV" =~ ^(dev|prod|test)$ ]]; then
+        log_error "无效的环境参数: $ENV"
+        log_info "用法: $0 [dev|prod|test]"
+        log_info "  dev  - 开发环境 (默认)"
+        log_info "  prod - 生产环境"
+        log_info "  test - 测试环境"
+        exit 1
+    fi
     
     check_backend_dir
     kill_old_process
