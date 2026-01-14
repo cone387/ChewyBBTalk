@@ -19,7 +19,7 @@ BACKEND_DIR="backend"
 MANAGE_PY="$BACKEND_DIR/chewy_space/manage.py"
 HOST="${BACKEND_HOST:-0.0.0.0}"
 PORT="${BACKEND_PORT:-8000}"
-PID_FILE=".backend.pid"
+SCRIPT_NAME="manage.py runserver"
 
 # 环境参数（从命令行参数获取，默认为 dev）
 ENV="${1:-dev}"
@@ -58,25 +58,9 @@ check_backend_dir() {
 kill_old_process() {
     log_step "检查并停止旧的后端进程..."
     
-    # 方式1: 通过 PID 文件
-    if [ -f "$PID_FILE" ]; then
-        OLD_PID=$(cat "$PID_FILE")
-        if ps -p $OLD_PID > /dev/null 2>&1; then
-            log_info "发现旧进程 (PID: $OLD_PID)，正在停止..."
-            kill $OLD_PID 2>/dev/null || true
-            sleep 1
-            
-            # 如果进程还在，强制杀死
-            if ps -p $OLD_PID > /dev/null 2>&1; then
-                log_warn "进程未响应，强制终止..."
-                kill -9 $OLD_PID 2>/dev/null || true
-            fi
-            log_info "旧进程已停止"
-        fi
-        rm -f "$PID_FILE"
-    fi
+    local found=false
     
-    # 方式2: 通过端口查找进程
+    # 方式1: 通过端口查找进程
     if command -v lsof &> /dev/null; then
         PORT_PID=$(lsof -ti:$PORT 2>/dev/null || true)
         if [ -n "$PORT_PID" ]; then
@@ -90,15 +74,29 @@ kill_old_process() {
                 kill -9 $PORT_PID 2>/dev/null || true
             fi
             log_info "端口 $PORT 已释放"
+            found=true
         fi
     fi
     
-    # 方式3: 通过进程名查找（备用）
-    DJANGO_PIDS=$(pgrep -f "manage.py runserver" 2>/dev/null || true)
+    # 方式2: 通过进程名查找
+    DJANGO_PIDS=$(pgrep -f "$SCRIPT_NAME" 2>/dev/null || true)
     if [ -n "$DJANGO_PIDS" ]; then
-        log_info "发现 Django 进程，正在停止..."
+        log_info "发现 Django 进程 (PIDs: $(echo $DJANGO_PIDS | tr '\n' ' '))，正在停止..."
         echo "$DJANGO_PIDS" | xargs kill 2>/dev/null || true
         sleep 1
+        
+        # 如果进程还在，强制杀死
+        for pid in $DJANGO_PIDS; do
+            if ps -p $pid > /dev/null 2>&1; then
+                log_warn "进程 $pid 未响应，强制终止..."
+                kill -9 $pid 2>/dev/null || true
+            fi
+        done
+        found=true
+    fi
+    
+    if [ "$found" = false ]; then
+        log_info "未发现旧进程"
     fi
 }
 
@@ -167,7 +165,6 @@ start_backend() {
     
     cd $BACKEND_DIR
     
-    # 启动服务并记录 PID
     log_info "服务地址: http://$HOST:$PORT"
     log_info "按 Ctrl+C 停止服务"
     echo ""
@@ -176,9 +173,7 @@ start_backend() {
     uv run python chewy_space/manage.py runserver $HOST:$PORT &
     BACKEND_PID=$!
     
-    # 保存 PID
     cd - > /dev/null
-    echo $BACKEND_PID > "$PID_FILE"
     
     # 等待服务启动
     sleep 2
@@ -195,7 +190,6 @@ start_backend() {
         wait $BACKEND_PID
     else
         log_error "后端服务启动失败"
-        rm -f "$PID_FILE"
         exit 1
     fi
 }
@@ -205,13 +199,19 @@ cleanup() {
     echo ""
     log_info "正在停止后端服务..."
     
-    if [ -f "$PID_FILE" ]; then
-        PID=$(cat "$PID_FILE")
-        if ps -p $PID > /dev/null 2>&1; then
-            kill $PID 2>/dev/null || true
+    # 通过端口查找并停止进程
+    if command -v lsof &> /dev/null; then
+        PORT_PID=$(lsof -ti:$PORT 2>/dev/null || true)
+        if [ -n "$PORT_PID" ]; then
+            kill $PORT_PID 2>/dev/null || true
             sleep 1
         fi
-        rm -f "$PID_FILE"
+    fi
+    
+    # 通过进程名停止
+    DJANGO_PIDS=$(pgrep -f "$SCRIPT_NAME" 2>/dev/null || true)
+    if [ -n "$DJANGO_PIDS" ]; then
+        echo "$DJANGO_PIDS" | xargs kill 2>/dev/null || true
     fi
     
     log_info "后端服务已停止"

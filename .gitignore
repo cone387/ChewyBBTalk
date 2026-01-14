@@ -43,3 +43,7 @@ media/
 
 # Custom configs (not committed)
 backend/chewy_space/configs/
+
+# Temporary files
+attachments.md
+*.pid
