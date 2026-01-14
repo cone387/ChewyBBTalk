@@ -40,6 +40,10 @@ class User(models.Model):
     update_time = models.DateTimeField(auto_now=True, verbose_name="更新时间")
     last_login = models.DateTimeField(null=True, blank=True, verbose_name="最后登录")
 
+    # Django 认证系统要求的属性
+    USERNAME_FIELD = 'username'
+    REQUIRED_FIELDS = ['email']
+
     class Meta:
         db_table = "cb_users"
         verbose_name = verbose_name_plural = "用户"
@@ -64,6 +68,15 @@ class User(models.Model):
     @property
     def is_anonymous(self):
         return False
+
+    def has_perm(self, perm, obj=None):
+        """检查用户是否有指定权限"""
+        # 管理员拥有所有权限
+        return self.is_staff
+
+    def has_module_perms(self, app_label):
+        """检查用户是否有指定应用的权限"""
+        return self.is_staff
 
 
 class BaseModel(models.Model):

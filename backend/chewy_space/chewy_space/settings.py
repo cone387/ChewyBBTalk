@@ -54,6 +54,14 @@ INSTALLED_APPS = [
     'chewy_attachment.django_app',
 ]
 
+# 自定义用户模型
+AUTH_USER_MODEL = 'bbtalk.User'
+
+# 认证后端（支持 Authelia 头部认证）
+AUTHENTICATION_BACKENDS = [
+    'bbtalk.authentication.AutheliaAuthBackend',
+]
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'corsheaders.middleware.CorsMiddleware',
@@ -61,6 +69,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'bbtalk.authentication.AutheliaAdminMiddleware',  # Authelia admin 自动登录
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
