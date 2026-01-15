@@ -3,6 +3,7 @@ import { Provider } from 'react-redux'
 import { useEffect, useState } from 'react'
 import { store } from './store'
 import BBTalkPage from './pages/BBTalkPage'
+import PublicBBTalkPage from './pages/PublicBBTalkPage'
 import BBTalkDetailPage from './pages/BBTalkDetailPage'
 import { initAuth } from './services/auth'
 
@@ -114,14 +115,14 @@ export default function App({ basename = '/' }: AppProps) {
       >
         <Routes>
           {/* 公开页面 - 无需登录 */}
-          <Route path="/public" element={<BBTalkPage isPublic={true} isAuthenticated={isAuthenticated} />} />
+          <Route path="/public" element={<PublicBBTalkPage />} />
           
           {/* 私有页面 - 未登录跳转到公开页 */}
           <Route 
             path="/" 
             element={
               isAuthenticated 
-                ? <BBTalkPage isPublic={false} isAuthenticated={isAuthenticated} /> 
+                ? <BBTalkPage /> 
                 : <Navigate to="/public" replace />
             } 
           />

@@ -27,7 +27,6 @@ import type { Tag, Attachment } from '../types'
 // Props 接口
 interface BBTalkPageProps {
   isPublic?: boolean       // 是否公开页面
-  isAuthenticated?: boolean // 是否已登录
 }
 
 // 可拖动的标签项组件
@@ -98,7 +97,7 @@ function SortableTagItem({
   )
 }
 
-export default function BBTalkPage({ isPublic = false, isAuthenticated = false }: BBTalkPageProps) {
+export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
   const dispatch = useAppDispatch()
   const { bbtalks, isLoading, hasMore, totalCount } = useAppSelector((state) => state.bbtalk)
   const { tags } = useAppSelector((state) => state.tag)
@@ -394,31 +393,10 @@ export default function BBTalkPage({ isPublic = false, isAuthenticated = false }
 
   return (
     <div className="h-full bg-gray-50">
-      {/* 公开页面顶部栏 */}
-      {isPublic && (
-        <div className="bg-white border-b border-gray-200 px-4 py-3">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <h1 className="text-lg font-semibold text-gray-800">公开的碎碎念</h1>
-            {!isAuthenticated && (
-              <button
-                onClick={handleLogin}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-2"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                </svg>
-                登录
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* 整体容器 - 左右内容作为整体居中 */}
-      <div className={`h-full max-w-7xl w-full mx-auto px-4 ${isPublic ? 'pt-4' : ''}`} style={isPublic ? { height: 'calc(100% - 57px)' } : undefined}>
+      <div className="h-full max-w-7xl w-full mx-auto px-4">
         <div className="h-full flex gap-3">
-          {/* 左侧菜单块 - 公开页面隐藏 */}
-          {!isPublic && (
+          {/* 左侧菜单块 - 窗口缩窄时隐藏 */}
           <div className="hidden lg:flex py-8 flex-shrink-0" style={{ width: '256px' }}>
           <div className="w-full bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col" style={{ height: 'calc(100vh - 4rem)' }}>
           {/* 搜索标题和搜索框 */}
@@ -519,24 +497,49 @@ export default function BBTalkPage({ isPublic = false, isAuthenticated = false }
           </div>
         </div>
           </div>
-          )}
 
           {/* 右侧内容区 */}
           <div ref={containerRef} className="flex-1 min-w-0 py-8 overflow-y-auto">
             {/* 滚动内容区 */}
             <div className="w-full px-4 lg:px-6">
-          {/* 编辑框 - 仅登录后显示 */}
-          {!isPublic && (
-          <div 
-            className={`transition-all duration-300 mb-6 ${
-              showEditor ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none h-0 mb-0 overflow-hidden'
-            }`}
-          >
-            <BBTalkEditor 
-              onPublish={handlePublish} 
-              isPublishing={isPublishing}
-            />
-          </div>
+          {/* 编辑框 / 登录提示 */}
+          {isPublic ? (
+            /* 公开页面显示登录提示 */
+            <div className="mb-6 bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-gray-800 font-medium">来都来了，说两句？</p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleLogin}
+                  className="px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                  </svg>
+                  登录
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* 已登录显示编辑框 */
+            <div 
+              className={`transition-all duration-300 mb-6 ${
+                showEditor ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none h-0 mb-0 overflow-hidden'
+              }`}
+            >
+              <BBTalkEditor 
+                onPublish={handlePublish} 
+                isPublishing={isPublishing}
+              />
+            </div>
           )}
 
           {/* BBTalk 列表 */}
