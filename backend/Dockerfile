@@ -2,13 +2,6 @@ FROM m.daocloud.io/docker.io/python:3.13-slim
 
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    libpq-dev \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
@@ -16,7 +9,8 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 COPY pyproject.toml README.md ./
 COPY chewy_space/ ./chewy_space/
 
-# Install dependencies using uv
+# Configure PyPI mirror and install dependencies
+ENV UV_INDEX_URL=https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple
 RUN uv sync --no-dev
 
 WORKDIR /app/chewy_space

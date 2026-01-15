@@ -1,4 +1,4 @@
-FROM node:20-alpine AS builder
+FROM m.daocloud.io/docker.io/node:20-alpine AS builder
 
 WORKDIR /app
 
@@ -12,7 +12,7 @@ ENV VITE_BASE_PATH=/bbtalk/
 RUN npm run build
 
 # Production stage
-FROM nginx:alpine
+FROM m.daocloud.io/docker.io/nginx:alpine
 
 COPY --from=builder /app/dist /usr/share/nginx/html/bbtalk
 COPY nginx.conf /etc/nginx/conf.d/default.conf

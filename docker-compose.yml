@@ -4,7 +4,7 @@
 services:
   # Authelia 认证服务
   authelia:
-    image: ${AUTHELIA_IMAGE:-authelia/authelia:latest}
+    image: m.daocloud.io/docker.io/${AUTHELIA_IMAGE:-authelia/authelia:latest}
     container_name: chewybbtalk-authelia
     env_file: .env
     volumes:
@@ -46,7 +46,7 @@ services:
 
   # Nginx 反向代理
   nginx:
-    image: nginx:alpine
+    image: m.daocloud.io/docker.io/nginx:alpine
     container_name: chewybbtalk-nginx
     ports:
       - "${PORT:-8020}:80"
