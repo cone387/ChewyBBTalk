@@ -1,27 +1,6 @@
-import { getAuthToken } from '../auth';
+import { getAuthToken, login } from '../auth';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-
-/**
- * 获取开发环境的认证请求头
- * 用于本地开发时模拟 Authelia 认证
- */
-function getDevAuthHeaders(): Record<string, string> {
-  // 开发环境：从环境变量或 localStorage 获取测试用户信息
-  const devUserId = import.meta.env.VITE_DEV_USER_ID || localStorage.getItem('dev_user_id');
-  const devUsername = import.meta.env.VITE_DEV_USERNAME || localStorage.getItem('dev_username');
-  
-  if (devUserId && devUsername) {
-    return {
-      'X-Authelia-User-Id': devUserId,
-      'X-Username': devUsername,
-      'X-Email': import.meta.env.VITE_DEV_EMAIL || localStorage.getItem('dev_email') || '',
-      'X-Groups': import.meta.env.VITE_DEV_GROUPS || localStorage.getItem('dev_groups') || '',
-    };
-  }
-  
-  return {};
-}
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 class ApiClient {
   private baseUrl: string;
@@ -41,27 +20,22 @@ class ApiClient {
       ...(options.headers as Record<string, string> || {}),
     };
 
-    // Bearer token 认证（wujie 子应用模式）
+    // Bearer token 认证
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
-    
-    // 开发环境认证头
-    const devHeaders = getDevAuthHeaders();
-    Object.assign(headers, devHeaders);
 
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       ...options,
       headers,
-      credentials: 'include', // 重要：支持 cookie 认证
+      credentials: 'include',
     });
 
-    // 处理 401 未认证：重定向到 Authelia 登录页
-    if (response.status === 401 || response.status === 302) {
-      const autheliaUrl = import.meta.env.VITE_AUTHELIA_URL || '/authelia';
-      const currentUrl = encodeURIComponent(window.location.href);
-      window.location.href = `${autheliaUrl}/?rd=${currentUrl}`;
-      throw new Error('未认证，跳转登录...');
+    // 处理 401 未认证：启动 OIDC 登录流程
+    if (response.status === 401) {
+      console.log('[ApiClient] 未认证，启动登录流程...');
+      await login();
+      throw new Error('未认证，正在跳转登录...');
     }
 
     if (!response.ok) {

@@ -71,32 +71,20 @@ http {
         }
 
         # ============================================
-        # 后端 API（需要认证）
+        # 后端 API - 由后端验证 JWT Token
         # ============================================
         location /api/ {
-            # OPTIONS 请求直接代理到后端（CORS preflight）
+            # OPTIONS 请求直接返回 CORS 头，不走认证
             if ($request_method = 'OPTIONS') {
-                proxy_pass http://backend;
-                break;
+                add_header 'Access-Control-Allow-Origin' '$http_origin' always;
+                add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, PATCH, DELETE, OPTIONS' always;
+                add_header 'Access-Control-Allow-Headers' 'Authorization, Content-Type, X-Requested-With' always;
+                add_header 'Access-Control-Allow-Credentials' 'true' always;
+                add_header 'Access-Control-Max-Age' 86400;
+                return 204;
             }
             
-            # Authelia 认证
-            auth_request /authelia/api/verify;
-            auth_request_set $user $upstream_http_remote_user;
-            auth_request_set $groups $upstream_http_remote_groups;
-            auth_request_set $name $upstream_http_remote_name;
-            auth_request_set $email $upstream_http_remote_email;
-            
-            # 认证失败重定向
-            error_page 401 =302 https://$host:${HTTPS_PORT}/authelia/?rd=$scheme://$http_host$request_uri;
-            
-            # 转发认证头到后端
-            proxy_set_header Remote-User $user;
-            proxy_set_header Remote-Groups $groups;
-            proxy_set_header Remote-Name $name;
-            proxy_set_header Remote-Email $email;
-            
-            # 代理到后端
+            # 直接代理到后端，由后端验证 JWT
             proxy_pass http://backend;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;

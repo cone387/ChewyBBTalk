@@ -90,3 +90,84 @@ notifier:
   disable_startup_check: true
   filesystem:
     filename: /data/notification.txt
+
+# OIDC Provider 配置
+identity_providers:
+  oidc:
+    hmac_secret: dev-oidc-hmac-secret-at-least-32-characters-long
+    issuer_private_key: |
+      -----BEGIN PRIVATE KEY-----
+      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
+      BxgfgoJY8V1p0TtQDmNPk0Np6FP56Q==
+      -----END PRIVATE KEY-----
+    access_token_lifespan: 1h
+    authorize_code_lifespan: 1m
+    id_token_lifespan: 1h
+    refresh_token_lifespan: 90m
+    clients:
+      - id: bbtalk
+        description: ChewyBBTalk
+        public: true
+        authorization_policy: one_factor
+        redirect_uris:
+          - https://localhost:8443/callback
+          - https://127.0.0.1:8443/callback
+        scopes:
+          - openid
+          - profile
+          - email
+          - groups
+        grant_types:
+          - authorization_code
+          - refresh_token
+        response_types:
+          - code
+        userinfo_signing_algorithm: none

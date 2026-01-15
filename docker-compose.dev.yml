@@ -54,6 +54,7 @@ services:
     volumes:
       - ./authelia/configuration.yml:/config/configuration.yml:ro
       - ./authelia/users_database.yml:/config/users_database.yml:ro
+      - ./authelia/oidc.key:/config/oidc.key:ro
       - authelia_data:/data
     environment:
       - TZ=Asia/Shanghai
@@ -69,7 +70,7 @@ services:
     volumes:
       - ./frontend:/app:rw
     environment:
-      - VITE_API_BASE_URL=https://localhost:${HTTPS_PORT:-8443}
+      - VITE_API_BASE_URL=
       - VITE_MEDIA_URL_PROTOCOL=https
       - VITE_AUTHELIA_URL=/authelia
     command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173"

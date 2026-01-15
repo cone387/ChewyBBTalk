@@ -1,8 +1,8 @@
 import { apiClient } from './api/apiClient';
-import { getDevAuthHeaders } from './auth';
+import { getAuthToken } from './auth';
 import type { Attachment } from '../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 function transformAttachment(data: any): Attachment {
   // 后端返回字段映射:
@@ -65,9 +65,11 @@ export const attachmentApi = {
     if (params?.media_type) formData.append('media_type', params.media_type);
     if (params?.description) formData.append('description', params.description);
 
-    const headers: Record<string, string> = {
-      ...getDevAuthHeaders(),
-    };
+    const headers: Record<string, string> = {};
+    const token = getAuthToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
 
     const response = await fetch(`${API_BASE_URL}/api/v1/attachments/files/`, {
       method: 'POST',

@@ -195,7 +195,8 @@ CORS_ALLOW_HEADERS = [
 # REST Framework
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'bbtalk.authentication.AutheliaAuthentication',
+        'bbtalk.authentication.OIDCAuthentication',  # OIDC JWT 认证（优先）
+        'bbtalk.authentication.AutheliaAuthentication',  # Authelia 头部认证（后备）
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
@@ -231,6 +232,10 @@ SPECTACULAR_SETTINGS = {
 # - Remote-User: 用户名
 # - Remote-Email: 邮箱
 # - Remote-Groups: 用户组
+
+# Authelia OIDC 配置
+# Authelia 作为 OIDC Provider 的 issuer URL
+AUTHELIA_ISSUER_URL = os.getenv('AUTHELIA_ISSUER_URL', 'http://authelia:9091/authelia')
 
 # Media files
 MEDIA_URL = os.getenv('MEDIA_URL', '/media/')
