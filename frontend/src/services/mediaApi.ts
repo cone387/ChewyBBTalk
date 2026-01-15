@@ -13,6 +13,11 @@ function transformAttachment(data: any): Attachment {
   // size/file_size -> fileSize
   let url = data.preview_url || data.url || data.file;
   
+  // 处理相对路径：如果 URL 以 / 开头，拼接基础 URL
+  if (url && url.startsWith('/')) {
+    url = API_BASE_URL + url;
+  }
+  
   // 协议转换
   const targetProtocol = import.meta.env.VITE_MEDIA_URL_PROTOCOL || 'https';
   if (url) {

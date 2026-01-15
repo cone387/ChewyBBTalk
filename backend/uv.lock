@@ -22,14 +22,14 @@ wheels = [
 
 [[package]]
 name = "chewy-attachment"
-version = "0.3.0"
+version = "0.3.2"
 source = { registry = "https://pypi.tuna.tsinghua.edu.cn/simple" }
 dependencies = [
     { name = "python-magic" },
 ]
-sdist = { url = "https://pypi.tuna.tsinghua.edu.cn/packages/f1/80/6ea8c411a68d8262c5ea8fd7a75dbe6e3a452deb665c7ec6daba0c230161/chewy_attachment-0.3.0.tar.gz", hash = "sha256:24736af77c765bb69dfe4102a04f6616072ea45d47ef590eca25c69e0102186b", size = 24856, upload-time = "2026-01-14T09:01:49.564Z" }
+sdist = { url = "https://pypi.tuna.tsinghua.edu.cn/packages/3c/87/6325b078f6c9fcb48ca635aeb9049377d52d2a1d506eb5b361a70fbcc4aa/chewy_attachment-0.3.2.tar.gz", hash = "sha256:8f7737a01b24073f12ff2642f4d4e780fa37368ca1eafc17a35e53124a5a3642", size = 24975, upload-time = "2026-01-15T05:58:58.399Z" }
 wheels = [
-    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/f8/04/6eecfb0b170e73460ee27fec68c5a2ec0077a5f3a95057ad35c01d055efb/chewy_attachment-0.3.0-py3-none-any.whl", hash = "sha256:7dc8674d4a969f0fd0e59cc2f14a6d7908e48f802157e1a39a916a0f6f3e42a4", size = 33893, upload-time = "2026-01-14T09:01:47.74Z" },
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/12/ce/b7b8269547bde2bbfb43e27f180f3043857c66132aab586b02e1f2e3cf6d/chewy_attachment-0.3.2-py3-none-any.whl", hash = "sha256:8771a1a4e935a227b98489fa94003ebcb82849d057efb43e3e65844722d87c86", size = 34002, upload-time = "2026-01-15T05:58:56.242Z" },
 ]
 
 [package.optional-dependencies]
@@ -55,7 +55,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "chewy-attachment", extras = ["django"], specifier = ">=0.3.0" },
+    { name = "chewy-attachment", extras = ["django"], specifier = ">=0.3.2" },
     { name = "django", specifier = ">=5.2" },
     { name = "django-cors-headers", specifier = ">=4.3.0" },
     { name = "django-filter", specifier = ">=24.0" },

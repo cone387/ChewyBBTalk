@@ -1,10 +1,19 @@
 import { apiClient } from './apiClient';
 import type { BBTalk, PaginatedResponse, Attachment } from '../../types';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
 function transformAttachment(data: any): Attachment {
+  let url = data.url || '';
+  
+  // 处理相对路径：如果 URL 以 / 开头，拼接基础 URL
+  if (url && url.startsWith('/')) {
+    url = API_BASE_URL + url;
+  }
+  
   return {
     uid: data.uid || data.id || '',
-    url: data.url || '',
+    url: url,
     type: data.type || 'file',
     filename: data.filename,
     originalFilename: data.original_filename,
