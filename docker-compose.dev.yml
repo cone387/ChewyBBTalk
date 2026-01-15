@@ -8,7 +8,7 @@
 # 使用方法:
 #   1. 生成 HTTPS 证书（首次）：./generate-cert.sh
 #   2. 启动服务：docker-compose -f docker-compose.dev.yml up -d
-#   3. 访问：https://localhost:4010
+#   3. 访问：https://localhost:8021
 
 services:
   # ============================================
@@ -18,7 +18,7 @@ services:
     image: m.daocloud.io/docker.io/nginx:alpine
     container_name: chewybbtalk-nginx-dev
     ports:
-      - "${PORT:-4010}:443"
+      - "${PORT:-8021}:443"
     volumes:
       - ./nginx.dev.https.conf.tmpl:/etc/nginx/nginx.conf.tmpl:ro
       - ./certs:/etc/nginx/certs:ro
@@ -26,7 +26,7 @@ services:
     environment:
       - FRONTEND_UPSTREAM=${FRONTEND_UPSTREAM:-frontend:4010}
       - BACKEND_UPSTREAM=${BACKEND_UPSTREAM:-backend:8020}
-      - HTTPS_PORT=${PORT:-4010}
+      - HTTPS_PORT=${PORT:-8021}
     command: >
       sh -c '
         export FRONTEND_UPSTREAM BACKEND_UPSTREAM HTTPS_PORT;

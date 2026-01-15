@@ -81,7 +81,7 @@ npm run dev
 
 ### 3. 访问
 
-- 前端：http://localhost:4010
+- 前端：http://localhost:8021
 - 后端 API：http://localhost:8020/api/v1/
 - API 文档：http://localhost:8020/api/schema/swagger-ui/
 - Admin 后台：http://localhost:8020/admin/
@@ -178,7 +178,7 @@ window.__AUTH_BRIDGE__ = {
 // 加载子应用
 startApp({
   name: 'bbtalk',
-  url: 'http://localhost:4010',
+  url: 'http://localhost:8021',
   el: '#subapp-container'
 });
 ```

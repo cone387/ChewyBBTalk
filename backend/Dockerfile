@@ -20,4 +20,7 @@ RUN uv run python manage.py collectstatic --noinput || true
 
 EXPOSE 8020
 
-CMD ["uv", "run", "gunicorn", "--bind", "0.0.0.0:8020", "--workers", "2", "chewy_space.wsgi:application"]
+# 支持通过环境变量配置 workers 数量
+ENV GUNICORN_WORKERS=2
+
+CMD ["sh", "-c", "uv run gunicorn --bind 0.0.0.0:8020 --workers ${GUNICORN_WORKERS} chewy_space.wsgi:application"]
