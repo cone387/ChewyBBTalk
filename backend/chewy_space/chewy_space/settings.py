@@ -57,9 +57,9 @@ INSTALLED_APPS = [
 # 自定义用户模型
 AUTH_USER_MODEL = 'bbtalk.User'
 
-# 认证后端（支持 Authelia 头部认证）
+# 认证后端（仅保留 Django 默认，用于 admin 等场景）
 AUTHENTICATION_BACKENDS = [
-    'bbtalk.authentication.AutheliaAuthBackend',
+    'django.contrib.auth.backends.ModelBackend',
 ]
 
 MIDDLEWARE = [
@@ -69,7 +69,6 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'bbtalk.authentication.AutheliaAdminMiddleware',  # Authelia admin 自动登录
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -185,18 +184,12 @@ CORS_ALLOW_HEADERS = [
     'user-agent',
     'x-csrftoken',
     'x-requested-with',
-    # Authelia 认证相关头
-    'x-authelia-user-id',
-    'x-username',
-    'x-email',
-    'x-groups',
 ]
 
 # REST Framework
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'bbtalk.authentication.OIDCAuthentication',  # OIDC JWT 认证（优先）
-        'bbtalk.authentication.AutheliaAuthentication',  # Authelia 头部认证（后备）
+        'bbtalk.authentication.OIDCAuthentication',  # OIDC JWT 认证
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
@@ -226,12 +219,6 @@ SPECTACULAR_SETTINGS = {
     'COMPONENT_SPLIT_PATCH': True,
     'COMPONENT_SPLIT_REQUEST': True,
 }
-
-# Authelia (通过反向代理认证，无需额外配置)
-# Authelia 会在 HTTP 请求头中注入用户信息：
-# - Remote-User: 用户名
-# - Remote-Email: 邮箱
-# - Remote-Groups: 用户组
 
 # Authelia OIDC 配置
 # Authelia 作为 OIDC Provider 的 issuer URL

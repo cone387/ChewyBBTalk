@@ -1,4 +1,4 @@
-# 开发环境 Nginx 配置（HTTPS + Authelia）
+# 开发环境 Nginx 配置（HTTPS + Authelia OIDC）
 # 支持前端/后端在本地或容器中运行
 
 events {
@@ -45,7 +45,7 @@ http {
         ssl_ciphers HIGH:!aNULL:!MD5;
 
         # ============================================
-        # Authelia 认证服务
+        # Authelia OIDC Provider
         # ============================================
         location /authelia {
             proxy_pass http://authelia;
@@ -54,20 +54,6 @@ http {
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             proxy_set_header X-Forwarded-Proto $scheme;
             proxy_set_header X-Forwarded-Host $http_host;
-        }
-
-        # Authelia 认证验证端点（内部使用）
-        location /authelia/api/verify {
-            internal;
-            proxy_pass http://authelia;
-            proxy_pass_request_body off;
-            proxy_set_header Content-Length "";
-            proxy_set_header X-Original-URL $scheme://$http_host$request_uri;
-            proxy_set_header X-Forwarded-Method $request_method;
-            proxy_set_header X-Forwarded-Proto $scheme;
-            proxy_set_header X-Forwarded-Host $http_host;
-            proxy_set_header X-Forwarded-Uri $request_uri;
-            proxy_set_header X-Forwarded-For $remote_addr;
         }
 
         # ============================================
