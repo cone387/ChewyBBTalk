@@ -1,41 +1,98 @@
 # 开发环境 Docker Compose
-# 只运行 Nginx，前端后端在本地运行，跳过 Authelia 认证
+# 默认全容器运行，支持通过环境变量配置前后端地址
+#
+# 配置方式：修改 .env.dev 文件
+#   FRONTEND_UPSTREAM: frontend:5173 (容器) 或 host.docker.internal:4010 (本地)
+#   BACKEND_UPSTREAM: backend:8000 (容器) 或 host.docker.internal:8000 (本地)
+#   ENABLE_AUTHELIA: true/false
 #
 # 使用方法:
-#   docker-compose -f docker-compose.dev.yml up -d
-#
-# 本地启动前端后端:
-#   cd frontend && npm run dev      # 前端运行在 http://localhost:4010
-#   cd backend/chewy_space && uv run python manage.py runserver 8000  # 后端运行在 http://localhost:8000
-#
-# 访问地址: http://127.0.0.1:8020
-# 模拟用户: admin (DEV_USERNAME in .env.dev)
+#   1. 生成 HTTPS 证书（首次）：./generate-cert.sh
+#   2. 启动服务：docker-compose -f docker-compose.dev.yml up -d
+#   3. 访问：https://localhost:8443
 
 services:
-  # Nginx 反向代理（开发环境跳过 Authelia）
+  # ============================================
+  # Nginx 反向代理
+  # ============================================
   nginx:
     image: m.daocloud.io/docker.io/nginx:alpine
     container_name: chewybbtalk-nginx-dev
     ports:
       - "${PORT:-8020}:80"
+      - "${HTTPS_PORT:-8443}:443"
     volumes:
-      - ./nginx.dev.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx.dev.https.conf.tmpl:/etc/nginx/nginx.conf.tmpl:ro
+      - ./certs:/etc/nginx/certs:ro
     env_file: .env.dev
+    environment:
+      - FRONTEND_UPSTREAM=${FRONTEND_UPSTREAM:-frontend:5173}
+      - BACKEND_UPSTREAM=${BACKEND_UPSTREAM:-backend:8000}
+      - HTTPS_PORT=${HTTPS_PORT:-8443}
+    command: >
+      sh -c '
+        export FRONTEND_UPSTREAM BACKEND_UPSTREAM HTTPS_PORT;
+        echo "Frontend: $$FRONTEND_UPSTREAM";
+        echo "Backend: $$BACKEND_UPSTREAM";
+        envsubst "\$$FRONTEND_UPSTREAM \$$BACKEND_UPSTREAM \$$HTTPS_PORT" < /etc/nginx/nginx.conf.tmpl > /etc/nginx/nginx.conf &&
+        nginx -g "daemon off;"
+      '
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    depends_on:
+      - authelia
+      - frontend
+      - backend
 
-  # Authelia 认证服务（可选，用于测试登录流程）
-  # authelia:
-  #   image: m.daocloud.io/docker.io/${AUTHELIA_IMAGE:-authelia/authelia:4.37}
-  #   container_name: chewybbtalk-authelia-dev
-  #   env_file: .env.dev
-  #   volumes:
-  #     - ./authelia/configuration.yml:/config/configuration.yml:ro
-  #     - ./authelia/users_database.yml:/config/users_database.yml:ro
-  #     - authelia_data:/data
-  #   environment:
-  #     - TZ=Asia/Shanghai
-  #     - X_AUTHELIA_CONFIG_FILTERS=${X_AUTHELIA_CONFIG_FILTERS:-template}
+  # ============================================
+  # Authelia 认证服务
+  # ============================================
+  authelia:
+    image: m.daocloud.io/docker.io/${AUTHELIA_IMAGE:-authelia/authelia:4.37}
+    container_name: chewybbtalk-authelia-dev
+    env_file: .env.dev
+    volumes:
+      - ./authelia/configuration.yml:/config/configuration.yml:ro
+      - ./authelia/users_database.yml:/config/users_database.yml:ro
+      - authelia_data:/data
+    environment:
+      - TZ=Asia/Shanghai
+      - X_AUTHELIA_CONFIG_FILTERS=${X_AUTHELIA_CONFIG_FILTERS:-template}
 
-# volumes:
-#   authelia_data:
+  # ============================================
+  # 前端服务
+  # ============================================
+  frontend:
+    image: m.daocloud.io/docker.io/node:20-alpine
+    container_name: chewybbtalk-frontend-dev
+    working_dir: /app
+    volumes:
+      - ./frontend:/app:rw
+    environment:
+      - VITE_API_BASE_URL=https://localhost:${HTTPS_PORT:-8443}
+      - VITE_MEDIA_URL_PROTOCOL=https
+      - VITE_AUTHELIA_URL=/authelia
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173"
+    expose:
+      - "5173"
+
+  # ============================================
+  # 后端服务
+  # ============================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: chewybbtalk-backend-dev
+    volumes:
+      - ./backend/chewy_space:/app/chewy_space:rw
+    env_file: .env.dev
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-sqlite:///db.sqlite3}
+      - DEBUG=True
+      - CORS_ORIGIN_ALLOW_ALL=${CORS_ORIGIN_ALLOW_ALL:-True}
+      - ALLOWED_HOSTS=*
+    command: sh -c "cd /app/chewy_space && uv run python manage.py runserver 0.0.0.0:8000"
+
+volumes:
+  authelia_data:

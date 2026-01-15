@@ -47,3 +47,8 @@ backend/chewy_space/configs/
 # Temporary files
 attachments.md
 *.pid
+
+# Local certificates
+certs/
+*.pem
+*.key
