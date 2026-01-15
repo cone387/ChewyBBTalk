@@ -19,6 +19,7 @@ services:
     container_name: chewybbtalk-nginx-dev
     ports:
       - "${PORT:-8021}:443"
+      - "80:80"
     volumes:
       - ./nginx.dev.https.conf.tmpl:/etc/nginx/nginx.conf.tmpl:ro
       - ./certs:/etc/nginx/certs:ro
@@ -85,13 +86,15 @@ services:
     container_name: chewybbtalk-backend-dev
     volumes:
       - ./backend/chewy_space:/app/chewy_space:rw
+      - ./data:/data:rw
     env_file: .env.dev
     environment:
-      - DATABASE_URL=${DATABASE_URL:-sqlite:///db.sqlite3}
+      - CHEWYBBTALK_SETTINGS_MODULE=configs.dev_settings
+      - ENV=dev
       - DEBUG=True
       - CORS_ORIGIN_ALLOW_ALL=${CORS_ORIGIN_ALLOW_ALL:-True}
       - ALLOWED_HOSTS=*
-    command: sh -c "cd /app/chewy_space && uv run python manage.py runserver 0.0.0.0:8020"
+    command: sh -c "cd /app/chewy_space && uv run python manage.py migrate && uv run python manage.py runserver 0.0.0.0:8020"
     expose:
       - "8020"
 
