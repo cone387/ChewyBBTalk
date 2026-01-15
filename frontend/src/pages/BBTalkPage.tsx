@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
-import { loadBBTalks, createBBTalkAsync, deleteBBTalkAsync, updateBBTalkAsync, loadMoreBBTalks } from '../store/slices/bbtalkSlice'
+import { loadBBTalks, createBBTalkAsync, deleteBBTalkAsync, updateBBTalkAsync, loadMoreBBTalks, loadPublicBBTalks, loadMorePublicBBTalks } from '../store/slices/bbtalkSlice'
 import { loadTags, updateTagAsync } from '../store/slices/tagSlice'
 import BBTalkEditor from '../components/BBTalkEditor'
 import CachedImage from '../components/CachedImage'
@@ -23,6 +23,12 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { Tag, Attachment } from '../types'
+
+// Props 接口
+interface BBTalkPageProps {
+  isPublic?: boolean       // 是否公开页面
+  isAuthenticated?: boolean // 是否已登录
+}
 
 // 可拖动的标签项组件
 function SortableTagItem({
@@ -92,7 +98,7 @@ function SortableTagItem({
   )
 }
 
-export default function BBTalkPage() {
+export default function BBTalkPage({ isPublic = false, isAuthenticated = false }: BBTalkPageProps) {
   const dispatch = useAppDispatch()
   const { bbtalks, isLoading, hasMore, totalCount } = useAppSelector((state) => state.bbtalk)
   const { tags } = useAppSelector((state) => state.tag)
@@ -112,6 +118,13 @@ export default function BBTalkPage() {
   const containerRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
+  // 登录跳转
+  const handleLogin = () => {
+    const autheliaUrl = import.meta.env.VITE_AUTHELIA_URL || '/authelia'
+    const currentUrl = encodeURIComponent(window.location.origin + '/')
+    window.location.href = `${autheliaUrl}/?rd=${currentUrl}`
+  }
+
   // 拖拽传感器配置
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -122,11 +135,15 @@ export default function BBTalkPage() {
 
   useEffect(() => {
     // 加载初始数据
-    console.log('[BBTalkPage] 初始加载 useEffect 触发')
-    dispatch(loadBBTalks({}))
-    dispatch(loadTags())
+    console.log('[BBTalkPage] 初始加载 useEffect 触发, isPublic:', isPublic)
+    if (isPublic) {
+      dispatch(loadPublicBBTalks({}))
+    } else {
+      dispatch(loadBBTalks({}))
+      dispatch(loadTags())
+    }
     setIsInitialLoad(false)
-  }, [dispatch])
+  }, [dispatch, isPublic])
 
   // 监听标签筛选，重新加载数据
   useEffect(() => {
@@ -290,12 +307,16 @@ export default function BBTalkPage() {
     
     setIsLoadingMore(true)
     try {
-      const tagNames = selectedTags.map(tagId => {
-        const tag = tags.find(t => t.id === tagId)
-        return tag?.name
-      }).filter(Boolean) as string[]
-      
-      await dispatch(loadMoreBBTalks({ tags: tagNames }))
+      if (isPublic) {
+        await dispatch(loadMorePublicBBTalks({}))
+      } else {
+        const tagNames = selectedTags.map(tagId => {
+          const tag = tags.find(t => t.id === tagId)
+          return tag?.name
+        }).filter(Boolean) as string[]
+        
+        await dispatch(loadMoreBBTalks({ tags: tagNames }))
+      }
     } finally {
       setIsLoadingMore(false)
     }
@@ -373,10 +394,31 @@ export default function BBTalkPage() {
 
   return (
     <div className="h-full bg-gray-50">
+      {/* 公开页面顶部栏 */}
+      {isPublic && (
+        <div className="bg-white border-b border-gray-200 px-4 py-3">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <h1 className="text-lg font-semibold text-gray-800">公开的碎碎念</h1>
+            {!isAuthenticated && (
+              <button
+                onClick={handleLogin}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                </svg>
+                登录
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* 整体容器 - 左右内容作为整体居中 */}
-      <div className="h-full max-w-7xl w-full mx-auto px-4">
+      <div className={`h-full max-w-7xl w-full mx-auto px-4 ${isPublic ? 'pt-4' : ''}`} style={isPublic ? { height: 'calc(100% - 57px)' } : undefined}>
         <div className="h-full flex gap-3">
-          {/* 左侧菜单块 - 窗口缩窄时隐藏 */}
+          {/* 左侧菜单块 - 公开页面隐藏 */}
+          {!isPublic && (
           <div className="hidden lg:flex py-8 flex-shrink-0" style={{ width: '256px' }}>
           <div className="w-full bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col" style={{ height: 'calc(100vh - 4rem)' }}>
           {/* 搜索标题和搜索框 */}
@@ -477,12 +519,14 @@ export default function BBTalkPage() {
           </div>
         </div>
           </div>
+          )}
 
           {/* 右侧内容区 */}
           <div ref={containerRef} className="flex-1 min-w-0 py-8 overflow-y-auto">
             {/* 滚动内容区 */}
             <div className="w-full px-4 lg:px-6">
-          {/* 编辑框 - 滚动时显示/隐藏 */}
+          {/* 编辑框 - 仅登录后显示 */}
+          {!isPublic && (
           <div 
             className={`transition-all duration-300 mb-6 ${
               showEditor ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none h-0 mb-0 overflow-hidden'
@@ -493,6 +537,7 @@ export default function BBTalkPage() {
               isPublishing={isPublishing}
             />
           </div>
+          )}
 
           {/* BBTalk 列表 */}
           <div className="space-y-4">
@@ -579,7 +624,7 @@ export default function BBTalkPage() {
                       </div>
                     ) : (
                       <div className="p-6">
-                    {/* 更多菜单 - 右上角 */}
+                    {/* 更多菜单 - 右上角，公开模式只显示复制链接 */}
                     <div className="absolute top-4 right-4" ref={activeMenu === bbtalk.id ? menuRef : null}>
                       <button
                         className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
@@ -615,6 +660,9 @@ export default function BBTalkPage() {
                             </svg>
                             复制链接
                           </button>
+                          {/* 编辑和删除仅登录后显示 */}
+                          {!isPublic && (
+                          <>
                           <button
                             className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
                             onClick={() => handleEdit(bbtalk)}
@@ -654,6 +702,8 @@ export default function BBTalkPage() {
                             )}
                             {deletingIds.has(bbtalk.id) ? '删除中...' : '删除'}
                           </button>
+                          </>
+                          )}
                         </div>
                       )}
                     </div>

@@ -299,8 +299,9 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
         console.log('上传成功:', response)
         
         // 辅助函数：判断是否为图片
-        const isImageFile = (mediaType: string, url: string) => {
+        const isImageFile = (mediaType: string, url: string | undefined) => {
           if (mediaType === 'image') return true
+          if (!url) return false
           
           // 如果 mediaType 不可靠，检查 URL 扩展名
           const urlLower = url.toLowerCase()

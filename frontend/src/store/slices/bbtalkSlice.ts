@@ -75,6 +75,46 @@ export const loadMoreBBTalks = createAsyncThunk(
   }
 )
 
+// 加载公开的 BBTalks（无需登录）
+export const loadPublicBBTalks = createAsyncThunk(
+  'bbtalk/loadPublicBBTalks',
+  async (params: { page?: number } = {}, { rejectWithValue }) => {
+    try {
+      const { page = 1 } = params
+      const result = await bbtalkApi.getPublicBBTalks({ page })
+      return { 
+        bbtalks: result.results, 
+        page, 
+        hasMore: !!result.next,
+        totalCount: result.count,
+      }
+    } catch (error: any) {
+      return rejectWithValue(error.message || '加载公开BBTalk失败')
+    }
+  }
+)
+
+// 加载更多公开的 BBTalks
+export const loadMorePublicBBTalks = createAsyncThunk(
+  'bbtalk/loadMorePublicBBTalks',
+  async (_params: {} = {}, { getState, rejectWithValue }) => {
+    try {
+      const state = getState() as any
+      const currentPage = state.bbtalk.currentPage
+      const nextPage = currentPage + 1
+      
+      const result = await bbtalkApi.getPublicBBTalks({ page: nextPage })
+      return { 
+        bbtalks: result.results, 
+        page: nextPage, 
+        hasMore: !!result.next 
+      }
+    } catch (error: any) {
+      return rejectWithValue(error.message || '加载更多公开BBTalk失败')
+    }
+  }
+)
+
 export const createBBTalkAsync = createAsyncThunk(
   'bbtalk/createBBTalk',
   async (data: {
@@ -191,6 +231,36 @@ const bbtalkSlice = createSlice({
         state.bbtalks = state.bbtalks.filter((b) => b.id !== action.payload)
       })
       .addCase(deleteBBTalkAsync.rejected, (state, action) => {
+        state.error = action.payload as string
+      })
+      // loadPublicBBTalks
+      .addCase(loadPublicBBTalks.pending, (state) => {
+        state.isLoading = true
+        state.error = null
+      })
+      .addCase(loadPublicBBTalks.fulfilled, (state, action) => {
+        state.isLoading = false
+        state.bbtalks = action.payload.bbtalks
+        state.currentPage = action.payload.page
+        state.hasMore = action.payload.hasMore
+        state.totalCount = action.payload.totalCount
+      })
+      .addCase(loadPublicBBTalks.rejected, (state, action) => {
+        state.isLoading = false
+        state.error = action.payload as string
+      })
+      // loadMorePublicBBTalks
+      .addCase(loadMorePublicBBTalks.pending, (state) => {
+        state.isLoading = true
+      })
+      .addCase(loadMorePublicBBTalks.fulfilled, (state, action) => {
+        state.isLoading = false
+        state.bbtalks = [...state.bbtalks, ...action.payload.bbtalks]
+        state.currentPage = action.payload.page
+        state.hasMore = action.payload.hasMore
+      })
+      .addCase(loadMorePublicBBTalks.rejected, (state, action) => {
+        state.isLoading = false
         state.error = action.payload as string
       })
   },

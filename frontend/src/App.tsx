@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Provider } from 'react-redux'
 import { useEffect, useState } from 'react'
 import { store } from './store'
@@ -11,10 +11,11 @@ interface AppProps {
 }
 
 // 全局状态，防止 HMR/StrictMode 重复初始化
-let authPromise: Promise<{ ready: boolean; error: string | null }> | null = null;
+let authPromise: Promise<{ ready: boolean; authenticated: boolean; error: string | null }> | null = null;
 
 export default function App({ basename = '/' }: AppProps) {
   const [authReady, setAuthReady] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [authError, setAuthError] = useState<string | null>(null)
   const isWujie = !!window.__POWERED_BY_WUJIE__
 
@@ -23,6 +24,7 @@ export default function App({ basename = '/' }: AppProps) {
     if (authPromise) {
       authPromise.then(result => {
         setAuthReady(result.ready)
+        setIsAuthenticated(result.authenticated)
         if (result.error) setAuthError(result.error)
       })
       return
@@ -34,34 +36,27 @@ export default function App({ basename = '/' }: AppProps) {
         // 1. 如果是子应用，直接使用主应用认证
         if (isWujie) {
           console.log('[BBTalk] 子应用模式，使用主应用认证')
-          resolve({ ready: true, error: null })
+          resolve({ ready: true, authenticated: true, error: null })
           return
         }
 
-        // 2. 独立运行模式，初始化 Authelia 认证
-        console.log('[BBTalk] 独立运行模式，检查 Authelia 认证')
+        // 2. 独立运行模式，检查认证状态（不强制跳转）
+        console.log('[BBTalk] 独立运行模式，检查认证状态')
         
         const authenticated = await initAuth()
-        console.log('[BBTalk] Authelia 认证结果:', authenticated)
+        console.log('[BBTalk] 认证结果:', authenticated)
         
-        if (authenticated) {
-          resolve({ ready: true, error: null })
-        } else {
-          // 未认证，主动重定向到 Authelia 登录页
-          console.log('[BBTalk] 未认证，重定向到 Authelia 登录页...')
-          const autheliaUrl = import.meta.env.VITE_AUTHELIA_URL || '/authelia'
-          const currentUrl = encodeURIComponent(window.location.href)
-          window.location.href = `${autheliaUrl}/?rd=${currentUrl}`
-          resolve({ ready: false, error: '未认证，正在跳转登录页...' })
-        }
+        // 不管是否认证都允许访问，由路由层决定显示内容
+        resolve({ ready: true, authenticated, error: null })
       } catch (error) {
         console.error('[BBTalk] 初始化错误:', error)
-        resolve({ ready: false, error: '初始化失败: ' + (error as Error).message })
+        resolve({ ready: true, authenticated: false, error: null })
       }
     })
 
     authPromise.then(result => {
       setAuthReady(result.ready)
+      setIsAuthenticated(result.authenticated)
       if (result.error) setAuthError(result.error)
     })
   }, [isWujie])
@@ -103,7 +98,7 @@ export default function App({ basename = '/' }: AppProps) {
         height: '100vh',
         color: '#666'
       }}>
-        认证中...
+        加载中...
       </div>
     )
   }
@@ -118,7 +113,19 @@ export default function App({ basename = '/' }: AppProps) {
         }}
       >
         <Routes>
-          <Route path="/" element={<BBTalkPage />} />
+          {/* 公开页面 - 无需登录 */}
+          <Route path="/public" element={<BBTalkPage isPublic={true} isAuthenticated={isAuthenticated} />} />
+          
+          {/* 私有页面 - 未登录跳转到公开页 */}
+          <Route 
+            path="/" 
+            element={
+              isAuthenticated 
+                ? <BBTalkPage isPublic={false} isAuthenticated={isAuthenticated} /> 
+                : <Navigate to="/public" replace />
+            } 
+          />
+          
           <Route path="/detail/:id" element={<BBTalkDetailPage />} />
         </Routes>
       </BrowserRouter>

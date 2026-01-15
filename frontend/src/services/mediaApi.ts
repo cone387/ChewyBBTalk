@@ -5,7 +5,13 @@ import type { Attachment } from '../types';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 function transformAttachment(data: any): Attachment {
-  let url = data.url || data.file;
+  // 后端返回字段映射:
+  // id -> uid
+  // preview_url/url/file -> url
+  // original_name/filename -> filename
+  // mime_type -> mimeType
+  // size/file_size -> fileSize
+  let url = data.preview_url || data.url || data.file;
   
   // 协议转换
   const targetProtocol = import.meta.env.VITE_MEDIA_URL_PROTOCOL || 'https';
@@ -16,15 +22,28 @@ function transformAttachment(data: any): Attachment {
       url = url.replace('https://', 'http://');
     }
   }
+
+  // 根据 mime_type 判断类型
+  let type = data.media_type || data.type || 'file';
+  const mimeType = data.mime_type || '';
+  if (!data.media_type && !data.type && mimeType) {
+    if (mimeType.startsWith('image/')) {
+      type = 'image';
+    } else if (mimeType.startsWith('video/')) {
+      type = 'video';
+    } else if (mimeType.startsWith('audio/')) {
+      type = 'audio';
+    }
+  }
   
   return {
     uid: data.uid || data.id || '',
     url: url,
-    type: data.media_type || data.type || 'file',
-    filename: data.filename,
-    originalFilename: data.original_filename,
-    fileSize: data.file_size,
-    mimeType: data.mime_type,
+    type: type,
+    filename: data.filename || data.original_name,
+    originalFilename: data.original_filename || data.original_name,
+    fileSize: data.file_size || data.size,
+    mimeType: mimeType,
   };
 }
 
