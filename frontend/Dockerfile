@@ -7,14 +7,13 @@ RUN npm install
 
 COPY . .
 
-# Build with base path /bbtalk/
-ENV VITE_BASE_PATH=/bbtalk/
+# Build
 RUN npm run build
 
 # Production stage
 FROM m.daocloud.io/docker.io/nginx:alpine
 
-COPY --from=builder /app/dist /usr/share/nginx/html/bbtalk
+COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80

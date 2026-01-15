@@ -43,6 +43,20 @@ export function getDevAuthHeaders(): Record<string, string> {
  */
 export async function initAuth(): Promise<boolean> {
   try {
+    // 开发环境：如果配置了模拟用户，直接使用
+    const devUserId = import.meta.env.VITE_DEV_USER_ID;
+    const devUsername = import.meta.env.VITE_DEV_USERNAME;
+    if (devUserId && devUsername) {
+      console.log('[Auth] 开发环境，使用模拟用户:', devUsername);
+      currentUser = {
+        id: parseInt(devUserId),
+        username: devUsername,
+        email: import.meta.env.VITE_DEV_EMAIL || '',
+        groups: (import.meta.env.VITE_DEV_GROUPS || '').split(','),
+      };
+      return true;
+    }
+
     // 如果是子应用，从主应用获取用户信息
     if (window.__POWERED_BY_WUJIE__) {
       const userInfo = await getUserInfoFromParent();
@@ -59,7 +73,7 @@ export async function initAuth(): Promise<boolean> {
       return true;
     }
     
-    // 未认证，由 Authelia 反向代理处理重定向
+    // 未认证
     return false;
   } catch (error) {
     console.error('[Auth] 初始化失败:', error);

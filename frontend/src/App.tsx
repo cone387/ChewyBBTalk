@@ -47,9 +47,12 @@ export default function App({ basename = '/' }: AppProps) {
         if (authenticated) {
           resolve({ ready: true, error: null })
         } else {
-          // 未认证，由 Authelia 反向代理处理重定向
-          console.log('[BBTalk] 未认证，等待 Authelia 重定向...')
-          resolve({ ready: false, error: '未认证，请等待重定向到登录页' })
+          // 未认证，主动重定向到 Authelia 登录页
+          console.log('[BBTalk] 未认证，重定向到 Authelia 登录页...')
+          const autheliaUrl = import.meta.env.VITE_AUTHELIA_URL || '/authelia'
+          const currentUrl = encodeURIComponent(window.location.href)
+          window.location.href = `${autheliaUrl}/?rd=${currentUrl}`
+          resolve({ ready: false, error: '未认证，正在跳转登录页...' })
         }
       } catch (error) {
         console.error('[BBTalk] 初始化错误:', error)

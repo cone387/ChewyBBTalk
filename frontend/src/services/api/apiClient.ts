@@ -56,6 +56,14 @@ class ApiClient {
       credentials: 'include', // 重要：支持 cookie 认证
     });
 
+    // 处理 401 未认证：重定向到 Authelia 登录页
+    if (response.status === 401 || response.status === 302) {
+      const autheliaUrl = import.meta.env.VITE_AUTHELIA_URL || '/authelia';
+      const currentUrl = encodeURIComponent(window.location.href);
+      window.location.href = `${autheliaUrl}/?rd=${currentUrl}`;
+      throw new Error('未认证，跳转登录...');
+    }
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.message || `请求失败: ${response.status}`);

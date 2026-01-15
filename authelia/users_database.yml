@@ -10,7 +10,7 @@ users:
   # 密码: password (生产环境必须修改)
   admin:
     displayname: "Admin User"
-    password: "$argon2id$v=19$m=65536,t=3,p=4$BpLnSg0NDQ0NDQ0NDQ0NDQ$qrySJvIk5mKwGWFaGWvKEw+dKb4zUB+OuFhX6I0tRyY"
+    password: "$argon2id$v=19$m=65536,t=3,p=4$UxYV3+EjSi/SSGSGW8ZvYA$4IzZulEm7Ge9fQopIKMvf5Dzqwa1+rLOQEc/BUDvF+k"
     email: admin@example.com
     groups:
       - admins
@@ -21,7 +21,7 @@ users:
   # 密码: password (生产环境必须修改)
   testuser:
     displayname: "Test User"
-    password: "$argon2id$v=19$m=65536,t=3,p=4$BpLnSg0NDQ0NDQ0NDQ0NDQ$qrySJvIk5mKwGWFaGWvKEw+dKb4zUB+OuFhX6I0tRyY"
+    password: "$argon2id$v=19$m=65536,t=3,p=4$UxYV3+EjSi/SSGSGW8ZvYA$4IzZulEm7Ge9fQopIKMvf5Dzqwa1+rLOQEc/BUDvF+k"
     email: test@example.com
     groups:
       - users

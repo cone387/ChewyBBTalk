@@ -1,0 +1,41 @@
+# 开发环境 Docker Compose
+# 只运行 Nginx，前端后端在本地运行，跳过 Authelia 认证
+#
+# 使用方法:
+#   docker-compose -f docker-compose.dev.yml up -d
+#
+# 本地启动前端后端:
+#   cd frontend && npm run dev      # 前端运行在 http://localhost:4010
+#   cd backend/chewy_space && uv run python manage.py runserver 8000  # 后端运行在 http://localhost:8000
+#
+# 访问地址: http://127.0.0.1:8020
+# 模拟用户: admin (DEV_USERNAME in .env.dev)
+
+services:
+  # Nginx 反向代理（开发环境跳过 Authelia）
+  nginx:
+    image: m.daocloud.io/docker.io/nginx:alpine
+    container_name: chewybbtalk-nginx-dev
+    ports:
+      - "${PORT:-8020}:80"
+    volumes:
+      - ./nginx.dev.conf:/etc/nginx/nginx.conf:ro
+    env_file: .env.dev
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # Authelia 认证服务（可选，用于测试登录流程）
+  # authelia:
+  #   image: m.daocloud.io/docker.io/${AUTHELIA_IMAGE:-authelia/authelia:4.37}
+  #   container_name: chewybbtalk-authelia-dev
+  #   env_file: .env.dev
+  #   volumes:
+  #     - ./authelia/configuration.yml:/config/configuration.yml:ro
+  #     - ./authelia/users_database.yml:/config/users_database.yml:ro
+  #     - authelia_data:/data
+  #   environment:
+  #     - TZ=Asia/Shanghai
+  #     - X_AUTHELIA_CONFIG_FILTERS=${X_AUTHELIA_CONFIG_FILTERS:-template}
+
+# volumes:
+#   authelia_data:
