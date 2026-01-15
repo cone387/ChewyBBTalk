@@ -1,8 +1,8 @@
 #!/bin/bash
 
 ###############################################################
-#                  ChewyBBTalk 单容器部署脚本                  #
-#           使用 docker run 运行包含所有服务的单个容器          #
+#                  ChewyBBTalk 部署管理脚本                      #
+#           支持 dev/prod 环境切换，默认 dev                      #
 ###############################################################
 
 set -e
@@ -10,6 +10,9 @@ set -e
 IMAGE_NAME="chewybbtalk"
 CONTAINER_NAME="chewybbtalk"
 PORT="80"
+
+# 默认环境
+ENV="dev"
 
 # 颜色输出
 RED='\033[0;31m'
@@ -30,6 +33,24 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+# 获取环境配置文件路径
+get_env_file() {
+    if [ "$ENV" = "prod" ]; then
+        echo ".env"
+    else
+        echo ".env.dev"
+    fi
+}
+
+# 获取 docker-compose 文件
+get_compose_file() {
+    if [ "$ENV" = "prod" ]; then
+        echo "docker-compose.yml"
+    else
+        echo "docker-compose.dev.yml"
+    fi
+}
+
 # 检查 Docker 是否安装
 check_docker() {
     if ! command -v docker &> /dev/null; then
@@ -40,210 +61,106 @@ check_docker() {
 
 # 检查 .env 文件
 check_env() {
-    if [ ! -f .env ]; then
-        log_warn ".env 文件不存在，从 .env.example 复制"
-        cp .env.example .env
-        log_info "请编辑 .env 文件，修改必要的配置项"
-        log_info "生成密钥请运行: ./deploy.sh keys"
-        exit 0
+    local env_file=$(get_env_file)
+    if [ ! -f "$env_file" ]; then
+        if [ "$ENV" = "prod" ]; then
+            log_warn "$env_file 文件不存在，从 .env.example 复制"
+            cp .env.example .env
+        else
+            log_error "$env_file 文件不存在"
+        fi
+        log_info "请编辑 $env_file 文件，修改必要的配置项"
+        exit 1
     fi
-}
-
-# 构建镜像
-build() {
-    log_info "构建 ${IMAGE_NAME} 镜像..."
-    docker build -t ${IMAGE_NAME}:latest .
-    log_info "镜像构建完成"
+    log_info "使用环境配置: $env_file"
 }
 
 # 启动服务
 start() {
     check_env
+    local env_file=$(get_env_file)
+    local compose_file=$(get_compose_file)
     
-    # 检查容器是否已存在
-    if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
-        log_warn "容器 ${CONTAINER_NAME} 已存在"
-        if docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
-            log_info "容器正在运行中"
-            return 0
-        else
-            log_info "启动现有容器..."
-            docker start ${CONTAINER_NAME}
-            log_info "容器启动成功！"
-            return 0
-        fi
-    fi
+    log_info "环境: $ENV"
+    log_info "使用 docker-compose 文件: $compose_file"
     
-    # 检查镜像是否存在
-    if ! docker images --format '{{.Repository}}:{{.Tag}}' | grep -q "^${IMAGE_NAME}:latest$"; then
-        log_info "镜像不存在，开始构建..."
-        build
-    fi
+    # 使用 docker-compose 启动
+    docker-compose -f "$compose_file" --env-file "$env_file" up -d
     
-    log_info "启动 ${CONTAINER_NAME} 容器..."
-    
-    # 加载环境变量
-    source .env
+    # 加载环境变量获取端口
+    source "$env_file"
     local port=${PORT:-8020}
-    local data_dir=${DATA_DIR:-./data}
-    local authelia_config_dir=${AUTHELIA_CONFIG_DIR:-./authelia}
-    
-    # 创建必要的目录
-    mkdir -p "${data_dir}/media" "${data_dir}/db" "${data_dir}/authelia" ./logs
-    
-    # 运行容器（使用 --env-file 加载所有环境变量）
-    docker run -d \
-        --name ${CONTAINER_NAME} \
-        -p ${port}:80 \
-        --env-file .env \
-        -v "$(pwd)/${data_dir}/media:/app/media" \
-        -v "$(pwd)/${data_dir}/db:/app/backend/db" \
-        -v "$(pwd)/${data_dir}/authelia:/data" \
-        -v "$(pwd)/logs:/app/logs" \
-        -v "$(pwd)/${authelia_config_dir}/configuration.yml:/config/configuration.yml:ro" \
-        -v "$(pwd)/${authelia_config_dir}/users_database.yml:/config/users_database.yml:ro" \
-        --restart unless-stopped \
-        ${IMAGE_NAME}:latest
     
     log_info "服务启动成功！"
-    log_info "访问地址: http://localhost:${port}"
-    log_info "Authelia 登录: http://localhost:${port}/authelia/"
-    log_info "默认账号: admin / password (请立即修改)"
+    log_info "访问地址: http://127.0.0.1:${port}"
+    
+    if [ "$ENV" = "dev" ]; then
+        log_info ""
+        log_info "开发环境请启动本地服务:"
+        log_info "  前端: cd frontend && npm run dev"
+        log_info "  后端: cd backend/chewy_space && uv run python manage.py runserver 8000"
+    else
+        log_info "Authelia 登录: http://127.0.0.1:${port}/authelia/"
+    fi
 }
 
 # 停止服务
 stop() {
-    log_info "停止 ${CONTAINER_NAME} 容器..."
-    docker stop ${CONTAINER_NAME} 2>/dev/null || log_warn "容器未运行"
-    log_info "容器已停止"
+    local compose_file=$(get_compose_file)
+    log_info "停止服务 (环境: $ENV)..."
+    docker-compose -f "$compose_file" down
+    log_info "服务已停止"
 }
 
 # 重启服务
 restart() {
-    log_info "重启 ${CONTAINER_NAME} 容器..."
-    docker restart ${CONTAINER_NAME} 2>/dev/null || {
-        log_warn "容器不存在或未运行，尝试启动..."
-        start
-        return 0
-    }
-    log_info "容器重启成功！"
+    local env_file=$(get_env_file)
+    local compose_file=$(get_compose_file)
+    log_info "重启服务 (环境: $ENV)..."
+    docker-compose -f "$compose_file" --env-file "$env_file" restart
+    log_info "服务重启成功！"
 }
 
 # 重新构建
 rebuild() {
-    log_info "重新构建 ${IMAGE_NAME} 镜像..."
+    local env_file=$(get_env_file)
+    local compose_file=$(get_compose_file)
+    
+    log_info "重新构建 (环境: $ENV)..."
     
     # 停止并删除旧容器
-    if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
-        log_info "删除旧容器..."
-        docker rm -f ${CONTAINER_NAME}
-    fi
+    docker-compose -f "$compose_file" down 2>/dev/null || true
     
-    # 删除旧镜像
-    if docker images --format '{{.Repository}}:{{.Tag}}' | grep -q "^${IMAGE_NAME}:latest$"; then
-        log_info "删除旧镜像..."
-        docker rmi ${IMAGE_NAME}:latest
-    fi
+    # 重新构建并启动
+    docker-compose -f "$compose_file" --env-file "$env_file" up -d --build
     
-    # 构建新镜像
-    build
-    
-    # 启动容器
-    start
+    log_info "重新构建完成！"
 }
 
 # 查看日志
 logs() {
+    local compose_file=$(get_compose_file)
     if [ -n "$1" ]; then
-        case "$1" in
-            authelia)
-                docker exec ${CONTAINER_NAME} tail -f /app/logs/authelia.log
-                ;;
-            django|backend)
-                docker exec ${CONTAINER_NAME} tail -f /app/logs/django.log
-                ;;
-            nginx)
-                docker exec ${CONTAINER_NAME} tail -f /app/logs/nginx_access.log
-                ;;
-            *)
-                log_error "未知的服务名: $1"
-                log_info "可用的服务: authelia, django, nginx"
-                exit 1
-                ;;
-        esac
+        docker-compose -f "$compose_file" logs -f "$1"
     else
-        # 显示所有日志
-        docker logs -f ${CONTAINER_NAME}
+        docker-compose -f "$compose_file" logs -f
     fi
 }
 
 # 查看状态
 status() {
+    local compose_file=$(get_compose_file)
+    log_info "环境: $ENV"
     log_info "容器状态:"
-    if docker ps --format '{{.Names}}\t{{.Status}}\t{{.Ports}}' | grep -q "^${CONTAINER_NAME}"; then
-        docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' | grep -E "NAMES|${CONTAINER_NAME}"
-        echo ""
-        log_info "容器运行中 ✓"
-    else
-        log_warn "容器未运行"
-        if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
-            docker ps -a --format 'table {{.Names}}\t{{.Status}}' | grep -E "NAMES|${CONTAINER_NAME}"
-        fi
-    fi
+    docker-compose -f "$compose_file" ps
 }
 
 # 进入容器
 shell() {
-    log_info "进入 ${CONTAINER_NAME} 容器..."
-    docker exec -it ${CONTAINER_NAME} /bin/bash
-}
-
-# 备份数据
-backup() {
-    # 加载环境变量
-    source .env 2>/dev/null || true
-    local data_dir=${DATA_DIR:-./data}
-    
-    BACKUP_DIR="./backups"
-    BACKUP_FILE="${BACKUP_DIR}/backup-$(date +%Y%m%d-%H%M%S).tar.gz"
-    
-    mkdir -p ${BACKUP_DIR}
-    
-    log_info "备份数据到 ${BACKUP_FILE}..."
-    tar -czf ${BACKUP_FILE} \
-        "${data_dir}/media" \
-        "${data_dir}/db" \
-        "${data_dir}/authelia" \
-        .env \
-        2>/dev/null || true
-    
-    log_info "备份完成: ${BACKUP_FILE}"
-}
-
-# 清理数据
-clean() {
-    log_warn "警告: 此操作将删除容器、镜像和所有数据（数据库、媒体文件、日志等）"
-    read -p "确认删除？(yes/no): " confirm
-    
-    if [ "$confirm" != "yes" ]; then
-        log_info "操作已取消"
-        exit 0
-    fi
-    
-    # 加载环境变量
-    source .env 2>/dev/null || true
-    local data_dir=${DATA_DIR:-./data}
-    
-    log_info "停止并删除容器..."
-    docker rm -f ${CONTAINER_NAME} 2>/dev/null || true
-    
-    log_info "删除镜像..."
-    docker rmi ${IMAGE_NAME}:latest 2>/dev/null || true
-    
-    log_info "删除数据..."
-    rm -rf "${data_dir}" ./logs
-    
-    log_info "清理完成"
+    local compose_file=$(get_compose_file)
+    local service=${1:-nginx}
+    log_info "进入 $service 容器..."
+    docker-compose -f "$compose_file" exec "$service" /bin/sh
 }
 
 # 生成密钥
@@ -268,30 +185,32 @@ generate_keys() {
 # 显示帮助信息
 show_help() {
     cat << EOF
-ChewyBBTalk 单容器部署管理脚本
+ChewyBBTalk 部署管理脚本
 
-用法: $0 [命令]
+用法: $0 [-e|—env dev|prod] [命令]
+
+环境:
+  -e, --env     指定环境 (dev|prod)，默认 dev
+                dev:  使用 docker-compose.dev.yml 和 .env.dev
+                prod: 使用 docker-compose.yml 和 .env
 
 命令:
-  build       构建 Docker 镜像
-  start       启动容器
-  stop        停止容器
-  restart     重启容器
-  rebuild     重新构建镜像并启动
-  logs [服务]  查看日志 (可选服务: authelia, django, nginx)
-  status      查看容器状态
-  shell       进入容器 shell
-  backup      备份数据
-  clean       清理容器、镜像和数据（危险操作）
-  keys        生成配置密钥
-  help        显示此帮助信息
+  start         启动服务
+  stop          停止服务
+  restart       重启服务
+  rebuild       重新构建并启动
+  logs [服务]   查看日志 (可选服务: nginx, authelia, backend, frontend)
+  status        查看容器状态
+  shell [服务]  进入容器 shell
+  keys          生成配置密钥
+  help          显示此帮助信息
 
 示例:
-  $0 build            # 构建镜像
-  $0 start            # 启动容器
-  $0 logs django      # 查看 Django 日志
-  $0 status           # 查看容器状态
-  $0 keys             # 生成配置密钥
+  $0 start                # 启动开发环境 (dev)
+  $0 -e prod start        # 启动生产环境
+  $0 --env prod rebuild   # 重新构建生产环境
+  $0 logs nginx           # 查看 nginx 日志
+  $0 status               # 查看容器状态
 
 EOF
 }
@@ -300,53 +219,67 @@ EOF
 main() {
     check_docker
     
-    case "$1" in
-        build)
-            build
-            ;;
-        start)
-            start
-            ;;
-        stop)
-            stop
-            ;;
-        restart)
-            restart
-            ;;
-        rebuild)
-            rebuild
-            ;;
-        logs)
-            logs "$2"
-            ;;
-        status)
-            status
-            ;;
-        shell)
-            shell
-            ;;
-        backup)
-            backup
-            ;;
-        clean)
-            clean
-            ;;
-        keys)
-            generate_keys
-            ;;
-        help|--help|-h)
-            show_help
-            ;;
-        "")
-            show_help
-            ;;
-        *)
-            log_error "未知命令: $1"
-            echo ""
-            show_help
-            exit 1
-            ;;
-    esac
+    # 解析环境参数
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -e|--env)
+                ENV="$2"
+                if [[ "$ENV" != "dev" && "$ENV" != "prod" ]]; then
+                    log_error "无效的环境: $ENV，可选值: dev, prod"
+                    exit 1
+                fi
+                shift 2
+                ;;
+            start)
+                start
+                exit 0
+                ;;
+            stop)
+                stop
+                exit 0
+                ;;
+            restart)
+                restart
+                exit 0
+                ;;
+            rebuild)
+                rebuild
+                exit 0
+                ;;
+            logs)
+                logs "$2"
+                exit 0
+                ;;
+            status)
+                status
+                exit 0
+                ;;
+            shell)
+                shell "$2"
+                exit 0
+                ;;
+            keys)
+                generate_keys
+                exit 0
+                ;;
+            help|--help|-h)
+                show_help
+                exit 0
+                ;;
+            "")
+                show_help
+                exit 0
+                ;;
+            *)
+                log_error "未知命令: $1"
+                echo ""
+                show_help
+                exit 1
+                ;;
+        esac
+    done
+    
+    show_help
 }
 
 main "$@"
