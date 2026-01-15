@@ -18,7 +18,7 @@ NC='\033[0m' # No Color
 BACKEND_DIR="backend"
 MANAGE_PY="$BACKEND_DIR/chewy_space/manage.py"
 HOST="${BACKEND_HOST:-0.0.0.0}"
-PORT="${BACKEND_PORT:-8000}"
+PORT="${BACKEND_PORT:-8020}"
 SCRIPT_NAME="manage.py runserver"
 
 # 环境参数（从命令行参数获取，默认为 dev）

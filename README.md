@@ -67,7 +67,7 @@ cd backend
 uv sync
 export CHEWYBBTALK_SETTINGS_MODULE=configs.dev_settings
 uv run python chewy_space/manage.py migrate
-uv run python chewy_space/manage.py runserver 0.0.0.0:8000
+uv run python chewy_space/manage.py runserver 0.0.0.0:8020
 ```
 
 ### 2. 前端启动
@@ -82,9 +82,9 @@ npm run dev
 ### 3. 访问
 
 - 前端：http://localhost:4010
-- 后端 API：http://localhost:8000/api/v1/
-- API 文档：http://localhost:8000/api/schema/swagger-ui/
-- Admin 后台：http://localhost:8000/admin/
+- 后端 API：http://localhost:8020/api/v1/
+- API 文档：http://localhost:8020/api/schema/swagger-ui/
+- Admin 后台：http://localhost:8020/admin/
 
 ## 环境变量配置
 
@@ -125,17 +125,16 @@ cp .env.dev .env
 
 ## 认证机制
 
-项目使用 **Authelia** 进行统一认证：
+项目使用 **Authelia OIDC** 进行统一认证：
 
-1. **生产环境** - Authelia 反向代理注入用户信息
-   - `Remote-User`: 用户名
-   - `Remote-Email`: 邮箱
-   - `Remote-Groups`: 用户组
+1. **OIDC 流程** - Authorization Code Flow with PKCE
+   - 前端跳转到 Authelia 登录页
+   - 登录后获取 id_token（JWT）
+   - 后端验证 JWT token
 
-2. **开发环境** - 支持测试请求头（DEBUG=True 时）
-   - `X-Authelia-User-Id`: 用户ID
-   - `X-Username`: 用户名
-   - `X-Groups`: 用户组
+2. **端口配置**
+   - 前端/nginx：4010
+   - 后端：8020
 
 ## 部署
 

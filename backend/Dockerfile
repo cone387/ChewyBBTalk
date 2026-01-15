@@ -18,6 +18,6 @@ WORKDIR /app/chewy_space
 # Collect static files
 RUN uv run python manage.py collectstatic --noinput || true
 
-EXPOSE 8000
+EXPOSE 8020
 
-CMD ["uv", "run", "gunicorn", "--bind", "0.0.0.0:8000", "--workers", "2", "chewy_space.wsgi:application"]
+CMD ["uv", "run", "gunicorn", "--bind", "0.0.0.0:8020", "--workers", "2", "chewy_space.wsgi:application"]

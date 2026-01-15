@@ -9,8 +9,8 @@ if [ -f .env.dev ]; then
 fi
 
 # 默认值
-FRONTEND_UPSTREAM=${FRONTEND_UPSTREAM:-frontend:5173}
-BACKEND_UPSTREAM=${BACKEND_UPSTREAM:-backend:8000}
+FRONTEND_UPSTREAM=${FRONTEND_UPSTREAM:-frontend:4010}
+BACKEND_UPSTREAM=${BACKEND_UPSTREAM:-backend:8020}
 ENABLE_AUTHELIA=${ENABLE_AUTHELIA:-true}
 ENABLE_HTTPS=${ENABLE_HTTPS:-true}
 
@@ -50,9 +50,9 @@ echo "✅ Docker 服务已启动"
 echo ""
 echo "🌐 访问地址："
 if [ "$ENABLE_HTTPS" = "true" ]; then
-    echo "   https://localhost:${HTTPS_PORT:-8443}"
+    echo "   https://localhost:${HTTPS_PORT:-4010}"
 else
-    echo "   http://localhost:${PORT:-8020}"
+    echo "   http://localhost:${PORT:-4010}"
 fi
 
 if [ "$ENABLE_AUTHELIA" = "true" ]; then

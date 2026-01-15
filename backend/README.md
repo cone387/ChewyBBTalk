@@ -71,7 +71,7 @@ export CHEWYBBTALK_SETTINGS_MODULE=configs.dev_settings
 uv run python chewy_space/manage.py migrate
 
 # 启动开发服务器
-uv run python chewy_space/manage.py runserver 0.0.0.0:8000
+uv run python chewy_space/manage.py runserver 0.0.0.0:8020
 ```
 
 ### 运行测试
@@ -130,69 +130,50 @@ uv run python chewy_space/manage.py test bbtalk
 
 ## 认证说明
 
-### Authelia 认证
+### Authelia OIDC 认证
 
-项目使用 Authelia 作为统一认证服务：
+项目使用 Authelia 作为 OIDC Provider：
 
-**生产环境**（通过反向代理）：
-- Authelia 认证后，Nginx 注入以下请求头：
-  - `Remote-User`: 用户名
-  - `Remote-Email`: 邮箱
-  - `Remote-Name`: 显示名称
-  - `Remote-Groups`: 用户组（逗号分隔）
-
-**开发环境**（DEBUG=True）：
-- 支持测试请求头模拟认证：
-  - `X-Authelia-User-Id`: 用户 ID（必填）
-  - `X-Username`: 用户名（必填）
-  - `X-Email`: 邮箱
-  - `X-Groups`: 用户组（如 `admin,users`）
+**认证流程**（Authorization Code Flow with PKCE）：
+1. 前端跳转到 Authelia 登录页
+2. 登录成功后获取 id_token（JWT）
+3. 前端通过 `Authorization: Bearer <id_token>` 请求后端
+4. 后端验证 JWT 签名并提取用户信息
 
 ### 测试 API
 
 ```bash
-# 使用测试请求头
-curl -X GET "http://localhost:8000/api/v1/bbtalk/" \
-  -H "X-Authelia-User-Id: test123" \
-  -H "X-Username: testuser"
+# 使用 JWT token
+curl -X GET "http://localhost:8020/api/v1/bbtalk/" \
+  -H "Authorization: Bearer <your_jwt_token>"
 
 # 获取当前用户
-curl -X GET "http://localhost:8000/api/v1/bbtalk/user/me/" \
-  -H "X-Authelia-User-Id: test123" \
-  -H "X-Username: testuser"
+curl -X GET "http://localhost:8020/api/v1/bbtalk/user/me/" \
+  -H "Authorization: Bearer <your_jwt_token>"
 
-# 创建 BBTalk（带标签和附件）
-curl -X POST "http://localhost:8000/api/v1/bbtalk/" \
-  -H "X-Authelia-User-Id: test123" \
-  -H "X-Username: testuser" \
+# 创建 BBTalk
+curl -X POST "http://localhost:8020/api/v1/bbtalk/" \
+  -H "Authorization: Bearer <your_jwt_token>" \
   -H "Content-Type: application/json" \
   -d '{
     "content": "Hello World!",
     "visibility": "public",
-    "post_tags": "日常,随想",
-    "attachments": [{"uid": "xxx", "url": "/media/xxx.jpg", "type": "image"}]
+    "post_tags": "日常,随想"
   }'
 
 # 获取公开 BBTalk（无需认证）
-curl -X GET "http://localhost:8000/api/v1/bbtalk/public/"
+curl -X GET "http://localhost:8020/api/v1/bbtalk/public/"
 
 # 获取标签列表
-curl -X GET "http://localhost:8000/api/v1/bbtalk/tags/" \
-  -H "X-Authelia-User-Id: test123" \
-  -H "X-Username: testuser"
+curl -X GET "http://localhost:8020/api/v1/bbtalk/tags/" \
+  -H "Authorization: Bearer <your_jwt_token>"
 ```
 
 ### 访问 Admin
 
-开发环境使用浏览器扩展（如 ModHeader）添加请求头：
+Admin 后台需要单独配置管理员账号。
 
-```
-X-Authelia-User-Id: admin
-X-Username: admin
-X-Groups: admin
-```
-
-然后访问 http://localhost:8000/admin/
+访问 http://localhost:8020/admin/
 
 ## 配置说明
 
@@ -244,7 +225,7 @@ DATABASES = {
 docker build -t bbtalk-backend .
 
 # 运行容器
-docker run -p 8000:8000 \
+docker run -p 8020:8020 \
   -e CHEWYBBTALK_SETTINGS_MODULE=configs.prod_settings \
   -v ./configs:/app/chewy_space/configs:ro \
   bbtalk-backend

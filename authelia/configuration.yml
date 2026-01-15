@@ -158,8 +158,8 @@ identity_providers:
         public: true
         authorization_policy: one_factor
         redirect_uris:
-          - https://localhost:8443/callback
-          - https://127.0.0.1:8443/callback
+          - https://localhost:4010/callback
+          - https://127.0.0.1:4010/callback
         scopes:
           - openid
           - profile

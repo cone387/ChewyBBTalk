@@ -9,7 +9,7 @@ set -e
 
 IMAGE_NAME="chewybbtalk"
 CONTAINER_NAME="chewybbtalk"
-PORT="80"
+PORT="4010"
 
 # 默认环境
 ENV="dev"
@@ -98,7 +98,7 @@ start() {
         log_info ""
         log_info "开发环境请启动本地服务:"
         log_info "  前端: cd frontend && npm run dev"
-        log_info "  后端: cd backend/chewy_space && uv run python manage.py runserver 8000"
+        log_info "  后端: cd backend/chewy_space && uv run python manage.py runserver 8020"
     else
         log_info "Authelia 登录: http://127.0.0.1:${port}/authelia/"
     fi
