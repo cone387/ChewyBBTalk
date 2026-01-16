@@ -1,6 +1,7 @@
 from rest_framework import viewsets, filters, permissions, status
 from rest_framework.decorators import api_view, permission_classes as permission_classes_decorator
 from rest_framework.response import Response
+from rest_framework_simplejwt.tokens import RefreshToken
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import BBTalk, Tag, generate_tag_color, User
 from .serializers import BBTalkSerializer, TagSerializer, UserSerializer
@@ -24,14 +25,28 @@ from django.contrib.auth import login as django_login, logout as django_logout
         }
     },
     responses={
-        200: UserSerializer,
+        200: {
+            'description': '登录成功',
+            'content': {
+                'application/json': {
+                    'schema': {
+                        'type': 'object',
+                        'properties': {
+                            'access': {'type': 'string', 'description': 'Access Token'},
+                            'refresh': {'type': 'string', 'description': 'Refresh Token'},
+                            'user': {'type': 'object', 'description': '用户信息'},
+                        }
+                    }
+                }
+            }
+        },
         400: {'description': '登录失败'}
     }
 )
 @api_view(['POST'])
 @permission_classes_decorator([permissions.AllowAny])
 def login_view(request):
-    """用户登录"""
+    """用户登录（JWT Token）"""
     username = request.data.get('username')
     password = request.data.get('password')
     
@@ -41,10 +56,14 @@ def login_view(request):
     user = authenticate_with_password(username, password)
     
     if user:
-        # 使用 Django Session 登录
-        django_login(request, user, backend='bbtalk.authentication.UserBackend')
-        serializer = UserSerializer(user)
-        return Response(serializer.data)
+        # 生成 JWT Token
+        refresh = RefreshToken.for_user(user)
+        
+        return Response({
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'user': UserSerializer(user).data
+        })
     else:
         return Response({'error': '用户名或密码错误'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -56,7 +75,17 @@ def login_view(request):
 @api_view(['POST'])
 @permission_classes_decorator([permissions.IsAuthenticated])
 def logout_view(request):
-    """用户登出"""
+    """用户登出（可选：将 Refresh Token 加入黑名单）"""
+    try:
+        # 尝试从请求中获取 Refresh Token 并加入黑名单
+        refresh_token = request.data.get('refresh')
+        if refresh_token:
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+    except Exception:
+        pass  # 忽略错误，即使 Token 处理失败也返回成功
+    
+    # Session 登出
     django_logout(request)
     return Response({'message': '登出成功'})
 
@@ -76,7 +105,21 @@ def logout_view(request):
         }
     },
     responses={
-        201: UserSerializer,
+        201: {
+            'description': '注册成功',
+            'content': {
+                'application/json': {
+                    'schema': {
+                        'type': 'object',
+                        'properties': {
+                            'access': {'type': 'string', 'description': 'Access Token'},
+                            'refresh': {'type': 'string', 'description': 'Refresh Token'},
+                            'user': {'type': 'object', 'description': '用户信息'},
+                        }
+                    }
+                }
+            }
+        },
         400: {'description': '注册失败'}
     }
 )
@@ -103,10 +146,15 @@ def register_view(request):
             email=email,
             display_name=display_name
         )
-        # 自动登录
-        django_login(request, user, backend='bbtalk.authentication.UserBackend')
-        serializer = UserSerializer(user)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        
+        # 生成 JWT Token
+        refresh = RefreshToken.for_user(user)
+        
+        return Response({
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'user': UserSerializer(user).data
+        }, status=status.HTTP_201_CREATED)
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 

@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'rest_framework_simplejwt.token_blacklist',  # JWT Token 黑名单
     'corsheaders',
     'django_filters',
     'drf_spectacular',
@@ -189,8 +190,8 @@ CORS_ALLOW_HEADERS = [
 # REST Framework
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'bbtalk.authentication.SessionAuthentication',  # Session 认证
-        'bbtalk.authentication.TokenAuthentication',  # Token 认证（备用）
+        'rest_framework_simplejwt.authentication.JWTAuthentication',  # JWT 认证（主要）
+        'bbtalk.authentication.SessionAuthentication',  # Session 认证（备用）
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
@@ -205,6 +206,41 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     # 测试时关闭验证，使测试更简单
     'TEST_REQUEST_DEFAULT_FORMAT': 'json',
+}
+
+# SimpleJWT 配置
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),  # Access Token 有效期 1 小时
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),  # Refresh Token 有效期 7 天
+    'ROTATE_REFRESH_TOKENS': True,  # 刷新时轮换 Refresh Token
+    'BLACKLIST_AFTER_ROTATION': True,  # 轮换后将旧 Token 加入黑名单
+    'UPDATE_LAST_LOGIN': True,  # 更新最后登录时间
+    
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'VERIFYING_KEY': None,
+    'AUDIENCE': None,
+    'ISSUER': None,
+    'JWK_URL': None,
+    'LEEWAY': 0,
+    
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+    'USER_AUTHENTICATION_RULE': 'rest_framework_simplejwt.authentication.default_user_authentication_rule',
+    
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+    'TOKEN_TYPE_CLAIM': 'token_type',
+    'TOKEN_USER_CLASS': 'rest_framework_simplejwt.models.TokenUser',
+    
+    'JTI_CLAIM': 'jti',
+    
+    'SLIDING_TOKEN_REFRESH_EXP_CLAIM': 'refresh_exp',
+    'SLIDING_TOKEN_LIFETIME': timedelta(minutes=5),
+    'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
 }
 
 # DRF Spectacular (API 文档)
