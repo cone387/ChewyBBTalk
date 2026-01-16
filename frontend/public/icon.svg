@@ -1,0 +1,17 @@
+<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="512" height="512" fill="#4F46E5"/>
+  
+  <!-- Chat bubble icon -->
+  <g transform="translate(128, 128)">
+    <!-- Main bubble -->
+    <rect x="20" y="40" width="220" height="160" rx="20" fill="white"/>
+    <!-- Tail -->
+    <path d="M 50 200 L 30 240 L 90 200 Z" fill="white"/>
+    
+    <!-- Text lines -->
+    <rect x="50" y="70" width="160" height="15" rx="7.5" fill="#4F46E5" opacity="0.3"/>
+    <rect x="50" y="100" width="120" height="15" rx="7.5" fill="#4F46E5" opacity="0.3"/>
+    <rect x="50" y="130" width="140" height="15" rx="7.5" fill="#4F46E5" opacity="0.3"/>
+  </g>
+</svg>

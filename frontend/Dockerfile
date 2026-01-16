@@ -10,6 +10,9 @@ RUN npm install
 
 COPY . .
 
+# 生成 PWA 图标（占位符）
+RUN chmod +x generate-icons.sh && ./generate-icons.sh
+
 # Build
 RUN npm run build
 
