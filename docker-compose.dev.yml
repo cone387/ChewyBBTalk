@@ -94,7 +94,7 @@ services:
       - DEBUG=True
       - CORS_ORIGIN_ALLOW_ALL=${CORS_ORIGIN_ALLOW_ALL:-True}
       - ALLOWED_HOSTS=*
-    command: sh -c "cd /app/chewy_space && uv run python manage.py migrate && uv run python manage.py runserver 0.0.0.0:8020"
+    command: sh -c "mkdir -p /data/dev/media/attachments && cd /app/chewy_space && uv run python manage.py migrate && uv run python manage.py runserver 0.0.0.0:8020"
     expose:
       - "8020"
 
