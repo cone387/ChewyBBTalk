@@ -57,9 +57,9 @@ INSTALLED_APPS = [
 # 自定义用户模型
 AUTH_USER_MODEL = 'bbtalk.User'
 
-# 认证后端（仅保留 Django 默认，用于 admin 等场景）
+# 认证后端
 AUTHENTICATION_BACKENDS = [
-    'django.contrib.auth.backends.ModelBackend',
+    'bbtalk.authentication.UserBackend',  # 自定义认证后端
 ]
 
 MIDDLEWARE = [
@@ -189,7 +189,8 @@ CORS_ALLOW_HEADERS = [
 # REST Framework
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'bbtalk.authentication.OIDCAuthentication',  # OIDC JWT 认证
+        'bbtalk.authentication.SessionAuthentication',  # Session 认证
+        'bbtalk.authentication.TokenAuthentication',  # Token 认证（备用）
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
@@ -219,10 +220,6 @@ SPECTACULAR_SETTINGS = {
     'COMPONENT_SPLIT_PATCH': True,
     'COMPONENT_SPLIT_REQUEST': True,
 }
-
-# Authelia OIDC 配置
-# Authelia 作为 OIDC Provider 的 issuer URL
-AUTHELIA_ISSUER_URL = os.getenv('AUTHELIA_ISSUER_URL', 'http://authelia:9091/authelia')
 
 # Media files
 MEDIA_URL = os.getenv('MEDIA_URL', '/media/')

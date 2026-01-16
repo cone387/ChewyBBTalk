@@ -2,43 +2,127 @@ from rest_framework import viewsets, filters, permissions, status
 from rest_framework.decorators import api_view, permission_classes as permission_classes_decorator
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
-from .models import BBTalk, Tag, generate_tag_color
-from .serializers import BBTalkSerializer, TagSerializer
+from .models import BBTalk, Tag, generate_tag_color, User
+from .serializers import BBTalkSerializer, TagSerializer, UserSerializer
+from .authentication import authenticate_with_password, create_user_with_password
 from drf_spectacular.utils import extend_schema
 from django.shortcuts import get_object_or_404
 from django.db.models import Count
+from django.contrib.auth import login as django_login, logout as django_logout
+
+
+@extend_schema(
+    tags=['Auth'],
+    request={
+        'application/json': {
+            'type': 'object',
+            'properties': {
+                'username': {'type': 'string'},
+                'password': {'type': 'string'},
+            },
+            'required': ['username', 'password']
+        }
+    },
+    responses={
+        200: UserSerializer,
+        400: {'description': '登录失败'}
+    }
+)
+@api_view(['POST'])
+@permission_classes_decorator([permissions.AllowAny])
+def login_view(request):
+    """用户登录"""
+    username = request.data.get('username')
+    password = request.data.get('password')
+    
+    if not username or not password:
+        return Response({'error': '用户名和密码不能为空'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    user = authenticate_with_password(username, password)
+    
+    if user:
+        # 使用 Django Session 登录
+        django_login(request, user, backend='bbtalk.authentication.UserBackend')
+        serializer = UserSerializer(user)
+        return Response(serializer.data)
+    else:
+        return Response({'error': '用户名或密码错误'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@extend_schema(
+    tags=['Auth'],
+    responses={200: {'description': '登出成功'}}
+)
+@api_view(['POST'])
+@permission_classes_decorator([permissions.IsAuthenticated])
+def logout_view(request):
+    """用户登出"""
+    django_logout(request)
+    return Response({'message': '登出成功'})
+
+
+@extend_schema(
+    tags=['Auth'],
+    request={
+        'application/json': {
+            'type': 'object',
+            'properties': {
+                'username': {'type': 'string'},
+                'password': {'type': 'string'},
+                'email': {'type': 'string'},
+                'display_name': {'type': 'string'},
+            },
+            'required': ['username', 'password']
+        }
+    },
+    responses={
+        201: UserSerializer,
+        400: {'description': '注册失败'}
+    }
+)
+@api_view(['POST'])
+@permission_classes_decorator([permissions.AllowAny])
+def register_view(request):
+    """用户注册"""
+    username = request.data.get('username', '').strip()
+    password = request.data.get('password', '')
+    email = request.data.get('email', '').strip()
+    display_name = request.data.get('display_name', '').strip()
+    
+    if not username or not password:
+        return Response({'error': '用户名和密码不能为空'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    # 检查用户名是否已存在
+    if User.objects.filter(username=username).exists():
+        return Response({'error': '用户名已存在'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        user = create_user_with_password(
+            username=username,
+            password=password,
+            email=email,
+            display_name=display_name
+        )
+        # 自动登录
+        django_login(request, user, backend='bbtalk.authentication.UserBackend')
+        serializer = UserSerializer(user)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @extend_schema(
     tags=['User'],
     responses={
-        200: {
-            'description': '获取当前用户成功',
-            'content': {
-                'application/json': {
-                    'type': 'object',
-                    'properties': {
-                        'id': {'type': 'integer'},
-                        'username': {'type': 'string'},
-                        'email': {'type': 'string'},
-                    }
-                }
-            }
-        }
+        200: UserSerializer
     }
 )
 @api_view(['GET'])
 @permission_classes_decorator([permissions.IsAuthenticated])
 def get_current_user(request):
     """获取当前登录用户信息"""
-    user = request.user
-    return Response({
-        'id': user.id,
-        'username': user.username,
-        'email': user.email,
-        'display_name': user.display_name,
-        'avatar': user.avatar,
-    })
+    serializer = UserSerializer(request.user)
+    return Response(serializer.data)
 
 
 class BBTalkViewSet(viewsets.ModelViewSet):

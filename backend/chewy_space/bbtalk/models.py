@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils import timezone
+from django.contrib.auth.hashers import make_password, check_password
 import random
 import colorsys
 import base64
@@ -12,30 +13,23 @@ def generate_uid():
 
 class User(models.Model):
     """
-    本应用的基础用户模型，通过 authelia_user_id 等字段关联到外部认证服务
-    支持多种认证源：Authelia、Keycloak 等（通过不同的字段）
+    用户模型：代表系统中的一个用户实体
+    
+    一个用户可以有多个身份（Identity）认证方式
     """
     id = models.BigAutoField(primary_key=True, verbose_name="用户ID")
-    username = models.CharField(max_length=150, unique=True, verbose_name="用户名")
+    username = models.CharField(max_length=150, unique=True, db_index=True, verbose_name="用户名")
     email = models.EmailField(blank=True, verbose_name="邮箱")
     display_name = models.CharField(max_length=150, blank=True, verbose_name="显示名称")
     avatar = models.URLField(blank=True, verbose_name="头像")
+    bio = models.TextField(blank=True, verbose_name="个人简介")
     
-    # 认证服务字段（可扩展）
-    authelia_user_id = models.CharField(
-        max_length=255, 
-        unique=True,
-        null=True,
-        blank=True,
-        db_index=True,
-        verbose_name="Authelia用户ID",
-        help_text="来自 Authelia 认证服务的用户唯一标识"
-    )
-    # 将来如果需要支持 Keycloak，可以添加：
-    # keycloak_user_id = models.CharField(max_length=255, unique=True, null=True, blank=True, ...)
-    
-    groups = models.JSONField(default=list, blank=True, verbose_name="用户组")
+    # 账户状态
     is_active = models.BooleanField(default=True, verbose_name="激活状态")
+    is_staff = models.BooleanField(default=False, verbose_name="管理员")
+    is_superuser = models.BooleanField(default=False, verbose_name="超级管理员")
+    
+    # 时间字段
     create_time = models.DateTimeField(default=timezone.now, verbose_name="创建时间")
     update_time = models.DateTimeField(auto_now=True, verbose_name="更新时间")
     last_login = models.DateTimeField(null=True, blank=True, verbose_name="最后登录")
@@ -49,17 +43,13 @@ class User(models.Model):
         verbose_name = verbose_name_plural = "用户"
         ordering = ["-create_time"]
         indexes = [
-            models.Index(fields=['authelia_user_id'], name='user_authelia_idx'),
             models.Index(fields=['username'], name='user_username_idx'),
+            models.Index(fields=['email'], name='user_email_idx'),
+            models.Index(fields=['is_active', '-create_time'], name='user_active_time_idx'),
         ]
 
     def __str__(self):
         return self.username
-
-    @property
-    def is_staff(self):
-        """是否为管理员"""
-        return 'admin' in self.groups or 'admins' in self.groups
 
     @property
     def is_authenticated(self):
@@ -71,17 +61,114 @@ class User(models.Model):
 
     def has_perm(self, perm, obj=None):
         """检查用户是否有指定权限"""
-        # 管理员拥有所有权限
-        return self.is_staff
+        return self.is_superuser or self.is_staff
 
     def has_module_perms(self, app_label):
         """检查用户是否有指定应用的权限"""
-        return self.is_staff
+        return self.is_superuser or self.is_staff
+
+
+class Identity(models.Model):
+    """
+    身份模型：代表一种登录认证方式
+    
+    一个用户可以绑定多个身份（多种登录方式）
+    支持：密码登录、OAuth、微信、邮箱验证码等
+    """
+    IDENTITY_TYPE_CHOICES = [
+        ('password', '密码登录'),
+        ('oauth', 'OAuth登录'),
+        ('wechat', '微信登录'),
+        ('email_code', '邮箱验证码'),
+    ]
+    
+    id = models.BigAutoField(primary_key=True, verbose_name="身份ID")
+    user = models.ForeignKey(
+        User, 
+        on_delete=models.CASCADE, 
+        related_name='identities',
+        db_constraint=False,
+        verbose_name="用户"
+    )
+    identity_type = models.CharField(
+        max_length=32, 
+        choices=IDENTITY_TYPE_CHOICES,
+        verbose_name="身份类型"
+    )
+    
+    # 通用认证字段
+    identifier = models.CharField(
+        max_length=255,
+        verbose_name="标识符",
+        help_text="密码登录存username，OAuth存provider+openid，邮箱登录存email"
+    )
+    credential = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name="凭证",
+        help_text="密码登录存密码哈希，OAuth存access_token，验证码登录不存"
+    )
+    
+    # OAuth 专用字段
+    provider = models.CharField(
+        max_length=32, 
+        blank=True,
+        verbose_name="OAuth提供商",
+        help_text="如: github, google, wechat"
+    )
+    provider_user_id = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name="第三方用户ID"
+    )
+    
+    # 状态字段
+    is_verified = models.BooleanField(default=False, verbose_name="是否已验证")
+    is_primary = models.BooleanField(default=False, verbose_name="是否为主身份")
+    
+    # 时间字段
+    create_time = models.DateTimeField(default=timezone.now, verbose_name="创建时间")
+    update_time = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+    last_used = models.DateTimeField(null=True, blank=True, verbose_name="最后使用时间")
+
+    class Meta:
+        db_table = "cb_identities"
+        verbose_name = verbose_name_plural = "身份"
+        ordering = ["-create_time"]
+        unique_together = [
+            ('identity_type', 'identifier'),  # 同一类型的标识符唯一
+        ]
+        indexes = [
+            models.Index(fields=['user', 'identity_type'], name='identity_user_type_idx'),
+            models.Index(fields=['identity_type', 'identifier'], name='identity_type_id_idx'),
+            models.Index(fields=['provider', 'provider_user_id'], name='identity_provider_idx'),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} - {self.get_identity_type_display()}"
+    
+    def set_password(self, raw_password):
+        """设置密码（仅用于 password 类型）"""
+        if self.identity_type == 'password':
+            self.credential = make_password(raw_password)
+    
+    def check_password(self, raw_password):
+        """验证密码（仅用于 password 类型）"""
+        if self.identity_type == 'password':
+            return check_password(raw_password, self.credential)
+        return False
 
 
 class BaseModel(models.Model):
+    """业务模型基类"""
     id = models.AutoField(primary_key=True)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, db_constraint=False, verbose_name="用户", db_index=True)
+    user = models.ForeignKey(
+        User, 
+        on_delete=models.CASCADE, 
+        db_constraint=False, 
+        verbose_name="用户", 
+        db_index=True
+    )
     create_time = models.DateTimeField(default=timezone.now, verbose_name="创建时间", db_index=True)
     update_time = models.DateTimeField(auto_now=True, verbose_name="更新时间", db_index=True)
 
@@ -136,7 +223,7 @@ class BBTalk(BaseModel):
         verbose_name="标签",
         blank=True,
         db_constraint=False,
-        db_table="cb_bbtalk_tags_relations"
+        db_table="cb_bbtalk_tag_relations"
     )
     attachments = models.JSONField(
         default=list,

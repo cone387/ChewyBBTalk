@@ -1,13 +1,47 @@
 from django.contrib import admin
-from .models import BBTalk, Tag, User
+from .models import BBTalk, Tag, User, Identity
 
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
-    list_display = ('id', 'username', 'email', 'display_name', 'authelia_user_id', 'is_active', 'is_staff', 'last_login')
-    list_filter = ('is_active', 'create_time')
-    search_fields = ('username', 'email', 'authelia_user_id')
-    readonly_fields = ('authelia_user_id', 'create_time', 'update_time', 'last_login')
+    list_display = ('id', 'username', 'email', 'display_name', 'is_active', 'is_staff', 'is_superuser', 'last_login')
+    list_filter = ('is_active', 'is_staff', 'is_superuser', 'create_time')
+    search_fields = ('username', 'email', 'display_name')
+    readonly_fields = ('create_time', 'update_time', 'last_login')
+    fieldsets = (
+        ('基本信息', {
+            'fields': ('username', 'email', 'display_name', 'avatar', 'bio')
+        }),
+        ('权限', {
+            'fields': ('is_active', 'is_staff', 'is_superuser')
+        }),
+        ('时间信息', {
+            'fields': ('create_time', 'update_time', 'last_login')
+        }),
+    )
+
+
+@admin.register(Identity)
+class IdentityAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'identity_type', 'identifier', 'provider', 'is_verified', 'is_primary', 'last_used')
+    list_filter = ('identity_type', 'is_verified', 'is_primary', 'provider')
+    search_fields = ('identifier', 'provider_user_id')
+    readonly_fields = ('create_time', 'update_time', 'last_used')
+    fieldsets = (
+        ('基本信息', {
+            'fields': ('user', 'identity_type', 'identifier')
+        }),
+        ('OAuth 信息', {
+            'fields': ('provider', 'provider_user_id'),
+            'classes': ('collapse',)
+        }),
+        ('状态', {
+            'fields': ('is_verified', 'is_primary')
+        }),
+        ('时间信息', {
+            'fields': ('create_time', 'update_time', 'last_used')
+        }),
+    )
 
 
 class BaseAdmin(admin.ModelAdmin):

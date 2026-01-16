@@ -1,6 +1,14 @@
 from rest_framework import serializers
 from rest_framework.request import Request
-from .models import BBTalk, Tag, generate_tag_color
+from .models import BBTalk, Tag, generate_tag_color, User
+
+
+class UserSerializer(serializers.ModelSerializer):
+    """用户序列化器"""
+    class Meta:
+        model = User
+        fields = ('id', 'username', 'email', 'display_name', 'avatar', 'bio', 'is_staff', 'create_time', 'last_login')
+        read_only_fields = ('id', 'username', 'is_staff', 'create_time', 'last_login')
 
 
 class TagSerializer(serializers.ModelSerializer):
