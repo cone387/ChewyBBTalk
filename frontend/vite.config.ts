@@ -11,7 +11,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'robots.txt'],
+      includeAssets: ['favicon.ico', 'robots.txt', 'apple-touch-icon.png'],
       manifest: {
         name: 'ChewyBBTalk - 碎碎念',
         short_name: 'BBTalk',
