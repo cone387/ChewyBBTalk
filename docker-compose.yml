@@ -1,20 +1,62 @@
-# 环境变量文件：.env 或 .env.dev / .env.prod
-# docker-compose --env-file .env.dev up
+# 生产环境 Docker Compose
+# 使用方法：docker-compose --env-file .env up -d
+# 访问地址：http://localhost:8021
 
 services:
+  # ============================================
+  # Nginx 反向代理
+  # ============================================
+  nginx:
+    image: m.daocloud.io/docker.io/nginx:alpine
+    container_name: chewybbtalk-nginx
+    ports:
+      - "${PORT:-8021}:80"
+    volumes:
+      - ${NGINX_CONF:-./nginx.conf}:/etc/nginx/nginx.conf:ro
+      - ${DATA_DIR:-./data}/backend/media:/app/media:ro
+      - ${DATA_DIR:-./data}/backend/staticfiles:/app/staticfiles:ro
+    restart: unless-stopped
+    networks:
+      - bbtalk-network
+    depends_on:
+      - authelia
+      - frontend
+      - backend
+
+  # ============================================
   # Authelia 认证服务
+  # ============================================
   authelia:
-    image: m.daocloud.io/docker.io/${AUTHELIA_IMAGE:-authelia/authelia:latest}
+    image: m.daocloud.io/docker.io/${AUTHELIA_IMAGE:-authelia/authelia:4.37}
     container_name: chewybbtalk-authelia
     env_file: .env
     volumes:
-      - ${AUTHELIA_CONFIG_DIR:-./authelia}:/config
-      - ${DATA_DIR:-./data}/authelia:/data
+      - ${AUTHELIA_CONFIG_DIR:-./authelia}:/config:ro
+      - authelia_data:/data
+    environment:
+      - TZ=Asia/Shanghai
+      - X_AUTHELIA_CONFIG_FILTERS=${X_AUTHELIA_CONFIG_FILTERS:-template}
     restart: unless-stopped
     networks:
       - bbtalk-network
 
-  # Django 后端
+  # ============================================
+  # 前端服务
+  # ============================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: chewybbtalk-frontend
+    restart: unless-stopped
+    networks:
+      - bbtalk-network
+    expose:
+      - "4010"
+
+  # ============================================
+  # 后端服务
+  # ============================================
   backend:
     build:
       context: ./backend
@@ -29,35 +71,12 @@ services:
     restart: unless-stopped
     networks:
       - bbtalk-network
-    depends_on:
-      - authelia
-
-  # React 前端
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: chewybbtalk-frontend
-    restart: unless-stopped
-    networks:
-      - bbtalk-network
-    depends_on:
-      - backend
-
-  # Nginx 反向代理
-  nginx:
-    image: m.daocloud.io/docker.io/nginx:alpine
-    container_name: chewybbtalk-nginx
-    ports:
-      - "${PORT:-8021}:80"
-    volumes:
-      - ${NGINX_CONF:-./nginx.conf}:/etc/nginx/nginx.conf:ro
-      - ${DATA_DIR:-./data}/backend/media:/app/media:ro
-      - ${DATA_DIR:-./data}/backend/staticfiles:/app/staticfiles:ro
-    restart: unless-stopped
-    networks:
-      - bbtalk-network
+    expose:
+      - "8020"
 
 networks:
   bbtalk-network:
     driver: bridge
+
+volumes:
+  authelia_data:

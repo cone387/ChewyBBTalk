@@ -19,7 +19,7 @@ services:
     container_name: chewybbtalk-nginx-dev
     ports:
       - "${PORT:-8021}:443"
-      - "80:80"
+      # - "80:80"  # 80端口被占用，仅使用HTTPS
     volumes:
       - ./nginx.dev.https.conf.tmpl:/etc/nginx/nginx.conf.tmpl:ro
       - ./certs:/etc/nginx/certs:ro

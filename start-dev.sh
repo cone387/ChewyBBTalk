@@ -42,7 +42,7 @@ fi
 # 启动服务
 echo ""
 echo "🐳 启动 Docker 服务..."
-docker-compose -f docker-compose.dev.yml up -d
+docker compose -f docker-compose.dev.yml up -d
 
 echo ""
 echo "✅ Docker 服务已启动"

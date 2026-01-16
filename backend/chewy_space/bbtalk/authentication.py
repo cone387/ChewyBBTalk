@@ -53,11 +53,15 @@ class OIDCAuthentication(BaseAuthentication):
     def authenticate(self, request):
         auth_header = request.META.get('HTTP_AUTHORIZATION', '')
         
+        logger.info(f"[OIDC Auth] Checking authorization header: {auth_header[:50] if auth_header else 'NONE'}...")
+        
         if not auth_header.startswith('Bearer '):
+            logger.warning(f"[OIDC Auth] No Bearer token found, header: {auth_header[:100]}")
             return None
         
         token = auth_header[7:].strip()
         if not token:
+            logger.warning("[OIDC Auth] Empty token after 'Bearer '")
             return None
         
         try:
