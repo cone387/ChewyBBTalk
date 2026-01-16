@@ -16,7 +16,7 @@ export default defineConfig({
         name: 'ChewyBBTalk - 碎碎念',
         short_name: 'BBTalk',
         description: '一个简洁的微博客/碎碎念应用',
-        theme_color: '#ffffff',
+        theme_color: '#4F46E5',
         background_color: '#ffffff',
         display: 'standalone',
         start_url: '/',
