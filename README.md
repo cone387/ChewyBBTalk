@@ -9,6 +9,7 @@
 - 📎 附件上传（图片、视频、文件）
 - 🔐 Authelia 认证集成
 - 🧩 支持 wujie 微前端嵌入
+- 🔒 防窥模式（长时间不活动自动模糊内容）
 
 ## 技术栈
 
@@ -109,6 +110,14 @@ cp .env.dev .env
 | SECRET_KEY | Django 密钥 | 需要修改 |
 | CHEWYBBTALK_SETTINGS_MODULE | 配置模块 | configs.dev_settings |
 
+### 前端配置（frontend/.env）
+
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| VITE_API_BASE_URL | API 基础地址 | 空（使用相对路径）|
+| VITE_AUTHELIA_URL | Authelia 地址 | /authelia |
+| VITE_PRIVACY_TIMEOUT_MINUTES | 防窥模式超时时长（分钟）| 5 |
+
 ## API 端点
 
 | 方法 | 端点 | 说明 |
@@ -135,6 +144,38 @@ cp .env.dev .env
 2. **端口配置**
    - 前端/nginx：4010
    - 后端：8020
+
+## 防窥模式
+
+登录状态下，长时间不活动后，BBTalk 内容会自动模糊显示以保护隐私：
+
+**特性**
+- ⏱️ 可配置超时时长（默认 5 分钟）
+- 🔄 刷新页面后防窥状态保持
+- ⌨️ 防窥状态下输入框依然可以正常发布
+- 🖱️ 任意鼠标或键盘活动自动解锁
+
+**配置方式**
+
+编辑 `frontend/.env.dev` 或 `frontend/.env`：
+
+```bash
+# 防窥模式超时时长（分钟），支持范围：1-60
+VITE_PRIVACY_TIMEOUT_MINUTES=5
+```
+
+**使用示例**
+
+```bash
+# 设置为 10 分钟
+VITE_PRIVACY_TIMEOUT_MINUTES=10
+
+# 设置为 30 分钟
+VITE_PRIVACY_TIMEOUT_MINUTES=30
+
+# 设置为 1 分钟（适合测试）
+VITE_PRIVACY_TIMEOUT_MINUTES=1
+```
 
 ## 部署
 

@@ -5,6 +5,8 @@ import { loadTags, updateTagAsync } from '../store/slices/tagSlice'
 import BBTalkEditor from '../components/BBTalkEditor'
 import CachedImage from '../components/CachedImage'
 import ImagePreview from '../components/ImagePreview'
+import PrivacyOverlay from '../components/PrivacyOverlay'
+import { usePrivacyMode } from '../hooks/usePrivacyMode'
 import {
   DndContext,
   closestCenter,
@@ -116,6 +118,15 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
   const lastScrollY = useRef(0)
   const containerRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  
+  // 防窥模式：从环境变量读取超时时长（分钟），默认 5 分钟
+  const privacyTimeoutMinutes = parseInt(import.meta.env.VITE_PRIVACY_TIMEOUT_MINUTES || '5', 10)
+  const privacyTimeoutMs = privacyTimeoutMinutes * 60 * 1000
+  const { isPrivacyMode, resetTimer } = usePrivacyMode({
+    timeout: privacyTimeoutMs,
+    enabled: !isPublic, // 仅登录状态启用防窥模式
+    persistOnRefresh: true,
+  })
 
   // 登录跳转
   const handleLogin = () => {
@@ -542,8 +553,9 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
             </div>
           )}
 
-          {/* BBTalk 列表 */}
-          <div className="space-y-4">
+          {/* BBTalk 列表 - 使用防窥遮罩包裹 */}
+          <PrivacyOverlay isPrivacyMode={isPrivacyMode} onUnlock={resetTimer}>
+            <div className="space-y-4">
             {isLoading && bbtalks.length === 0 ? (
               <div className="bg-white rounded-lg shadow p-6 text-center text-gray-600">
                 加载中...
@@ -979,23 +991,24 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                 )
               })
             )}
-          </div>
+            </div>
                 
-          {/* 加载更多提示 */}
-          {isLoadingMore && (
-            <div className="flex justify-center py-4">
-              <div className="text-gray-600 text-sm">加载中...</div>
-            </div>
-          )}
+            {/* 加载更多提示 */}
+            {isLoadingMore && (
+              <div className="flex justify-center py-4">
+                <div className="text-gray-600 text-sm">加载中...</div>
+              </div>
+            )}
                 
-          {!hasMore && bbtalks.length > 0 && (
-            <div className="flex justify-center py-4">
-              <div className="text-gray-400 text-sm">没有更多了</div>
-            </div>
-          )}
-            </div>
+            {!hasMore && bbtalks.length > 0 && (
+              <div className="flex justify-center py-4">
+                <div className="text-gray-400 text-sm">没有更多了</div>
+              </div>
+            )}
+          </PrivacyOverlay>
           </div>
         </div>
+      </div>
       </div>
 
       {/* 回到顶部按钮 - 仅桌面端显示 */}
