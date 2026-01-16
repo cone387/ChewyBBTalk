@@ -108,7 +108,7 @@ class Tag(BaseModel):
         unique_together = [["name", "user"]]
         verbose_name = verbose_name_plural = "标签"
         ordering = ["-update_time"]
-        db_table = "cb_user_tags"
+        db_table = "cb_tags"
         indexes = [
             models.Index(fields=['user', '-update_time'], name='tag_user_time_idx'),
             models.Index(fields=['user', 'name'], name='tag_user_name_idx'),
@@ -157,7 +157,7 @@ class BBTalk(BaseModel):
     class Meta:
         ordering = ["-update_time"]
         verbose_name = verbose_name_plural = "碎碎念"
-        db_table = "cb_user_bbtalks"
+        db_table = "cb_bbtalks"
         indexes = [
             models.Index(fields=['user', '-update_time'], name='bbtalk_user_time_idx'),
             models.Index(fields=['user', '-create_time'], name='bbtalk_user_create_idx'),

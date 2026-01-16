@@ -235,6 +235,8 @@ STATIC_ROOT = os.getenv('STATIC_ROOT', str(BASE_DIR / 'staticfiles'))
 CHEWY_ATTACHMENT = {
     # 文件存储根目录
     "STORAGE_ROOT": BASE_DIR / "media" / "attachments",
+    # 自定义表名，与项目其他表保持一致的 cb_ 前缀
+    "TABLE_NAME": "cb_attachments",
 }
 
 
