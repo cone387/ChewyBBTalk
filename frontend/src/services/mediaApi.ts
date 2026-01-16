@@ -59,11 +59,15 @@ export const attachmentApi = {
   async upload(file: File, params?: {
     media_type?: string;
     description?: string;
+    is_public?: boolean;
   }): Promise<Attachment> {
     const formData = new FormData();
     formData.append('file', file);
     if (params?.media_type) formData.append('media_type', params.media_type);
     if (params?.description) formData.append('description', params.description);
+    // 默认公开，浏览器可以直接通过 <img> 加载，利用 HTTP 缓存
+    // 私密性通过 BBTalk 的 visibility 控制，而不是附件级别
+    formData.append('is_public', String(params?.is_public ?? true));
 
     const headers: Record<string, string> = {};
     const token = getAuthToken();

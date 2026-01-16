@@ -1,7 +1,7 @@
 import { apiClient } from './apiClient';
 import type { BBTalk, PaginatedResponse, Attachment } from '../../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8020';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 function transformAttachment(data: any): Attachment {
   let url = data.url || '';
@@ -155,7 +155,7 @@ export const bbtalkApi = {
   },
 
   async getPublicBBTalk(uid: string): Promise<BBTalk> {
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8020';
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
     const response = await fetch(`${baseUrl}/api/v1/bbtalk/public/${uid}/`, {
       method: 'GET',
       headers: {
