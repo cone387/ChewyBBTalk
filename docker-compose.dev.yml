@@ -39,25 +39,8 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
-      - authelia
       - frontend
       - backend
-
-  # ============================================
-  # Authelia 认证服务
-  # ============================================
-  authelia:
-    image: m.daocloud.io/docker.io/${AUTHELIA_IMAGE:-authelia/authelia:4.37}
-    container_name: chewybbtalk-authelia-dev
-    env_file: .env.dev
-    volumes:
-      - ./authelia/configuration.yml:/config/configuration.yml:ro
-      - ./authelia/users_database.yml:/config/users_database.yml:ro
-      - ./authelia/oidc.key:/config/oidc.key:ro
-      - authelia_data:/data
-    environment:
-      - TZ=Asia/Shanghai
-      - X_AUTHELIA_CONFIG_FILTERS=${X_AUTHELIA_CONFIG_FILTERS:-template}
 
   # ============================================
   # 前端服务
@@ -71,7 +54,6 @@ services:
     environment:
       - VITE_API_BASE_URL=
       - VITE_MEDIA_URL_PROTOCOL=https
-      - VITE_AUTHELIA_URL=/authelia
     command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 4010"
     expose:
       - "4010"
@@ -97,6 +79,3 @@ services:
     command: sh -c "mkdir -p /data/dev/media/attachments && cd /app/chewy_space && uv run python manage.py migrate && uv run python manage.py runserver 0.0.0.0:8020"
     expose:
       - "8020"
-
-volumes:
-  authelia_data:

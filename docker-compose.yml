@@ -19,26 +19,8 @@ services:
     networks:
       - bbtalk-network
     depends_on:
-      - authelia
       - frontend
       - backend
-
-  # ============================================
-  # Authelia 认证服务
-  # ============================================
-  authelia:
-    image: m.daocloud.io/docker.io/${AUTHELIA_IMAGE:-authelia/authelia:4.37}
-    container_name: chewybbtalk-authelia
-    env_file: .env
-    volumes:
-      - ${AUTHELIA_CONFIG_DIR:-./authelia}:/config:ro
-      - authelia_data:/data
-    environment:
-      - TZ=Asia/Shanghai
-      - X_AUTHELIA_CONFIG_FILTERS=${X_AUTHELIA_CONFIG_FILTERS:-template}
-    restart: unless-stopped
-    networks:
-      - bbtalk-network
 
   # ============================================
   # 前端服务
@@ -77,6 +59,3 @@ services:
 networks:
   bbtalk-network:
     driver: bridge
-
-volumes:
-  authelia_data:
