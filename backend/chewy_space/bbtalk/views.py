@@ -26,7 +26,7 @@ from django.contrib.auth import login as django_login, logout as django_logout
     },
     responses={
         200: {
-            'description': '登录成功',
+            'description': '获取 Token 成功',
             'content': {
                 'application/json': {
                     'schema': {
@@ -40,13 +40,13 @@ from django.contrib.auth import login as django_login, logout as django_logout
                 }
             }
         },
-        400: {'description': '登录失败'}
+        400: {'description': '认证失败'}
     }
 )
 @api_view(['POST'])
 @permission_classes_decorator([permissions.AllowAny])
-def login_view(request):
-    """用户登录（JWT Token）"""
+def token_obtain_view(request):
+    """获取 JWT Token（用用户名密码换取 Token）"""
     username = request.data.get('username')
     password = request.data.get('password')
     
@@ -70,22 +70,83 @@ def login_view(request):
 
 @extend_schema(
     tags=['Auth'],
+    request={
+        'application/json': {
+            'type': 'object',
+            'properties': {
+                'username': {'type': 'string'},
+                'password': {'type': 'string'},
+            },
+            'required': ['username', 'password']
+        }
+    },
+    responses={
+        200: UserSerializer,
+        400: {'description': '登录失败'}
+    }
+)
+@api_view(['POST'])
+@permission_classes_decorator([permissions.AllowAny])
+def login_view(request):
+    """用户登录（Session 认证，传统方式）"""
+    username = request.data.get('username')
+    password = request.data.get('password')
+    
+    if not username or not password:
+        return Response({'error': '用户名和密码不能为空'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    user = authenticate_with_password(username, password)
+    
+    if user:
+        # 使用 Django Session 登录
+        django_login(request, user, backend='bbtalk.authentication.UserBackend')
+        serializer = UserSerializer(user)
+        return Response(serializer.data)
+    else:
+        return Response({'error': '用户名或密码错误'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@extend_schema(
+    tags=['Auth'],
+    request={
+        'application/json': {
+            'type': 'object',
+            'properties': {
+                'refresh': {'type': 'string', 'description': 'Refresh Token'},
+            },
+            'required': ['refresh']
+        }
+    },
+    responses={
+        200: {'description': 'Token 已加入黑名单'},
+        400: {'description': '请求失败'}
+    }
+)
+@api_view(['POST'])
+@permission_classes_decorator([permissions.IsAuthenticated])
+def token_blacklist_view(request):
+    """将 Refresh Token 加入黑名单（JWT Token 登出）"""
+    refresh_token = request.data.get('refresh')
+    
+    if not refresh_token:
+        return Response({'error': 'Refresh Token 不能为空'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        token = RefreshToken(refresh_token)
+        token.blacklist()
+        return Response({'message': 'Token 已加入黑名单，登出成功'})
+    except Exception as e:
+        return Response({'error': f'Token 无效: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@extend_schema(
+    tags=['Auth'],
     responses={200: {'description': '登出成功'}}
 )
 @api_view(['POST'])
 @permission_classes_decorator([permissions.IsAuthenticated])
 def logout_view(request):
-    """用户登出（可选：将 Refresh Token 加入黑名单）"""
-    try:
-        # 尝试从请求中获取 Refresh Token 并加入黑名单
-        refresh_token = request.data.get('refresh')
-        if refresh_token:
-            token = RefreshToken(refresh_token)
-            token.blacklist()
-    except Exception:
-        pass  # 忽略错误，即使 Token 处理失败也返回成功
-    
-    # Session 登出
+    """用户登出（Session 认证）"""
     django_logout(request)
     return Response({'message': '登出成功'})
 
