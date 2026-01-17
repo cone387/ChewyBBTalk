@@ -1,5 +1,5 @@
 import { apiClient } from './api/apiClient';
-import { getAuthToken } from './auth';
+import { getAccessToken } from './auth';
 import type { Attachment } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
@@ -70,7 +70,7 @@ export const attachmentApi = {
     formData.append('is_public', String(params?.is_public ?? true));
 
     const headers: Record<string, string> = {};
-    const token = getAuthToken();
+    const token = getAccessToken();
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }

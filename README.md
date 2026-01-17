@@ -89,7 +89,7 @@ npm run dev
 
 ### 统一配置文件
 
-项目使用统一的 `.env` 文件，同时用于 `start_backend.sh` 和 `docker-compose.yml`：
+项目使用统一的 `.env` 文件，同时用于 `start_backend.sh` 和 `docker compose`：
 
 ```bash
 # 复制模板
@@ -177,10 +177,10 @@ VITE_PRIVACY_TIMEOUT_MINUTES=1
 
 ```bash
 # 使用开发环境配置
-docker-compose --env-file .env.dev up -d
+docker compose --env-file .env.dev up -d
 
 # 使用生产环境配置
-docker-compose --env-file .env.prod up -d
+docker compose --env-file .env.prod up -d
 ```
 
 ### 单容器部署

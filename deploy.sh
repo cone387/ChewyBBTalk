@@ -42,7 +42,7 @@ get_env_file() {
     fi
 }
 
-# 获取 docker-compose 文件
+# 获取 docker compose 文件
 get_compose_file() {
     if [ "$ENV" = "prod" ]; then
         echo "docker-compose.yml"
@@ -82,10 +82,10 @@ start() {
     local compose_file=$(get_compose_file)
     
     log_info "环境: $ENV"
-    log_info "使用 docker-compose 文件: $compose_file"
+    log_info "使用 docker compose 文件: $compose_file"
     
-    # 使用 docker-compose 启动
-    docker-compose -f "$compose_file" --env-file "$env_file" up -d
+    # 使用 docker compose 启动
+    docker compose -f "$compose_file" --env-file "$env_file" up -d
     
     # 加载环境变量获取端口
     source "$env_file"
@@ -106,7 +106,7 @@ start() {
 stop() {
     local compose_file=$(get_compose_file)
     log_info "停止服务 (环境: $ENV)..."
-    docker-compose -f "$compose_file" down
+    docker compose -f "$compose_file" down
     log_info "服务已停止"
 }
 
@@ -115,7 +115,7 @@ restart() {
     local env_file=$(get_env_file)
     local compose_file=$(get_compose_file)
     log_info "重启服务 (环境: $ENV)..."
-    docker-compose -f "$compose_file" --env-file "$env_file" restart
+    docker compose -f "$compose_file" --env-file "$env_file" restart
     log_info "服务重启成功！"
 }
 
@@ -127,10 +127,10 @@ rebuild() {
     log_info "重新构建 (环境: $ENV)..."
     
     # 停止并删除旧容器
-    docker-compose -f "$compose_file" down 2>/dev/null || true
+    docker compose -f "$compose_file" down 2>/dev/null || true
     
     # 重新构建并启动
-    docker-compose -f "$compose_file" --env-file "$env_file" up -d --build
+    docker compose -f "$compose_file" --env-file "$env_file" up -d --build
     
     log_info "重新构建完成！"
 }
@@ -139,9 +139,9 @@ rebuild() {
 logs() {
     local compose_file=$(get_compose_file)
     if [ -n "$1" ]; then
-        docker-compose -f "$compose_file" logs -f "$1"
+        docker compose -f "$compose_file" logs -f "$1"
     else
-        docker-compose -f "$compose_file" logs -f
+        docker compose -f "$compose_file" logs -f
     fi
 }
 
@@ -150,7 +150,7 @@ status() {
     local compose_file=$(get_compose_file)
     log_info "环境: $ENV"
     log_info "容器状态:"
-    docker-compose -f "$compose_file" ps
+    docker compose -f "$compose_file" ps
 }
 
 # 进入容器
@@ -158,7 +158,7 @@ shell() {
     local compose_file=$(get_compose_file)
     local service=${1:-nginx}
     log_info "进入 $service 容器..."
-    docker-compose -f "$compose_file" exec "$service" /bin/sh
+    docker compose -f "$compose_file" exec "$service" /bin/sh
 }
 
 # 生成密钥

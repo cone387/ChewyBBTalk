@@ -7,7 +7,7 @@
 #
 # 使用方法:
 #   1. 生成 HTTPS 证书（首次）：./generate-cert.sh
-#   2. 启动服务：docker-compose -f docker-compose.dev.yml up -d
+#   2. 启动服务：docker compose -f docker-compose.dev.yml up -d
 #   3. 访问：https://localhost:8021
 
 services:
