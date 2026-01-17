@@ -18,22 +18,20 @@ services:
     image: m.daocloud.io/docker.io/nginx:alpine
     container_name: chewybbtalk-nginx-dev
     ports:
-      - "${PORT:-8021}:443"
-      # - "80:80"  # 80端口被占用，仅使用HTTPS
+      - "${PORT:-8021}:80"
     volumes:
-      - ./nginx.dev.https.conf.tmpl:/etc/nginx/nginx.conf.tmpl:ro
-      - ./certs:/etc/nginx/certs:ro
+      - ./nginx.dev.conf.tmpl:/etc/nginx/nginx.conf.tmpl:ro
     env_file: .env.dev
     environment:
       - FRONTEND_UPSTREAM=${FRONTEND_UPSTREAM:-frontend:4010}
       - BACKEND_UPSTREAM=${BACKEND_UPSTREAM:-backend:8020}
-      - HTTPS_PORT=${PORT:-8021}
+      - PORT=${PORT:-8021}
     command: >
       sh -c '
-        export FRONTEND_UPSTREAM BACKEND_UPSTREAM HTTPS_PORT;
+        export FRONTEND_UPSTREAM BACKEND_UPSTREAM PORT;
         echo "Frontend: $$FRONTEND_UPSTREAM";
         echo "Backend: $$BACKEND_UPSTREAM";
-        envsubst "\$$FRONTEND_UPSTREAM \$$BACKEND_UPSTREAM \$$HTTPS_PORT" < /etc/nginx/nginx.conf.tmpl > /etc/nginx/nginx.conf &&
+        envsubst "\$$FRONTEND_UPSTREAM \$$BACKEND_UPSTREAM \$$PORT" < /etc/nginx/nginx.conf.tmpl > /etc/nginx/nginx.conf &&
         nginx -g "daemon off;"
       '
     extra_hosts:
