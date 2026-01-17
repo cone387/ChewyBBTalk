@@ -99,8 +99,6 @@ start() {
         log_info "开发环境请启动本地服务:"
         log_info "  前端: cd frontend && npm run dev"
         log_info "  后端: cd backend/chewy_space && uv run python manage.py runserver 8020"
-    else
-        log_info "Authelia 登录: http://127.0.0.1:${port}/authelia/"
     fi
 }
 
@@ -171,14 +169,6 @@ generate_keys() {
     openssl rand -base64 50
     
     echo ""
-    echo "Authelia Session Secret (至少32个字符):"
-    openssl rand -base64 32
-    
-    echo ""
-    echo "Authelia Encryption Key (至少20个字符):"
-    openssl rand -base64 24
-    
-    echo ""
     log_info "请将以上密钥复制到 .env 文件中"
 }
 
@@ -199,7 +189,7 @@ ChewyBBTalk 部署管理脚本
   stop          停止服务
   restart       重启服务
   rebuild       重新构建并启动
-  logs [服务]   查看日志 (可选服务: nginx, authelia, backend, frontend)
+  logs [服务]   查看日志 (可选服务: nginx, backend, frontend)
   status        查看容器状态
   shell [服务]  进入容器 shell
   keys          生成配置密钥

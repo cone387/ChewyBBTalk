@@ -1,7 +1,11 @@
 /**
- * OIDC 认证服务
+ * JWT Token 认证服务
  * 
- * 使用 Authelia 作为 OIDC Provider，实现 Authorization Code Flow with PKCE
+ * 功能：
+ * 1. 用户登录/注册
+ * 2. Token 存储和管理
+ * 3. Token 自动刷新
+ * 4. 用户信息管理
  */
 
 import type { User as _User } from '../types';
@@ -10,72 +14,43 @@ interface UserInfo {
   id: number;
   username: string;
   email?: string;
-  displayName?: string;
+  display_name?: string;
   avatar?: string;
-  groups?: string[];
+  bio?: string;
 }
 
-interface TokenResponse {
-  access_token: string;
-  token_type: string;
-  expires_in: number;
-  refresh_token?: string;
-  id_token?: string;
-  scope?: string;
+interface LoginResponse {
+  access: string;
+  refresh: string;
+  user: UserInfo;
 }
 
-// OIDC 配置
-const OIDC_CONFIG = {
-  authority: import.meta.env.VITE_AUTHELIA_URL || '/authelia',
-  client_id: 'bbtalk',
-  redirect_uri: `${window.location.origin}/callback`,
-  scope: 'openid profile email groups',
-  response_type: 'code',
-};
+interface RegisterRequest {
+  username: string;
+  password: string;
+  email?: string;
+  display_name?: string;
+}
 
 // Token 存储 key
-const TOKEN_KEY = 'bbtalk_access_token';
+const ACCESS_TOKEN_KEY = 'bbtalk_access_token';
 const REFRESH_TOKEN_KEY = 'bbtalk_refresh_token';
-const TOKEN_EXPIRY_KEY = 'bbtalk_token_expiry';
-const CODE_VERIFIER_KEY = 'bbtalk_code_verifier';
+const USER_INFO_KEY = 'bbtalk_user_info';
 
 let currentUser: UserInfo | null = null;
+let refreshTimer: NodeJS.Timeout | null = null;
 
 /**
- * 生成随机字符串（用于 PKCE code_verifier）
+ * 获取 API 基础 URL
  */
-function generateRandomString(length: number): string {
-  const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
-  const randomValues = new Uint8Array(length);
-  crypto.getRandomValues(randomValues);
-  return Array.from(randomValues, (v) => charset[v % charset.length]).join('');
+function getApiBaseUrl(): string {
+  return import.meta.env.VITE_API_BASE_URL || '';
 }
 
 /**
- * 生成 PKCE code_challenge
+ * 获取 Access Token
  */
-async function generateCodeChallenge(verifier: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(verifier);
-  const digest = await crypto.subtle.digest('SHA-256', data);
-  return btoa(String.fromCharCode(...new Uint8Array(digest)))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
-}
-
-/**
- * 获取存储的 access token
- */
-export function getAuthToken(): string | null {
-  // 检查 token 是否过期
-  const expiry = localStorage.getItem(TOKEN_EXPIRY_KEY);
-  if (expiry && Date.now() > parseInt(expiry)) {
-    // Token 已过期，清除
-    clearTokens();
-    return null;
-  }
-  
+export function getAccessToken(): string | null {
   // 子应用模式：从主应用获取 token
   if (window.__POWERED_BY_WUJIE__) {
     const propsToken = window.__WUJIE?.props?.getToken?.();
@@ -87,126 +62,200 @@ export function getAuthToken(): string | null {
     }
   }
   
-  return localStorage.getItem(TOKEN_KEY);
+  return localStorage.getItem(ACCESS_TOKEN_KEY);
 }
 
 /**
- * 存储 tokens
- * 注意：Authelia 的 access_token 不是 JWT 格式，需要使用 id_token 进行认证
+ * 获取 Refresh Token
  */
-function storeTokens(tokenResponse: TokenResponse): void {
-  // 优先使用 id_token（JWT 格式），因为 Authelia 的 access_token 不是 JWT
-  const tokenToStore = tokenResponse.id_token || tokenResponse.access_token;
-  localStorage.setItem(TOKEN_KEY, tokenToStore);
-  
-  console.log('[Auth] Token stored, using:', tokenResponse.id_token ? 'id_token' : 'access_token');
-  
-  if (tokenResponse.refresh_token) {
-    localStorage.setItem(REFRESH_TOKEN_KEY, tokenResponse.refresh_token);
-  }
-  // 计算过期时间（提前 60 秒过期以确保安全）
-  const expiryTime = Date.now() + (tokenResponse.expires_in - 60) * 1000;
-  localStorage.setItem(TOKEN_EXPIRY_KEY, expiryTime.toString());
+function getRefreshToken(): string | null {
+  return localStorage.getItem(REFRESH_TOKEN_KEY);
 }
 
 /**
- * 清除 tokens
+ * 存储 tokens 和用户信息
  */
-function clearTokens(): void {
-  localStorage.removeItem(TOKEN_KEY);
+function storeAuth(response: LoginResponse): void {
+  localStorage.setItem(ACCESS_TOKEN_KEY, response.access);
+  localStorage.setItem(REFRESH_TOKEN_KEY, response.refresh);
+  localStorage.setItem(USER_INFO_KEY, JSON.stringify(response.user));
+  currentUser = response.user;
+  
+  // 启动自动刷新
+  startTokenRefresh();
+}
+
+/**
+ * 清除认证信息
+ */
+function clearAuth(): void {
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
-  localStorage.removeItem(TOKEN_EXPIRY_KEY);
-  localStorage.removeItem(CODE_VERIFIER_KEY);
+  localStorage.removeItem(USER_INFO_KEY);
+  currentUser = null;
+  
+  // 停止自动刷新
+  if (refreshTimer) {
+    clearTimeout(refreshTimer);
+    refreshTimer = null;
+  }
 }
 
 /**
- * 启动 OIDC 登录流程
+ * 解析 JWT Token 获取过期时间
  */
-export async function login(): Promise<void> {
-  // 生成 PKCE code_verifier 和 code_challenge
-  const codeVerifier = generateRandomString(64);
-  const codeChallenge = await generateCodeChallenge(codeVerifier);
-  
-  // 存储 code_verifier 供回调时使用
-  localStorage.setItem(CODE_VERIFIER_KEY, codeVerifier);
-  
-  // 生成 state 防止 CSRF
-  const state = generateRandomString(32);
-  sessionStorage.setItem('oidc_state', state);
-  
-  // 构建授权 URL（处理相对路径）
-  const authority = OIDC_CONFIG.authority.startsWith('http') 
-    ? OIDC_CONFIG.authority 
-    : `${window.location.origin}${OIDC_CONFIG.authority}`;
-  
-  const authUrl = new URL(`${authority}/api/oidc/authorization`);
-  authUrl.searchParams.set('client_id', OIDC_CONFIG.client_id);
-  authUrl.searchParams.set('redirect_uri', OIDC_CONFIG.redirect_uri);
-  authUrl.searchParams.set('response_type', OIDC_CONFIG.response_type);
-  authUrl.searchParams.set('scope', OIDC_CONFIG.scope);
-  authUrl.searchParams.set('state', state);
-  authUrl.searchParams.set('code_challenge', codeChallenge);
-  authUrl.searchParams.set('code_challenge_method', 'S256');
-  
-  // 重定向到 Authelia 登录页
-  window.location.href = authUrl.toString();
+function parseJwt(token: string): { exp: number } | null {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch (error) {
+    console.error('[Auth] 解析 JWT 失败:', error);
+    return null;
+  }
 }
 
 /**
- * 处理 OIDC 回调
+ * 刷新 Access Token
  */
-export async function handleCallback(code: string, state: string): Promise<boolean> {
-  // 验证 state
-  const savedState = sessionStorage.getItem('oidc_state');
-  if (state !== savedState) {
-    console.error('[Auth] State mismatch');
+async function refreshAccessToken(): Promise<boolean> {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) {
+    console.error('[Auth] 没有 refresh token');
     return false;
   }
-  sessionStorage.removeItem('oidc_state');
-  
-  // 获取 code_verifier
-  const codeVerifier = localStorage.getItem(CODE_VERIFIER_KEY);
-  if (!codeVerifier) {
-    console.error('[Auth] Code verifier not found');
-    return false;
-  }
-  localStorage.removeItem(CODE_VERIFIER_KEY);
   
   try {
-    // 用 code 换取 token（处理相对路径）
-    const authority = OIDC_CONFIG.authority.startsWith('http') 
-      ? OIDC_CONFIG.authority 
-      : `${window.location.origin}${OIDC_CONFIG.authority}`;
-    
-    const tokenUrl = `${authority}/api/oidc/token`;
-    const response = await fetch(tokenUrl, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/auth/token/refresh/`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Type': 'application/json',
       },
-      body: new URLSearchParams({
-        grant_type: 'authorization_code',
-        client_id: OIDC_CONFIG.client_id,
-        code: code,
-        redirect_uri: OIDC_CONFIG.redirect_uri,
-        code_verifier: codeVerifier,
-      }),
+      body: JSON.stringify({ refresh: refreshToken }),
     });
     
-    if (!response.ok) {
-      const error = await response.text();
-      console.error('[Auth] Token exchange failed:', error);
+    if (response.ok) {
+      const data = await response.json();
+      localStorage.setItem(ACCESS_TOKEN_KEY, data.access);
+      
+      // 如果返回了新的 refresh token，也更新它
+      if (data.refresh) {
+        localStorage.setItem(REFRESH_TOKEN_KEY, data.refresh);
+      }
+      
+      console.log('[Auth] Token 刷新成功');
+      
+      // 重新启动自动刷新定时器
+      startTokenRefresh();
+      return true;
+    } else {
+      console.error('[Auth] Token 刷新失败:', response.status);
+      // Token 刷新失败，清除认证信息
+      clearAuth();
       return false;
     }
-    
-    const tokenResponse: TokenResponse = await response.json();
-    storeTokens(tokenResponse);
-    
-    console.log('[Auth] Login successful');
-    return true;
   } catch (error) {
-    console.error('[Auth] Token exchange error:', error);
+    console.error('[Auth] Token 刷新错误:', error);
+    clearAuth();
     return false;
+  }
+}
+
+/**
+ * 启动 Token 自动刷新定时器
+ * 在 token 过期前 5 分钟自动刷新
+ */
+function startTokenRefresh(): void {
+  // 清除现有定时器
+  if (refreshTimer) {
+    clearTimeout(refreshTimer);
+  }
+  
+  const accessToken = getAccessToken();
+  if (!accessToken) return;
+  
+  const payload = parseJwt(accessToken);
+  if (!payload || !payload.exp) return;
+  
+  // 计算到期时间（毫秒）
+  const expiresAt = payload.exp * 1000;
+  const now = Date.now();
+  
+  // 提前 5 分钟刷新（300秒）
+  const refreshAt = expiresAt - 5 * 60 * 1000;
+  const delay = refreshAt - now;
+  
+  if (delay > 0) {
+    console.log(`[Auth] Token 将在 ${Math.round(delay / 1000 / 60)} 分钟后刷新`);
+    refreshTimer = setTimeout(() => {
+      refreshAccessToken();
+    }, delay);
+  } else {
+    // Token 已经快过期了，立即刷新
+    console.log('[Auth] Token 即将过期，立即刷新');
+    refreshAccessToken();
+  }
+}
+
+/**
+ * 用户登录
+ */
+export async function login(username: string, password: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/auth/token/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ username, password }),
+    });
+    
+    if (response.ok) {
+      const data: LoginResponse = await response.json();
+      storeAuth(data);
+      console.log('[Auth] 登录成功');
+      return { success: true };
+    } else {
+      const error = await response.json();
+      return { success: false, error: error.error || '登录失败' };
+    }
+  } catch (error) {
+    console.error('[Auth] 登录错误:', error);
+    return { success: false, error: '网络错误，请稍后重试' };
+  }
+}
+
+/**
+ * 用户注册
+ */
+export async function register(data: RegisterRequest): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/auth/register/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    
+    if (response.ok) {
+      const responseData: LoginResponse = await response.json();
+      storeAuth(responseData);
+      console.log('[Auth] 注册成功');
+      return { success: true };
+    } else {
+      const error = await response.json();
+      return { success: false, error: error.error || '注册失败' };
+    }
+  } catch (error) {
+    console.error('[Auth] 注册错误:', error);
+    return { success: false, error: '网络错误，请稍后重试' };
   }
 }
 
@@ -215,12 +264,29 @@ export async function handleCallback(code: string, state: string): Promise<boole
  */
 export async function initAuth(): Promise<boolean> {
   try {
-    // 检查是否有有效的 token
-    const token = getAuthToken();
-    if (!token) {
+    // 检查是否有 access token
+    const accessToken = getAccessToken();
+    if (!accessToken) {
       return false;
     }
-
+    
+    // 检查 token 是否过期
+    const payload = parseJwt(accessToken);
+    if (payload && payload.exp) {
+      const now = Date.now() / 1000;
+      if (payload.exp < now) {
+        // Token 已过期，尝试刷新
+        console.log('[Auth] Token 已过期，尝试刷新');
+        const refreshed = await refreshAccessToken();
+        if (!refreshed) {
+          return false;
+        }
+      } else {
+        // Token 有效，启动自动刷新
+        startTokenRefresh();
+      }
+    }
+    
     // 如果是子应用，从主应用获取用户信息
     if (window.__POWERED_BY_WUJIE__) {
       const userInfo = await getUserInfoFromParent();
@@ -230,15 +296,26 @@ export async function initAuth(): Promise<boolean> {
       }
     }
     
-    // 独立运行模式：尝试获取当前用户信息
+    // 尝试从 localStorage 恢复用户信息
+    const savedUser = localStorage.getItem(USER_INFO_KEY);
+    if (savedUser) {
+      try {
+        currentUser = JSON.parse(savedUser);
+      } catch (error) {
+        console.error('[Auth] 解析用户信息失败:', error);
+      }
+    }
+    
+    // 获取最新用户信息
     const userInfo = await fetchCurrentUser();
     if (userInfo) {
       currentUser = userInfo;
+      localStorage.setItem(USER_INFO_KEY, JSON.stringify(userInfo));
       return true;
     }
     
-    // Token 无效，清除
-    clearTokens();
+    // Token 无效，清除认证
+    clearAuth();
     return false;
   } catch (error) {
     console.error('[Auth] 初始化失败:', error);
@@ -275,20 +352,14 @@ async function getUserInfoFromParent(): Promise<UserInfo | null> {
  */
 async function fetchCurrentUser(): Promise<UserInfo | null> {
   try {
-    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '';
-    const token = getAuthToken();
+    const token = getAccessToken();
+    if (!token) return null;
     
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-    
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-    
-    const response = await fetch(`${apiBaseUrl}/api/v1/bbtalk/user/me/`, {
-      credentials: 'include',
-      headers,
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/user/me/`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
     });
     
     if (response.ok) {
@@ -297,9 +368,9 @@ async function fetchCurrentUser(): Promise<UserInfo | null> {
         id: data.id,
         username: data.username,
         email: data.email,
-        displayName: data.display_name,
+        display_name: data.display_name,
         avatar: data.avatar,
-        groups: data.groups,
+        bio: data.bio,
       };
     }
     
@@ -346,23 +417,44 @@ export async function getUserInfo(): Promise<UserInfo | null> {
 /**
  * 登出
  */
-export function logout(): void {
-  // 清除本地 tokens
-  clearTokens();
-  currentUser = null;
+export async function logout(): Promise<void> {
+  const refreshToken = getRefreshToken();
   
-  // 重定向到 Authelia 登出页（处理相对路径）
-  const authority = OIDC_CONFIG.authority.startsWith('http') 
-    ? OIDC_CONFIG.authority 
-    : `${window.location.origin}${OIDC_CONFIG.authority}`;
+  // 如果有 refresh token，将其加入黑名单
+  if (refreshToken) {
+    try {
+      const accessToken = getAccessToken();
+      await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/auth/token/blacklist/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refresh: refreshToken }),
+      });
+    } catch (error) {
+      console.error('[Auth] Token 黑名单失败:', error);
+    }
+  }
   
-  const postLogoutRedirectUri = window.location.origin;
-  window.location.href = `${authority}/api/logout?rd=${encodeURIComponent(postLogoutRedirectUri)}`;
+  // 清除本地认证信息
+  clearAuth();
+  
+  // 重定向到登录页
+  window.location.href = '/login';
 }
 
 /**
  * 检查是否已认证
  */
 export function isAuthenticated(): boolean {
-  return getAuthToken() !== null;
+  return getAccessToken() !== null;
+}
+
+/**
+ * 处理回调（兼容旧代码，实际不再使用）
+ */
+export async function handleCallback(_code: string, _state: string): Promise<boolean> {
+  console.warn('[Auth] handleCallback 已废弃，使用 JWT Token 认证');
+  return false;
 }

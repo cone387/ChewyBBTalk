@@ -13,47 +13,41 @@ class UserModelTest(TransactionTestCase):
         """测试创建用户"""
         user = User.objects.create(
             username='testuser',
-            authelia_user_id='test123',
             email='test@example.com',
             display_name='测试用户'
         )
         self.assertEqual(user.username, 'testuser')
-        self.assertEqual(user.authelia_user_id, 'test123')
         self.assertTrue(user.is_active)
         self.assertFalse(user.is_staff)
     
     def test_user_str(self):
         """测试用户字符串表示"""
         user = User.objects.create(
-            username='testuser',
-            authelia_user_id='test123'
+            username='testuser'
         )
         self.assertEqual(str(user), 'testuser')
     
     def test_user_is_staff_property(self):
         """测试管理员属性"""
         user = User.objects.create(
-            username='testuser',
-            authelia_user_id='test123'
+            username='testuser'
         )
         self.assertFalse(user.is_staff)
         
-        user.groups = ['admin']
+        user.is_staff = True
         user.save()
         self.assertTrue(user.is_staff)
     
     def test_user_unique_constraints(self):
         """测试用户唯一性约束"""
         User.objects.create(
-            username='testuser',
-            authelia_user_id='test123'
+            username='testuser'
         )
         
         # username 必须唯一
         with self.assertRaises(IntegrityError):
             User.objects.create(
-                username='testuser',
-                authelia_user_id='test456'
+                username='testuser'
             )
 
 
@@ -63,8 +57,7 @@ class TagModelTest(TransactionTestCase):
     def test_create_tag(self):
         """测试创建标签"""
         user = User.objects.create(
-            username='testuser',
-            authelia_user_id='test123'
+            username='testuser'
         )
         tag = Tag.objects.create(
             name='测试',
@@ -78,8 +71,7 @@ class TagModelTest(TransactionTestCase):
     def test_tag_auto_color(self):
         """测试标签自动生成颜色"""
         user = User.objects.create(
-            username='testuser',
-            authelia_user_id='test123'
+            username='testuser'
         )
         tag = Tag.objects.create(
             name='测试',
@@ -92,8 +84,7 @@ class TagModelTest(TransactionTestCase):
     def test_tag_unique_per_user(self):
         """测试标签在用户内唯一"""
         user = User.objects.create(
-            username='testuser',
-            authelia_user_id='test123'
+            username='testuser'
         )
         Tag.objects.create(name='测试', user=user)
         
@@ -104,12 +95,10 @@ class TagModelTest(TransactionTestCase):
     def test_different_users_same_tag_name(self):
         """测试不同用户可以创建同名标签"""
         user1 = User.objects.create(
-            username='testuser1',
-            authelia_user_id='test123'
+            username='testuser1'
         )
         user2 = User.objects.create(
-            username='testuser2',
-            authelia_user_id='test456'
+            username='testuser2'
         )
         Tag.objects.create(name='测试', user=user1)
         tag2 = Tag.objects.create(name='测试', user=user2)
@@ -121,8 +110,7 @@ class BBTalkModelTest(TestCase):
     
     def setUp(self):
         self.user = User.objects.create(
-            username='testuser',
-            authelia_user_id='test123'
+            username='testuser'
         )
         self.tag1 = Tag.objects.create(name='生活', user=self.user)
         self.tag2 = Tag.objects.create(name='工作', user=self.user)
@@ -206,6 +194,8 @@ class BBTalkModelTest(TestCase):
         self.assertEqual(bbtalk_private.visibility, 'private')
 
 
+from rest_framework_simplejwt.tokens import RefreshToken
+
 @override_settings(DEBUG=True)
 class BBTalkAPITest(APITestCase):
     """BBTalk API 测试"""
@@ -214,27 +204,19 @@ class BBTalkAPITest(APITestCase):
         self.client = APIClient()
         self.user = User.objects.create(
             username='testuser',
-            authelia_user_id='test123',
             email='test@example.com'
         )
         self.user2 = User.objects.create(
             username='testuser2',
-            authelia_user_id='test456',
             email='test2@example.com'
         )
         
-        # 设置认证头
-        self.auth_headers = {
-            'HTTP_X_AUTHELIA_USER_ID': 'test123',
-            'HTTP_X_USERNAME': 'testuser',
-            'HTTP_X_EMAIL': 'test@example.com'
-        }
+        # 使用 JWT Token 认证
+        refresh = RefreshToken.for_user(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
         
-        self.auth_headers2 = {
-            'HTTP_X_AUTHELIA_USER_ID': 'test456',
-            'HTTP_X_USERNAME': 'testuser2',
-            'HTTP_X_EMAIL': 'test2@example.com'
-        }
+        refresh2 = RefreshToken.for_user(self.user2)
+        self.token2 = f'Bearer {refresh2.access_token}'
         
         # 创建测试标签
         self.tag1 = Tag.objects.create(name='生活', user=self.user)
@@ -255,7 +237,7 @@ class BBTalkAPITest(APITestCase):
     def test_list_bbtalks(self):
         """测试获取 BBTalk 列表"""
         url = '/api/v1/bbtalk/'
-        response = self.client.get(url, **self.auth_headers)
+        response = self.client.get(url)
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('results', response.data)
@@ -264,7 +246,7 @@ class BBTalkAPITest(APITestCase):
     def test_list_bbtalks_filter_visibility(self):
         """测试按可见性过滤 BBTalk"""
         url = '/api/v1/bbtalk/'
-        response = self.client.get(url, {'visibility': 'public'}, **self.auth_headers)
+        response = self.client.get(url, {'visibility': 'public'})
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         results = response.data['results']
@@ -277,7 +259,7 @@ class BBTalkAPITest(APITestCase):
             'content': '新的碎碎念',
             'visibility': 'public'
         }
-        response = self.client.post(url, data, format='json', **self.auth_headers)
+        response = self.client.post(url, data, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['content'], '新的碎碎念')
@@ -296,7 +278,7 @@ class BBTalkAPITest(APITestCase):
                 {'url': 'https://example.com/audio.mp3', 'type': 'audio'}
             ]
         }
-        response = self.client.post(url, data, format='json', **self.auth_headers)
+        response = self.client.post(url, data, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(len(response.data['attachments']), 3)
@@ -316,7 +298,7 @@ class BBTalkAPITest(APITestCase):
                 {'url': 'https://example.com/photo3.gif', 'type': 'image'}
             ]
         }
-        response = self.client.post(url, data, format='json', **self.auth_headers)
+        response = self.client.post(url, data, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(len(response.data['attachments']), 3)
@@ -330,7 +312,7 @@ class BBTalkAPITest(APITestCase):
             'visibility': 'public',
             'post_tags': '生活,工作'  # 使用 post_tags 字段传递标签名称
         }
-        response = self.client.post(url, data, format='json', **self.auth_headers)
+        response = self.client.post(url, data, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(len(response.data['tags']), 2)
@@ -346,7 +328,7 @@ class BBTalkAPITest(APITestCase):
                 'weather': {'temp': 20, 'condition': 'sunny'}
             }
         }
-        response = self.client.post(url, data, format='json', **self.auth_headers)
+        response = self.client.post(url, data, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         # context.device 会被 serializer 自动设置为 IP 和 UA 信息
@@ -362,7 +344,7 @@ class BBTalkAPITest(APITestCase):
             'visibility': 'public',
             'attachments': []
         }
-        response = self.client.post(url, data, format='json', **self.auth_headers)
+        response = self.client.post(url, data, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['attachments'], [])
@@ -374,7 +356,7 @@ class BBTalkAPITest(APITestCase):
             'content': '更新后的内容',
             'visibility': 'private'
         }
-        response = self.client.patch(url, data, format='json', **self.auth_headers)
+        response = self.client.patch(url, data, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['content'], '更新后的内容')
@@ -389,7 +371,7 @@ class BBTalkAPITest(APITestCase):
                 {'url': 'https://example.com/new_video.mp4', 'type': 'video'}
             ]
         }
-        response = self.client.patch(url, data, format='json', **self.auth_headers)
+        response = self.client.patch(url, data, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['attachments']), 2)
@@ -408,7 +390,7 @@ class BBTalkAPITest(APITestCase):
         
         url = f'/api/v1/bbtalk/{bbtalk_with_att.uid}/'
         data = {'attachments': []}
-        response = self.client.patch(url, data, format='json', **self.auth_headers)
+        response = self.client.patch(url, data, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['attachments'], [])
@@ -416,7 +398,7 @@ class BBTalkAPITest(APITestCase):
     def test_delete_bbtalk(self):
         """测试删除 BBTalk"""
         url = f'/api/v1/bbtalk/{self.bbtalk_public.uid}/'
-        response = self.client.delete(url, **self.auth_headers)
+        response = self.client.delete(url)
         
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(BBTalk.objects.filter(id=self.bbtalk_public.id).exists())
@@ -425,14 +407,18 @@ class BBTalkAPITest(APITestCase):
         """测试不能更新他人的 BBTalk"""
         url = f'/api/v1/bbtalk/{self.bbtalk_public.uid}/'
         data = {'content': '尝试更新'}
-        response = self.client.patch(url, data, format='json', **self.auth_headers2)
+        # 使用 user2 的 token
+        self.client.credentials(HTTP_AUTHORIZATION=self.token2)
+        response = self.client.patch(url, data, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
     
     def test_cannot_delete_others_bbtalk(self):
         """测试不能删除他人的 BBTalk"""
         url = f'/api/v1/bbtalk/{self.bbtalk_public.uid}/'
-        response = self.client.delete(url, **self.auth_headers2)
+        # 使用 user2 的 token
+        self.client.credentials(HTTP_AUTHORIZATION=self.token2)
+        response = self.client.delete(url)
         
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
@@ -444,14 +430,12 @@ class TagAPITest(APITestCase):
     def setUp(self):
         self.client = APIClient()
         self.user = User.objects.create(
-            username='testuser',
-            authelia_user_id='test123'
+            username='testuser'
         )
         
-        self.auth_headers = {
-            'HTTP_X_AUTHELIA_USER_ID': 'test123',
-            'HTTP_X_USERNAME': 'testuser'
-        }
+        # 使用 JWT Token 认证
+        refresh = RefreshToken.for_user(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
         
         # 创建标签
         self.tag = Tag.objects.create(
@@ -471,7 +455,7 @@ class TagAPITest(APITestCase):
     def test_list_tags(self):
         """测试获取标签列表"""
         url = '/api/v1/bbtalk/tags/'
-        response = self.client.get(url, **self.auth_headers)
+        response = self.client.get(url)
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertGreater(len(response.data), 0)
@@ -483,7 +467,7 @@ class TagAPITest(APITestCase):
             'name': '新标签',
             'color': '#00ff00'
         }
-        response = self.client.post(url, data, format='json', **self.auth_headers)
+        response = self.client.post(url, data, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['name'], '新标签')
@@ -493,7 +477,7 @@ class TagAPITest(APITestCase):
         """测试创建标签自动生成颜色"""
         url = '/api/v1/bbtalk/tags/'
         data = {'name': '自动颜色标签'}
-        response = self.client.post(url, data, format='json', **self.auth_headers)
+        response = self.client.post(url, data, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertIsNotNone(response.data['color'])
@@ -506,7 +490,7 @@ class TagAPITest(APITestCase):
             'name': '更新后的标签',
             'color': '#0000ff'
         }
-        response = self.client.patch(url, data, format='json', **self.auth_headers)
+        response = self.client.patch(url, data, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['name'], '更新后的标签')
@@ -515,7 +499,7 @@ class TagAPITest(APITestCase):
     def test_delete_tag(self):
         """测试删除标签"""
         url = f'/api/v1/bbtalk/tags/{self.tag.uid}/'
-        response = self.client.delete(url, **self.auth_headers)
+        response = self.client.delete(url)
         
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(Tag.objects.filter(id=self.tag.id).exists())
@@ -527,39 +511,23 @@ class UserAPITest(APITestCase):
     
     def setUp(self):
         self.client = APIClient()
-        self.auth_headers = {
-            'HTTP_X_AUTHELIA_USER_ID': 'test123',
-            'HTTP_X_USERNAME': 'testuser',
-            'HTTP_X_EMAIL': 'test@example.com'
-        }
+        self.user = User.objects.create(
+            username='testuser',
+            email='test@example.com'
+        )
+        
+        # 使用 JWT Token 认证
+        refresh = RefreshToken.for_user(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
     
     def test_get_current_user(self):
         """测试获取当前用户信息"""
         url = '/api/v1/bbtalk/user/me/'
-        response = self.client.get(url, **self.auth_headers)
+        response = self.client.get(url)
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['username'], 'testuser')
         self.assertEqual(response.data['email'], 'test@example.com')
     
-    def test_auto_create_user_on_first_request(self):
-        """测试首次请求自动创建用户"""
-        # 确保用户不存在
-        User.objects.filter(authelia_user_id='newuser123').delete()
-        
-        new_auth_headers = {
-            'HTTP_X_AUTHELIA_USER_ID': 'newuser123',
-            'HTTP_X_USERNAME': 'newuser',
-            'HTTP_X_EMAIL': 'newuser@example.com'
-        }
-        
-        url = '/api/v1/bbtalk/user/me/'
-        response = self.client.get(url, **new_auth_headers)
-        
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['username'], 'newuser')
-        
-        # 验证用户已创建
-        user = User.objects.get(authelia_user_id='newuser123')
-        self.assertEqual(user.username, 'newuser')
-        self.assertEqual(user.email, 'newuser@example.com')
+    # 移除首次请求自动创建用户的测试，因为现在不再支持该逻辑
+

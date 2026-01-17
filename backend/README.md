@@ -6,7 +6,6 @@
 
 - **Python**: >= 3.13
 - **框架**: Django 5.2 + Django REST Framework
-- **认证**: Authelia（通过反向代理 + 数据库用户）
 - **附件**: chewy-attachment >= 0.3.0
 - **数据库**: SQLite (开发) / PostgreSQL (生产)
 - **包管理**: uv
@@ -20,7 +19,6 @@ backend/
 │   │   ├── models.py          # User、Tag、BBTalk 模型
 │   │   ├── views.py           # API 视图
 │   │   ├── serializers.py     # 序列化器
-│   │   ├── authentication.py  # Authelia 认证
 │   │   ├── admin.py           # Admin 配置
 │   │   └── tests.py           # 单元测试
 │   ├── chewy_space/         # Django 配置
@@ -126,16 +124,12 @@ uv run python chewy_space/manage.py test bbtalk
 |------|------|------|
 | `/api/schema/swagger-ui/` | Swagger API 文档 | 不需要 |
 | `/api/schema/redoc/` | ReDoc API 文档 | 不需要 |
-| `/admin/` | Django Admin | 需要（Authelia） |
 
 ## 认证说明
 
-### Authelia OIDC 认证
 
-项目使用 Authelia 作为 OIDC Provider：
 
 **认证流程**（Authorization Code Flow with PKCE）：
-1. 前端跳转到 Authelia 登录页
 2. 登录成功后获取 id_token（JWT）
 3. 前端通过 `Authorization: Bearer <id_token>` 请求后端
 4. 后端验证 JWT 签名并提取用户信息
@@ -241,7 +235,6 @@ docker run -p 8020:8020 \
 - email: EmailField
 - display_name: CharField
 - avatar: URLField
-- authelia_user_id: CharField (唯一，关联 Authelia)
 - groups: JSONField (用户组列表)
 - is_active: BooleanField
 - is_staff: BooleanField

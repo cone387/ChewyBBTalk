@@ -1,5 +1,5 @@
 # ================================
-# 单容器部署：Django + 前端 + Nginx + Authelia
+# 单容器部署：Django + 前端 + Nginx
 # ================================
 
 FROM python:3.13-slim AS backend-builder
@@ -57,10 +57,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     supervisor \
     && rm -rf /var/lib/apt/lists/*
 
-# 安装 Authelia
-RUN curl -Lo /usr/local/bin/authelia https://github.com/authelia/authelia/releases/latest/download/authelia-linux-amd64 && \
-    chmod +x /usr/local/bin/authelia
-
 # 复制后端依赖和代码
 COPY --from=backend-builder /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages
 COPY --from=backend-builder /usr/local/bin /usr/local/bin
@@ -72,7 +68,6 @@ COPY --from=frontend-builder /app/dist /app/frontend
 # 复制配置文件
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-COPY authelia /config
 
 # 创建必要的目录
 RUN mkdir -p /app/logs /app/media /data /run/nginx && \

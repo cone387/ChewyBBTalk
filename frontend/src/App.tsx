@@ -1,44 +1,19 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Provider } from 'react-redux'
 import { useEffect, useState } from 'react'
 import { store } from './store'
 import BBTalkPage from './pages/BBTalkPage'
 import PublicBBTalkPage from './pages/PublicBBTalkPage'
 import BBTalkDetailPage from './pages/BBTalkDetailPage'
-import CallbackPage from './pages/CallbackPage'
-import { initAuth, login } from './services/auth'
+import LoginPage from './pages/LoginPage'
+import { initAuth } from './services/auth'
 
 interface AppProps {
   basename?: string;
 }
 
-// 登录重定向组件 - 未登录时启动 OIDC 登录流程
-function LoginRedirect() {
-  useEffect(() => {
-    login();
-  }, []);
-  
-  return (
-    <div style={{ 
-      display: 'flex', 
-      justifyContent: 'center', 
-      alignItems: 'center', 
-      height: '100vh',
-      color: '#666'
-    }}>
-      正在跳转登录...
-    </div>
-  );
-}
-
 // 全局状态，防止 HMR/StrictMode 重复初始化
 let authPromise: Promise<{ ready: boolean; authenticated: boolean; error: string | null }> | null = null;
-
-// 检查是否在 callback 页面（用于跳过认证检查）
-function isCallbackPage(): boolean {
-  return window.location.pathname === '/callback' || 
-         window.location.pathname.endsWith('/callback');
-}
 
 export default function App({ basename = '/' }: AppProps) {
   const [authReady, setAuthReady] = useState(false)
@@ -60,27 +35,19 @@ export default function App({ basename = '/' }: AppProps) {
     // 创建初始化 Promise
     authPromise = new Promise(async (resolve) => {
       try {
-        // 0. 如果是 callback 页面，跳过认证检查，直接展示页面
-        if (isCallbackPage()) {
-          console.log('[BBTalk] Callback 页面，跳过认证检查')
-          resolve({ ready: true, authenticated: false, error: null })
-          return
-        }
-        
-        // 1. 如果是子应用，直接使用主应用认证
+        // 如果是子应用，直接使用主应用认证
         if (isWujie) {
           console.log('[BBTalk] 子应用模式，使用主应用认证')
           resolve({ ready: true, authenticated: true, error: null })
           return
         }
 
-        // 2. 独立运行模式，检查认证状态（不强制跳转）
+        // 独立运行模式，检查认证状态
         console.log('[BBTalk] 独立运行模式，检查认证状态')
         
         const authenticated = await initAuth()
         console.log('[BBTalk] 认证结果:', authenticated)
         
-        // 不管是否认证都允许访问，由路由层决定显示内容
         resolve({ ready: true, authenticated, error: null })
       } catch (error) {
         console.error('[BBTalk] 初始化错误:', error)
@@ -147,23 +114,30 @@ export default function App({ basename = '/' }: AppProps) {
         }}
       >
         <Routes>
-          {/* OIDC 回调页面 */}
-          <Route path="/callback" element={<CallbackPage />} />
+          {/* 登录页面 */}
+          <Route path="/login" element={<LoginPage />} />
           
           {/* 公开页面 - 无需登录 */}
           <Route path="/public" element={<PublicBBTalkPage />} />
           
-          {/* 私有页面 - 未登录启动登录流程 */}
+          {/* 私有页面 - 未登录跳转登录 */}
           <Route 
             path="/" 
             element={
               isAuthenticated 
                 ? <BBTalkPage /> 
-                : <LoginRedirect />
+                : <Navigate to="/login" replace />
             } 
           />
           
-          <Route path="/detail/:id" element={<BBTalkDetailPage />} />
+          <Route 
+            path="/detail/:id" 
+            element={
+              isAuthenticated 
+                ? <BBTalkDetailPage /> 
+                : <Navigate to="/login" replace />
+            } 
+          />
         </Routes>
       </BrowserRouter>
     </Provider>

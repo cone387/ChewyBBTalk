@@ -130,9 +130,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
 
   // 登录跳转
   const handleLogin = () => {
-    const autheliaUrl = import.meta.env.VITE_AUTHELIA_URL || '/authelia'
-    const currentUrl = encodeURIComponent(window.location.origin + '/')
-    window.location.href = `${autheliaUrl}/?rd=${currentUrl}`
+    window.location.href = '/login'
   }
 
   // 拖拽传感器配置

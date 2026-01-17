@@ -7,7 +7,6 @@
 - 📝 发布、编辑、删除碎碎念
 - 🏷️ 标签管理与分类
 - 📎 附件上传（图片、视频、文件）
-- 🔐 Authelia 认证集成
 - 🧩 支持 wujie 微前端嵌入
 - 🔒 防窥模式（长时间不活动自动模糊内容）
 
@@ -22,7 +21,6 @@
 **后端**
 - Django 5.2 + Django REST Framework
 - SQLite（开发）/ PostgreSQL（生产）
-- Authelia 认证
 - chewy-attachment 附件管理
 
 ## 环境要求
@@ -115,7 +113,6 @@ cp .env.dev .env
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
 | VITE_API_BASE_URL | API 基础地址 | 空（使用相对路径）|
-| VITE_AUTHELIA_URL | Authelia 地址 | /authelia |
 | VITE_PRIVACY_TIMEOUT_MINUTES | 防窥模式超时时长（分钟）| 5 |
 
 ## API 端点
@@ -134,10 +131,7 @@ cp .env.dev .env
 
 ## 认证机制
 
-项目使用 **Authelia OIDC** 进行统一认证：
 
-1. **OIDC 流程** - Authorization Code Flow with PKCE
-   - 前端跳转到 Authelia 登录页
    - 登录后获取 id_token（JWT）
    - 后端验证 JWT token
 

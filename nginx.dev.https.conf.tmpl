@@ -1,4 +1,4 @@
-# 开发环境 Nginx 配置（HTTPS + Authelia OIDC）
+# 开发环境 Nginx 配置（HTTPS）
 # 支持前端/后端在本地或容器中运行
 
 events {
@@ -22,10 +22,6 @@ http {
         server ${BACKEND_UPSTREAM};
     }
 
-    upstream authelia {
-        server authelia:9091;
-    }
-
     # HTTP 重定向到 HTTPS
     server {
         listen 80;
@@ -43,18 +39,6 @@ http {
         ssl_certificate_key /etc/nginx/certs/localhost-key.pem;
         ssl_protocols TLSv1.2 TLSv1.3;
         ssl_ciphers HIGH:!aNULL:!MD5;
-
-        # ============================================
-        # Authelia OIDC Provider
-        # ============================================
-        location /authelia {
-            proxy_pass http://authelia;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-            proxy_set_header X-Forwarded-Host $http_host;
-        }
 
         # ============================================
         # 后端 API - 由后端验证 JWT Token

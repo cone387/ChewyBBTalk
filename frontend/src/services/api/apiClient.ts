@@ -1,19 +1,30 @@
-import { getAuthToken, login } from '../auth';
+import { getAccessToken, login, logout } from '../auth';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 class ApiClient {
   private baseUrl: string;
+  private isRefreshing = false;
+  private refreshSubscribers: ((token: string) => void)[] = [];
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
+  }
+
+  private onTokenRefreshed(token: string) {
+    this.refreshSubscribers.map((callback) => callback(token));
+    this.refreshSubscribers = [];
+  }
+
+  private addRefreshSubscriber(callback: (token: string) => void) {
+    this.refreshSubscribers.push(callback);
   }
 
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
-    const token = getAuthToken();
+    const token = getAccessToken();
     
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -25,22 +36,50 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+    let response = await fetch(`${this.baseUrl}${endpoint}`, {
       ...options,
       headers,
-      credentials: 'include',
     });
 
-    // 处理 401 未认证：启动 OIDC 登录流程
+    // 处理 401 未认证：尝试刷新 token 或跳转登录
     if (response.status === 401) {
-      console.log('[ApiClient] 未认证，启动登录流程...');
-      await login();
-      throw new Error('未认证，正在跳转登录...');
+      console.log('[ApiClient] 未认证 (401)，尝试刷新 token...');
+      
+      // 如果是登录接口报 401，直接抛出错误
+      if (endpoint.includes('/auth/token/')) {
+        throw new Error('用户名或密码错误');
+      }
+
+      // 尝试刷新 token 并重试请求
+      try {
+        const { refreshAccessToken } = await import('../auth');
+        const success = await refreshAccessToken();
+        
+        if (success) {
+          const newToken = getAccessToken();
+          if (newToken) {
+            headers['Authorization'] = `Bearer ${newToken}`;
+            response = await fetch(`${this.baseUrl}${endpoint}`, {
+              ...options,
+              headers,
+            });
+          }
+        } else {
+          // 刷新失败，重定向到登录页
+          console.log('[ApiClient] Token 刷新失败，重定向到登录页');
+          logout();
+          throw new Error('会话已过期，请重新登录');
+        }
+      } catch (error) {
+        console.error('[ApiClient] Token 刷新过程中出错:', error);
+        logout();
+        throw new Error('认证失败，请重新登录');
+      }
     }
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || `请求失败: ${response.status}`);
+      throw new Error(errorData.error || errorData.message || `请求失败: ${response.status}`);
     }
 
     // 204 No Content 或没有响应体时不解析 JSON

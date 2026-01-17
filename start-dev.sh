@@ -11,14 +11,12 @@ fi
 # 默认值
 FRONTEND_UPSTREAM=${FRONTEND_UPSTREAM:-frontend:4010}
 BACKEND_UPSTREAM=${BACKEND_UPSTREAM:-backend:8020}
-ENABLE_AUTHELIA=${ENABLE_AUTHELIA:-true}
 ENABLE_HTTPS=${ENABLE_HTTPS:-true}
 
 echo "🚀 ChewyBBTalk 开发环境启动"
 echo "================================"
 echo "前端: $FRONTEND_UPSTREAM"
 echo "后端: $BACKEND_UPSTREAM"
-echo "Authelia: $ENABLE_AUTHELIA"
 echo "HTTPS: $ENABLE_HTTPS"
 echo "================================"
 
@@ -53,13 +51,6 @@ if [ "$ENABLE_HTTPS" = "true" ]; then
     echo "   https://localhost:${HTTPS_PORT:-4010}"
 else
     echo "   http://localhost:${PORT:-4010}"
-fi
-
-if [ "$ENABLE_AUTHELIA" = "true" ]; then
-    echo ""
-    echo "👤 默认账号："
-    echo "   用户名: admin"
-    echo "   密码: admin (见 authelia/users_database.yml)"
 fi
 
 echo ""
