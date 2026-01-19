@@ -127,13 +127,13 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
     const saved = localStorage.getItem('privacy_timeout_minutes')
     return saved ? parseInt(saved, 10) : parseInt(import.meta.env.VITE_PRIVACY_TIMEOUT_MINUTES || '5', 10)
   })
-  const [currentUser, setCurrentUser] = useState(getCurrentUser())
+  const [currentUser] = useState(getCurrentUser())
   const [showCountdown, setShowCountdown] = useState(() => {
     const saved = localStorage.getItem('show_privacy_countdown')
     return saved ? saved === 'true' : import.meta.env.VITE_SHOW_PRIVACY_COUNTDOWN === 'true'
   })
   
-  // 防窥模式：使用可配置的超时时长
+// 防窥模式：使用可配置的超时时长
   const privacyTimeoutMs = privacyTimeoutMinutes * 60 * 1000
   const { isPrivacyMode, resetTimer, remainingSeconds, activatePrivacy } = usePrivacyMode({
     timeout: privacyTimeoutMs,

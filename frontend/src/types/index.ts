@@ -27,6 +27,15 @@ export interface BBTalk {
   updatedAt: string;
 }
 
+// 用于发布 BBTalk 的表单数据
+export interface BBTalkFormData {
+  content: string
+  tags: string[]
+  attachments: Attachment[]
+  visibility: 'public' | 'private' | 'friends'
+  context?: Record<string, any>
+}
+
 export interface User {
   id: number;
   username: string;

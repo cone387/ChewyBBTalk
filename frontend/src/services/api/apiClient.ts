@@ -1,23 +1,12 @@
-import { getAccessToken, login, logout } from '../auth';
+import { getAccessToken, refreshAccessToken, logout } from '../auth';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 class ApiClient {
   private baseUrl: string;
-  private isRefreshing = false;
-  private refreshSubscribers: ((token: string) => void)[] = [];
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
-  }
-
-  private onTokenRefreshed(token: string) {
-    this.refreshSubscribers.map((callback) => callback(token));
-    this.refreshSubscribers = [];
-  }
-
-  private addRefreshSubscriber(callback: (token: string) => void) {
-    this.refreshSubscribers.push(callback);
   }
 
   private async request<T>(
@@ -52,7 +41,6 @@ class ApiClient {
 
       // 尝试刷新 token 并重试请求
       try {
-        const { refreshAccessToken } = await import('../auth');
         const success = await refreshAccessToken();
         
         if (success) {

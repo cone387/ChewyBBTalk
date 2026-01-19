@@ -124,7 +124,7 @@ function parseJwt(token: string): { exp: number } | null {
 /**
  * 刷新 Access Token
  */
-async function refreshAccessToken(): Promise<boolean> {
+export async function refreshAccessToken(): Promise<boolean> {
   const refreshToken = getRefreshToken();
   if (!refreshToken) {
     console.error('[Auth] 没有 refresh token');
