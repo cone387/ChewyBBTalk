@@ -103,26 +103,35 @@ export function usePrivacyMode(options: UsePrivacyModeOptions = {}): UsePrivacyM
 
   // 重置不活动计时器
   const resetTimer = useCallback(() => {
+    console.log('[Privacy] 重置计时器')
+    
     // 清除旧的计时器
     if (timerRef.current) {
       clearTimeout(timerRef.current)
+      console.log('[Privacy] 清除旧的超时计时器')
     }
     if (countdownRef.current) {
       clearInterval(countdownRef.current)
+      console.log('[Privacy] 清除旧的倒计时')
     }
 
     // 如果当前处于防窥模式，解除
     if (isPrivacyMode) {
+      console.log('[Privacy] 当前处于防窥模式，解除中...')
       deactivatePrivacy()
     }
 
     // 更新最后活动时间
     lastActivityRef.current = Date.now()
+    console.log('[Privacy] 更新最后活动时间:', new Date(lastActivityRef.current).toLocaleTimeString())
 
     // 设置新的计时器
     if (enabled) {
+      const timeoutSeconds = Math.floor(timeout / 1000)
+      console.log('[Privacy] 设置新计时器，超时时长:', timeoutSeconds, '秒')
+      
       // 设置倒计时
-      setRemainingSeconds(Math.floor(timeout / 1000))
+      setRemainingSeconds(timeoutSeconds)
       
       // 每秒更新倒计时
       countdownRef.current = setInterval(() => {
@@ -131,19 +140,24 @@ export function usePrivacyMode(options: UsePrivacyModeOptions = {}): UsePrivacyM
         setRemainingSeconds(remaining)
         
         if (remaining === 0 && countdownRef.current) {
+          console.log('[Privacy] 倒计时结束，清除倒计时定时器')
           clearInterval(countdownRef.current)
           setRemainingSeconds(null)
         }
       }, 1000)
       
       timerRef.current = setTimeout(() => {
+        console.log('[Privacy] ⏰ 超时触发！准备激活防窥模式')
         activatePrivacy()
         setRemainingSeconds(null)
         if (countdownRef.current) {
           clearInterval(countdownRef.current)
         }
       }, timeout)
+      
+      console.log('[Privacy] 计时器设置完成，将在', timeoutSeconds, '秒后触发')
     } else {
+      console.log('[Privacy] 防窥模式未启用')
       setRemainingSeconds(null)
     }
   }, [enabled, timeout, isPrivacyMode, activatePrivacy, deactivatePrivacy])
@@ -155,13 +169,22 @@ export function usePrivacyMode(options: UsePrivacyModeOptions = {}): UsePrivacyM
     // 初始化计时器
     resetTimer()
 
-    // 事件监听器
+    // 防抖：避免频繁触发
+    let debounceTimer: NodeJS.Timeout | null = null
     const handleActivity = () => {
+      // 如果正在防抖中，忽略此次事件
+      if (debounceTimer) return
+      
+      // 设置防抖，100ms 内只触发一次
+      debounceTimer = setTimeout(() => {
+        debounceTimer = null
+      }, 100)
+      
       resetTimer()
     }
 
     // 监听多种用户活动
-    const events = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click']
+    const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click']
     events.forEach((event) => {
       window.addEventListener(event, handleActivity, { passive: true })
     })
@@ -176,6 +199,9 @@ export function usePrivacyMode(options: UsePrivacyModeOptions = {}): UsePrivacyM
       }
       if (countdownRef.current) {
         clearInterval(countdownRef.current)
+      }
+      if (debounceTimer) {
+        clearTimeout(debounceTimer)
       }
     }
   }, [enabled, resetTimer])
