@@ -48,6 +48,8 @@ export function usePrivacyMode(options: UsePrivacyModeOptions = {}): UsePrivacyM
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const countdownRef = useRef<NodeJS.Timeout | null>(null)
   const lastActivityRef = useRef<number>(Date.now())
+  const resetTimerRef = useRef<() => void>(() => {})
+  const isPrivacyModeRef = useRef(false) // 用于事件处理中访问最新状态
 
   // 初始化：从 localStorage 恢复防窥状态
   useEffect(() => {
@@ -65,6 +67,7 @@ export function usePrivacyMode(options: UsePrivacyModeOptions = {}): UsePrivacyM
         if (elapsedTime >= timeout) {
           console.log('[Privacy] 恢复防窥状态（距离上次活动 %dms）', elapsedTime)
           setIsPrivacyMode(true)
+          isPrivacyModeRef.current = true
         } else {
           // 否则清除防窥状态
           console.log('[Privacy] 清除防窥状态（距离上次活动不足）')
@@ -81,6 +84,7 @@ export function usePrivacyMode(options: UsePrivacyModeOptions = {}): UsePrivacyM
   const activatePrivacy = useCallback(() => {
     console.log('[Privacy] 激活防窥模式')
     setIsPrivacyMode(true)
+    isPrivacyModeRef.current = true
     
     if (persistOnRefresh) {
       localStorage.setItem(PRIVACY_STATE_KEY, 'true')
@@ -92,6 +96,7 @@ export function usePrivacyMode(options: UsePrivacyModeOptions = {}): UsePrivacyM
   const deactivatePrivacy = useCallback(() => {
     console.log('[Privacy] 解除防窥模式')
     setIsPrivacyMode(false)
+    isPrivacyModeRef.current = false
     
     if (persistOnRefresh) {
       localStorage.removeItem(PRIVACY_STATE_KEY)
@@ -161,17 +166,28 @@ export function usePrivacyMode(options: UsePrivacyModeOptions = {}): UsePrivacyM
       setRemainingSeconds(null)
     }
   }, [enabled, timeout, isPrivacyMode, activatePrivacy, deactivatePrivacy])
+  
+  // 保存 resetTimer 到 ref
+  useEffect(() => {
+    resetTimerRef.current = resetTimer
+  }, [resetTimer])
 
   // 监听用户活动事件
   useEffect(() => {
     if (!enabled) return
 
     // 初始化计时器
-    resetTimer()
+    resetTimerRef.current()
 
     // 防抖：避免频繁触发
     let debounceTimer: NodeJS.Timeout | null = null
     const handleActivity = () => {
+      // 如果当前处于防窥模式，不触发重置（只能通过点击解锁按钮解除）
+      if (isPrivacyModeRef.current) {
+        console.log('[Privacy] 当前处于防窥模式，忽略用户活动')
+        return
+      }
+      
       // 如果正在防抖中，忽略此次事件
       if (debounceTimer) return
       
@@ -180,7 +196,8 @@ export function usePrivacyMode(options: UsePrivacyModeOptions = {}): UsePrivacyM
         debounceTimer = null
       }, 100)
       
-      resetTimer()
+      // 使用 ref 中的最新函数
+      resetTimerRef.current()
     }
 
     // 监听多种用户活动
@@ -204,15 +221,17 @@ export function usePrivacyMode(options: UsePrivacyModeOptions = {}): UsePrivacyM
         clearTimeout(debounceTimer)
       }
     }
-  }, [enabled, resetTimer])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled]) // 只依赖 enabled，避免重复绑定
   
   // 当 timeout 改变时，重置计时器
   useEffect(() => {
     if (enabled && !isPrivacyMode) {
       console.log('[Privacy] 超时时长已更新为', timeout, 'ms，重置计时器')
-      resetTimer()
+      resetTimerRef.current()
     }
-  }, [timeout, enabled, isPrivacyMode, resetTimer])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeout, enabled, isPrivacyMode]) // 故意不包含 resetTimer，避免循环
 
   return {
     isPrivacyMode,

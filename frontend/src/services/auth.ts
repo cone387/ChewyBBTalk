@@ -460,3 +460,36 @@ export async function handleCallback(_code: string, _state: string): Promise<boo
   console.warn('[Auth] handleCallback 已废弃，使用 JWT Token 认证');
   return false;
 }
+
+/**
+ * 验证用户密码（用于防窥解锁）
+ */
+export async function verifyPassword(password: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const user = getCurrentUser();
+    if (!user) {
+      return { success: false, error: '用户未登录' };
+    }
+    
+    // 使用登录 API 验证密码
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/auth/token/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ username: user.username, password }),
+    });
+    
+    if (response.ok) {
+      // 密码正确，更新 token
+      const data: LoginResponse = await response.json();
+      storeAuth(data);
+      return { success: true };
+    } else {
+      return { success: false, error: '密码错误' };
+    }
+  } catch (error) {
+    console.error('[Auth] 密码验证错误:', error);
+    return { success: false, error: '网络错误，请稍后重试' };
+  }
+}

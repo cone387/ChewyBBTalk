@@ -133,22 +133,33 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
   
   // 防窥模式：使用可配置的超时时长
   const privacyTimeoutMs = privacyTimeoutMinutes * 60 * 1000
-  const { isPrivacyMode, resetTimer, remainingSeconds } = usePrivacyMode({
+  const { isPrivacyMode, resetTimer, remainingSeconds, activatePrivacy } = usePrivacyMode({
     timeout: privacyTimeoutMs,
     enabled: !isPublic, // 仅登录状态启用防窥模式
     persistOnRefresh: true,
   })
   
+  // 调试：输出 isPrivacyMode 状态
+  useEffect(() => {
+    console.log('[BBTalkPage] isPrivacyMode 状态变化:', isPrivacyMode)
+  }, [isPrivacyMode])
+  
   // 环境变量配置
   const showPrivacyCountdown = showCountdown
   
   // 当防偷窥时长改变时，重置计时器
+  const resetTimerRef = useRef(resetTimer)
   useEffect(() => {
-    if (!isPublic && resetTimer) {
+    resetTimerRef.current = resetTimer
+  }, [resetTimer])
+  
+  useEffect(() => {
+    if (!isPublic) {
       console.log('[BBTalkPage] 防偷窥时长已更新为', privacyTimeoutMinutes, '分钟，重置计时器')
-      resetTimer()
+      resetTimerRef.current()
     }
-  }, [privacyTimeoutMinutes, isPublic, resetTimer])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [privacyTimeoutMinutes, isPublic]) // 故意不包含 resetTimer，避免循环
 
   // 登录跳转
   const handleLogin = () => {
@@ -1088,6 +1099,20 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
               : `${remainingSeconds}s`
             }
           </span>
+        </button>
+      )}
+      
+      {/* 调试按钮：手动触发防窥模式 */}
+      {!isPublic && import.meta.env.DEV && (
+        <button
+          onClick={() => {
+            console.log('[Debug] 手动触发防窥模式')
+            activatePrivacy()
+          }}
+          className="fixed bottom-24 right-24 bg-red-600 text-white px-3 py-2 rounded-full shadow-lg hover:bg-red-700 transition-all duration-300 z-40 text-xs font-medium"
+          title="调试：手动触发防窥"
+        >
+          🔒 测试防窥
         </button>
       )}
 
