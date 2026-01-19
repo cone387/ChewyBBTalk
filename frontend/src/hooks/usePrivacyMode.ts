@@ -148,6 +148,14 @@ export function usePrivacyMode(options: UsePrivacyModeOptions = {}): UsePrivacyM
       }
     }
   }, [enabled, resetTimer])
+  
+  // 当 timeout 改变时，重置计时器
+  useEffect(() => {
+    if (enabled && !isPrivacyMode) {
+      console.log('[Privacy] 超时时长已更新为', timeout, 'ms，重置计时器')
+      resetTimer()
+    }
+  }, [timeout, enabled, isPrivacyMode, resetTimer])
 
   return {
     isPrivacyMode,

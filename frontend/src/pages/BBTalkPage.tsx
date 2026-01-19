@@ -134,6 +134,14 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
     enabled: !isPublic, // 仅登录状态启用防窥模式
     persistOnRefresh: true,
   })
+  
+  // 当防偷窥时长改变时，重置计时器
+  useEffect(() => {
+    if (!isPublic && resetTimer) {
+      console.log('[BBTalkPage] 防偷窥时长已更新为', privacyTimeoutMinutes, '分钟，重置计时器')
+      resetTimer()
+    }
+  }, [privacyTimeoutMinutes, isPublic, resetTimer])
 
   // 登录跳转
   const handleLogin = () => {
@@ -1113,6 +1121,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                   const value = parseInt(e.target.value, 10)
                   setPrivacyTimeoutMinutes(value)
                   localStorage.setItem('privacy_timeout_minutes', value.toString())
+                  console.log('[设置] 防偷窥时长已设置为', value, '分钟')
                 }}
                 className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
               />
@@ -1123,6 +1132,12 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
             <p className="mt-2 text-xs text-gray-500">
               长时间不活动后，内容将自动模糊以保护隐私
             </p>
+            <div className="mt-2 flex items-center gap-1.5 text-xs text-green-600">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              <span>设置已保存，立即生效</span>
+            </div>
           </div>
           
           {/* 用户信息 */}
