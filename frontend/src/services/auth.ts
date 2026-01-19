@@ -222,8 +222,9 @@ export async function login(username: string, password: string): Promise<{ succe
       console.log('[Auth] 登录成功');
       return { success: true };
     } else {
-      const error = await response.json();
-      return { success: false, error: error.error || '登录失败' };
+      // 增加 JSON 解析错误处理
+      const errorData = await response.json().catch(() => ({ error: `请求失败: ${response.status}` }));
+      return { success: false, error: errorData.error || '登录失败' };
     }
   } catch (error) {
     console.error('[Auth] 登录错误:', error);
@@ -250,8 +251,9 @@ export async function register(data: RegisterRequest): Promise<{ success: boolea
       console.log('[Auth] 注册成功');
       return { success: true };
     } else {
-      const error = await response.json();
-      return { success: false, error: error.error || '注册失败' };
+      // 增加 JSON 解析错误处理
+      const errorData = await response.json().catch(() => ({ error: `注册失败: ${response.status}` }));
+      return { success: false, error: errorData.error || '注册失败' };
     }
   } catch (error) {
     console.error('[Auth] 注册错误:', error);

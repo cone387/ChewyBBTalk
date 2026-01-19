@@ -17,8 +17,8 @@ NC='\033[0m' # No Color
 # 配置
 BACKEND_DIR="backend"
 MANAGE_PY="$BACKEND_DIR/chewy_space/manage.py"
-HOST="${BACKEND_HOST:-0.0.0.0}"
-PORT="${BACKEND_PORT:-8020}"
+DEFAULT_HOST="0.0.0.0"
+DEFAULT_PORT="8020"
 SCRIPT_NAME="manage.py runserver"
 
 # 环境参数（从命令行参数获取，默认为 dev）
@@ -130,8 +130,10 @@ load_env() {
     export ALLOWED_HOSTS="${ALLOWED_HOSTS:-*}"
     export LANGUAGE_CODE="${LANGUAGE_CODE:-zh-hans}"
     export TIME_ZONE="${TIME_ZONE:-Asia/Shanghai}"
-    export HOST="${BACKEND_HOST:-$HOST}"
-    export PORT="${BACKEND_PORT:-$PORT}"
+    
+    # 最终确定的服务地址
+    FINAL_HOST="${BACKEND_HOST:-$DEFAULT_HOST}"
+    FINAL_PORT="${BACKEND_PORT:-$DEFAULT_PORT}"
     
     log_info "环境: $ENV"
     log_info "配置模块: $CHEWYBBTALK_SETTINGS_MODULE"
@@ -173,12 +175,12 @@ start_backend() {
     
     cd $BACKEND_DIR
     
-    log_info "服务地址: http://$HOST:$PORT"
+    log_info "服务地址: http://$FINAL_HOST:$FINAL_PORT"
     log_info "按 Ctrl+C 停止服务"
     echo ""
     
     # 使用 uv run 启动 Django 开发服务器
-    uv run python chewy_space/manage.py runserver $HOST:$PORT &
+    uv run python chewy_space/manage.py runserver $FINAL_HOST:$FINAL_PORT &
     BACKEND_PID=$!
     
     cd - > /dev/null
@@ -190,8 +192,8 @@ start_backend() {
     if ps -p $BACKEND_PID > /dev/null 2>&1; then
         log_info "✓ 后端服务已启动 (PID: $BACKEND_PID)"
         echo ""
-        log_info "API 文档: http://$HOST:$PORT/api/schema/swagger-ui/"
-        log_info "Admin 后台: http://$HOST:$PORT/admin/"
+        log_info "API 文档: http://$FINAL_HOST:$FINAL_PORT/api/schema/swagger-ui/"
+        log_info "Admin 后台: http://$FINAL_HOST:$FINAL_PORT/admin/"
         echo ""
         
         # 等待进程结束
@@ -209,7 +211,7 @@ cleanup() {
     
     # 通过端口查找并停止进程
     if command -v lsof &> /dev/null; then
-        PORT_PID=$(lsof -ti:$PORT 2>/dev/null || true)
+        PORT_PID=$(lsof -ti:$FINAL_PORT 2>/dev/null || true)
         if [ -n "$PORT_PID" ]; then
             kill $PORT_PID 2>/dev/null || true
             sleep 1

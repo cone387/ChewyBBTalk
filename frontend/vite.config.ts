@@ -64,7 +64,17 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',  // 允许外部访问（Docker 容器）
     port: 4010,
-    cors: true
+    cors: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8020',
+        changeOrigin: true,
+      },
+      '/media': {
+        target: 'http://localhost:8020',
+        changeOrigin: true,
+      }
+    }
   },
   resolve: {
     alias: {
