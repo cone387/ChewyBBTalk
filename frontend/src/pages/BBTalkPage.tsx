@@ -1089,12 +1089,12 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
       </div>
       </div>
       
-      {/* 防偷窥倒计时 - 右下角小按钮 */}
+      {/* 防偷窥倒计时 - 右下角小按钮，点击直接进入防窥模式 */}
       {!isPublic && showPrivacyCountdown && remainingSeconds !== null && !isPrivacyMode && (
         <button
-          onClick={() => setShowSettings(true)}
+          onClick={() => activatePrivacy()}
           className="fixed bottom-8 right-8 bg-blue-600 text-white px-3 py-2 rounded-full shadow-lg hover:bg-blue-700 transition-all duration-300 items-center gap-2 z-40 text-sm font-medium hidden md:flex"
-          title="点击进入设置"
+          title="点击立即进入防偷窥模式"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -1108,20 +1108,6 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
         </button>
       )}
       
-      {/* 调试按钮：手动触发防窥模式 */}
-      {!isPublic && import.meta.env.DEV && (
-        <button
-          onClick={() => {
-            console.log('[Debug] 手动触发防窥模式')
-            activatePrivacy()
-          }}
-          className="fixed bottom-24 right-24 bg-red-600 text-white px-3 py-2 rounded-full shadow-lg hover:bg-red-700 transition-all duration-300 z-40 text-xs font-medium"
-          title="调试：手动触发防窥"
-        >
-          🔒 测试防窥
-        </button>
-      )}
-
       {/* 回到顶部按钮 - 在倒计时按钮上方 */}
       {showBackToTop && (
         <button
@@ -1249,11 +1235,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                 </div>
               </div>
               <button
-                onClick={async () => {
-                  if (confirm('确定要退出登录吗？')) {
-                    await logout()
-                  }
-                }}
+                onClick={() => logout()}
                 className="w-full px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors text-sm font-medium flex items-center justify-center gap-2"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

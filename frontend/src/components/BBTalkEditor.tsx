@@ -569,17 +569,21 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
         return
       }
       
-      // Tab 键 - 确认选择
-      if (e.key === 'Tab' && filteredTags.length > 0) {
+      // Tab 键或 Enter 键 - 确认选择标签
+      if ((e.key === 'Tab' || e.key === 'Enter') && filteredTags.length > 0) {
         e.preventDefault()
         handleSelectTag(filteredTags[selectedTagIndex].name)
         return
       }
     }
     
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    // Enter 键发布（Shift+Enter 换行）
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      handleSubmit()
+      if (content.trim() && !isPublishing && !isUploading) {
+        handleSubmit()
+      }
+      return
     }
   }
 
