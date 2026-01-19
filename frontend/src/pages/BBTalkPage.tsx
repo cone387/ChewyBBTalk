@@ -141,9 +141,6 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
   
   // 环境变量配置
   const showPrivacyCountdown = showCountdown
-  const siteName = import.meta.env.VITE_SITE_NAME || 'ChewyBBTalk'
-  const siteCopyright = import.meta.env.VITE_SITE_COPYRIGHT || '© 2024 ChewyBBTalk'
-  const siteIcp = import.meta.env.VITE_SITE_ICP || ''
   
   // 当防偷窥时长改变时，重置计时器
   useEffect(() => {
@@ -426,9 +423,9 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
   })
 
   return (
-    <div className="h-full bg-gray-50 flex flex-col">
-      {/* 主内容区 - 占满除底部外的空间 */}
-      <div className="flex-1 overflow-hidden">
+    <div className="h-full bg-gray-50">
+      {/* 主内容区 */}
+      <div className="h-full overflow-hidden">
       {/* 整体容器 - 左右内容作为整体居中 */}
       <div className="h-full max-w-7xl w-full mx-auto px-4">
         <div className="h-full flex gap-3">
@@ -1075,53 +1072,30 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
       </div>
       </div>
       
-      {/* 固定在底部的元信息 */}
-      <div className="bg-white border-t border-gray-200 py-3">
-        <div className="max-w-7xl w-full mx-auto px-4">
-          <div className="text-center space-y-2">
-            {/* 防偷窥倒计时 */}
-            {!isPublic && showPrivacyCountdown && remainingSeconds !== null && !isPrivacyMode && (
-              <div className="flex items-center justify-center gap-2 text-sm text-gray-600 mb-2">
-                <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-                <span>
-                  {remainingSeconds >= 60 
-                    ? `${Math.floor(remainingSeconds / 60)} 分钟 ${remainingSeconds % 60} 秒后进入防偷窥模式`
-                    : `${remainingSeconds} 秒后进入防偷窥模式`
-                  }
-                </span>
-              </div>
-            )}
-            
-            {/* 网站信息 */}
-            <div className="text-xs text-gray-500 space-y-1">
-              <div>{siteCopyright}</div>
-              {siteIcp && (
-                <div>
-                  <a 
-                    href="https://beian.miit.gov.cn/" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="hover:text-gray-700 transition-colors"
-                  >
-                    {siteIcp}
-                  </a>
-                </div>
-              )}
-              <div className="text-gray-400">
-                Powered by {siteName}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* 防偷窥倒计时 - 右下角小按钮 */}
+      {!isPublic && showPrivacyCountdown && remainingSeconds !== null && !isPrivacyMode && (
+        <button
+          onClick={() => setShowSettings(true)}
+          className="fixed bottom-8 right-8 bg-blue-600 text-white px-3 py-2 rounded-full shadow-lg hover:bg-blue-700 transition-all duration-300 items-center gap-2 z-40 text-sm font-medium hidden md:flex"
+          title="点击进入设置"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+          <span>
+            {remainingSeconds >= 60 
+              ? `${Math.floor(remainingSeconds / 60)}:${(remainingSeconds % 60).toString().padStart(2, '0')}`
+              : `${remainingSeconds}s`
+            }
+          </span>
+        </button>
+      )}
 
-      {/* 回到顶部按钮 - 仅桌面端显示 */}
+      {/* 回到顶部按钮 - 在倒计时按钮上方 */}
       {showBackToTop && (
         <button
           onClick={scrollToTop}
-          className="hidden md:flex fixed bottom-8 right-8 w-12 h-12 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-all duration-300 items-center justify-center z-50"
+          className="hidden md:flex fixed bottom-24 right-8 w-12 h-12 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-all duration-300 items-center justify-center z-50"
           title="回到顶部"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
