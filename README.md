@@ -140,8 +140,6 @@ DATABASE_URL=mysql://username:password@localhost:3306/chewybbtalk
 | ADMIN_USERNAME | 管理员用户名 | admin |
 | ADMIN_EMAIL | 管理员邮箱 | admin@example.com |
 | ADMIN_PASSWORD | 管理员密码 | admin123 |
-| DEV_USER_ID | 开发环境用户ID | 1 |
-| DEV_USERNAME | 开发环境用户名 | admin |
 
 ## API 端点
 
