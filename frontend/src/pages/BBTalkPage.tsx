@@ -1,11 +1,11 @@
 import { useEffect, useState, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
 import { loadBBTalks, createBBTalkAsync, deleteBBTalkAsync, updateBBTalkAsync, loadMoreBBTalks, loadPublicBBTalks, loadMorePublicBBTalks } from '../store/slices/bbtalkSlice'
 import { loadTags, updateTagAsync } from '../store/slices/tagSlice'
 import BBTalkEditor from '../components/BBTalkEditor'
 import CachedImage from '../components/CachedImage'
 import ImagePreview from '../components/ImagePreview'
-import PrivacyOverlay from '../components/PrivacyOverlay'
 import { usePrivacyMode } from '../hooks/usePrivacyMode'
 import { Modal } from '../components/ui'
 import { getCurrentUser, logout } from '../services/auth'
@@ -102,6 +102,7 @@ function SortableTagItem({
 }
 
 export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
+  const navigate = useNavigate()
   const dispatch = useAppDispatch()
   const { bbtalks, isLoading, hasMore, totalCount } = useAppSelector((state) => state.bbtalk)
   const { tags } = useAppSelector((state) => state.tag)
@@ -139,10 +140,14 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
     persistOnRefresh: true,
   })
   
-  // 调试：输出 isPrivacyMode 状态
+  // 调试：输出 isPrivacyMode 状态，并在进入防窥模式时跳转到锁定页面
   useEffect(() => {
     console.log('[BBTalkPage] isPrivacyMode 状态变化:', isPrivacyMode)
-  }, [isPrivacyMode])
+    if (isPrivacyMode && !isPublic) {
+      console.log('[BBTalkPage] 进入防窥模式，跳转到锁定页面')
+      navigate('/locked', { replace: true })
+    }
+  }, [isPrivacyMode, isPublic, navigate])
   
   // 环境变量配置
   const showPrivacyCountdown = showCountdown
@@ -443,8 +448,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
       {/* 整体容器 - 左右内容作为整体居中 */}
       <div className="h-full max-w-7xl w-full mx-auto px-4 relative">
         <div className="h-full flex gap-3">
-          {/* 左侧菜单块 - 窗口缩窄时隐藏，固定定位，防窥模式下也隐藏 */}
-          {!isPrivacyMode && (
+          {/* 左侧菜单块 - 窗口缩窄时隐藏，固定定位 */}
           <div className="hidden lg:block flex-shrink-0" style={{ width: '256px' }}>
           <div className="fixed top-8 bottom-8 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col" style={{ width: '256px' }}>
           {/* 搜索标题和搜索框 */}
@@ -583,7 +587,6 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
           )}
         </div>
           </div>
-          )}
 
           {/* 右侧内容区 */}
           <div ref={containerRef} className="flex-1 min-w-0 py-8 overflow-y-auto">
@@ -629,11 +632,8 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
             </div>
           )}
 
-          {/* BBTalk 列表 - 防窥模式下显示解锁UI，否则显示列表 */}
-          {isPrivacyMode ? (
-            <PrivacyOverlay isPrivacyMode={isPrivacyMode} onUnlock={resetTimer} />
-          ) : (
-            <div className="space-y-4">
+          {/* BBTalk 列表 */}
+          <div className="space-y-4">
             {isLoading && bbtalks.length === 0 ? (
               <div className="bg-white rounded-lg shadow p-6 text-center text-gray-600">
                 加载中...
@@ -1082,8 +1082,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                 <div className="text-gray-400 text-sm">没有更多了</div>
               </div>
             )}
-            </div>
-          )}
+          </div>
           </div>
         </div>
       </div>

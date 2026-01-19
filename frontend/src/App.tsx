@@ -6,6 +6,7 @@ import BBTalkPage from './pages/BBTalkPage'
 import PublicBBTalkPage from './pages/PublicBBTalkPage'
 import BBTalkDetailPage from './pages/BBTalkDetailPage'
 import LoginPage from './pages/LoginPage'
+import PrivacyLockPage from './pages/PrivacyLockPage'
 import { initAuth } from './services/auth'
 
 interface AppProps {
@@ -116,6 +117,16 @@ export default function App({ basename = '/' }: AppProps) {
         <Routes>
           {/* 登录页面 */}
           <Route path="/login" element={<LoginPage />} />
+          
+          {/* 防窥锁定页面 */}
+          <Route 
+            path="/locked" 
+            element={
+              isAuthenticated 
+                ? <PrivacyLockPage /> 
+                : <Navigate to="/login" replace />
+            } 
+          />
           
           {/* 公开页面 - 无需登录 */}
           <Route path="/public" element={<PublicBBTalkPage />} />
