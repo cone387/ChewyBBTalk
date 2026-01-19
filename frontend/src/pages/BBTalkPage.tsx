@@ -427,11 +427,11 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
       {/* 主内容区 */}
       <div className="h-full overflow-hidden">
       {/* 整体容器 - 左右内容作为整体居中 */}
-      <div className="h-full max-w-7xl w-full mx-auto px-4">
+      <div className="h-full max-w-7xl w-full mx-auto px-4 relative">
         <div className="h-full flex gap-3">
-          {/* 左侧菜单块 - 窗口缩窄时隐藏 */}
-          <div className="hidden lg:flex py-8 flex-shrink-0" style={{ width: '256px' }}>
-          <div className="w-full bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col" style={{ height: 'calc(100vh - 4rem)' }}>
+          {/* 左侧菜单块 - 窗口缩窄时隐藏，固定定位 */}
+          <div className="hidden lg:block flex-shrink-0" style={{ width: '256px' }}>
+          <div className="fixed top-8 bottom-8 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col" style={{ width: '256px' }}>
           {/* 搜索标题和搜索框 */}
           <div className="p-4 space-y-2">
             <div className="flex items-center gap-2 text-gray-600">
