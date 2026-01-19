@@ -126,14 +126,24 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
     return saved ? parseInt(saved, 10) : parseInt(import.meta.env.VITE_PRIVACY_TIMEOUT_MINUTES || '5', 10)
   })
   const [currentUser, setCurrentUser] = useState(getCurrentUser())
+  const [showCountdown, setShowCountdown] = useState(() => {
+    const saved = localStorage.getItem('show_privacy_countdown')
+    return saved ? saved === 'true' : import.meta.env.VITE_SHOW_PRIVACY_COUNTDOWN === 'true'
+  })
   
   // 防窥模式：使用可配置的超时时长
   const privacyTimeoutMs = privacyTimeoutMinutes * 60 * 1000
-  const { isPrivacyMode, resetTimer } = usePrivacyMode({
+  const { isPrivacyMode, resetTimer, remainingSeconds } = usePrivacyMode({
     timeout: privacyTimeoutMs,
     enabled: !isPublic, // 仅登录状态启用防窥模式
     persistOnRefresh: true,
   })
+  
+  // 环境变量配置
+  const showPrivacyCountdown = showCountdown
+  const siteName = import.meta.env.VITE_SITE_NAME || 'ChewyBBTalk'
+  const siteCopyright = import.meta.env.VITE_SITE_COPYRIGHT || '© 2024 ChewyBBTalk'
+  const siteIcp = import.meta.env.VITE_SITE_ICP || ''
   
   // 当防偷窥时长改变时，重置计时器
   useEffect(() => {
@@ -1057,6 +1067,46 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
               </div>
             )}
           </PrivacyOverlay>
+          
+          {/* 页面底部元信息 */}
+          <div className="mt-12 pb-8 border-t border-gray-200 pt-6">
+            <div className="text-center space-y-2">
+              {/* 防偷窥倒计时 */}
+              {!isPublic && showPrivacyCountdown && remainingSeconds !== null && !isPrivacyMode && (
+                <div className="flex items-center justify-center gap-2 text-sm text-gray-600 mb-3">
+                  <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  <span>
+                    {remainingSeconds >= 60 
+                      ? `${Math.floor(remainingSeconds / 60)} 分钟 ${remainingSeconds % 60} 秒后进入防偷窥模式`
+                      : `${remainingSeconds} 秒后进入防偷窥模式`
+                    }
+                  </span>
+                </div>
+              )}
+              
+              {/* 网站信息 */}
+              <div className="text-xs text-gray-500 space-y-1">
+                <div>{siteCopyright}</div>
+                {siteIcp && (
+                  <div>
+                    <a 
+                      href="https://beian.miit.gov.cn/" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="hover:text-gray-700 transition-colors"
+                    >
+                      {siteIcp}
+                    </a>
+                  </div>
+                )}
+                <div className="text-gray-400">
+                  Powered by {siteName}
+                </div>
+              </div>
+            </div>
+          </div>
           </div>
         </div>
       </div>
@@ -1138,6 +1188,34 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
               </svg>
               <span>设置已保存，立即生效</span>
             </div>
+          </div>
+          
+          {/* 显示倒计时设置 */}
+          <div className="pt-4 border-t border-gray-200">
+            <label className="flex items-center justify-between cursor-pointer">
+              <div>
+                <div className="text-sm font-medium text-gray-700">
+                  显示防偷窥倒计时
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  在页面底部显示倒计时提示
+                </p>
+              </div>
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  checked={showCountdown}
+                  onChange={(e) => {
+                    const value = e.target.checked
+                    setShowCountdown(value)
+                    localStorage.setItem('show_privacy_countdown', value.toString())
+                    console.log('[设置] 防偷窥倒计时显示:', value)
+                  }}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </div>
+            </label>
           </div>
           
           {/* 用户信息 */}

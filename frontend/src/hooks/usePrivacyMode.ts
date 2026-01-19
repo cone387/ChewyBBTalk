@@ -29,6 +29,8 @@ interface UsePrivacyModeReturn {
   deactivatePrivacy: () => void
   /** 重置不活动计时器 */
   resetTimer: () => void
+  /** 剩余秒数（未启用或已进入防窥模式时为 null） */
+  remainingSeconds: number | null
 }
 
 const PRIVACY_STATE_KEY = 'bbtalk_privacy_mode'
@@ -42,7 +44,9 @@ export function usePrivacyMode(options: UsePrivacyModeOptions = {}): UsePrivacyM
   } = options
 
   const [isPrivacyMode, setIsPrivacyMode] = useState(false)
+  const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
+  const countdownRef = useRef<NodeJS.Timeout | null>(null)
   const lastActivityRef = useRef<number>(Date.now())
 
   // 初始化：从 localStorage 恢复防窥状态
@@ -103,6 +107,9 @@ export function usePrivacyMode(options: UsePrivacyModeOptions = {}): UsePrivacyM
     if (timerRef.current) {
       clearTimeout(timerRef.current)
     }
+    if (countdownRef.current) {
+      clearInterval(countdownRef.current)
+    }
 
     // 如果当前处于防窥模式，解除
     if (isPrivacyMode) {
@@ -114,9 +121,30 @@ export function usePrivacyMode(options: UsePrivacyModeOptions = {}): UsePrivacyM
 
     // 设置新的计时器
     if (enabled) {
+      // 设置倒计时
+      setRemainingSeconds(Math.floor(timeout / 1000))
+      
+      // 每秒更新倒计时
+      countdownRef.current = setInterval(() => {
+        const elapsed = Date.now() - lastActivityRef.current
+        const remaining = Math.max(0, Math.floor((timeout - elapsed) / 1000))
+        setRemainingSeconds(remaining)
+        
+        if (remaining === 0 && countdownRef.current) {
+          clearInterval(countdownRef.current)
+          setRemainingSeconds(null)
+        }
+      }, 1000)
+      
       timerRef.current = setTimeout(() => {
         activatePrivacy()
+        setRemainingSeconds(null)
+        if (countdownRef.current) {
+          clearInterval(countdownRef.current)
+        }
       }, timeout)
+    } else {
+      setRemainingSeconds(null)
     }
   }, [enabled, timeout, isPrivacyMode, activatePrivacy, deactivatePrivacy])
 
@@ -146,6 +174,9 @@ export function usePrivacyMode(options: UsePrivacyModeOptions = {}): UsePrivacyM
       if (timerRef.current) {
         clearTimeout(timerRef.current)
       }
+      if (countdownRef.current) {
+        clearInterval(countdownRef.current)
+      }
     }
   }, [enabled, resetTimer])
   
@@ -162,5 +193,6 @@ export function usePrivacyMode(options: UsePrivacyModeOptions = {}): UsePrivacyM
     activatePrivacy,
     deactivatePrivacy,
     resetTimer,
+    remainingSeconds,
   }
 }
