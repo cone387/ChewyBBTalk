@@ -22,7 +22,7 @@ RUN pip install --no-cache-dir -i https://pypi.tuna.tsinghua.edu.cn/simple uv &&
 
 COPY backend/chewy_space ./chewy_space
 
-# 收集静态文件
+# 收集静态文件并初始化系统
 WORKDIR /app/chewy_space
 RUN python manage.py collectstatic --noinput
 
@@ -77,11 +77,13 @@ COPY --from=frontend-builder /app/dist /app/frontend
 # 复制配置文件
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY start_django.sh /app/start_django.sh
 
 # 创建必要的目录和设置权限
 RUN mkdir -p /app/logs /app/media /app/staticfiles /data /run/nginx && \
     chown -R www-data:www-data /app/media /app/staticfiles /app/logs && \
-    chown -R nobody:nogroup /data
+    chown -R nobody:nogroup /data && \
+    chmod +x /app/start_django.sh
 
 # 暴露端口
 EXPOSE 4010

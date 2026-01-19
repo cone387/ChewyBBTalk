@@ -129,6 +129,19 @@ DATABASE_URL=mysql://username:password@localhost:3306/chewybbtalk
 |------|------|--------|
 | VITE_API_BASE_URL | API 基础地址 | 空（使用相对路径）|
 | VITE_PRIVACY_TIMEOUT_MINUTES | 防窥模式超时时长（分钟）| 5 |
+| VITE_SHOW_PRIVACY_COUNTDOWN | 是否显示倒计时 | true |
+| VITE_SITE_NAME | 网站名称 | ChewyBBTalk |
+| VITE_SITE_COPYRIGHT | 版权信息 | © 2024 ChewyBBTalk |
+
+### 系统账号配置
+
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| ADMIN_USERNAME | 管理员用户名 | admin |
+| ADMIN_EMAIL | 管理员邮箱 | admin@example.com |
+| ADMIN_PASSWORD | 管理员密码 | admin123 |
+| DEV_USER_ID | 开发环境用户ID | 1 |
+| DEV_USERNAME | 开发环境用户名 | admin |
 
 ## API 端点
 
