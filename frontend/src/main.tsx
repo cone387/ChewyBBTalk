@@ -3,6 +3,23 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
 
+// PWA Service Worker 注册
+import { registerSW } from 'virtual:pwa-register';
+
+// 注册 Service Worker
+const updateSW = registerSW({
+  onNeedRefresh() {
+    // 当有新版本可用时的处理
+    if (confirm('发现新版本，是否立即更新？')) {
+      updateSW(true);
+    }
+  },
+  onOfflineReady() {
+    // 当应用可以离线使用时的处理
+    console.log('应用已准备好离线使用');
+  },
+});
+
 let root: ReactDOM.Root | null = null;
 
 // wujie 生命周期函数
