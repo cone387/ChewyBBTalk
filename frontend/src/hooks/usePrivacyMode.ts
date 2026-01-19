@@ -43,13 +43,29 @@ export function usePrivacyMode(options: UsePrivacyModeOptions = {}): UsePrivacyM
     persistOnRefresh = true,
   } = options
 
-  const [isPrivacyMode, setIsPrivacyMode] = useState(false)
+  // 初始化时同步读取 localStorage，避免闪烁
+  const getInitialPrivacyState = (): boolean => {
+    if (!enabled || !persistOnRefresh) {
+      console.log('[Privacy] 初始化跳过: enabled=', enabled, 'persistOnRefresh=', persistOnRefresh)
+      return false
+    }
+    try {
+      const saved = localStorage.getItem(PRIVACY_STATE_KEY)
+      console.log('[Privacy] 初始化读取 localStorage:', saved)
+      return saved === 'true'
+    } catch (_e) {
+      console.log('[Privacy] 初始化读取失败')
+      return false
+    }
+  }
+  
+  const [isPrivacyMode, setIsPrivacyMode] = useState(getInitialPrivacyState)
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const countdownRef = useRef<NodeJS.Timeout | null>(null)
   const lastActivityRef = useRef<number>(Date.now())
   const resetTimerRef = useRef<() => void>(() => {})
-  const isPrivacyModeRef = useRef(false) // 用于事件处理中访问最新状态
+  const isPrivacyModeRef = useRef(getInitialPrivacyState())
 
   // 初始化：从 localStorage 恢复防窥状态
   useEffect(() => {
@@ -57,28 +73,18 @@ export function usePrivacyMode(options: UsePrivacyModeOptions = {}): UsePrivacyM
 
     try {
       const savedState = localStorage.getItem(PRIVACY_STATE_KEY)
-      const savedTimestamp = localStorage.getItem(PRIVACY_TIMESTAMP_KEY)
       
-      if (savedState === 'true' && savedTimestamp) {
-        const timestamp = parseInt(savedTimestamp, 10)
-        const elapsedTime = Date.now() - timestamp
-        
-        // 如果距离上次活动超过超时时长，保持防窥状态
-        if (elapsedTime >= timeout) {
-          console.log('[Privacy] 恢复防窥状态（距离上次活动 %dms）', elapsedTime)
-          setIsPrivacyMode(true)
-          isPrivacyModeRef.current = true
-        } else {
-          // 否则清除防窥状态
-          console.log('[Privacy] 清除防窥状态（距离上次活动不足）')
-          localStorage.removeItem(PRIVACY_STATE_KEY)
-          localStorage.removeItem(PRIVACY_TIMESTAMP_KEY)
-        }
+      // 如果保存了防窥状态，直接恢复（不管时间）
+      // 这样可以防止通过刷新、后退/前进等方式绕过防窥模式
+      if (savedState === 'true') {
+        console.log('[Privacy] 恢复防窥状态')
+        setIsPrivacyMode(true)
+        isPrivacyModeRef.current = true
       }
     } catch (error) {
       console.error('[Privacy] 恢复状态失败:', error)
     }
-  }, [enabled, timeout, persistOnRefresh])
+  }, [enabled, persistOnRefresh])
 
   // 激活防窥模式
   const activatePrivacy = useCallback(() => {
@@ -89,6 +95,7 @@ export function usePrivacyMode(options: UsePrivacyModeOptions = {}): UsePrivacyM
     if (persistOnRefresh) {
       localStorage.setItem(PRIVACY_STATE_KEY, 'true')
       localStorage.setItem(PRIVACY_TIMESTAMP_KEY, lastActivityRef.current.toString())
+      console.log('[Privacy] 已保存到 localStorage:', localStorage.getItem(PRIVACY_STATE_KEY))
     }
   }, [persistOnRefresh])
 
@@ -176,8 +183,10 @@ export function usePrivacyMode(options: UsePrivacyModeOptions = {}): UsePrivacyM
   useEffect(() => {
     if (!enabled) return
 
-    // 初始化计时器
-    resetTimerRef.current()
+    // 初始化计时器（但如果已经处于防窥模式，不要重置）
+    if (!isPrivacyModeRef.current) {
+      resetTimerRef.current()
+    }
 
     // 防抖：避免频繁触发
     let debounceTimer: NodeJS.Timeout | null = null

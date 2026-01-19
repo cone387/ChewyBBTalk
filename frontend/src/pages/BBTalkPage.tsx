@@ -147,19 +147,22 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
   // 环境变量配置
   const showPrivacyCountdown = showCountdown
   
-  // 当防偷窥时长改变时，重置计时器
+  // 当防偷窥时长改变时，重置计时器（但不在防窥模式下重置）
   const resetTimerRef = useRef(resetTimer)
+  const prevTimeoutRef = useRef(privacyTimeoutMinutes)
   useEffect(() => {
     resetTimerRef.current = resetTimer
   }, [resetTimer])
   
   useEffect(() => {
-    if (!isPublic) {
+    // 只有当时长真正变化时才重置（排除首次加载）
+    if (!isPublic && !isPrivacyMode && prevTimeoutRef.current !== privacyTimeoutMinutes) {
       console.log('[BBTalkPage] 防偷窥时长已更新为', privacyTimeoutMinutes, '分钟，重置计时器')
       resetTimerRef.current()
     }
+    prevTimeoutRef.current = privacyTimeoutMinutes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [privacyTimeoutMinutes, isPublic]) // 故意不包含 resetTimer，避免循环
+  }, [privacyTimeoutMinutes, isPublic, isPrivacyMode]) // 故意不包含 resetTimer，避免循环
 
   // 登录跳转
   const handleLogin = () => {
@@ -440,7 +443,8 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
       {/* 整体容器 - 左右内容作为整体居中 */}
       <div className="h-full max-w-7xl w-full mx-auto px-4 relative">
         <div className="h-full flex gap-3">
-          {/* 左侧菜单块 - 窗口缩窄时隐藏，固定定位 */}
+          {/* 左侧菜单块 - 窗口缩窄时隐藏，固定定位，防窥模式下也隐藏 */}
+          {!isPrivacyMode && (
           <div className="hidden lg:block flex-shrink-0" style={{ width: '256px' }}>
           <div className="fixed top-8 bottom-8 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col" style={{ width: '256px' }}>
           {/* 搜索标题和搜索框 */}
@@ -579,6 +583,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
           )}
         </div>
           </div>
+          )}
 
           {/* 右侧内容区 */}
           <div ref={containerRef} className="flex-1 min-w-0 py-8 overflow-y-auto">
@@ -624,8 +629,10 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
             </div>
           )}
 
-          {/* BBTalk 列表 - 使用防窥遮罩包裹 */}
-          <PrivacyOverlay isPrivacyMode={isPrivacyMode} onUnlock={resetTimer}>
+          {/* BBTalk 列表 - 防窥模式下显示解锁UI，否则显示列表 */}
+          {isPrivacyMode ? (
+            <PrivacyOverlay isPrivacyMode={isPrivacyMode} onUnlock={resetTimer} />
+          ) : (
             <div className="space-y-4">
             {isLoading && bbtalks.length === 0 ? (
               <div className="bg-white rounded-lg shadow p-6 text-center text-gray-600">
@@ -1062,8 +1069,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                 )
               })
             )}
-            </div>
-                
+            
             {/* 加载更多提示 */}
             {isLoadingMore && (
               <div className="flex justify-center py-4">
@@ -1076,7 +1082,8 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                 <div className="text-gray-400 text-sm">没有更多了</div>
               </div>
             )}
-          </PrivacyOverlay>
+            </div>
+          )}
           </div>
         </div>
       </div>
