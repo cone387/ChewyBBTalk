@@ -7,6 +7,7 @@
 - 📝 发布、编辑、删除碎碎念
 - 🏷️ 标签管理与分类
 - 📎 附件上传（图片、视频、文件）
+- 📱 PWA 支持（可安装为桌面/移动应用）
 - 🧩 支持 wujie 微前端嵌入
 - 🔒 防窥模式（长时间不活动自动模糊内容）
 
@@ -80,7 +81,7 @@ npm run dev
 
 ### 3. 访问
 
-- 前端：http://localhost:8021
+- 前端：http://localhost:4010
 - 后端 API：http://localhost:8020/api/v1/
 - API 文档：http://localhost:8020/api/schema/swagger-ui/
 - Admin 后台：http://localhost:8020/admin/
@@ -104,9 +105,23 @@ cp .env.dev .env
 |------|------|--------|
 | ENV | 运行环境 (dev/prod/test) | dev |
 | DEBUG | 调试模式 | true |
-| DATABASE_URL | 数据库连接 | sqlite:///./db.sqlite3 |
+| DATABASE_URL | 数据库连接 | sqlite:///db.sqlite3 |
 | SECRET_KEY | Django 密钥 | 需要修改 |
-| CHEWYBBTALK_SETTINGS_MODULE | 配置模块 | configs.dev_settings |
+| FRONTEND_PORT | 前端端口 | 4010 |
+| BACKEND_PORT | 后端端口 | 8020 |
+
+### 数据库配置示例
+
+```bash
+# SQLite (开发环境)
+DATABASE_URL=sqlite:///db.sqlite3
+
+# PostgreSQL (生产环境推荐)
+DATABASE_URL=postgresql://username:password@localhost:5432/chewybbtalk
+
+# MySQL (可选)
+DATABASE_URL=mysql://username:password@localhost:3306/chewybbtalk
+```
 
 ### 前端配置（frontend/.env）
 
@@ -131,13 +146,32 @@ cp .env.dev .env
 
 ## 认证机制
 
+**开发环境**
+- 使用模拟用户认证（跳过登录）
+- 配置在 `frontend/.env` 中的 `VITE_DEV_*` 变量
 
-   - 登录后获取 id_token（JWT）
-   - 后端验证 JWT token
+**生产环境**
+- 支持 JWT Token 认证
+- 可集成外部认证系统
 
-2. **端口配置**
-   - 前端/nginx：4010
-   - 后端：8020
+**端口配置**
+- 前端：4010
+- 后端：8020
+
+## PWA 功能
+
+应用支持 Progressive Web App (PWA) 功能：
+
+**特性**
+- 📱 可安装为桌面/移动应用
+- 🔄 自动更新缓存
+- 📶 离线访问支持
+- 🚀 快速启动和加载
+
+**安装方式**
+- Chrome/Edge：地址栏右侧点击安装图标
+- Safari：分享菜单 → 添加到主屏幕
+- 或浏览器菜单中选择"安装应用"
 
 ## 防窥模式
 
@@ -213,7 +247,7 @@ window.__AUTH_BRIDGE__ = {
 // 加载子应用
 startApp({
   name: 'bbtalk',
-  url: 'http://localhost:8021',
+  url: 'http://localhost:4010',
   el: '#subapp-container'
 });
 ```
