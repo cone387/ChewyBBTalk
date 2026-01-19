@@ -35,7 +35,8 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
   const [existingAttachments, setExistingAttachments] = useState<Attachment[]>([])  // 编辑模式下的现有附件
   const [isUploading, setIsUploading] = useState(false)
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null)
-  const [visibility, setVisibility] = useState<'public' | 'private' | 'friends'>('private')  // 默认私有
+  const [locationError, setLocationError] = useState<boolean>(false)  // 定位失败状态
+  const [visibility, setVisibility] = useState<'public' | 'private' | 'friends'>('private')
   const [suggestedTag, setSuggestedTag] = useState<string | null>(null) // 建议创建的标签
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null) // Toast提示
   const [isDragOver, setIsDragOver] = useState(false) // 拖拽状态
@@ -129,6 +130,9 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
         (error) => {
           // 静默失败,不弹出提示,只记录日志
           console.log('自动定位失败(已忽略):', error.message)
+          setLocationError(true)  // 设置定位失败状态
+          // 延迟清除错误状态，让用户看到图标变红
+          setTimeout(() => setLocationError(false), 3000)
         },
         options
       )
@@ -376,6 +380,11 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
       return
     }
 
+    // 如果之前定位失败，重置错误状态
+    if (locationError) {
+      setLocationError(false)
+    }
+
     // 配置选项:设置超时为10秒,不启用高精度(更快),最大年龄为5分钟
     const options = {
       timeout: 10000,
@@ -390,6 +399,10 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
           longitude: position.coords.longitude
         })
         setToast({ message: '定位成功', type: 'success' })
+        // 清除错误状态
+        if (locationError) {
+          setLocationError(false)
+        }
       },
       (error) => {
         console.error('定位失败:', error)
@@ -403,6 +416,10 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
           message = '定位超时，请稍后再试'
         }
         setToast({ message, type: 'warning' })
+        // 设置定位失败状态
+        setLocationError(true)
+        // 延迟清除错误状态，让用户看到图标变红
+        setTimeout(() => setLocationError(false), 3000)
       },
       options
     )
@@ -871,12 +888,12 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
             <button
               onClick={handleGetLocation}
               className={`p-2 rounded-lg transition-colors group ${
-                location ? 'bg-green-50' : 'hover:bg-gray-50'
+                location ? 'bg-green-50' : locationError ? 'bg-red-50' : 'hover:bg-gray-50'
               }`}
-              title="添加位置"
+              title={location ? '清除位置' : locationError ? '定位失败，点击重试' : '添加位置'}
             >
               <svg className={`w-5 h-5 ${
-                location ? 'text-green-600' : 'text-gray-600 group-hover:text-blue-600'
+                location ? 'text-green-600' : locationError ? 'text-red-600' : 'text-gray-600 group-hover:text-blue-600'
               }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
