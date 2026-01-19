@@ -61,6 +61,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=backend-builder /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages
 COPY --from=backend-builder /usr/local/bin /usr/local/bin
 COPY --from=backend-builder /app/chewy_space /app/backend
+COPY --from=backend-builder /app/chewy_space/staticfiles /app/staticfiles
 
 # 复制前端构建产物
 COPY --from=frontend-builder /app/dist /app/frontend
@@ -70,8 +71,8 @@ COPY nginx.conf /etc/nginx/nginx.conf
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 # 创建必要的目录
-RUN mkdir -p /app/logs /app/media /data /run/nginx && \
-    chown -R www-data:www-data /app/media /app/logs && \
+RUN mkdir -p /app/logs /app/media /app/staticfiles /data /run/nginx && \
+    chown -R www-data:www-data /app/media /app/staticfiles /app/logs && \
     chown -R nobody:nogroup /data
 
 # 暴露端口

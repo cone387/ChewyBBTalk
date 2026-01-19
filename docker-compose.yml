@@ -1,27 +1,14 @@
 # 生产环境 Docker Compose
-# 使用方法：docker compose --env-file .env up -d
-# 访问地址：http://localhost:8021
+# 支持两种部署方式：
+# 1. 宿主机Nginx + docker compose（前端+后端）: docker compose --env-file .env up -d
+# 2. docker单容器（包含nginx）: 使用根目录 Dockerfile
+#
+# 方式1部署说明：
+# - 前端暴露端口: ${FRONTEND_PORT:-4010}
+# - 后端暴露端口: ${BACKEND_PORT:-8020}
+# - 需要在宿主机配置Nginx反向代理（参考 nginx.host.example.conf）
 
 services:
-  # ============================================
-  # Nginx 反向代理
-  # ============================================
-  nginx:
-    image: m.daocloud.io/docker.io/nginx:alpine
-    container_name: chewybbtalk-nginx
-    ports:
-      - "${PORT:-8021}:80"
-    volumes:
-      - ${NGINX_CONF:-./nginx.conf}:/etc/nginx/nginx.conf:ro
-      - ${DATA_DIR:-./data}/backend/media:/app/media:ro
-      - ${DATA_DIR:-./data}/backend/staticfiles:/app/staticfiles:ro
-    restart: unless-stopped
-    networks:
-      - bbtalk-network
-    depends_on:
-      - frontend
-      - backend
-
   # ============================================
   # 前端服务
   # ============================================
@@ -30,11 +17,11 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: chewybbtalk-frontend
+    ports:
+      - "${FRONTEND_PORT:-4010}:4010"
     restart: unless-stopped
     networks:
       - bbtalk-network
-    expose:
-      - "4010"
 
   # ============================================
   # 后端服务
@@ -45,6 +32,8 @@ services:
       dockerfile: Dockerfile
     container_name: chewybbtalk-backend
     env_file: .env
+    ports:
+      - "${BACKEND_PORT:-8020}:8020"
     volumes:
       - ${DATA_DIR:-./data}/backend/db:/app/chewy_space/db
       - ${DATA_DIR:-./data}/backend/media:/app/chewy_space/media
@@ -53,8 +42,6 @@ services:
     restart: unless-stopped
     networks:
       - bbtalk-network
-    expose:
-      - "8020"
 
 networks:
   bbtalk-network:

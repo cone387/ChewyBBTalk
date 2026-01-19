@@ -156,7 +156,7 @@ status() {
 # 进入容器
 shell() {
     local compose_file=$(get_compose_file)
-    local service=${1:-nginx}
+    local service=${1:-backend}
     log_info "进入 $service 容器..."
     docker compose -f "$compose_file" exec "$service" /bin/sh
 }
@@ -189,17 +189,28 @@ ChewyBBTalk 部署管理脚本
   stop          停止服务
   restart       重启服务
   rebuild       重新构建并启动
-  logs [服务]   查看日志 (可选服务: nginx, backend, frontend)
+  logs [服务]   查看日志 (可选服务: backend, frontend)
   status        查看容器状态
-  shell [服务]  进入容器 shell
+  shell [服务]  进入容器 shell (可选服务: backend, frontend)
   keys          生成配置密钥
   help          显示此帮助信息
+
+部署方式说明:
+  方式1: 宿主机Nginx + docker compose (推荐)
+         - docker compose --env-file .env up -d
+         - 前端端口: 4010, 后端端口: 8020
+         - 需要在宿主机配置 Nginx (参考 nginx.host.example.conf)
+
+  方式2: docker 单容器 (包含 nginx)
+         - docker build -t chewybbtalk .
+         - docker run -d -p 8021:80 --name chewybbtalk chewybbtalk
+         - 所有服务在一个容器中运行
 
 示例:
   $0 start                # 启动开发环境 (dev)
   $0 -e prod start        # 启动生产环境
   $0 --env prod rebuild   # 重新构建生产环境
-  $0 logs nginx           # 查看 nginx 日志
+  $0 logs backend         # 查看 backend 日志
   $0 status               # 查看容器状态
 
 EOF
