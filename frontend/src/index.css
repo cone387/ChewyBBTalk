@@ -15,3 +15,15 @@
   margin: 0;
   padding: 0;
 }
+
+/* 安全区域支持 - iPhone 底部 Home 指示器 */
+.safe-area-pb {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* 移动端底部导航栏占位 */
+@media (max-width: 1023px) {
+  .pb-mobile-nav {
+    padding-bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px));
+  }
+}

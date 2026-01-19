@@ -109,6 +109,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
   const [isPublishing, setIsPublishing] = useState(false)
   const [showEditor, setShowEditor] = useState(true)
   const [showBackToTop, setShowBackToTop] = useState(false)
+  const [showMobileMenu, setShowMobileMenu] = useState(false) // 移动端菜单
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
   const [editingBBTalk, setEditingBBTalk] = useState<typeof bbtalks[0] | null>(null)
   const [searchKeyword, setSearchKeyword] = useState('')
@@ -589,7 +590,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
           </div>
 
           {/* 右侧内容区 */}
-          <div ref={containerRef} className="flex-1 min-w-0 py-8 overflow-y-auto">
+          <div ref={containerRef} className="flex-1 min-w-0 py-8 pb-20 lg:pb-8 overflow-y-auto">
             {/* 滚动内容区 */}
             <div className="w-full px-4 lg:px-6">
           {/* 编辑框 / 登录提示 */}
@@ -1093,7 +1094,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
       {!isPublic && showPrivacyCountdown && remainingSeconds !== null && !isPrivacyMode && (
         <button
           onClick={() => activatePrivacy()}
-          className="fixed bottom-8 right-8 bg-blue-600 text-white px-3 py-2 rounded-full shadow-lg hover:bg-blue-700 transition-all duration-300 items-center gap-2 z-40 text-sm font-medium hidden md:flex"
+          className="fixed bottom-20 md:bottom-8 right-4 md:right-8 bg-blue-600 text-white px-3 py-2 rounded-full shadow-lg hover:bg-blue-700 transition-all duration-300 flex items-center gap-2 z-40 text-sm font-medium"
           title="点击立即进入防偷窥模式"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1108,11 +1109,11 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
         </button>
       )}
       
-      {/* 回到顶部按钮 - 在倒计时按钮上方 */}
+      {/* 回到顶部按钮 */}
       {showBackToTop && (
         <button
           onClick={scrollToTop}
-          className="hidden md:flex fixed bottom-24 right-8 w-12 h-12 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-all duration-300 items-center justify-center z-50"
+          className="fixed bottom-32 md:bottom-24 right-4 md:right-8 w-10 h-10 md:w-12 md:h-12 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-all duration-300 flex items-center justify-center z-50"
           title="回到顶部"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1247,6 +1248,130 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
           )}
         </div>
       </Modal>
+      
+      {/* 移动端底部导航栏 */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 safe-area-pb">
+        <div className="flex items-center justify-around h-14">
+          {/* 首页 */}
+          <button
+            onClick={() => {
+              setSelectedTags([])
+              setSearchKeyword('')
+              scrollToTop()
+            }}
+            className="flex flex-col items-center justify-center flex-1 h-full text-blue-600"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+            </svg>
+            <span className="text-xs mt-0.5">首页</span>
+          </button>
+          
+          {/* 标签 */}
+          <button
+            onClick={() => setShowMobileMenu(true)}
+            className={`flex flex-col items-center justify-center flex-1 h-full ${selectedTags.length > 0 ? 'text-blue-600' : 'text-gray-600'}`}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+            </svg>
+            <span className="text-xs mt-0.5">标签{selectedTags.length > 0 ? `(${selectedTags.length})` : ''}</span>
+          </button>
+          
+          {/* 设置 */}
+          {!isPublic && (
+            <button
+              onClick={() => setShowSettings(true)}
+              className="flex flex-col items-center justify-center flex-1 h-full text-gray-600"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              <span className="text-xs mt-0.5">设置</span>
+            </button>
+          )}
+        </div>
+      </div>
+      
+      {/* 移动端标签筛选弹窗 */}
+      {showMobileMenu && (
+        <div className="lg:hidden fixed inset-0 bg-black/50 z-50" onClick={() => setShowMobileMenu(false)}>
+          <div 
+            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[70vh] overflow-hidden"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* 头部 */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-100">
+              <h3 className="font-medium text-gray-900">筛选标签</h3>
+              <button onClick={() => setShowMobileMenu(false)} className="p-1">
+                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            {/* 搜索框 */}
+            <div className="p-4 border-b border-gray-100">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="搜索 BBTalk..."
+                  value={searchKeyword}
+                  onChange={(e) => setSearchKeyword(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-500 bg-white text-gray-800 text-sm"
+                />
+                <svg className="w-4 h-4 text-gray-400 absolute left-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+            </div>
+            
+            {/* 标签列表 */}
+            <div className="overflow-y-auto max-h-[50vh] p-4">
+              {/* 全部 */}
+              <button
+                onClick={() => {
+                  setSelectedTags([])
+                  setShowMobileMenu(false)
+                }}
+                className={`w-full text-left px-4 py-3 rounded-xl mb-2 flex items-center justify-between ${
+                  selectedTags.length === 0
+                    ? 'bg-blue-50 text-blue-700 font-medium'
+                    : 'text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <span>全部</span>
+                <span className="text-sm text-gray-400">{totalCount}</span>
+              </button>
+              
+              {/* 标签 */}
+              {tags.map(tag => (
+                <button
+                  key={tag.id}
+                  onClick={() => {
+                    toggleTag(tag.id)
+                    setShowMobileMenu(false)
+                  }}
+                  className={`w-full text-left px-4 py-3 rounded-xl mb-2 flex items-center justify-between ${
+                    selectedTags.includes(tag.id)
+                      ? 'bg-blue-50 text-blue-700 font-medium'
+                      : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                    </svg>
+                    {tag.name}
+                  </span>
+                  <span className="text-sm text-gray-400">{tag.bbtalkCount || 0}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
