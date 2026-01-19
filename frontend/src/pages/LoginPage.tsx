@@ -1,6 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { login, register } from '../services/auth';
 import Toast from '../components/ui/Toast';
+
+const REMEMBER_USERNAME_KEY = 'bbtalk_remember_username';
+const SAVED_USERNAME_KEY = 'bbtalk_saved_username';
+const PRIVACY_STATE_KEY = 'bbtalk_privacy_mode';
+const PRIVACY_TIMESTAMP_KEY = 'bbtalk_privacy_timestamp';
 
 export default function LoginPage() {
   const [isLogin, setIsLogin] = useState(true); // true: 登录, false: 注册
@@ -11,6 +16,18 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [rememberUsername, setRememberUsername] = useState(true);
+  
+  // 初始化时读取保存的用户名
+  useEffect(() => {
+    // 只有明确设置为 false 才不勾选，否则默认勾选
+    const remembered = localStorage.getItem(REMEMBER_USERNAME_KEY) !== 'false';
+    setRememberUsername(remembered);
+    if (remembered) {
+      const savedUsername = localStorage.getItem(SAVED_USERNAME_KEY) || '';
+      setUsername(savedUsername);
+    }
+  }, []);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,6 +46,18 @@ export default function LoginPage() {
         // 登录
         const result = await login(username, password);
         if (result.success) {
+          // 保存/清除用户名
+          if (rememberUsername) {
+            localStorage.setItem(REMEMBER_USERNAME_KEY, 'true');
+            localStorage.setItem(SAVED_USERNAME_KEY, username);
+          } else {
+            localStorage.removeItem(REMEMBER_USERNAME_KEY);
+            localStorage.removeItem(SAVED_USERNAME_KEY);
+          }
+          // 清除防偷窥状态，新登录不应被防窥
+          localStorage.removeItem(PRIVACY_STATE_KEY);
+          localStorage.removeItem(PRIVACY_TIMESTAMP_KEY);
+          
           setSuccess('登录成功！');
           // 延迟跳转，确保认证状态生效
           setTimeout(() => {
@@ -131,6 +160,20 @@ export default function LoginPage() {
                 />
               </div>
             </div>
+            
+            {/* 记住用户名 - 仅登录模式显示 */}
+            {isLogin && (
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={rememberUsername}
+                  onChange={(e) => setRememberUsername(e.target.checked)}
+                  disabled={loading}
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                />
+                <span className="text-sm text-gray-600">记住用户名</span>
+              </label>
+            )}
             
             {/* 注册额外字段 */}
             {!isLogin && (
