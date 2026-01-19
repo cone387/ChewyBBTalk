@@ -203,7 +203,7 @@ ChewyBBTalk 部署管理脚本
 
   方式2: docker 单容器 (包含 nginx)
          - docker build -t chewybbtalk .
-         - docker run -d -p 8021:80 --name chewybbtalk chewybbtalk
+         - docker run -d -p 4010:4010 --name chewybbtalk chewybbtalk
          - 所有服务在一个容器中运行
 
 示例:

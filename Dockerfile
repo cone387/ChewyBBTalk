@@ -76,7 +76,7 @@ RUN mkdir -p /app/logs /app/media /app/staticfiles /data /run/nginx && \
     chown -R nobody:nogroup /data
 
 # 暴露端口
-EXPOSE 80
+EXPOSE 4010
 
 # 启动 supervisor
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
