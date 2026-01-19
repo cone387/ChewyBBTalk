@@ -10,9 +10,6 @@ RUN npm install
 
 COPY . .
 
-# 生成 PWA 图标
-RUN node generate-pwa-icons.cjs
-
 # Build
 RUN npm run build
 
