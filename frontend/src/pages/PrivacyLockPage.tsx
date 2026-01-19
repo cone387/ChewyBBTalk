@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAppDispatch } from '../store/hooks'
+import { createBBTalkAsync } from '../store/slices/bbtalkSlice'
 import { verifyPassword, getCurrentUser } from '../services/auth'
+import BBTalkEditor from '../components/BBTalkEditor'
+import type { BBTalkFormData } from '../types'
 
 /**
  * 防窥锁定页面
@@ -13,11 +17,14 @@ const PRIVACY_STATE_KEY = 'bbtalk_privacy_mode'
 
 export default function PrivacyLockPage() {
   const navigate = useNavigate()
+  const dispatch = useAppDispatch()
   const [password, setPassword] = useState('')
   const [isVerifying, setIsVerifying] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isBiometricSupported, setIsBiometricSupported] = useState(false)
   const [isBiometricVerifying, setIsBiometricVerifying] = useState(false)
+  const [isPublishing, setIsPublishing] = useState(false)
+  const [publishSuccess, setPublishSuccess] = useState(false)
   
   // 检查是否真的处于防窥模式，如果不是则跳转回首页
   useEffect(() => {
@@ -159,15 +166,46 @@ export default function PrivacyLockPage() {
     }
   }
   
+  // 发布 BBTalk
+  const handlePublish = async (data: BBTalkFormData) => {
+    setIsPublishing(true)
+    try {
+      await dispatch(createBBTalkAsync(data)).unwrap()
+      setPublishSuccess(true)
+      setTimeout(() => setPublishSuccess(false), 3000)
+    } catch (err) {
+      console.error('发布失败:', err)
+    } finally {
+      setIsPublishing(false)
+    }
+  }
+  
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-sm p-8 w-full max-w-sm">
-        <div className="text-center">
-          {/* 锁图标 */}
-          <div className="flex justify-center mb-6">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 gap-4">
+      {/* BBTalk 编辑器 */}
+      <div className="w-full max-w-xl">
+        <BBTalkEditor 
+          onPublish={handlePublish} 
+          isPublishing={isPublishing}
+        />
+        {publishSuccess && (
+          <div className="mt-3 text-center text-green-600 text-sm flex items-center justify-center gap-1">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            发布成功
+          </div>
+        )}
+      </div>
+      
+      {/* 解锁卡片 - 与编辑器同宽，横向布局 */}
+      <div className="bg-white rounded-2xl shadow-sm p-5 w-full max-w-xl">
+        <div className="flex items-center gap-5">
+          {/* 左侧锁图标 */}
+          <div className="flex-shrink-0">
+            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
               <svg
-                className="w-8 h-8 text-gray-500"
+                className="w-6 h-6 text-gray-500"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -182,81 +220,59 @@ export default function PrivacyLockPage() {
             </div>
           </div>
           
-          {/* 密码输入表单 */}
-          <form onSubmit={handlePasswordUnlock} className="space-y-4">
-            <div className="relative">
+          {/* 右侧表单 */}
+          <div className="flex-1">
+            <form onSubmit={handlePasswordUnlock} className="flex gap-3">
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="请输入密码以继续"
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center"
+                className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                 disabled={isVerifying}
                 autoFocus
               />
-            </div>
-            
-            {/* 错误提示 */}
-            {error && (
-              <p className="text-red-500 text-sm">{error}</p>
-            )}
-
-            {/* 密码解锁按钮 */}
-            <button
-              type="submit"
-              disabled={isVerifying}
-              className="w-full px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isVerifying ? (
-                <>
-                  <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+              <button
+                type="submit"
+                disabled={isVerifying}
+                className="px-5 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm whitespace-nowrap"
+              >
+                {isVerifying ? (
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  验证中...
-                </>
-              ) : (
-                '确定'
-              )}
-            </button>
-          </form>
-          
-          {/* 生物识别解锁按钮 */}
-          {isBiometricSupported && (
-            <>
-              <div className="relative my-5">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-200"></div>
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-3 bg-white text-gray-400">或</span>
-                </div>
-              </div>
-              
-              <button
-                onClick={handleBiometricUnlock}
-                disabled={isBiometricVerifying}
-                className="w-full px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isBiometricVerifying ? (
-                  <>
+                ) : (
+                  '解锁'
+                )}
+              </button>
+              {/* 生物识别按钮 */}
+              {isBiometricSupported && (
+                <button
+                  type="button"
+                  onClick={handleBiometricUnlock}
+                  disabled={isBiometricVerifying}
+                  className="px-3 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="指纹/面容解锁"
+                >
+                  {isBiometricVerifying ? (
                     <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    验证中...
-                  </>
-                ) : (
-                  <>
+                  ) : (
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4" />
                     </svg>
-                    指纹/面容解锁
-                  </>
-                )}
-              </button>
-            </>
-          )}
+                  )}
+                </button>
+              )}
+            </form>
+            {/* 错误提示 */}
+            {error && (
+              <p className="text-red-500 text-xs mt-2">{error}</p>
+            )}
+          </div>
         </div>
       </div>
     </div>
