@@ -24,6 +24,8 @@ COPY backend/chewy_space ./chewy_space
 
 # 收集静态文件并初始化系统
 WORKDIR /app/chewy_space
+ENV MEDIA_ROOT=/app/media
+ENV STATIC_ROOT=/app/staticfiles
 RUN python manage.py collectstatic --noinput
 
 
@@ -69,7 +71,7 @@ RUN pip install --no-cache-dir -i https://pypi.tuna.tsinghua.edu.cn/simple gunic
 COPY --from=backend-builder /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages
 COPY --from=backend-builder /usr/local/bin /usr/local/bin
 COPY --from=backend-builder /app/chewy_space /app/backend
-COPY --from=backend-builder /app/chewy_space/staticfiles /app/staticfiles
+COPY --from=backend-builder /app/staticfiles /app/staticfiles
 
 # 复制前端构建产物
 COPY --from=frontend-builder /app/dist /app/frontend

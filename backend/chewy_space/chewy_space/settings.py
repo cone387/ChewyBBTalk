@@ -1,27 +1,19 @@
 """
 Django settings for chewy_space project.
 
-配置加载方式：
-1. settings.py (基础配置)
-2. 通过环境变量 CHEWYBBTALK_SETTINGS_MODULE 指定额外配置模块进行覆盖
-
-使用示例：
-- export CHEWYBBTALK_SETTINGS_MODULE=configs.dev_settings
-- export CHEWYBBTALK_SETTINGS_MODULE=configs.prod_settings
-- export CHEWYBBTALK_SETTINGS_MODULE=local_settings
-
-配置模块会被导入并覆盖当前配置（类似 Django 的 from module import *）
+所有配置从环境变量加载，统一在根目录的.env中设置
 """
 
 import os
 from pathlib import Path
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 # ==========================================
-# 基础配置（默认配置）
+# 基础配置
 # ==========================================
 
 # SECURITY WARNING: keep the secret key used in production secret!
@@ -116,6 +108,17 @@ def _parse_database_url(url: str) -> dict:
             'HOST': parsed.hostname,
             'PORT': parsed.port or 5432,
         }
+    elif url.startswith('mysql://'):
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        return {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': parsed.path[1:],
+            'USER': parsed.username,
+            'PASSWORD': parsed.password,
+            'HOST': parsed.hostname,
+            'PORT': parsed.port or 3306,
+        }
     return {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
@@ -161,7 +164,12 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = os.getenv('STATIC_ROOT', str(BASE_DIR / 'staticfiles'))
+
+# Media files
+MEDIA_URL = os.getenv('MEDIA_URL', '/media/')
+MEDIA_ROOT = os.getenv('MEDIA_ROOT', str(BASE_DIR / 'media'))
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -209,8 +217,6 @@ REST_FRAMEWORK = {
 }
 
 # SimpleJWT 配置
-from datetime import timedelta
-
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),  # Access Token 有效期 1 小时
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),  # Refresh Token 有效期 7 天
@@ -257,21 +263,13 @@ SPECTACULAR_SETTINGS = {
     'COMPONENT_SPLIT_REQUEST': True,
 }
 
-# Media files
-MEDIA_URL = os.getenv('MEDIA_URL', '/media/')
-MEDIA_ROOT = os.getenv('MEDIA_ROOT', str(BASE_DIR / 'media'))
-
-# Static files (collected)
-STATIC_ROOT = os.getenv('STATIC_ROOT', str(BASE_DIR / 'staticfiles'))
-
 # ChewyAttachment 配置
 CHEWY_ATTACHMENT = {
     # 文件存储根目录
-    "STORAGE_ROOT": BASE_DIR / "media" / "attachments",
+    "STORAGE_ROOT": Path(os.getenv('MEDIA_ROOT', str(BASE_DIR / 'media'))) / "attachments",
     # 自定义表名，与项目其他表保持一致的 cb_ 前缀
     "TABLE_NAME": "cb_attachments",
 }
-
 
 # Logging configuration
 LOGGING = {
@@ -307,31 +305,3 @@ LOGGING = {
         },
     },
 }
-
-
-# ==========================================
-# 加载自定义配置模块
-# ==========================================
-
-# 通过 CHEWYBBTALK_SETTINGS_MODULE 环境变量指定配置模块
-# 例如: export CHEWYBBTALK_SETTINGS_MODULE=configs.dev_settings
-CUSTOM_SETTINGS_MODULE = os.getenv('CHEWYBBTALK_SETTINGS_MODULE')
-
-if CUSTOM_SETTINGS_MODULE:
-    try:
-        # 动态导入指定的配置模块
-        import importlib
-        custom_module = importlib.import_module(CUSTOM_SETTINGS_MODULE)
-        
-        # 将模块中的所有大写变量导入到当前作用域
-        for setting in dir(custom_module):
-            if setting.isupper():
-                locals()[setting] = getattr(custom_module, setting)
-        
-        print(f"✓ Loaded custom settings from: {CUSTOM_SETTINGS_MODULE}")
-    except ImportError as e:
-        import sys
-        print(f"Warning: Failed to import {CUSTOM_SETTINGS_MODULE}: {e}", file=sys.stderr)
-    except Exception as e:
-        import sys
-        print(f"Warning: Error loading custom settings: {e}", file=sys.stderr)
