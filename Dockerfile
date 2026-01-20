@@ -32,7 +32,7 @@ RUN python manage.py collectstatic --noinput
 # ================================
 # 前端构建阶段
 # ================================
-FROM m.daocloud.io/docker.io/node:18-alpine AS frontend-builder
+FROM m.daocloud.io/docker.io/node:22-alpine AS frontend-builder
 
 WORKDIR /app
 
