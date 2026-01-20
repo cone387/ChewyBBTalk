@@ -40,7 +40,7 @@ WORKDIR /app
 RUN npm config set registry https://registry.npmmirror.com
 
 COPY frontend/package*.json ./
-RUN npm ci --only=production
+RUN npm ci --omit=dev
 
 COPY frontend/ ./
 
