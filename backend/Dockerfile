@@ -23,4 +23,4 @@ EXPOSE 8020
 # 支持通过环境变量配置 workers 数量
 ENV GUNICORN_WORKERS=2
 
-CMD ["sh", "-c", "uv run gunicorn --bind 0.0.0.0:8020 --workers ${GUNICORN_WORKERS} chewy_space.wsgi:application"]
+CMD ["sh", "-c", "uv run python manage.py migrate && uv run python manage.py init_system && uv run gunicorn --bind 0.0.0.0:8020 --workers 2 --access-logfile - --error-logfile - chewy_space.wsgi:application"]

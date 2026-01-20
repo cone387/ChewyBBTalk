@@ -1,28 +1,9 @@
 # 生产环境 Docker Compose
-# 支持两种部署方式：
-# 1. 宿主机Nginx + docker compose（前端+后端）: docker compose --env-file .env up -d
-# 2. docker单容器（包含nginx）: 使用根目录 Dockerfile
-#
-# 方式1部署说明：
-# - 前端暴露端口: ${FRONTEND_PORT:-4010}
-# - 后端暴露端口: ${BACKEND_PORT:-8020}
-# - 需要在宿主机配置Nginx反向代理（参考 nginx.host.example.conf）
+# 两服务架构：前端Nginx + 后端
+# - 前端Nginx: 统一入口，暴露4010端口，代理静态文件和后端API
+# - 后端: 内部8020端口
 
 services:
-  # ============================================
-  # 前端服务
-  # ============================================
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: chewybbtalk-frontend
-    ports:
-      - "${FRONTEND_PORT:-4010}:4010"
-    restart: unless-stopped
-    networks:
-      - bbtalk-network
-
   # ============================================
   # 后端服务
   # ============================================
@@ -32,13 +13,31 @@ services:
       dockerfile: Dockerfile
     container_name: chewybbtalk-backend
     env_file: .env
-    ports:
-      - "${BACKEND_PORT:-8020}:8020"
+    expose:
+      - "8020"
     volumes:
-      - ${DATA_DIR:-./data}/backend/db:/app/chewy_space/db
-      - ${DATA_DIR:-./data}/backend/media:/app/chewy_space/media
-      - ${DATA_DIR:-./data}/backend/staticfiles:/app/chewy_space/staticfiles
-      - ${BACKEND_CONFIGS_DIR:-./backend/chewy_space/configs}:/app/chewy_space/configs:ro
+      - ${DATA_DIR:-./data}:/app/data
+      - ${DATA_DIR:-./data}/backend/media:/app/media
+      - ${DATA_DIR:-./data}/backend/staticfiles:/app/staticfiles
+    restart: unless-stopped
+    networks:
+      - bbtalk-network
+
+  # ============================================
+  # 前端服务（包含Nginx代理）
+  # ============================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: chewybbtalk-frontend
+    ports:
+      - "4010:4010"
+    volumes:
+      - ${DATA_DIR:-./data}/backend/media:/app/media:ro
+      - ${DATA_DIR:-./data}/backend/staticfiles:/app/staticfiles:ro
+    depends_on:
+      - backend
     restart: unless-stopped
     networks:
       - bbtalk-network
