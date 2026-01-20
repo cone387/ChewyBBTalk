@@ -82,8 +82,8 @@ COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY start_django.sh /app/start_django.sh
 
 # 创建必要的目录和设置权限
-RUN mkdir -p /app/logs /app/media /app/staticfiles /data /run/nginx && \
-    chown -R www-data:www-data /app/media /app/staticfiles /app/logs && \
+RUN mkdir -p /app/media /app/staticfiles /data /run/nginx && \
+    chown -R www-data:www-data /app/media /app/staticfiles && \
     chown -R nobody:nogroup /data && \
     chmod +x /app/start_django.sh
 
