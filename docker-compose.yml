@@ -17,8 +17,6 @@ services:
       - "8020"
     volumes:
       - ${DATA_DIR:-./data}:/app/data
-      - ${DATA_DIR:-./data}/backend/media:/app/media
-      - ${DATA_DIR:-./data}/backend/staticfiles:/app/staticfiles
     restart: unless-stopped
     networks:
       - bbtalk-network
@@ -34,8 +32,8 @@ services:
     ports:
       - "4010:4010"
     volumes:
-      - ${DATA_DIR:-./data}/backend/media:/app/media:ro
-      - ${DATA_DIR:-./data}/backend/staticfiles:/app/staticfiles:ro
+      - ${DATA_DIR:-./data}/media:/app/data/media:ro
+      - ${DATA_DIR:-./data}/staticfiles:/app/data/staticfiles:ro
     depends_on:
       - backend
     restart: unless-stopped

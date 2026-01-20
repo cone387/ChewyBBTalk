@@ -20,7 +20,7 @@
 
 ```bash
 # 1. 创建数据目录
-mkdir -p data/{media,staticfiles}
+mkdir -p data
 
 # 2. 下载配置文件
 wget https://raw.githubusercontent.com/cone387/ChewyBBTalk/master/.env.example -O .env
@@ -33,8 +33,6 @@ docker run -d \
   --name chewybbtalk \
   -p 4010:4010 \
   -v $(pwd)/data:/app/data \
-  -v $(pwd)/data/media:/app/media \
-  -v $(pwd)/data/staticfiles:/app/staticfiles \
   --env-file .env \
   ghcr.io/cone387/chewybbtalk:latest
 ```

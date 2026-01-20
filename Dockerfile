@@ -82,10 +82,15 @@ COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY start_django.sh /app/start_django.sh
 
 # 创建必要的目录和设置权限
-RUN mkdir -p /app/media /app/staticfiles /data /run/nginx && \
-    chown -R www-data:www-data /app/media /app/staticfiles && \
-    chown -R nobody:nogroup /data && \
+RUN mkdir -p /app/data/media /app/data/staticfiles /app/data/db /run/nginx && \
+    chown -R www-data:www-data /app/data && \
+    chown -R nobody:nogroup /run/nginx && \
     chmod +x /app/start_django.sh
+
+# 设置环境变量，让Django使用/app/data目录
+ENV MEDIA_ROOT=/app/data/media
+ENV STATIC_ROOT=/app/data/staticfiles
+ENV DATABASE_URL=sqlite:////app/data/db/db.sqlite3
 
 # 暴露端口
 EXPOSE 4010
