@@ -95,5 +95,5 @@ ENV DATABASE_URL=sqlite:////app/data/db/db.sqlite3
 # 暴露端口
 EXPOSE 4010
 
-# 启动 supervisor
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+# 启动容器
+CMD ["/app/start_django.sh", "supervisor"]
