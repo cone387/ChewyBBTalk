@@ -104,39 +104,35 @@ kill_old_process() {
 load_env() {
     log_step "加载环境变量..."
     
-    # 优先加载环境特定的配置文件
-    ENV_FILE=".env.${ENV}"
-    if [ -f "$ENV_FILE" ]; then
-        log_info "从 $ENV_FILE 加载环境变量"
-        set -a
-        source "$ENV_FILE"
-        set +a
-    elif [ -f .env ]; then
+    # 加载环境变量文件
+    if [ -f .env ]; then
         log_info "从 .env 加载环境变量"
         set -a
         source .env
         set +a
+    else
+        log_warn "未找到 .env 文件，使用默认配置"
     fi
     
-    # 设置环境特定配置模块（如果未通过环境变量指定）
-    if [ -z "$CHEWYBBTALK_SETTINGS_MODULE" ]; then
-        export CHEWYBBTALK_SETTINGS_MODULE="configs.${ENV}_settings"
-    fi
-    
+    # 设置Django配置模块
     export DJANGO_SETTINGS_MODULE="chewy_space.settings"
+    
+    # 本地开发环境特殊配置
+    # 覆盖Docker路径为本地路径
+    export DATABASE_URL="sqlite:///$(pwd)/data/db.sqlite3"
+    export MEDIA_ROOT="$(pwd)/data/backend/media"
+    export STATIC_ROOT="$(pwd)/data/backend/staticfiles"
     
     # 开发环境默认设置
     export DEBUG="${DEBUG:-true}"
     export ALLOWED_HOSTS="${ALLOWED_HOSTS:-*}"
-    export LANGUAGE_CODE="${LANGUAGE_CODE:-zh-hans}"
-    export TIME_ZONE="${TIME_ZONE:-Asia/Shanghai}"
     
     # 最终确定的服务地址
     FINAL_HOST="${BACKEND_HOST:-$DEFAULT_HOST}"
     FINAL_PORT="${BACKEND_PORT:-$DEFAULT_PORT}"
     
     log_info "环境: $ENV"
-    log_info "配置模块: $CHEWYBBTALK_SETTINGS_MODULE"
+    log_info "Django配置: $DJANGO_SETTINGS_MODULE"
     log_info "调试模式: $DEBUG"
 }
 
@@ -146,14 +142,23 @@ run_migrations() {
     
     cd $BACKEND_DIR
     
-    # 检查是否有未应用的迁移
-    if uv run python chewy_space/manage.py showmigrations | grep -q "\[ \]"; then
-        log_info "发现未应用的迁移，正在执行..."
-        uv run python chewy_space/manage.py migrate
-        log_info "数据库迁移完成"
-    else
-        log_info "数据库已是最新状态"
-    fi
+    # 直接运行迁移，不检查状态（避免新版本chewy_attachment的依赖问题）
+    log_info "执行数据库迁移..."
+    uv run --no-sync python chewy_space/manage.py migrate
+    log_info "数据库迁移完成"
+    
+    cd - > /dev/null
+}
+
+# 初始化系统
+init_system() {
+    log_step "初始化系统..."
+    
+    cd $BACKEND_DIR
+    
+    log_info "创建系统管理员账号..."
+    uv run --no-sync python chewy_space/manage.py init_system
+    log_info "系统初始化完成"
     
     cd - > /dev/null
 }
@@ -163,7 +168,7 @@ collect_static() {
     if [ "${COLLECT_STATIC:-false}" = "true" ]; then
         log_step "收集静态文件..."
         cd $BACKEND_DIR
-        uv run python chewy_space/manage.py collectstatic --noinput
+        uv run --no-sync python chewy_space/manage.py collectstatic --noinput
         cd - > /dev/null
         log_info "静态文件收集完成"
     fi
@@ -180,7 +185,7 @@ start_backend() {
     echo ""
     
     # 使用 uv run 启动 Django 开发服务器
-    uv run python chewy_space/manage.py runserver $FINAL_HOST:$FINAL_PORT &
+    uv run --no-sync python chewy_space/manage.py runserver $FINAL_HOST:$FINAL_PORT &
     BACKEND_PID=$!
     
     cd - > /dev/null
@@ -251,6 +256,7 @@ main() {
     kill_old_process
     load_env
     run_migrations
+    init_system
     collect_static
     start_backend
 }
