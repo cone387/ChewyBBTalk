@@ -1,175 +1,149 @@
 # ChewyBBTalk
 
-碎碎念（微博客）应用，支持独立运行或作为 wujie 微前端子应用嵌入。
+一个现代化的个人微博/碎碎念系统，支持 Markdown、文件上传、标签管理等功能。
 
-## 功能特性
+## ✨ 特性
 
-- 📝 发布、编辑、删除碎碎念
-- 🏷️ 标签管理与分类
-- 📎 附件上传（图片、视频、文件）
-- 📱 PWA 支持（可安装为桌面/移动应用）
-- 🧩 支持 wujie 微前端嵌入
+- 📝 支持 Markdown 格式的内容编辑
+- 📎 文件上传和附件管理（基于 chewy-attachment）
+- 🏷️ 标签系统和分类管理
+- � 用户认证和权限控制
+- 📱 PWA 支持，可安装到桌面
 - 🔒 防窥模式（长时间不活动自动模糊内容）
+- 🐳 Docker 容器化部署
+- 🎨 现代化的响应式界面
+- 🧩 支持 wujie 微前端嵌入
 
-## 技术栈
+## � 快速开始
 
-**前端**
-- React 18 + TypeScript
-- Vite 构建工具
-- Redux Toolkit 状态管理
-- Tailwind CSS 样式
-
-**后端**
-- Django 5.2 + Django REST Framework
-- SQLite（开发）/ PostgreSQL（生产）
-- chewy-attachment 附件管理
-
-## 环境要求
-
-- Node.js >= 18
-- Python >= 3.13
-- uv 包管理器
-
-## 项目结构
-
-```
-ChewyBBTalk/
-├── frontend/                # React 前端
-│   ├── src/
-│   │   ├── components/      # 组件
-│   │   ├── pages/           # 页面
-│   │   ├── services/        # API 服务
-│   │   ├── store/           # Redux 状态管理
-│   │   └── types/           # TypeScript 类型
-│   └── package.json
-├── backend/                 # Django 后端
-│   └── chewy_space/
-│       ├── bbtalk/          # 碎碎念模块（含用户、标签）
-│       ├── chewy_space/     # Django 配置
-│       └── configs/         # 环境配置（不提交）
-├── .env.example             # 环境变量模板
-├── .env.dev                 # 开发环境配置
-├── start_backend.sh         # 本地启动脚本
-├── deploy.sh                # Docker 部署脚本
-└── docker-compose.yml       # 多容器编排
-```
-
-## 快速开始
-
-### 1. 后端启动
+### 方式一：单容器部署（推荐）
 
 ```bash
-# 一键启动（推荐）
-./start_backend.sh dev
+# 1. 创建数据目录
+mkdir -p data/{media,staticfiles}
 
-# 或手动启动
-cd backend
-uv sync
-export CHEWYBBTALK_SETTINGS_MODULE=configs.dev_settings
-uv run python chewy_space/manage.py migrate
-uv run python chewy_space/manage.py runserver 0.0.0.0:8020
+# 2. 下载配置文件
+wget https://raw.githubusercontent.com/cone387/ChewyBBTalk/master/.env.example -O .env
+
+# 3. 编辑配置文件（可选）
+nano .env
+
+# 4. 启动服务
+docker run -d \
+  --name chewybbtalk \
+  -p 4010:4010 \
+  -v $(pwd)/data:/app/data \
+  -v $(pwd)/data/media:/app/media \
+  -v $(pwd)/data/staticfiles:/app/staticfiles \
+  --env-file .env \
+  ghcr.io/cone387/chewybbtalk:latest
 ```
 
-### 2. 前端启动
+### 方式二：Docker Compose 部署
 
 ```bash
+# 1. 克隆仓库或下载配置文件
+git clone https://github.com/cone387/ChewyBBTalk.git
+cd ChewyBBTalk
+
+# 或者只下载必要文件
+wget https://raw.githubusercontent.com/cone387/ChewyBBTalk/master/docker-compose.yml
+wget https://raw.githubusercontent.com/cone387/ChewyBBTalk/master/.env.example -O .env
+
+# 2. 编辑配置文件
+nano .env
+
+# 3. 启动服务
+docker-compose up -d
+```
+
+### 方式三：本地开发
+
+```bash
+# 1. 克隆仓库
+git clone https://github.com/cone387/ChewyBBTalk.git
+cd ChewyBBTalk
+
+# 2. 启动后端服务
+bash start_backend.sh
+
+# 3. 启动前端服务（新终端）
 cd frontend
 npm install
-cp .env.example .env
 npm run dev
 ```
 
-### 3. 访问
+## 🔧 配置说明
 
-- 前端：http://localhost:4010
-- 后端 API：http://localhost:8020/api/v1/
-- API 文档：http://localhost:8020/api/schema/swagger-ui/
-- Admin 后台：http://localhost:8020/admin/
-
-## 环境变量配置
-
-### 统一配置文件
-
-项目使用统一的 `.env` 文件，同时用于 `start_backend.sh` 和 `docker compose`：
+主要配置项在 `.env` 文件中：
 
 ```bash
-# 复制模板
-cp .env.example .env
-# 或使用开发环境配置
-cp .env.dev .env
-```
+# 端口配置
+FRONTEND_PORT=4010
+BACKEND_PORT=8020
 
-### 主要配置项
+# Django 配置
+DEBUG=false
+SECRET_KEY=your-secret-key-here
+ALLOWED_HOSTS=localhost,127.0.0.1,your-domain.com
 
-| 变量 | 说明 | 默认值 |
-|------|------|--------|
-| ENV | 运行环境 (dev/prod/test) | dev |
-| DEBUG | 调试模式 | true |
-| DATABASE_URL | 数据库连接 | sqlite:///db.sqlite3 |
-| SECRET_KEY | Django 密钥 | 需要修改 |
-| FRONTEND_PORT | 前端端口 | 4010 |
-| BACKEND_PORT | 后端端口 | 8020 |
+# 数据库配置（支持 SQLite、PostgreSQL、MySQL）
+DATABASE_URL=sqlite:////app/data/db.sqlite3
+# DATABASE_URL=postgresql://username:password@localhost:5432/chewybbtalk
+# DATABASE_URL=mysql://username:password@localhost:3306/chewybbtalk
 
-### 数据库配置示例
+# 媒体文件配置
+MEDIA_ROOT=/app/media
+STATIC_ROOT=/app/staticfiles
 
-```bash
-# SQLite (开发环境)
-DATABASE_URL=sqlite:///db.sqlite3
-
-# PostgreSQL (生产环境推荐)
-DATABASE_URL=postgresql://username:password@localhost:5432/chewybbtalk
-
-# MySQL (可选)
-DATABASE_URL=mysql://username:password@localhost:3306/chewybbtalk
+# 系统管理员账号
+ADMIN_USERNAME=admin
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=change-this-password
 ```
 
 ### 前端配置（frontend/.env）
 
-| 变量 | 说明 | 默认值 |
-|------|------|--------|
-| VITE_API_BASE_URL | API 基础地址 | 空（使用相对路径）|
-| VITE_PRIVACY_TIMEOUT_MINUTES | 防窥模式超时时长（分钟）| 5 |
-| VITE_SHOW_PRIVACY_COUNTDOWN | 是否显示倒计时 | true |
-| VITE_SITE_NAME | 网站名称 | ChewyBBTalk |
-| VITE_SITE_COPYRIGHT | 版权信息 | © 2024 ChewyBBTalk |
+```bash
+# API 基础地址（留空使用相对路径）
+VITE_API_BASE_URL=
 
-### 系统账号配置
+# 防窥模式配置
+VITE_PRIVACY_TIMEOUT_MINUTES=5
+VITE_SHOW_PRIVACY_COUNTDOWN=true
 
-| 变量 | 说明 | 默认值 |
-|------|------|--------|
-| ADMIN_USERNAME | 管理员用户名 | admin |
-| ADMIN_EMAIL | 管理员邮箱 | admin@example.com |
-| ADMIN_PASSWORD | 管理员密码 | admin123 |
+# 站点信息
+VITE_SITE_NAME=ChewyBBTalk
+VITE_SITE_COPYRIGHT=© 2024 ChewyBBTalk
+```
 
-## API 端点
+## 📦 Docker 镜像
 
-| 方法 | 端点 | 说明 |
-|------|------|------|
-| GET | `/api/v1/bbtalk/` | 获取碎碎念列表 |
-| POST | `/api/v1/bbtalk/` | 创建碎碎念 |
-| GET | `/api/v1/bbtalk/{uid}/` | 获取单条详情 |
-| PATCH | `/api/v1/bbtalk/{uid}/` | 更新碎碎念 |
-| DELETE | `/api/v1/bbtalk/{uid}/` | 删除碎碎念 |
-| GET | `/api/v1/tag/` | 获取标签列表 |
-| POST | `/api/v1/tag/` | 创建标签 |
-| GET | `/api/v1/user/me/` | 获取当前用户 |
-| POST | `/api/v1/attachments/files/` | 上传附件 |
+项目提供多种 Docker 镜像，支持 `linux/amd64` 和 `linux/arm64` 架构：
 
-## 认证机制
+- **单容器镜像**（推荐）: `ghcr.io/cone387/chewybbtalk:latest`
+  - 包含前端、后端、Nginx，开箱即用
+- **后端镜像**: `ghcr.io/cone387/chewybbtalk-backend:latest`
+- **前端镜像**: `ghcr.io/cone387/chewybbtalk-frontend:latest`
 
-**开发环境**
-- 使用模拟用户认证（跳过登录）
-- 配置在 `frontend/.env` 中的 `VITE_DEV_*` 变量
+## 🌐 访问地址
 
-**生产环境**
-- 支持 JWT Token 认证
-- 可集成外部认证系统
+服务启动后，可通过以下地址访问：
 
-**端口配置**
-- 前端：4010
-- 后端：8020
+- **主页**: http://localhost:4010
+- **API 文档**: http://localhost:4010/api/schema/swagger-ui/
+- **管理后台**: http://localhost:4010/admin/
 
-## PWA 功能
+## 🔐 默认账号
+
+首次启动时会自动创建管理员账号：
+
+- **用户名**: `admin`
+- **密码**: `admin123`
+
+**⚠️ 请在首次登录后立即修改默认密码！**
+
+## 📱 PWA 功能
 
 应用支持 Progressive Web App (PWA) 功能：
 
@@ -184,7 +158,7 @@ DATABASE_URL=mysql://username:password@localhost:3306/chewybbtalk
 - Safari：分享菜单 → 添加到主屏幕
 - 或浏览器菜单中选择"安装应用"
 
-## 防窥模式
+## 🔒 防窥模式
 
 登录状态下，长时间不活动后，BBTalk 内容会自动模糊显示以保护隐私：
 
@@ -196,55 +170,16 @@ DATABASE_URL=mysql://username:password@localhost:3306/chewybbtalk
 
 **配置方式**
 
-编辑 `frontend/.env.dev` 或 `frontend/.env`：
+编辑 `frontend/.env`：
 
 ```bash
 # 防窥模式超时时长（分钟），支持范围：1-60
 VITE_PRIVACY_TIMEOUT_MINUTES=5
 ```
 
-**使用示例**
+## 🧩 微前端集成
 
-```bash
-# 设置为 10 分钟
-VITE_PRIVACY_TIMEOUT_MINUTES=10
-
-# 设置为 30 分钟
-VITE_PRIVACY_TIMEOUT_MINUTES=30
-
-# 设置为 1 分钟（适合测试）
-VITE_PRIVACY_TIMEOUT_MINUTES=1
-```
-
-## 部署
-
-### Docker Compose 部署
-
-```bash
-# 使用开发环境配置
-docker compose --env-file .env.dev up -d
-
-# 使用生产环境配置
-docker compose --env-file .env.prod up -d
-```
-
-### 单容器部署
-
-```bash
-# 构建并启动
-./deploy.sh build
-./deploy.sh start
-
-# 查看状态
-./deploy.sh status
-
-# 查看日志
-./deploy.sh logs
-```
-
-## wujie 微前端集成
-
-作为子应用嵌入主应用时：
+作为 wujie 子应用嵌入主应用时：
 
 ```typescript
 import { startApp } from 'wujie';
@@ -263,6 +198,131 @@ startApp({
 });
 ```
 
-## License
+## 🛠️ 开发
 
-MIT
+### 技术栈
+
+**前端**
+- React 18 + TypeScript
+- Vite 构建工具
+- Redux Toolkit 状态管理
+- Tailwind CSS 样式
+
+**后端**
+- Django 5.2 + Django REST Framework
+- SQLite（默认）/ PostgreSQL / MySQL
+- chewy-attachment 附件管理
+- JWT 认证
+
+**部署**
+- Docker + Nginx
+- GitHub Actions 自动构建
+
+### 环境要求
+
+- Node.js >= 18
+- Python >= 3.13
+- uv 包管理器（后端）
+
+### 项目结构
+
+```
+ChewyBBTalk/
+├── frontend/                # React 前端应用
+│   ├── src/
+│   │   ├── components/      # 组件
+│   │   ├── pages/           # 页面
+│   │   ├── services/        # API 服务
+│   │   ├── store/           # Redux 状态管理
+│   │   └── types/           # TypeScript 类型
+│   └── Dockerfile
+├── backend/                 # Django 后端 API
+│   ├── chewy_space/
+│   │   ├── bbtalk/          # 碎碎念模块
+│   │   └── chewy_space/     # Django 配置
+│   └── Dockerfile
+├── data/                    # 数据存储目录
+├── .github/workflows/       # GitHub Actions
+├── Dockerfile              # 单容器部署
+├── docker-compose.yml      # 多容器部署
+├── start_backend.sh        # 本地开发脚本
+└── deploy.sh              # 单容器部署脚本
+```
+
+### 本地开发环境
+
+1. **后端开发**:
+   ```bash
+   cd backend
+   uv sync  # 安装依赖
+   cd chewy_space
+   uv run python manage.py migrate  # 数据库迁移
+   uv run python manage.py runserver 0.0.0.0:8020
+   ```
+
+2. **前端开发**:
+   ```bash
+   cd frontend
+   npm install
+   npm run dev  # 开发服务器：http://localhost:5173
+   ```
+
+## 📋 API 端点
+
+| 方法 | 端点 | 说明 |
+|------|------|------|
+| GET | `/api/v1/bbtalk/` | 获取碎碎念列表 |
+| POST | `/api/v1/bbtalk/` | 创建碎碎念 |
+| GET | `/api/v1/bbtalk/{uid}/` | 获取单条详情 |
+| PATCH | `/api/v1/bbtalk/{uid}/` | 更新碎碎念 |
+| DELETE | `/api/v1/bbtalk/{uid}/` | 删除碎碎念 |
+| GET | `/api/v1/tag/` | 获取标签列表 |
+| POST | `/api/v1/tag/` | 创建标签 |
+| POST | `/api/v1/attachments/files/` | 上传附件 |
+| GET | `/api/v1/attachments/files/` | 获取附件列表 |
+
+## 🚀 自动化部署
+
+项目使用 GitHub Actions 自动构建和发布 Docker 镜像：
+
+- **推送到 master 分支**: 自动构建并推送 `latest` 标签
+- **创建 Release**: 自动构建并推送版本标签，创建 GitHub Release
+
+### 创建发布版本
+
+```bash
+# 创建并推送标签
+git tag v1.0.0
+git push origin v1.0.0
+
+# GitHub Actions 会自动：
+# 1. 构建多架构 Docker 镜像
+# 2. 推送到 GitHub Container Registry
+# 3. 创建 GitHub Release
+# 4. 生成部署文档
+```
+
+## 📝 更新日志
+
+查看 [Releases](https://github.com/cone387/ChewyBBTalk/releases) 页面获取详细的更新日志。
+
+## 🤝 贡献
+
+欢迎提交 Issue 和 Pull Request！
+
+1. Fork 项目
+2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 打开 Pull Request
+
+## 📄 许可证
+
+MIT License - 查看 [LICENSE](LICENSE) 文件了解详情
+
+## 🙏 致谢
+
+- [Django](https://www.djangoproject.com/) - Web 框架
+- [React](https://reactjs.org/) - 前端框架
+- [chewy-attachment](https://github.com/cone387/ChewyAttachment) - 附件管理
+- 所有贡献者和开源项目的支持！

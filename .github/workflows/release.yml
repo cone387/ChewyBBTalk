@@ -1,0 +1,167 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract version from tag
+      id: version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+    - name: Build and push release images
+      run: |
+        # Build single container image
+        docker buildx build \
+          --platform linux/amd64,linux/arm64 \
+          --tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.VERSION }} \
+          --tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
+          --push \
+          .
+
+        # Build backend image
+        docker buildx build \
+          --platform linux/amd64,linux/arm64 \
+          --tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ steps.version.outputs.VERSION }} \
+          --tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:latest \
+          --push \
+          ./backend
+
+        # Build frontend image
+        docker buildx build \
+          --platform linux/amd64,linux/arm64 \
+          --tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ steps.version.outputs.VERSION }} \
+          --tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest \
+          --push \
+          ./frontend
+
+    - name: Generate docker-compose for release
+      run: |
+        # Create release docker-compose file with published images
+        cat > docker-compose.release.yml << EOF
+        # ChewyBBTalk Release Docker Compose
+        # 使用预构建的镜像进行部署
+        
+        services:
+          backend:
+            image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ steps.version.outputs.VERSION }}
+            container_name: chewybbtalk-backend
+            env_file: .env
+            expose:
+              - "8020"
+            volumes:
+              - \${DATA_DIR:-./data}:/app/data
+              - \${DATA_DIR:-./data}/backend/media:/app/media
+              - \${DATA_DIR:-./data}/backend/staticfiles:/app/staticfiles
+            restart: unless-stopped
+            networks:
+              - bbtalk-network
+
+          frontend:
+            image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ steps.version.outputs.VERSION }}
+            container_name: chewybbtalk-frontend
+            ports:
+              - "4010:4010"
+            volumes:
+              - \${DATA_DIR:-./data}/backend/media:/app/media:ro
+              - \${DATA_DIR:-./data}/backend/staticfiles:/app/staticfiles:ro
+            depends_on:
+              - backend
+            restart: unless-stopped
+            networks:
+              - bbtalk-network
+
+        networks:
+          bbtalk-network:
+            driver: bridge
+        EOF
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          docker-compose.release.yml
+          .env.example
+        body: |
+          ## ChewyBBTalk ${{ steps.version.outputs.VERSION }}
+          
+          ### 🚀 快速部署
+          
+          #### 单容器部署（推荐）
+          ```bash
+          # 1. 下载配置文件
+          wget https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/.env.example -O .env
+          
+          # 2. 编辑配置文件
+          nano .env
+          
+          # 3. 启动服务
+          docker run -d \
+            --name chewybbtalk \
+            -p 4010:4010 \
+            -v ./data:/app/data \
+            -v ./data/media:/app/media \
+            -v ./data/staticfiles:/app/staticfiles \
+            --env-file .env \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.VERSION }}
+          ```
+          
+          #### Docker Compose部署
+          ```bash
+          # 1. 下载部署文件
+          wget https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/docker-compose.release.yml -O docker-compose.yml
+          wget https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/.env.example -O .env
+          
+          # 2. 编辑配置文件
+          nano .env
+          
+          # 3. 启动服务
+          docker-compose up -d
+          ```
+          
+          ### 📦 Docker镜像
+          
+          - **单容器镜像**: `${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.VERSION }}`
+          - **后端镜像**: `${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ steps.version.outputs.VERSION }}`
+          - **前端镜像**: `${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ steps.version.outputs.VERSION }}`
+          
+          ### 🔧 默认账号
+          
+          - 用户名: `admin`
+          - 密码: `admin123`
+          
+          **⚠️ 请在首次登录后立即修改默认密码！**
+          
+          ### 📚 更多信息
+          
+          - 访问地址: http://localhost:4010
+          - API文档: http://localhost:4010/api/schema/swagger-ui/
+          - 管理后台: http://localhost:4010/admin/
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
