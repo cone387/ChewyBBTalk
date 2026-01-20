@@ -267,9 +267,11 @@ SPECTACULAR_SETTINGS = {
 CHEWY_ATTACHMENT = {
     # 文件存储根目录
     "STORAGE_ROOT": Path(os.getenv('MEDIA_ROOT', str(BASE_DIR / 'media'))) / "attachments",
-    # 自定义表名，与项目其他表保持一致的 cb_ 前缀
-    "TABLE_NAME": "cb_attachments",
 }
+
+# 自定义附件模型（使用模型交换机制，类似 AUTH_USER_MODEL）
+# 这样可以自定义表名并避免多项目冲突
+CHEWY_ATTACHMENT_MODEL = 'bbtalk.Attachment'
 
 # Logging configuration
 LOGGING = {

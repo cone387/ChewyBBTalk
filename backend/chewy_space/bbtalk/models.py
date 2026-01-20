@@ -5,6 +5,7 @@ import random
 import colorsys
 import base64
 from uuid import uuid4
+from chewy_attachment.django_app.models import AttachmentBase
 
 
 def generate_uid():
@@ -249,3 +250,19 @@ class BBTalk(BaseModel):
             models.Index(fields=['user', '-update_time'], name='bbtalk_user_time_idx'),
             models.Index(fields=['user', '-create_time'], name='bbtalk_user_create_idx'),
         ]
+
+
+class Attachment(AttachmentBase):
+    """
+    自定义附件模型
+    
+    使用 ChewyAttachment 的模型交换机制，类似 Django 的 AUTH_USER_MODEL
+    这样可以自定义表名并避免多项目冲突
+    """
+    
+    class Meta(AttachmentBase.Meta):
+        db_table = "cb_attachments"  # 自定义表名，与项目其他表保持一致的 cb_ 前缀
+        abstract = False
+        app_label = 'bbtalk'
+        verbose_name = "附件"
+        verbose_name_plural = "附件"
