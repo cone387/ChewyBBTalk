@@ -23,6 +23,21 @@ export default defineConfig({
         scope: '/',
         icons: [
           {
+            src: '/pwa-144x144.png',
+            sizes: '144x144',
+            type: 'image/png'
+          },
+          {
+            src: '/pwa-152x152.png',
+            sizes: '152x152',
+            type: 'image/png'
+          },
+          {
+            src: '/pwa-167x167.png',
+            sizes: '167x167',
+            type: 'image/png'
+          },
+          {
             src: '/pwa-192x192.png',
             sizes: '192x192',
             type: 'image/png'

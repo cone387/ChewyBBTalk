@@ -269,6 +269,9 @@ CHEWY_ATTACHMENT = {
     "STORAGE_ROOT": Path(os.getenv('MEDIA_ROOT', str(BASE_DIR / 'media'))) / "attachments",
 }
 
+# 使用自定义的 Attachment 模型
+CHEWY_ATTACHMENT_MODEL = 'bbtalk.Attachment'
+
 # Logging configuration
 LOGGING = {
     'version': 1,
