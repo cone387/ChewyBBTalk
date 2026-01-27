@@ -80,6 +80,12 @@ export function usePrivacyMode(options: UsePrivacyModeOptions = {}): UsePrivacyM
         console.log('[Privacy] 恢复防窥状态')
         setIsPrivacyMode(true)
         isPrivacyModeRef.current = true
+        // 不要在这里清除计时器，让用户必须通过解锁页面来解除防窥
+      } else {
+        // 如果没有保存防窥状态，确保状态为 false
+        console.log('[Privacy] 无防窥状态，确保为 false')
+        setIsPrivacyMode(false)
+        isPrivacyModeRef.current = false
       }
     } catch (error) {
       console.error('[Privacy] 恢复状态失败:', error)

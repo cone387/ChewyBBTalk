@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { Provider } from 'react-redux'
 import { useEffect, useState } from 'react'
 import { store } from './store'
@@ -15,6 +15,24 @@ interface AppProps {
 
 // 全局状态，防止 HMR/StrictMode 重复初始化
 let authPromise: Promise<{ ready: boolean; authenticated: boolean; error: string | null }> | null = null;
+
+const PRIVACY_STATE_KEY = 'bbtalk_privacy_mode'
+
+// 防窥模式检查组件
+function PrivacyModeChecker({ children }: { children: React.ReactNode }) {
+  const navigate = useNavigate()
+  
+  useEffect(() => {
+    // 检查是否处于防窥模式
+    const isLocked = localStorage.getItem(PRIVACY_STATE_KEY) === 'true'
+    if (isLocked) {
+      console.log('[App] 检测到防窥模式，跳转到锁定页面')
+      navigate('/locked', { replace: true })
+    }
+  }, [navigate])
+  
+  return <>{children}</>
+}
 
 export default function App({ basename = '/' }: AppProps) {
   const [authReady, setAuthReady] = useState(false)
@@ -114,42 +132,44 @@ export default function App({ basename = '/' }: AppProps) {
           v7_relativeSplatPath: true
         }}
       >
-        <Routes>
-          {/* 登录页面 */}
-          <Route path="/login" element={<LoginPage />} />
-          
-          {/* 防窥锁定页面 */}
-          <Route 
-            path="/locked" 
-            element={
-              isAuthenticated 
-                ? <PrivacyLockPage /> 
-                : <Navigate to="/login" replace />
-            } 
-          />
-          
-          {/* 公开页面 - 无需登录 */}
-          <Route path="/public" element={<PublicBBTalkPage />} />
-          
-          {/* 私有页面 - 未登录跳转登录 */}
-          <Route 
-            path="/" 
-            element={
-              isAuthenticated 
-                ? <BBTalkPage /> 
-                : <Navigate to="/login" replace />
-            } 
-          />
-          
-          <Route 
-            path="/detail/:id" 
-            element={
-              isAuthenticated 
-                ? <BBTalkDetailPage /> 
-                : <Navigate to="/login" replace />
-            } 
-          />
-        </Routes>
+        <PrivacyModeChecker>
+          <Routes>
+            {/* 登录页面 */}
+            <Route path="/login" element={<LoginPage />} />
+            
+            {/* 防窥锁定页面 */}
+            <Route 
+              path="/locked" 
+              element={
+                isAuthenticated 
+                  ? <PrivacyLockPage /> 
+                  : <Navigate to="/login" replace />
+              } 
+            />
+            
+            {/* 公开页面 - 无需登录 */}
+            <Route path="/public" element={<PublicBBTalkPage />} />
+            
+            {/* 私有页面 - 未登录跳转登录 */}
+            <Route 
+              path="/" 
+              element={
+                isAuthenticated 
+                  ? <BBTalkPage /> 
+                  : <Navigate to="/login" replace />
+              } 
+            />
+            
+            <Route 
+              path="/detail/:id" 
+              element={
+                isAuthenticated 
+                  ? <BBTalkDetailPage /> 
+                  : <Navigate to="/login" replace />
+              } 
+            />
+          </Routes>
+        </PrivacyModeChecker>
       </BrowserRouter>
     </Provider>
   )
