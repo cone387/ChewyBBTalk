@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'django_filters',
     'drf_spectacular',
+    'storages',  # django-storages for S3 support
     'bbtalk',
     'chewy_attachment.django_app',
 ]
@@ -263,10 +264,63 @@ SPECTACULAR_SETTINGS = {
     'COMPONENT_SPLIT_REQUEST': True,
 }
 
+# ==========================================
+# S3 存储配置 (可选)
+# ==========================================
+# 如果配置了 S3，则使用 S3 存储；否则使用本地文件存储
+
+# AWS/S3 兼容存储凭证
+AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
+AWS_STORAGE_BUCKET_NAME = os.getenv('AWS_STORAGE_BUCKET_NAME')
+AWS_S3_REGION_NAME = os.getenv('AWS_S3_REGION_NAME', 'us-east-1')
+
+# S3 兼容服务端点 (用于 MinIO、阿里云 OSS 等)
+AWS_S3_ENDPOINT_URL = os.getenv('AWS_S3_ENDPOINT_URL')
+
+# S3 设置
+AWS_S3_CUSTOM_DOMAIN = os.getenv('AWS_S3_CUSTOM_DOMAIN')  # CloudFront 或自定义域名
+AWS_S3_OBJECT_PARAMETERS = {
+    'CacheControl': 'max-age=86400',  # 1天缓存
+}
+AWS_DEFAULT_ACL = os.getenv('AWS_DEFAULT_ACL', 'private')  # 文件默认私有
+AWS_S3_FILE_OVERWRITE = False  # 不覆盖同名文件
+AWS_QUERYSTRING_AUTH = True  # 使用签名 URL
+AWS_QUERYSTRING_EXPIRE = int(os.getenv('AWS_QUERYSTRING_EXPIRE', '3600'))  # 签名 URL 过期时间（秒）
+
+# 判断是否启用 S3 存储
+USE_S3_STORAGE = all([AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_STORAGE_BUCKET_NAME])
+
+if USE_S3_STORAGE:
+    # 使用 S3 作为媒体文件存储
+    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+    
+    # 媒体文件 URL
+    if AWS_S3_CUSTOM_DOMAIN:
+        MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/'
+    elif AWS_S3_ENDPOINT_URL:
+        # S3 兼容服务 (MinIO, 阿里云 OSS 等)
+        MEDIA_URL = f'{AWS_S3_ENDPOINT_URL}/{AWS_STORAGE_BUCKET_NAME}/'
+    else:
+        MEDIA_URL = f'https://{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com/'
+
 # ChewyAttachment 配置
 CHEWY_ATTACHMENT = {
-    # 文件存储根目录
+    # 存储引擎: "file" 使用本地文件存储, "django" 使用 Django 存储系统 (支持 S3)
+    "STORAGE_ENGINE": "django" if USE_S3_STORAGE else "file",
+    
+    # 文件存储根目录 (仅在 STORAGE_ENGINE="file" 时使用)
     "STORAGE_ROOT": Path(os.getenv('MEDIA_ROOT', str(BASE_DIR / 'media'))) / "attachments",
+    
+    # 文件大小限制 (默认 10MB)
+    "MAX_FILE_SIZE": int(os.getenv('ATTACHMENT_MAX_FILE_SIZE', str(10 * 1024 * 1024))),
+    
+    # 允许的文件扩展名
+    "ALLOWED_EXTENSIONS": [
+        ".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg",
+        ".pdf", ".doc", ".docx", ".txt", ".zip",
+        ".mp3", ".mp4", ".mov", ".avi",
+    ],
 }
 
 # 使用自定义的 Attachment 模型

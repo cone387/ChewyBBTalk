@@ -4,7 +4,8 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from .views import (
     BBTalkViewSet, TagViewSet, PublicBBTalkViewSet,
     get_current_user, login_view, logout_view, register_view, 
-    token_obtain_view, token_blacklist_view
+    token_obtain_view, token_blacklist_view,
+    get_storage_settings, update_storage_settings, test_storage_connection
 )
 
 router = DefaultRouter()
@@ -23,6 +24,10 @@ urlpatterns = [
     path('auth/register/', register_view, name='register'),  # 注册（返回 JWT Token）
     # 用户接口
     path('user/me/', get_current_user, name='user_me'),
+    # 存储设置接口
+    path('settings/storage/', get_storage_settings, name='storage_settings_get'),
+    path('settings/storage/update/', update_storage_settings, name='storage_settings_update'),
+    path('settings/storage/test/', test_storage_connection, name='storage_settings_test'),
     # BBTalk 和 Tag 路由
     path('', include(router.urls)),
 ]

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from rest_framework.request import Request
-from .models import BBTalk, Tag, generate_tag_color, User
+from .models import BBTalk, Tag, generate_tag_color, User, UserStorageSettings
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -69,4 +69,54 @@ class BBTalkSerializer(serializers.ModelSerializer):
         model = BBTalk
         fields = ('uid', 'user', 'post_tags', 'content', 'visibility', 'context', 'tags', 'attachments', 'create_time', 'update_time')
         read_only_fields = ('uid', 'user', 'create_time', 'update_time')
+
+
+class UserStorageSettingsSerializer(serializers.ModelSerializer):
+    """用户存储设置序列化器"""
+    
+    # 写入时接收密钥，但读取时不返回完整密钥
+    s3_secret_access_key = serializers.CharField(
+        write_only=True, 
+        required=False, 
+        allow_blank=True,
+        help_text="S3 密钥（仅写入）"
+    )
+    
+    # 用于显示密钥是否已配置
+    has_secret_key = serializers.SerializerMethodField()
+    
+    # S3 配置是否完整
+    is_s3_configured = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = UserStorageSettings
+        fields = (
+            'storage_type',
+            's3_access_key_id',
+            's3_secret_access_key',
+            's3_bucket_name',
+            's3_region_name',
+            's3_endpoint_url',
+            's3_custom_domain',
+            'is_active',
+            'has_secret_key',
+            'is_s3_configured',
+            'create_time',
+            'update_time',
+        )
+        read_only_fields = ('has_secret_key', 'is_s3_configured', 'create_time', 'update_time')
+    
+    def get_has_secret_key(self, obj) -> bool:
+        """检查是否已配置密钥"""
+        return bool(obj.s3_secret_access_key)
+    
+    def get_is_s3_configured(self, obj) -> bool:
+        """检查 S3 配置是否完整"""
+        return obj.is_s3_configured()
+    
+    def update(self, instance, validated_data):
+        # 如果没有提供新的密钥，保留原有密钥
+        if 's3_secret_access_key' not in validated_data or not validated_data.get('s3_secret_access_key'):
+            validated_data.pop('s3_secret_access_key', None)
+        return super().update(instance, validated_data)
 

@@ -206,6 +206,109 @@ class Tag(BaseModel):
         return self.name
 
 
+class UserStorageSettings(models.Model):
+    """
+    用户存储设置模型：允许用户配置自己的 S3 存储
+    """
+    STORAGE_TYPE_CHOICES = [
+        ('local', '本地存储'),
+        ('s3', 'S3 兼容存储'),
+    ]
+    
+    id = models.AutoField(primary_key=True)
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='storage_settings',
+        db_constraint=False,
+        verbose_name="用户"
+    )
+    
+    # 存储类型
+    storage_type = models.CharField(
+        max_length=16,
+        choices=STORAGE_TYPE_CHOICES,
+        default='local',
+        verbose_name="存储类型"
+    )
+    
+    # S3 配置
+    s3_access_key_id = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name="Access Key ID"
+    )
+    s3_secret_access_key = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name="Secret Access Key",
+        help_text="密钥将加密存储"
+    )
+    s3_bucket_name = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name="存储桶名称"
+    )
+    s3_region_name = models.CharField(
+        max_length=64,
+        blank=True,
+        default='us-east-1',
+        verbose_name="区域"
+    )
+    s3_endpoint_url = models.URLField(
+        max_length=500,
+        blank=True,
+        verbose_name="端点 URL",
+        help_text="用于 MinIO、阿里云 OSS 等 S3 兼容服务"
+    )
+    s3_custom_domain = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name="自定义域名",
+        help_text="用于 CDN 或自定义域名访问"
+    )
+    
+    # 状态
+    is_active = models.BooleanField(
+        default=False,
+        verbose_name="启用",
+        help_text="是否启用自定义存储"
+    )
+    
+    # 时间字段
+    create_time = models.DateTimeField(default=timezone.now, verbose_name="创建时间")
+    update_time = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+    
+    class Meta:
+        db_table = "cb_user_storage_settings"
+        verbose_name = verbose_name_plural = "用户存储设置"
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.get_storage_type_display()}"
+    
+    def is_s3_configured(self) -> bool:
+        """检查 S3 配置是否完整"""
+        return all([
+            self.storage_type == 's3',
+            self.s3_access_key_id,
+            self.s3_secret_access_key,
+            self.s3_bucket_name,
+        ])
+    
+    def get_s3_config(self) -> dict:
+        """获取 S3 配置字典"""
+        if not self.is_s3_configured():
+            return {}
+        return {
+            'access_key_id': self.s3_access_key_id,
+            'secret_access_key': self.s3_secret_access_key,
+            'bucket_name': self.s3_bucket_name,
+            'region_name': self.s3_region_name or 'us-east-1',
+            'endpoint_url': self.s3_endpoint_url or None,
+            'custom_domain': self.s3_custom_domain or None,
+        }
+
+
 class BBTalk(BaseModel):
     uid = models.CharField(max_length=22, unique=True, verbose_name="uid", default=generate_uid, editable=False)
     content = models.TextField(help_text="支持 Markdown", verbose_name="内容")

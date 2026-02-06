@@ -3,8 +3,8 @@ from rest_framework.decorators import api_view, permission_classes as permission
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from django_filters.rest_framework import DjangoFilterBackend
-from .models import BBTalk, Tag, generate_tag_color, User
-from .serializers import BBTalkSerializer, TagSerializer, UserSerializer
+from .models import BBTalk, Tag, generate_tag_color, User, UserStorageSettings
+from .serializers import BBTalkSerializer, TagSerializer, UserSerializer, UserStorageSettingsSerializer
 from .authentication import authenticate_with_password, create_user_with_password
 from drf_spectacular.utils import extend_schema
 from django.shortcuts import get_object_or_404
@@ -328,3 +328,114 @@ class PublicBBTalkViewSet(viewsets.ReadOnlyModelViewSet):
         return BBTalk.objects.filter(
             visibility='public'
         ).prefetch_related('tags').order_by('-update_time')
+
+
+@extend_schema(
+    tags=['Settings'],
+    responses={200: UserStorageSettingsSerializer}
+)
+@api_view(['GET'])
+@permission_classes_decorator([permissions.IsAuthenticated])
+def get_storage_settings(request):
+    """获取当前用户的存储设置"""
+    settings, created = UserStorageSettings.objects.get_or_create(user=request.user)
+    serializer = UserStorageSettingsSerializer(settings)
+    return Response(serializer.data)
+
+
+@extend_schema(
+    tags=['Settings'],
+    request=UserStorageSettingsSerializer,
+    responses={200: UserStorageSettingsSerializer}
+)
+@api_view(['PUT', 'PATCH'])
+@permission_classes_decorator([permissions.IsAuthenticated])
+def update_storage_settings(request):
+    """更新当前用户的存储设置"""
+    settings, created = UserStorageSettings.objects.get_or_create(user=request.user)
+    
+    partial = request.method == 'PATCH'
+    serializer = UserStorageSettingsSerializer(settings, data=request.data, partial=partial)
+    
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data)
+    
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@extend_schema(
+    tags=['Settings'],
+    responses={
+        200: {
+            'description': '连接测试结果',
+            'content': {
+                'application/json': {
+                    'schema': {
+                        'type': 'object',
+                        'properties': {
+                            'success': {'type': 'boolean'},
+                            'message': {'type': 'string'},
+                        }
+                    }
+                }
+            }
+        }
+    }
+)
+@api_view(['POST'])
+@permission_classes_decorator([permissions.IsAuthenticated])
+def test_storage_connection(request):
+    """测试 S3 存储连接"""
+    settings, created = UserStorageSettings.objects.get_or_create(user=request.user)
+    
+    if not settings.is_s3_configured():
+        return Response({
+            'success': False,
+            'message': 'S3 配置不完整，请先完成配置'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        import boto3
+        from botocore.exceptions import ClientError, NoCredentialsError
+        
+        config = settings.get_s3_config()
+        
+        session_kwargs = {
+            'aws_access_key_id': config['access_key_id'],
+            'aws_secret_access_key': config['secret_access_key'],
+            'region_name': config['region_name'],
+        }
+        
+        client_kwargs = {}
+        if config.get('endpoint_url'):
+            client_kwargs['endpoint_url'] = config['endpoint_url']
+        
+        session = boto3.Session(**session_kwargs)
+        s3_client = session.client('s3', **client_kwargs)
+        
+        # 尝试列出存储桶内容（只获取1个对象来测试连接）
+        s3_client.list_objects_v2(Bucket=config['bucket_name'], MaxKeys=1)
+        
+        return Response({
+            'success': True,
+            'message': f"连接成功！存储桶 '{config['bucket_name']}' 可访问"
+        })
+        
+    except NoCredentialsError:
+        return Response({
+            'success': False,
+            'message': '凭证无效或未配置'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    except ClientError as e:
+        error_code = e.response.get('Error', {}).get('Code', 'Unknown')
+        error_message = e.response.get('Error', {}).get('Message', str(e))
+        return Response({
+            'success': False,
+            'message': f'S3 错误 ({error_code}): {error_message}'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return Response({
+            'success': False,
+            'message': f'连接失败: {str(e)}'
+        }, status=status.HTTP_400_BAD_REQUEST)

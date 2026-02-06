@@ -50,3 +50,33 @@ export interface PaginatedResponse<T> {
   previous: string | null;
   results: T[];
 }
+
+export interface StorageSettings {
+  storage_type: 'local' | 's3';
+  s3_access_key_id: string;
+  s3_bucket_name: string;
+  s3_region_name: string;
+  s3_endpoint_url: string;
+  s3_custom_domain: string;
+  is_active: boolean;
+  has_secret_key: boolean;
+  is_s3_configured: boolean;
+  create_time: string;
+  update_time: string;
+}
+
+export interface StorageSettingsUpdate {
+  storage_type?: 'local' | 's3';
+  s3_access_key_id?: string;
+  s3_secret_access_key?: string;
+  s3_bucket_name?: string;
+  s3_region_name?: string;
+  s3_endpoint_url?: string;
+  s3_custom_domain?: string;
+  is_active?: boolean;
+}
+
+export interface StorageTestResult {
+  success: boolean;
+  message: string;
+}

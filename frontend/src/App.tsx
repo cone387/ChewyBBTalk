@@ -7,6 +7,7 @@ import PublicBBTalkPage from './pages/PublicBBTalkPage'
 import BBTalkDetailPage from './pages/BBTalkDetailPage'
 import LoginPage from './pages/LoginPage'
 import PrivacyLockPage from './pages/PrivacyLockPage'
+import SettingsPage from './pages/SettingsPage'
 import { initAuth } from './services/auth'
 
 interface AppProps {
@@ -165,6 +166,15 @@ export default function App({ basename = '/' }: AppProps) {
               element={
                 isAuthenticated 
                   ? <BBTalkDetailPage /> 
+                  : <Navigate to="/login" replace />
+              } 
+            />
+            
+            <Route 
+              path="/settings" 
+              element={
+                isAuthenticated 
+                  ? <SettingsPage /> 
                   : <Navigate to="/login" replace />
               } 
             />
