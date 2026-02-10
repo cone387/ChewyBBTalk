@@ -7,6 +7,7 @@ yarn-error.log*
 # Production
 dist/
 build/
+dev-dist/
 
 # Environment
 .env
@@ -46,6 +47,14 @@ backend/chewy_space/configs/
 # Temporary files
 attachments.md
 *.pid
+
+# Test files and temporary data
+.temp_tests/
+test_*.py
+simple_test.py
+test-*.txt
+test.txt
+test-*.png
 
 # Local certificates
 certs/

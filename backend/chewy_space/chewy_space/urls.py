@@ -24,7 +24,8 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, Sp
 
 schema_url_patterns = [
     path('api/v1/bbtalk/', include('bbtalk.urls')),
-    path('api/v1/attachments/', include('chewy_attachment.django_app.urls')),
+    # 使用自定义的附件视图，支持用户 S3 配置
+    path('api/v1/attachments/', include('bbtalk.attachment_urls')),
 ]
 schema_view = SpectacularAPIView(
     urlconf=schema_url_patterns,
