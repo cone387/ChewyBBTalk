@@ -91,6 +91,8 @@ class UserStorageSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserStorageSettings
         fields = (
+            'id',
+            'name',
             'storage_type',
             's3_access_key_id',
             's3_secret_access_key',
@@ -104,7 +106,7 @@ class UserStorageSettingsSerializer(serializers.ModelSerializer):
             'create_time',
             'update_time',
         )
-        read_only_fields = ('has_secret_key', 'is_s3_configured', 'create_time', 'update_time')
+        read_only_fields = ('id', 'has_secret_key', 'is_s3_configured', 'create_time', 'update_time')
     
     def get_has_secret_key(self, obj) -> bool:
         """检查是否已配置密钥"""

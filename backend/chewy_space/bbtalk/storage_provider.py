@@ -6,24 +6,12 @@
 """
 import logging
 from typing import Optional, Dict, Any
-from dataclasses import dataclass
 
 from chewy_attachment.core.storage import StorageConfigProvider
+from chewy_attachment.core.schemas import S3ConfigSchema
+from chewy_attachment.core.exceptions import StorageException
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class S3ConfigSchema:
-    """S3 配置 schema"""
-    config_id: str
-    bucket_name: str
-    access_key: str
-    secret_key: str
-    region: str = 'us-east-1'
-    endpoint_url: Optional[str] = None
-    prefix: str = 'attachments'
-    public_read: bool = False
 
 
 class UserStorageConfigProvider(StorageConfigProvider):
@@ -33,7 +21,7 @@ class UserStorageConfigProvider(StorageConfigProvider):
     根据用户的存储设置返回对应的存储引擎和配置
     """
     
-    def get_config(self, config_id: Optional[str] = None) -> Optional[S3ConfigSchema]:
+    def get_config(self, config_id: str) -> S3ConfigSchema:
         """
         获取指定配置 ID 的存储配置
         
@@ -41,10 +29,13 @@ class UserStorageConfigProvider(StorageConfigProvider):
             config_id: 配置 ID（用户的 storage settings 记录 ID）
         
         Returns:
-            S3ConfigSchema 对象，如果不存在返回 None
+            S3ConfigSchema 对象
+        
+        Raises:
+            StorageException: 如果配置不存在或无效
         """
         if not config_id:
-            return None
+            raise StorageException("配置 ID 不能为空")
         
         try:
             from .models import UserStorageSettings
@@ -54,54 +45,35 @@ class UserStorageConfigProvider(StorageConfigProvider):
                 is_active=True
             ).first()
             
-            if settings_obj and settings_obj.is_s3_configured():
-                config_dict = settings_obj.get_s3_config()
-                return S3ConfigSchema(
-                    config_id=str(settings_obj.id),
-                    bucket_name=config_dict['bucket_name'],
-                    access_key=config_dict['access_key_id'],
-                    secret_key=config_dict['secret_access_key'],
-                    region=config_dict.get('region_name', 'us-east-1'),
-                    endpoint_url=config_dict.get('endpoint_url'),
-                    prefix='attachments',
-                    public_read=False,
-                )
+            if not settings_obj or not settings_obj.is_s3_configured():
+                raise StorageException(f"存储配置不存在或未配置完整 (config_id={config_id})")
+            
+            config_dict = settings_obj.get_s3_config()
+            return S3ConfigSchema(
+                config_id=str(settings_obj.id),
+                bucket_name=config_dict['bucket_name'],
+                access_key=config_dict['access_key_id'],
+                secret_key=config_dict['secret_access_key'],
+                region=config_dict.get('region_name', 'us-east-1'),
+                endpoint_url=config_dict.get('endpoint_url'),
+                prefix='attachments',
+                public_read=False,
+            )
         
+        except StorageException:
+            raise
         except Exception as e:
             logger.warning(f"获取存储配置失败 (config_id={config_id}): {e}")
-        
-        return None
+            raise StorageException(f"获取存储配置失败: {e}")
     
-    def get_default_config(self, user_context: Optional[Dict[str, Any]] = None) -> Optional[S3ConfigSchema]:
+    def get_default_config(self) -> Optional[S3ConfigSchema]:
         """
         获取默认的配置
         
-        Args:
-            user_context: 用户上下文，包含 user_id 等信息
+        用户级别的配置不支持全局默认，返回 None 使用本地存储
         
         Returns:
-            S3ConfigSchema 对象，如果没有返回 None（使用本地存储）
+            None（回退到本地存储）
         """
-        if not user_context or 'user_id' not in user_context:
-            return None
-        
-        user_id = user_context['user_id']
-        
-        try:
-            from .models import UserStorageSettings
-            
-            settings_obj = UserStorageSettings.objects.filter(
-                user_id=user_id,
-                is_active=True,
-                storage_type='s3'
-            ).first()
-            
-            if settings_obj and settings_obj.is_s3_configured():
-                logger.info(f"使用用户 {user_id} 的 S3 配置 (ID: {settings_obj.id})")
-                return self.get_config(str(settings_obj.id))
-        
-        except Exception as e:
-            logger.warning(f"获取用户默认配置失败 (user_id={user_id}): {e}")
-        
         return None
 

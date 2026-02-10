@@ -8,6 +8,9 @@ import BBTalkDetailPage from './pages/BBTalkDetailPage'
 import LoginPage from './pages/LoginPage'
 import PrivacyLockPage from './pages/PrivacyLockPage'
 import SettingsPage from './pages/SettingsPage'
+import PrivacySettingsPage from './pages/PrivacySettingsPage'
+import StorageSettingsPage from './pages/StorageSettingsPage'
+import S3ConfigListPage from './pages/S3ConfigListPage'
 import { initAuth } from './services/auth'
 
 interface AppProps {
@@ -178,6 +181,34 @@ export default function App({ basename = '/' }: AppProps) {
                   : <Navigate to="/login" replace />
               } 
             />
+            
+            <Route 
+              path="/settings/privacy" 
+              element={
+                isAuthenticated 
+                  ? <PrivacySettingsPage /> 
+                  : <Navigate to="/login" replace />
+              } 
+            />
+            
+            <Route 
+              path="/settings/storage" 
+              element={
+                isAuthenticated 
+                  ? <StorageSettingsPage /> 
+                  : <Navigate to="/login" replace />
+              } 
+            />
+                        
+            <Route 
+              path="/settings/storage/s3" 
+              element={
+                isAuthenticated 
+                  ? <S3ConfigListPage /> 
+                  : <Navigate to="/login" replace />
+              } 
+            />
+            
           </Routes>
         </PrivacyModeChecker>
       </BrowserRouter>

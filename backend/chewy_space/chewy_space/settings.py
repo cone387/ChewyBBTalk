@@ -312,6 +312,9 @@ CHEWY_ATTACHMENT = {
     # 文件存储根目录 (仅在 STORAGE_ENGINE="file" 时使用)
     "STORAGE_ROOT": Path(os.getenv('MEDIA_ROOT', str(BASE_DIR / 'media'))) / "attachments",
     
+    # 用户自定义存储配置提供者（支持多 S3 配置）
+    "STORAGE_CONFIG_PROVIDER": "bbtalk.storage_provider.UserStorageConfigProvider",
+    
     # 文件大小限制 (默认 10MB)
     "MAX_FILE_SIZE": int(os.getenv('ATTACHMENT_MAX_FILE_SIZE', str(10 * 1024 * 1024))),
     

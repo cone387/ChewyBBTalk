@@ -3,23 +3,65 @@ import type { StorageSettings, StorageSettingsUpdate, StorageTestResult } from '
 
 export const settingsApi = {
   /**
-   * 获取当前用户的存储设置
+   * 获取当前用户的所有存储配置
    */
-  async getStorageSettings(): Promise<StorageSettings> {
-    return apiClient.get<StorageSettings>('/api/v1/bbtalk/settings/storage/');
+  async listStorageSettings(): Promise<StorageSettings[]> {
+    return apiClient.get<StorageSettings[]>('/api/v1/bbtalk/settings/storage/');
   },
 
   /**
-   * 更新存储设置
+   * 获取当前激活的存储配置
    */
-  async updateStorageSettings(data: StorageSettingsUpdate): Promise<StorageSettings> {
-    return apiClient.patch<StorageSettings>('/api/v1/bbtalk/settings/storage/update/', data);
+  async getActiveStorageSettings(): Promise<StorageSettings> {
+    return apiClient.get<StorageSettings>('/api/v1/bbtalk/settings/storage/active/');
   },
 
   /**
-   * 测试 S3 存储连接
+   * 创建新的存储配置
+   */
+  async createStorageSettings(data: StorageSettingsUpdate): Promise<StorageSettings> {
+    return apiClient.post<StorageSettings>('/api/v1/bbtalk/settings/storage/create/', data);
+  },
+
+  /**
+   * 更新存储配置
+   */
+  async updateStorageSettings(id: number, data: StorageSettingsUpdate): Promise<StorageSettings> {
+    return apiClient.patch<StorageSettings>(`/api/v1/bbtalk/settings/storage/${id}/`, data);
+  },
+
+  /**
+   * 删除存储配置
+   */
+  async deleteStorageSettings(id: number): Promise<void> {
+    return apiClient.delete(`/api/v1/bbtalk/settings/storage/${id}/delete/`);
+  },
+
+  /**
+   * 激活指定的存储配置
+   */
+  async activateStorageSettings(id: number): Promise<StorageSettings> {
+    return apiClient.post<StorageSettings>(`/api/v1/bbtalk/settings/storage/${id}/activate/`);
+  },
+
+  /**
+   * 取消所有 S3 配置激活，切换为服务器存储
+   */
+  async deactivateAllStorage(): Promise<void> {
+    return apiClient.post('/api/v1/bbtalk/settings/storage/deactivate-all/');
+  },
+
+  /**
+   * 测试 S3 存储连接（当前激活配置）
    */
   async testStorageConnection(): Promise<StorageTestResult> {
     return apiClient.post<StorageTestResult>('/api/v1/bbtalk/settings/storage/test/');
+  },
+
+  /**
+   * 测试指定 S3 配置的连接
+   */
+  async testStorageConnectionById(id: number): Promise<StorageTestResult> {
+    return apiClient.post<StorageTestResult>(`/api/v1/bbtalk/settings/storage/${id}/test/`);
   },
 };

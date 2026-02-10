@@ -16,11 +16,21 @@ class AttachmentViewSet(BaseAttachmentViewSet):
     """
     扩展的附件视图集，自动使用用户的 S3 配置
     
-    重写 create 和 get_storage_engine_for_upload 方法，在上传前自动获取用户的 S3 配置
+    重写存储引擎方法，在上传和读取/预览时自动使用用户的 S3 配置
     """
     
+    def get_storage_engine(self, storage_config_id=None):
+        """根据 config_id 获取存储引擎（用于读取/预览/下载）"""
+        if storage_config_id:
+            engine = self._create_user_storage_engine(storage_config_id)
+            if engine:
+                return engine
+        
+        # 退回到默认存储
+        return super().get_storage_engine(storage_config_id)
+    
     def get_storage_engine_for_upload(self, storage_config_id: Optional[str] = None) -> Tuple[BaseStorageEngine, Optional[str]]:
-        """根据 config_id 创建存储引擎"""
+        """根据 config_id 创建存储引擎（用于上传）"""
         if storage_config_id:
             # 创建用户特定的 S3 Storage Backend
             engine = self._create_user_storage_engine(storage_config_id)

@@ -7,8 +7,7 @@ import BBTalkEditor from '../components/BBTalkEditor'
 import CachedImage from '../components/CachedImage'
 import ImagePreview from '../components/ImagePreview'
 import { usePrivacyMode } from '../hooks/usePrivacyMode'
-import { Modal } from '../components/ui'
-import { getCurrentUser, logout } from '../services/auth'
+import { getCurrentUser } from '../services/auth'
 import {
   DndContext,
   closestCenter,
@@ -122,13 +121,12 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
   const lastScrollY = useRef(0)
   const containerRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
-  const [showSettings, setShowSettings] = useState(false)
-  const [privacyTimeoutMinutes, setPrivacyTimeoutMinutes] = useState(() => {
+  const [privacyTimeoutMinutes] = useState(() => {
     const saved = localStorage.getItem('privacy_timeout_minutes')
     return saved ? parseInt(saved, 10) : parseInt(import.meta.env.VITE_PRIVACY_TIMEOUT_MINUTES || '5', 10)
   })
   const [currentUser] = useState(getCurrentUser())
-  const [showCountdown, setShowCountdown] = useState(() => {
+  const [showCountdown] = useState(() => {
     const saved = localStorage.getItem('show_privacy_countdown')
     return saved ? saved === 'true' : import.meta.env.VITE_SHOW_PRIVACY_COUNTDOWN === 'true'
   })
@@ -574,7 +572,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                 
                 {/* 设置按钮 */}
                 <button
-                  onClick={() => setShowSettings(true)}
+                  onClick={() => navigate('/settings')}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
                   title="设置"
                 >
@@ -1145,133 +1143,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
         />
       )}
       
-      {/* 设置弹窗 */}
-      <Modal
-        visible={showSettings}
-        title="设置"
-        onClose={() => setShowSettings(false)}
-        width="28rem"
-      >
-        <div className="space-y-6">
-          {/* 防偷窥设置 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              防偷窥超时时长
-            </label>
-            <div className="flex items-center gap-3">
-              <input
-                type="range"
-                min="1"
-                max="60"
-                value={privacyTimeoutMinutes}
-                onChange={(e) => {
-                  const value = parseInt(e.target.value, 10)
-                  setPrivacyTimeoutMinutes(value)
-                  localStorage.setItem('privacy_timeout_minutes', value.toString())
-                  console.log('[设置] 防偷窥时长已设置为', value, '分钟')
-                }}
-                className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-              />
-              <span className="text-sm font-medium text-gray-900 w-16 text-right">
-                {privacyTimeoutMinutes} 分钟
-              </span>
-            </div>
-            <p className="mt-2 text-xs text-gray-500">
-              长时间不活动后，内容将自动模糊以保护隐私
-            </p>
-            <div className="mt-2 flex items-center gap-1.5 text-xs text-green-600">
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              <span>设置已保存，立即生效</span>
-            </div>
-          </div>
-          
-          {/* 显示倒计时设置 */}
-          <div className="pt-4 border-t border-gray-200">
-            <label className="flex items-center justify-between cursor-pointer">
-              <div>
-                <div className="text-sm font-medium text-gray-700">
-                  显示防偷窥倒计时
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  在页面底部显示倒计时提示
-                </p>
-              </div>
-              <div className="relative">
-                <input
-                  type="checkbox"
-                  checked={showCountdown}
-                  onChange={(e) => {
-                    const value = e.target.checked
-                    setShowCountdown(value)
-                    localStorage.setItem('show_privacy_countdown', value.toString())
-                    console.log('[设置] 防偷窥倒计时显示:', value)
-                  }}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-              </div>
-            </label>
-          </div>
-          
-          {/* 存储设置入口 */}
-          <div className="pt-4 border-t border-gray-200">
-            <button
-              onClick={() => {
-                setShowSettings(false)
-                navigate('/settings')
-              }}
-              className="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors text-left flex items-center gap-3"
-            >
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
-                </svg>
-              </div>
-              <div className="flex-1">
-                <div className="text-sm font-medium text-gray-900">存储设置</div>
-                <div className="text-xs text-gray-500">配置 S3 云存储</div>
-              </div>
-              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          </div>
-          
-          {/* 用户信息 */}
-          {currentUser && (
-            <div className="pt-4 border-t border-gray-200">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-semibold">
-                  {currentUser.avatar ? (
-                    <img src={currentUser.avatar} alt={currentUser.display_name || currentUser.username} className="w-full h-full rounded-full object-cover" />
-                  ) : (
-                    <span className="text-lg">{(currentUser.display_name || currentUser.username).charAt(0).toUpperCase()}</span>
-                  )}
-                </div>
-                <div className="flex-1">
-                  <div className="text-sm font-medium text-gray-900">
-                    {currentUser.display_name || currentUser.username}
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    {currentUser.email || `@${currentUser.username}`}
-                  </div>
-                </div>
-              </div>
-              <button
-                onClick={() => logout()}
-                className="w-full px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors text-sm font-medium flex items-center justify-center gap-2"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-                退出登录
-              </button>
-            </div>
-          )}
-        </div>
-      </Modal>
+
       
       {/* 移动端底部导航栏 */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 safe-area-pb">
@@ -1305,7 +1177,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
           {/* 设置 */}
           {!isPublic && (
             <button
-              onClick={() => setShowSettings(true)}
+              onClick={() => navigate('/settings')}
               className="flex flex-col items-center justify-center flex-1 h-full text-gray-600"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

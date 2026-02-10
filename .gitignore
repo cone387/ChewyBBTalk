@@ -49,6 +49,7 @@ attachments.md
 *.pid
 
 # Test files and temporary data
+.temp*
 .temp_tests/
 test_*.py
 simple_test.py

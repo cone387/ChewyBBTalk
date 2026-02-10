@@ -332,15 +332,56 @@ class PublicBBTalkViewSet(viewsets.ReadOnlyModelViewSet):
 
 @extend_schema(
     tags=['Settings'],
+    responses={200: UserStorageSettingsSerializer(many=True)}
+)
+@api_view(['GET'])
+@permission_classes_decorator([permissions.IsAuthenticated])
+def list_storage_settings(request):
+    """获取当前用户的所有存储配置"""
+    settings = UserStorageSettings.objects.filter(user=request.user).order_by('-is_active', '-update_time')
+    serializer = UserStorageSettingsSerializer(settings, many=True)
+    return Response(serializer.data)
+
+
+@extend_schema(
+    tags=['Settings'],
     responses={200: UserStorageSettingsSerializer}
 )
 @api_view(['GET'])
 @permission_classes_decorator([permissions.IsAuthenticated])
 def get_storage_settings(request):
-    """获取当前用户的存储设置"""
-    settings, created = UserStorageSettings.objects.get_or_create(user=request.user)
+    """获取当前用户的激活存储配置"""
+    settings = UserStorageSettings.objects.filter(user=request.user, is_active=True).first()
+    if not settings:
+        # 如果没有激活的配置，返回第一个配置
+        settings = UserStorageSettings.objects.filter(user=request.user).first()
+    
+    if not settings:
+        return Response({
+            'storage_type': 'local',
+            'is_active': False,
+        })
+    
     serializer = UserStorageSettingsSerializer(settings)
     return Response(serializer.data)
+
+
+@extend_schema(
+    tags=['Settings'],
+    request=UserStorageSettingsSerializer,
+    responses={201: UserStorageSettingsSerializer}
+)
+@api_view(['POST'])
+@permission_classes_decorator([permissions.IsAuthenticated])
+def create_storage_settings(request):
+    """创建新的存储配置"""
+    serializer = UserStorageSettingsSerializer(data=request.data)
+    
+    if serializer.is_valid():
+        serializer.save(user=request.user)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 @extend_schema(
@@ -350,9 +391,12 @@ def get_storage_settings(request):
 )
 @api_view(['PUT', 'PATCH'])
 @permission_classes_decorator([permissions.IsAuthenticated])
-def update_storage_settings(request):
-    """更新当前用户的存储设置"""
-    settings, created = UserStorageSettings.objects.get_or_create(user=request.user)
+def update_storage_settings(request, pk=None):
+    """更新指定的存储配置"""
+    try:
+        settings = UserStorageSettings.objects.get(pk=pk, user=request.user)
+    except UserStorageSettings.DoesNotExist:
+        return Response({'error': '配置不存在'}, status=status.HTTP_404_NOT_FOUND)
     
     partial = request.method == 'PATCH'
     serializer = UserStorageSettingsSerializer(settings, data=request.data, partial=partial)
@@ -366,30 +410,58 @@ def update_storage_settings(request):
 
 @extend_schema(
     tags=['Settings'],
-    responses={
-        200: {
-            'description': '连接测试结果',
-            'content': {
-                'application/json': {
-                    'schema': {
-                        'type': 'object',
-                        'properties': {
-                            'success': {'type': 'boolean'},
-                            'message': {'type': 'string'},
-                        }
-                    }
-                }
-            }
-        }
-    }
+    responses={204: None}
+)
+@api_view(['DELETE'])
+@permission_classes_decorator([permissions.IsAuthenticated])
+def delete_storage_settings(request, pk):
+    """删除指定的存储配置"""
+    try:
+        settings = UserStorageSettings.objects.get(pk=pk, user=request.user)
+        settings.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    except UserStorageSettings.DoesNotExist:
+        return Response({'error': '配置不存在'}, status=status.HTTP_404_NOT_FOUND)
+
+
+@extend_schema(
+    tags=['Settings'],
+    responses={200: UserStorageSettingsSerializer}
 )
 @api_view(['POST'])
 @permission_classes_decorator([permissions.IsAuthenticated])
-def test_storage_connection(request):
-    """测试 S3 存储连接"""
-    settings, created = UserStorageSettings.objects.get_or_create(user=request.user)
-    
-    if not settings.is_s3_configured():
+def activate_storage_settings(request, pk):
+    """激活指定的存储配置（将其他配置设为未激活）"""
+    try:
+        # 先将所有配置设为未激活
+        UserStorageSettings.objects.filter(user=request.user).update(is_active=False)
+        
+        # 激活指定配置
+        settings = UserStorageSettings.objects.get(pk=pk, user=request.user)
+        settings.is_active = True
+        settings.save()
+        
+        serializer = UserStorageSettingsSerializer(settings)
+        return Response(serializer.data)
+    except UserStorageSettings.DoesNotExist:
+        return Response({'error': '配置不存在'}, status=status.HTTP_404_NOT_FOUND)
+
+
+@extend_schema(
+    tags=['Settings'],
+    responses={200: {'description': '已切换为服务器存储'}}
+)
+@api_view(['POST'])
+@permission_classes_decorator([permissions.IsAuthenticated])
+def deactivate_all_storage(request):
+    """取消所有 S3 配置的激活状态，切换为服务器存储"""
+    UserStorageSettings.objects.filter(user=request.user).update(is_active=False)
+    return Response({'message': '已切换为服务器存储'})
+
+
+def _test_s3_config(storage_settings):
+    """内部工具函数：测试指定 S3 配置的连接"""
+    if not storage_settings.is_s3_configured():
         return Response({
             'success': False,
             'message': 'S3 配置不完整，请先完成配置'
@@ -399,7 +471,7 @@ def test_storage_connection(request):
         import boto3
         from botocore.exceptions import ClientError, NoCredentialsError
         
-        config = settings.get_s3_config()
+        config = storage_settings.get_s3_config()
         
         session_kwargs = {
             'aws_access_key_id': config['access_key_id'],
@@ -439,3 +511,68 @@ def test_storage_connection(request):
             'success': False,
             'message': f'连接失败: {str(e)}'
         }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@extend_schema(
+    tags=['Settings'],
+    responses={
+        200: {
+            'description': '连接测试结果',
+            'content': {
+                'application/json': {
+                    'schema': {
+                        'type': 'object',
+                        'properties': {
+                            'success': {'type': 'boolean'},
+                            'message': {'type': 'string'},
+                        }
+                    }
+                }
+            }
+        }
+    }
+)
+@api_view(['POST'])
+@permission_classes_decorator([permissions.IsAuthenticated])
+def test_storage_connection(request):
+    """测试当前激活的 S3 存储连接"""
+    settings = UserStorageSettings.objects.filter(user=request.user, is_active=True).first()
+    if not settings:
+        return Response({
+            'success': False,
+            'message': '没有激活的 S3 配置'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    return _test_s3_config(settings)
+
+
+@extend_schema(
+    tags=['Settings'],
+    responses={
+        200: {
+            'description': '连接测试结果',
+            'content': {
+                'application/json': {
+                    'schema': {
+                        'type': 'object',
+                        'properties': {
+                            'success': {'type': 'boolean'},
+                            'message': {'type': 'string'},
+                        }
+                    }
+                }
+            }
+        }
+    }
+)
+@api_view(['POST'])
+@permission_classes_decorator([permissions.IsAuthenticated])
+def test_storage_connection_by_id(request, pk):
+    """测试指定 S3 配置的连接"""
+    try:
+        settings = UserStorageSettings.objects.get(pk=pk, user=request.user)
+    except UserStorageSettings.DoesNotExist:
+        return Response({
+            'success': False,
+            'message': '配置不存在'
+        }, status=status.HTTP_404_NOT_FOUND)
+    return _test_s3_config(settings)

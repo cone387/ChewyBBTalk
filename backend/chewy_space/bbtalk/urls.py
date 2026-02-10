@@ -5,7 +5,9 @@ from .views import (
     BBTalkViewSet, TagViewSet, PublicBBTalkViewSet,
     get_current_user, login_view, logout_view, register_view, 
     token_obtain_view, token_blacklist_view,
-    get_storage_settings, update_storage_settings, test_storage_connection
+    list_storage_settings, get_storage_settings, create_storage_settings,
+    update_storage_settings, delete_storage_settings, activate_storage_settings,
+    deactivate_all_storage, test_storage_connection, test_storage_connection_by_id
 )
 
 router = DefaultRouter()
@@ -25,9 +27,15 @@ urlpatterns = [
     # 用户接口
     path('user/me/', get_current_user, name='user_me'),
     # 存储设置接口
-    path('settings/storage/', get_storage_settings, name='storage_settings_get'),
-    path('settings/storage/update/', update_storage_settings, name='storage_settings_update'),
+    path('settings/storage/', list_storage_settings, name='storage_settings_list'),
+    path('settings/storage/active/', get_storage_settings, name='storage_settings_get_active'),
+    path('settings/storage/create/', create_storage_settings, name='storage_settings_create'),
+    path('settings/storage/<int:pk>/', update_storage_settings, name='storage_settings_update'),
+    path('settings/storage/<int:pk>/delete/', delete_storage_settings, name='storage_settings_delete'),
+    path('settings/storage/<int:pk>/activate/', activate_storage_settings, name='storage_settings_activate'),
+    path('settings/storage/deactivate-all/', deactivate_all_storage, name='storage_settings_deactivate_all'),
     path('settings/storage/test/', test_storage_connection, name='storage_settings_test'),
+    path('settings/storage/<int:pk>/test/', test_storage_connection_by_id, name='storage_settings_test_by_id'),
     # BBTalk 和 Tag 路由
     path('', include(router.urls)),
 ]

@@ -52,6 +52,8 @@ export interface PaginatedResponse<T> {
 }
 
 export interface StorageSettings {
+  id: number;
+  name: string;
   storage_type: 'local' | 's3';
   s3_access_key_id: string;
   s3_bucket_name: string;
@@ -66,6 +68,7 @@ export interface StorageSettings {
 }
 
 export interface StorageSettingsUpdate {
+  name?: string;
   storage_type?: 'local' | 's3';
   s3_access_key_id?: string;
   s3_secret_access_key?: string;

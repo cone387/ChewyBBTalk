@@ -208,7 +208,7 @@ class Tag(BaseModel):
 
 class UserStorageSettings(models.Model):
     """
-    用户存储设置模型：允许用户配置自己的 S3 存储
+    用户存储设置模型：允许用户配置多个 S3 存储配置
     """
     STORAGE_TYPE_CHOICES = [
         ('local', '本地存储'),
@@ -216,7 +216,7 @@ class UserStorageSettings(models.Model):
     ]
     
     id = models.AutoField(primary_key=True)
-    user = models.OneToOneField(
+    user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
         related_name='storage_settings',
@@ -224,11 +224,19 @@ class UserStorageSettings(models.Model):
         verbose_name="用户"
     )
     
+    # 配置名称
+    name = models.CharField(
+        max_length=100,
+        default='默认配置',
+        verbose_name="配置名称",
+        help_text="例如：阿里云OSS、MinIO测试、AWS S3"
+    )
+    
     # 存储类型
     storage_type = models.CharField(
         max_length=16,
         choices=STORAGE_TYPE_CHOICES,
-        default='local',
+        default='s3',
         verbose_name="存储类型"
     )
     
@@ -282,9 +290,13 @@ class UserStorageSettings(models.Model):
     class Meta:
         db_table = "cb_user_storage_settings"
         verbose_name = verbose_name_plural = "用户存储设置"
+        unique_together = [['user', 'name']]  # 同一用户下配置名称唯一
+        indexes = [
+            models.Index(fields=['user', 'is_active'], name='storage_user_active_idx'),
+        ]
     
     def __str__(self):
-        return f"{self.user.username} - {self.get_storage_type_display()}"
+        return f"{self.user.username} - {self.name}"
     
     def is_s3_configured(self) -> bool:
         """检查 S3 配置是否完整"""
