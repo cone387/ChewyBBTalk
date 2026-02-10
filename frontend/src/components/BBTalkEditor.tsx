@@ -58,10 +58,13 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
   // 从 Redux 获取已有标签列表
   const { tags: existingTags } = useAppSelector((state) => state.tag)
 
-  // 处理图片URL，将http强制转换为https
+  // 处理图片URL，根据配置进行协议转换
   const getImageUrl = (url: string) => {
-    if (url.startsWith('http://')) {
+    const targetProtocol = import.meta.env.VITE_MEDIA_URL_PROTOCOL
+    if (targetProtocol === 'https' && url.startsWith('http://')) {
       return url.replace('http://', 'https://')
+    } else if (targetProtocol === 'http' && url.startsWith('https://')) {
+      return url.replace('https://', 'http://')
     }
     return url
   }

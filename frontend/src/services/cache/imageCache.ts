@@ -26,7 +26,7 @@ class ImageCacheService {
    * 标准化 URL：根据环境变量配置转换协议
    */
   private normalizeUrl(url: string): string {
-    const targetProtocol = import.meta.env.VITE_MEDIA_URL_PROTOCOL || 'https'
+    const targetProtocol = import.meta.env.VITE_MEDIA_URL_PROTOCOL
     if (targetProtocol === 'https' && url.startsWith('http://')) {
       return url.replace('http://', 'https://')
     } else if (targetProtocol === 'http' && url.startsWith('https://')) {
