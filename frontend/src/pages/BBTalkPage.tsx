@@ -1107,11 +1107,11 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
         </button>
       )}
       
-      {/* 回到顶部按钮 */}
+      {/* 回到顶部按钮 - 仅桌面端显示 */}
       {showBackToTop && (
         <button
           onClick={scrollToTop}
-          className="fixed bottom-32 md:bottom-24 right-4 md:right-8 w-10 h-10 md:w-12 md:h-12 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-all duration-300 flex items-center justify-center z-50"
+          className="fixed bottom-24 right-8 w-12 h-12 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-all duration-300 hidden md:flex items-center justify-center z-50"
           title="回到顶部"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

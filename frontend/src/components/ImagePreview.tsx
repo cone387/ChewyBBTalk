@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
+import { imageCacheService } from '../services/cache/imageCache'
 
 interface ImagePreviewProps {
   src: string
@@ -6,157 +7,235 @@ interface ImagePreviewProps {
   onClose: () => void
 }
 
+// 获取两指间距
+function getTouchDistance(t1: React.Touch, t2: React.Touch) {
+  return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY)
+}
+
 export default function ImagePreview({ src, alt, onClose }: ImagePreviewProps) {
   const [scale, setScale] = useState(1)
-  const [isDragging, setIsDragging] = useState(false)
   const [position, setPosition] = useState({ x: 0, y: 0 })
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+  const [isDragging, setIsDragging] = useState(false)
+  const [showUI, setShowUI] = useState(true)
+  const [imageSrc, setImageSrc] = useState(src)
 
-  // ESC键关闭
+  const containerRef = useRef<HTMLDivElement>(null)
+  const dragStartRef = useRef({ x: 0, y: 0 })
+  const pinchStartRef = useRef({ dist: 0, scale: 1 })
+  const lastTapRef = useRef(0)
+  const animating = useRef(false)
+  const swipeStartRef = useRef({ y: 0, startPos: { x: 0, y: 0 } })
+  const objectUrlRef = useRef<string | null>(null)
+
+  // 从缓存加载图片，避免重复网络请求
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose()
+    let cancelled = false
+    imageCacheService.get(src).then(blob => {
+      if (cancelled) return
+      if (blob) {
+        const url = URL.createObjectURL(blob)
+        objectUrlRef.current = url
+        setImageSrc(url)
+      }
+    })
+    return () => {
+      cancelled = true
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current)
+        objectUrlRef.current = null
       }
     }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [src])
+
+  // 锁定 body 滚动
+  useEffect(() => {
+    const orig = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = orig }
+  }, [])
+
+  // ESC 关闭
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
   }, [onClose])
 
-  // 鼠标滚轮缩放
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault()
-    const delta = e.deltaY > 0 ? -0.1 : 0.1
-    setScale(prev => Math.min(Math.max(0.5, prev + delta), 3))
+  // 自动隐藏 UI
+  useEffect(() => {
+    const timer = setTimeout(() => setShowUI(false), 3000)
+    return () => clearTimeout(timer)
+  }, [showUI])
+
+  const resetTransform = useCallback(() => {
+    animating.current = true
+    setScale(1)
+    setPosition({ x: 0, y: 0 })
+    setTimeout(() => { animating.current = false }, 300)
+  }, [])
+
+  // === 触摸事件 ===
+  const handleTouchStart = (e: React.TouchEvent) => {
+    e.stopPropagation()
+    setShowUI(true)
+
+    if (e.touches.length === 1) {
+      // 双击检测
+      const now = Date.now()
+      if (now - lastTapRef.current < 300) {
+        // 双击切换缩放
+        if (scale > 1.1) {
+          resetTransform()
+        } else {
+          animating.current = true
+          setScale(2)
+          setPosition({ x: 0, y: 0 })
+          setTimeout(() => { animating.current = false }, 300)
+        }
+        lastTapRef.current = 0
+        return
+      }
+      lastTapRef.current = now
+
+      // 单指拖拽 / 下滑关闭
+      const touch = e.touches[0]
+      dragStartRef.current = { x: touch.clientX - position.x, y: touch.clientY - position.y }
+      swipeStartRef.current = { y: touch.clientY, startPos: { ...position } }
+      setIsDragging(true)
+    } else if (e.touches.length === 2) {
+      // 双指缩放
+      setIsDragging(false)
+      const dist = getTouchDistance(e.touches[0], e.touches[1])
+      pinchStartRef.current = { dist, scale }
+    }
   }
 
-  // 拖拽开始
+  const handleTouchMove = (e: React.TouchEvent) => {
+    e.stopPropagation()
+    if (e.touches.length === 2) {
+      // 双指缩放
+      const dist = getTouchDistance(e.touches[0], e.touches[1])
+      const newScale = Math.min(Math.max(0.5, pinchStartRef.current.scale * (dist / pinchStartRef.current.dist)), 5)
+      setScale(newScale)
+    } else if (e.touches.length === 1 && isDragging) {
+      const touch = e.touches[0]
+      if (scale > 1.05) {
+        // 放大时: 自由拖拽
+        setPosition({
+          x: touch.clientX - dragStartRef.current.x,
+          y: touch.clientY - dragStartRef.current.y,
+        })
+      } else {
+        // 原始大小: 只允许垂直滑动（下滑关闭）
+        const dy = touch.clientY - swipeStartRef.current.y
+        setPosition({ x: 0, y: dy })
+      }
+    }
+  }
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    e.stopPropagation()
+    setIsDragging(false)
+
+    // 缩放回弹
+    if (scale < 1) {
+      resetTransform()
+      return
+    }
+
+    // 下滑关闭（原始大小下滑超过 100px）
+    if (scale <= 1.05 && Math.abs(position.y) > 100) {
+      onClose()
+      return
+    }
+
+    // 原始大小时回弹到中心
+    if (scale <= 1.05 && (position.x !== 0 || position.y !== 0)) {
+      animating.current = true
+      setPosition({ x: 0, y: 0 })
+      setTimeout(() => { animating.current = false }, 200)
+    }
+  }
+
+  // === 鼠标事件 (桌面端) ===
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault()
+    const delta = e.deltaY > 0 ? -0.15 : 0.15
+    setScale(prev => Math.min(Math.max(0.5, prev + delta), 5))
+  }
+
   const handleMouseDown = (e: React.MouseEvent) => {
     if (scale > 1) {
       setIsDragging(true)
-      setDragStart({
-        x: e.clientX - position.x,
-        y: e.clientY - position.y
-      })
+      dragStartRef.current = { x: e.clientX - position.x, y: e.clientY - position.y }
     }
   }
 
-  // 拖拽中
   const handleMouseMove = (e: React.MouseEvent) => {
     if (isDragging) {
-      setPosition({
-        x: e.clientX - dragStart.x,
-        y: e.clientY - dragStart.y
-      })
+      setPosition({ x: e.clientX - dragStartRef.current.x, y: e.clientY - dragStartRef.current.y })
     }
   }
 
-  // 拖拽结束
-  const handleMouseUp = () => {
-    setIsDragging(false)
-  }
-
-  // 重置
-  const handleReset = () => {
-    setScale(1)
-    setPosition({ x: 0, y: 0 })
-  }
+  const handleMouseUp = () => setIsDragging(false)
 
   return (
-    <div 
-      className="fixed inset-0 bg-black bg-opacity-90 z-[9999] flex items-center justify-center"
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black"
       onClick={onClose}
     >
-      {/* 工具栏 */}
-      <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
-        <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-lg px-3 py-1.5 text-white text-sm">
+      {/* 关闭按钮 - 始终显示 */}
+      <button
+        onClick={(e) => { e.stopPropagation(); onClose() }}
+        className="absolute top-3 right-3 z-20 w-10 h-10 bg-black/40 backdrop-blur-sm rounded-full flex items-center justify-center active:bg-black/60 transition-opacity"
+        style={{ opacity: showUI ? 1 : 0.3 }}
+      >
+        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+
+      {/* 缩放比例 - 非100%时显示 */}
+      {Math.abs(scale - 1) > 0.05 && (
+        <div className="absolute top-3 left-3 z-20 bg-black/40 backdrop-blur-sm rounded-full px-3 py-1.5 text-white text-xs">
           {Math.round(scale * 100)}%
         </div>
-        
-        {/* 放大 */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            setScale(prev => Math.min(prev + 0.2, 3))
-          }}
-          className="w-9 h-9 bg-white bg-opacity-20 backdrop-blur-sm hover:bg-opacity-30 rounded-lg flex items-center justify-center transition-colors"
-          title="放大 (滚轮向上)"
-        >
-          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
-          </svg>
-        </button>
-
-        {/* 缩小 */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            setScale(prev => Math.max(prev - 0.2, 0.5))
-          }}
-          className="w-9 h-9 bg-white bg-opacity-20 backdrop-blur-sm hover:bg-opacity-30 rounded-lg flex items-center justify-center transition-colors"
-          title="缩小 (滚轮向下)"
-        >
-          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
-          </svg>
-        </button>
-
-        {/* 重置 */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            handleReset()
-          }}
-          className="w-9 h-9 bg-white bg-opacity-20 backdrop-blur-sm hover:bg-opacity-30 rounded-lg flex items-center justify-center transition-colors"
-          title="重置"
-        >
-          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-        </button>
-
-        {/* 关闭 */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            onClose()
-          }}
-          className="w-9 h-9 bg-white bg-opacity-20 backdrop-blur-sm hover:bg-opacity-30 rounded-lg flex items-center justify-center transition-colors"
-          title="关闭 (ESC)"
-        >
-          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
+      )}
 
       {/* 图片容器 */}
       <div
-        className="relative max-w-full max-h-full overflow-hidden"
+        ref={containerRef}
+        className="w-full h-full flex items-center justify-center overflow-hidden touch-none"
         onClick={(e) => e.stopPropagation()}
         onWheel={handleWheel}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
         style={{ cursor: isDragging ? 'grabbing' : scale > 1 ? 'grab' : 'default' }}
       >
         <img
-          src={src}
+          src={imageSrc}
           alt={alt}
-          className="max-w-screen max-h-screen object-contain select-none"
+          className="w-full h-full object-contain select-none"
           style={{
-            transform: `scale(${scale}) translate(${position.x / scale}px, ${position.y / scale}px)`,
-            transition: isDragging ? 'none' : 'transform 0.2s ease-out'
+            transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+            transition: animating.current ? 'transform 0.25s ease-out' : isDragging ? 'none' : 'transform 0.1s ease-out',
+            willChange: 'transform',
           }}
           draggable={false}
         />
       </div>
 
-      {/* 提示文本 */}
-      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-white bg-opacity-20 backdrop-blur-sm rounded-lg px-4 py-2 text-white text-sm">
-        滚轮缩放 · 拖拽移动 · ESC/点击背景关闭
-      </div>
+      {/* 提示 - 自动消失 */}
+      {showUI && (
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 bg-black/40 backdrop-blur-sm rounded-full px-4 py-2 text-white text-xs whitespace-nowrap transition-opacity">
+          双击缩放 · 下滑关闭
+        </div>
+      )}
     </div>
   )
 }
