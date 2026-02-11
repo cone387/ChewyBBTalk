@@ -11,6 +11,18 @@ cd /app/backend
 mkdir -p /app/data/db /app/data/media /app/data/staticfiles
 chown -R www-data:www-data /app/data
 
+# 如果没有设置 SECRET_KEY，自动生成并持久化
+if [ -z "$SECRET_KEY" ]; then
+    KEY_FILE="/app/data/.secret_key"
+    if [ -f "$KEY_FILE" ] && [ -s "$KEY_FILE" ]; then
+        export SECRET_KEY=$(cat "$KEY_FILE")
+    else
+        export SECRET_KEY=$(python -c "import secrets,string; print(''.join(secrets.choice(string.ascii_letters+string.digits+'!@#\$%^&*(-_=+)') for _ in range(50)))")
+        echo -n "$SECRET_KEY" > "$KEY_FILE"
+    fi
+    echo "SECRET_KEY 已自动生成"
+fi
+
 echo "等待数据库连接..."
 python manage.py check --database default
 
@@ -22,6 +34,9 @@ python manage.py collectstatic --noinput
 
 echo "初始化系统..."
 python manage.py init_system
+
+# 初始化完成后确保数据目录权限正确（gunicorn 以 www-data 运行）
+chown -R www-data:www-data /app/data
 
 # 根据参数决定启动模式
 if [ "$1" = "supervisor" ]; then

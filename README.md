@@ -10,7 +10,9 @@
 - � 用户认证和权限控制
 - 📱 PWA 支持，可安装到桌面
 - 🔒 防窥模式（长时间不活动自动模糊内容）
-- 🐳 Docker 容器化部署
+- 🐳 Docker 容器化部署（一条命令即可启动）
+- 📦 数据导入导出（支持跨服务器迁移）
+- 🔄 存储迁移（本地存储 ↔ S3 之间自由迁移附件）
 - 🎨 现代化的响应式界面
 - 🧩 支持 wujie 微前端嵌入
 
@@ -18,42 +20,33 @@
 
 ### 方式一：单容器部署（推荐）
 
+一条命令即可启动，无需任何配置文件：
+
 ```bash
-# 1. 创建数据目录
-mkdir -p data
+docker run -d --name chewybbtalk -p 4010:4010 -v bbtalk_data:/app/data ghcr.io/cone387/chewybbtalk:latest
+```
 
-# 2. 下载配置文件
-wget https://raw.githubusercontent.com/cone387/ChewyBBTalk/master/.env.example -O .env
+启动后访问 http://localhost:4010 ，默认管理员账号 `admin` / `admin123`。
 
-# 3. 编辑配置文件（可选）
-nano .env
+如需自定义配置：
 
-# 4. 启动服务
-docker run -d \
-  --name chewybbtalk \
-  -p 4010:4010 \
-  -v $(pwd)/data:/app/data \
-  --env-file .env \
+```bash
+docker run -d --name chewybbtalk -p 4010:4010 \
+  -v bbtalk_data:/app/data \
+  -e ADMIN_PASSWORD=your-password \
+  -e SECRET_KEY=your-secret-key \
   ghcr.io/cone387/chewybbtalk:latest
 ```
 
 ### 方式二：Docker Compose 部署
 
 ```bash
-# 1. 克隆仓库或下载配置文件
 git clone https://github.com/cone387/ChewyBBTalk.git
 cd ChewyBBTalk
-
-# 或者只下载必要文件
-wget https://raw.githubusercontent.com/cone387/ChewyBBTalk/master/docker-compose.yml
-wget https://raw.githubusercontent.com/cone387/ChewyBBTalk/master/.env.example -O .env
-
-# 2. 编辑配置文件
-nano .env
-
-# 3. 启动服务
-docker-compose up -d
+docker compose up -d
 ```
+
+同样无需 `.env` 文件即可启动。如需自定义配置，可 `cp .env.example .env` 后编辑。
 
 ### 方式三：本地开发
 
@@ -73,31 +66,21 @@ npm run dev
 
 ## 🔧 配置说明
 
-主要配置项在 `.env` 文件中：
+所有配置项均有合理默认值，无需 `.env` 文件即可启动。如需自定义，可通过环境变量或 `.env` 文件配置：
 
 ```bash
-# 端口配置
-FRONTEND_PORT=4010
-BACKEND_PORT=8020
-
 # Django 配置
-DEBUG=false
-SECRET_KEY=your-secret-key-here
-ALLOWED_HOSTS=localhost,127.0.0.1,your-domain.com
+SECRET_KEY=           # 留空则自动生成并持久化到 /app/data/.secret_key
+DEBUG=false           # 默认 false
+ALLOWED_HOSTS=*       # 默认允许所有域名
 
 # 数据库配置（支持 SQLite、PostgreSQL、MySQL）
-DATABASE_URL=sqlite:////app/data/db.sqlite3
-# DATABASE_URL=postgresql://username:password@localhost:5432/chewybbtalk
-# DATABASE_URL=mysql://username:password@localhost:3306/chewybbtalk
+DATABASE_URL=sqlite:////app/data/db/db.sqlite3  # 默认 SQLite
+# DATABASE_URL=postgresql://user:pass@host:5432/chewybbtalk
 
-# 媒体文件配置
-MEDIA_ROOT=/app/media
-STATIC_ROOT=/app/staticfiles
-
-# 系统管理员账号
-ADMIN_USERNAME=admin
-ADMIN_EMAIL=admin@example.com
-ADMIN_PASSWORD=change-this-password
+# 系统管理员账号（首次启动时创建）
+ADMIN_USERNAME=admin        # 默认 admin
+ADMIN_PASSWORD=admin123     # 默认 admin123
 ```
 
 ### 前端配置（frontend/.env）
@@ -140,6 +123,8 @@ VITE_SITE_COPYRIGHT=© 2024 ChewyBBTalk
 - **密码**: `admin123`
 
 **⚠️ 请在首次登录后立即修改默认密码！**
+
+也可通过环境变量自定义：`-e ADMIN_USERNAME=myuser -e ADMIN_PASSWORD=mypassword`
 
 ## 📱 PWA 功能
 
@@ -278,6 +263,11 @@ ChewyBBTalk/
 | POST | `/api/v1/tag/` | 创建标签 |
 | POST | `/api/v1/attachments/files/` | 上传附件 |
 | GET | `/api/v1/attachments/files/` | 获取附件列表 |
+| GET | `/api/v1/bbtalk/data/export/` | 导出用户数据 (JSON/ZIP) |
+| POST | `/api/v1/bbtalk/data/import/` | 导入用户数据 |
+| POST | `/api/v1/bbtalk/data/validate/` | 验证导入文件 |
+| POST | `/api/v1/bbtalk/storage/migration/preview/` | 预览存储迁移 |
+| POST | `/api/v1/bbtalk/storage/migration/execute/` | 执行存储迁移 |
 
 ## 🚀 自动化部署
 

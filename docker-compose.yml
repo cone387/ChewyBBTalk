@@ -1,7 +1,7 @@
-# 生产环境 Docker Compose
-# 两服务架构：前端Nginx + 后端
-# - 前端Nginx: 统一入口，暴露4010端口，代理静态文件和后端API
-# - 后端: 内部8020端口
+# ChewyBBTalk Docker Compose
+# Quickstart: docker compose up -d
+# 默认管理员账号: admin / admin123
+# 访问: http://localhost:4010
 
 services:
   # ============================================
@@ -12,7 +12,15 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: chewybbtalk-backend
-    env_file: .env
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-sqlite:////app/data/db/db.sqlite3}
+      - MEDIA_ROOT=/app/data/media
+      - STATIC_ROOT=/app/data/staticfiles
+      - DATA_DIR=/app/data
+      - DEBUG=${DEBUG:-false}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-*}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
     expose:
       - "8020"
     volumes:
@@ -30,7 +38,7 @@ services:
       dockerfile: Dockerfile
     container_name: chewybbtalk-frontend
     ports:
-      - "4010:4010"
+      - "${PORT:-4010}:4010"
     volumes:
       - ${DATA_DIR:-./data}/media:/app/data/media:ro
       - ${DATA_DIR:-./data}/staticfiles:/app/data/staticfiles:ro

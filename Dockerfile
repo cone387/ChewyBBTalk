@@ -1,28 +1,36 @@
 # ================================
 # 单容器部署：Django + 前端 + Nginx
 # ================================
+# Quickstart:
+#   docker run -d -p 4010:4010 -v bbtalk_data:/app/data ghcr.io/cone387/chewybbtalk
+#
+# 默认管理员账号: admin / admin123
+# 访问: http://localhost:4010
 
-FROM m.daocloud.io/docker.io/python:3.13-slim AS backend-builder
+# ================================
+# 后端构建阶段
+# ================================
+FROM python:3.13-slim AS backend-builder
 
 WORKDIR /app
 
-# 使用国内镜像源
-RUN sed -i 's/deb.debian.org/mirrors.ustc.edu.cn/g' /etc/apt/sources.list.d/debian.sources && \
-    apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 # 复制后端代码
 COPY backend/pyproject.toml backend/uv.lock* ./
 
-# 安装 uv 和依赖（使用国内源）
-RUN pip install --no-cache-dir -i https://pypi.tuna.tsinghua.edu.cn/simple uv && \
-    uv pip install --system -r pyproject.toml --index-url https://pypi.tuna.tsinghua.edu.cn/simple
+# 安装 uv 和依赖
+ARG PIP_INDEX_URL=https://pypi.org/simple
+RUN pip install --no-cache-dir uv && \
+    uv pip install --system -r pyproject.toml
 
 COPY backend/chewy_space ./chewy_space
 
-# 收集静态文件并初始化系统
+# 收集静态文件
 WORKDIR /app/chewy_space
 ENV MEDIA_ROOT=/app/media
 ENV STATIC_ROOT=/app/staticfiles
@@ -32,12 +40,9 @@ RUN python manage.py collectstatic --noinput
 # ================================
 # 前端构建阶段
 # ================================
-FROM m.daocloud.io/docker.io/node:22-alpine AS frontend-builder
+FROM node:22-alpine AS frontend-builder
 
 WORKDIR /app
-
-# 使用国内npm源
-RUN npm config set registry https://registry.npmmirror.com
 
 COPY frontend/package*.json ./
 RUN npm ci
@@ -51,13 +56,11 @@ RUN npm run build
 # ================================
 # 最终运行阶段
 # ================================
-FROM m.daocloud.io/docker.io/python:3.13-slim
+FROM python:3.13-slim
 
 WORKDIR /app
 
-# 使用国内镜像源并安装运行时依赖
-RUN sed -i 's/deb.debian.org/mirrors.ustc.edu.cn/g' /etc/apt/sources.list.d/debian.sources && \
-    apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     nginx \
     libpq5 \
     curl \
@@ -65,7 +68,7 @@ RUN sed -i 's/deb.debian.org/mirrors.ustc.edu.cn/g' /etc/apt/sources.list.d/debi
     && rm -rf /var/lib/apt/lists/*
 
 # 安装gunicorn
-RUN pip install --no-cache-dir -i https://pypi.tuna.tsinghua.edu.cn/simple gunicorn
+RUN pip install --no-cache-dir gunicorn
 
 # 复制后端依赖和代码
 COPY --from=backend-builder /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages
@@ -82,15 +85,20 @@ COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY start_django.sh /app/start_django.sh
 
 # 创建必要的目录和设置权限
-RUN mkdir -p /app/data/media /app/data/staticfiles /app/data/db /run/nginx && \
+RUN sed -i 's/\r$//' /app/start_django.sh && \
+    sed -i 's/\r$//' /etc/supervisor/conf.d/supervisord.conf && \
+    mkdir -p /app/data/media /app/data/staticfiles /app/data/db /run/nginx && \
     chown -R www-data:www-data /app/data && \
     chown -R nobody:nogroup /run/nginx && \
     chmod +x /app/start_django.sh
 
-# 设置环境变量，让Django使用/app/data目录
+# 所有运行时数据统一在 /app/data (挂载卷即可持久化)
 ENV MEDIA_ROOT=/app/data/media
 ENV STATIC_ROOT=/app/data/staticfiles
 ENV DATABASE_URL=sqlite:////app/data/db/db.sqlite3
+ENV DATA_DIR=/app/data
+ENV DEBUG=false
+ENV ALLOWED_HOSTS=*
 
 # 暴露端口
 EXPOSE 4010

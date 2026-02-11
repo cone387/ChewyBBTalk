@@ -1,0 +1,16 @@
+.git
+.github
+.temp_tests
+.qoder
+*.md
+data/
+frontend/node_modules
+frontend/dist
+frontend/dev-dist
+backend/chewy_space/db.sqlite3
+backend/chewy_space/media
+__pycache__
+*.pyc
+.env
+.env.*
+!.env.example

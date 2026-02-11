@@ -38,15 +38,16 @@ check_docker() {
     fi
 }
 
-# 检查 .env 文件
+# 检查 .env 文件（可选）
 check_env() {
-    if [ ! -f ".env" ]; then
-        log_warn ".env 文件不存在，从 .env.example 复制"
-        cp .env.example .env
-        log_info "请编辑 .env 文件，修改必要的配置项"
-        exit 1
+    if [ -f ".env" ]; then
+        log_info "使用环境配置: .env"
+        ENV_FILE_OPT="--env-file .env"
+    else
+        log_info "未发现 .env 文件，使用默认配置启动"
+        log_info "默认管理员账号: admin / admin123"
+        ENV_FILE_OPT=""
     fi
-    log_info "使用环境配置: .env"
 }
 
 # 构建镜像
@@ -84,7 +85,7 @@ start() {
         docker run -d \
             --name "$CONTAINER_NAME" \
             -p "$PORT:$PORT" \
-            --env-file .env \
+            $ENV_FILE_OPT \
             -v "$(pwd)/data:/app/data" \
             "$IMAGE_NAME"
     fi
@@ -234,9 +235,9 @@ ChewyBBTalk 单容器部署脚本
   help          显示此帮助信息
 
 部署流程:
-  1. 复制环境配置: cp .env.example .env
-  2. 编辑配置文件: vim .env
-  3. 构建并启动: $0 start
+  1. 直接启动: $0 start
+  2. (可选) 自定义配置: cp .env.example .env && vim .env
+  3. (可选) 重新构建: $0 rebuild
 
 示例:
   $0 start      # 构建并启动容器

@@ -17,7 +17,31 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # ==========================================
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-h*i5n2b(7hc#-egwbmalofpz#r(e2z)4jpai@+0buu#c1&5z-i')
+def _get_secret_key():
+    """获取或自动生成 SECRET_KEY，持久化到 data 目录"""
+    key = os.getenv('SECRET_KEY')
+    if key:
+        return key
+    # 尝试从持久化文件读取
+    data_dir = Path(os.getenv('DATA_DIR', '/app/data'))
+    key_file = data_dir / '.secret_key'
+    if key_file.exists():
+        stored = key_file.read_text().strip()
+        if stored:
+            return stored
+    # 自动生成并持久化
+    import secrets as _secrets
+    import string as _string
+    chars = _string.ascii_letters + _string.digits + '!@#$%^&*(-_=+)'
+    key = ''.join(_secrets.choice(chars) for _ in range(50))
+    try:
+        key_file.parent.mkdir(parents=True, exist_ok=True)
+        key_file.write_text(key)
+    except OSError:
+        pass  # 构建阶段目录可能不可写，用内存中的 key 即可
+    return key
+
+SECRET_KEY = _get_secret_key()
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True').lower() in ('true', '1', 'yes')
