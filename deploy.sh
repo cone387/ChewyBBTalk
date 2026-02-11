@@ -10,6 +10,7 @@ set -e
 IMAGE_NAME="chewybbtalk"
 CONTAINER_NAME="chewybbtalk"
 PORT="4010"
+DOCKERFILE="Dockerfile"  # 默认使用普通版，可改为 Dockerfile.cn
 
 # 颜色输出
 RED='\033[0;31m'
@@ -53,7 +54,8 @@ check_env() {
 # 构建镜像
 build() {
     log_info "构建 Docker 镜像..."
-    docker build -t "$IMAGE_NAME" .
+    log_info "使用 Dockerfile: $DOCKERFILE"
+    docker build -f "$DOCKERFILE" -t "$IMAGE_NAME" .
     log_info "镜像构建完成: $IMAGE_NAME"
 }
 
@@ -214,19 +216,30 @@ generate_keys() {
     log_info "请将以上密钥复制到 .env 文件中"
 }
 
+# 切换 Dockerfile 版本
+switch_dockerfile() {
+    if [ "$1" = "cn" ]; then
+        DOCKERFILE="Dockerfile.cn"
+        log_info "已切换到国内优化版: Dockerfile.cn"
+    else
+        DOCKERFILE="Dockerfile"
+        log_info "已切换到普通版: Dockerfile"
+    fi
+}
+
 # 显示帮助信息
 show_help() {
     cat << EOF
 ChewyBBTalk 单容器部署脚本
 
-用法: $0 [命令]
+用法: $0 [命令] [选项]
 
 命令:
-  build         构建 Docker 镜像
+  build [cn]    构建 Docker 镜像 (可选 cn 使用国内镜像源)
   start         启动容器 (如果镜像不存在会自动构建)
   stop          停止容器
   restart       重启容器
-  rebuild       重新构建镜像并启动容器
+  rebuild [cn]  重新构建镜像并启动容器 (可选 cn 使用国内镜像源)
   logs          查看容器日志
   status        查看容器状态
   shell         进入容器 shell
@@ -240,11 +253,12 @@ ChewyBBTalk 单容器部署脚本
   3. (可选) 重新构建: $0 rebuild
 
 示例:
-  $0 start      # 构建并启动容器
-  $0 logs       # 查看日志
-  $0 status     # 查看状态
-  $0 rebuild    # 重新构建
-  $0 clean      # 清理资源
+  $0 start         # 构建并启动容器
+  $0 build cn      # 使用国内镜像源构建
+  $0 rebuild cn    # 使用国内镜像源重新构建
+  $0 logs          # 查看日志
+  $0 status        # 查看状态
+  $0 clean         # 清理资源
 
 注意:
   - 容器端口: $PORT
@@ -260,6 +274,7 @@ main() {
     
     case "${1:-help}" in
         build)
+            switch_dockerfile "$2"
             build
             ;;
         start)
@@ -272,6 +287,7 @@ main() {
             restart
             ;;
         rebuild)
+            switch_dockerfile "$2"
             rebuild
             ;;
         logs)
