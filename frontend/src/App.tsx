@@ -11,6 +11,7 @@ import SettingsPage from './pages/SettingsPage'
 import PrivacySettingsPage from './pages/PrivacySettingsPage'
 import StorageSettingsPage from './pages/StorageSettingsPage'
 import S3ConfigListPage from './pages/S3ConfigListPage'
+import DataManagementPage from './pages/DataManagementPage'
 import { initAuth } from './services/auth'
 
 interface AppProps {
@@ -205,6 +206,15 @@ export default function App({ basename = '/' }: AppProps) {
               element={
                 isAuthenticated 
                   ? <S3ConfigListPage /> 
+                  : <Navigate to="/login" replace />
+              } 
+            />
+            
+            <Route 
+              path="/settings/data" 
+              element={
+                isAuthenticated 
+                  ? <DataManagementPage /> 
                   : <Navigate to="/login" replace />
               } 
             />

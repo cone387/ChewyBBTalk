@@ -7,7 +7,8 @@ from .views import (
     token_obtain_view, token_blacklist_view,
     list_storage_settings, get_storage_settings, create_storage_settings,
     update_storage_settings, delete_storage_settings, activate_storage_settings,
-    deactivate_all_storage, test_storage_connection, test_storage_connection_by_id
+    deactivate_all_storage, test_storage_connection, test_storage_connection_by_id,
+    export_data, import_data, validate_import
 )
 
 router = DefaultRouter()
@@ -36,6 +37,10 @@ urlpatterns = [
     path('settings/storage/deactivate-all/', deactivate_all_storage, name='storage_settings_deactivate_all'),
     path('settings/storage/test/', test_storage_connection, name='storage_settings_test'),
     path('settings/storage/<int:pk>/test/', test_storage_connection_by_id, name='storage_settings_test_by_id'),
+    # 数据导入导出接口
+    path('data/export/', export_data, name='data_export'),
+    path('data/import/', import_data, name='data_import'),
+    path('data/validate/', validate_import, name='data_validate'),
     # BBTalk 和 Tag 路由
     path('', include(router.urls)),
 ]

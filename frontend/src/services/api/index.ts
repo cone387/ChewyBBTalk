@@ -1,3 +1,5 @@
 export { bbtalkApi } from './bbtalkApi'
 export { tagApi } from './tagApi'
 export { apiClient } from './apiClient'
+export { settingsApi } from './settingsApi'
+export { dataApi } from './dataApi'

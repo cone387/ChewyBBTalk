@@ -3,9 +3,12 @@ from rest_framework.decorators import api_view, permission_classes as permission
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from django_filters.rest_framework import DjangoFilterBackend
+from django.http import HttpResponse
 from .models import BBTalk, Tag, generate_tag_color, User, UserStorageSettings
 from .serializers import BBTalkSerializer, TagSerializer, UserSerializer, UserStorageSettingsSerializer
 from .authentication import authenticate_with_password, create_user_with_password
+from .data_export import DataExporter
+from .data_import import DataImporter, validate_import_file, ImportError
 from drf_spectacular.utils import extend_schema
 from django.shortcuts import get_object_or_404
 from django.db.models import Count
@@ -576,3 +579,218 @@ def test_storage_connection_by_id(request, pk):
             'message': '配置不存在'
         }, status=status.HTTP_404_NOT_FOUND)
     return _test_s3_config(settings)
+
+
+@extend_schema(
+    tags=['Data'],
+    responses={
+        200: {
+            'description': '导出成功',
+            'content': {
+                'application/json': {
+                    'type': 'object'
+                },
+                'application/zip': {
+                    'schema': {
+                        'type': 'string',
+                        'format': 'binary'
+                    }
+                }
+            }
+        }
+    }
+)
+@api_view(['GET'])
+@permission_classes_decorator([permissions.IsAuthenticated])
+def export_data(request):
+    """导出用户数据"""
+    export_format = request.query_params.get('export_format', request.query_params.get('format', 'json'))  # json 或 zip
+    include_attachments = request.query_params.get('include_attachments', 'false').lower() == 'true'
+    
+    exporter = DataExporter(request.user)
+    
+    try:
+        if export_format == 'zip':
+            # 导出为 ZIP
+            zip_buffer = exporter.export_to_zip(include_attachments=include_attachments)
+            response = HttpResponse(zip_buffer.getvalue(), content_type='application/zip')
+            filename = f'chewybbtalk_export_{request.user.username}_{exporter.export_time.strftime("%Y%m%d_%H%M%S")}.zip'
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+        else:
+            # 导出为 JSON
+            json_buffer = exporter.export_to_file()
+            response = HttpResponse(json_buffer.getvalue(), content_type='application/json')
+            filename = f'chewybbtalk_export_{request.user.username}_{exporter.export_time.strftime("%Y%m%d_%H%M%S")}.json'
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+    
+    except Exception as e:
+        return Response({
+            'error': f'导出失败: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@extend_schema(
+    tags=['Data'],
+    request={
+        'multipart/form-data': {
+            'type': 'object',
+            'properties': {
+                'file': {
+                    'type': 'string',
+                    'format': 'binary',
+                    'description': '导入文件（JSON 或 ZIP 格式）'
+                },
+                'overwrite_tags': {
+                    'type': 'boolean',
+                    'description': '是否覆盖同名标签',
+                    'default': False
+                },
+                'skip_duplicates': {
+                    'type': 'boolean',
+                    'description': '是否跳过重复内容',
+                    'default': True
+                },
+                'import_storage_settings': {
+                    'type': 'boolean',
+                    'description': '是否导入存储配置',
+                    'default': False
+                }
+            },
+            'required': ['file']
+        }
+    },
+    responses={
+        200: {
+            'description': '导入成功',
+            'content': {
+                'application/json': {
+                    'schema': {
+                        'type': 'object',
+                        'properties': {
+                            'success': {'type': 'boolean'},
+                            'message': {'type': 'string'},
+                            'stats': {
+                                'type': 'object',
+                                'properties': {
+                                    'tags_created': {'type': 'integer'},
+                                    'tags_skipped': {'type': 'integer'},
+                                    'bbtalks_created': {'type': 'integer'},
+                                    'bbtalks_skipped': {'type': 'integer'},
+                                    'storage_settings_created': {'type': 'integer'},
+                                    'errors': {'type': 'array', 'items': {'type': 'string'}}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        400: {'description': '导入失败'}
+    }
+)
+@api_view(['POST'])
+@permission_classes_decorator([permissions.IsAuthenticated])
+def import_data(request):
+    """导入用户数据"""
+    if 'file' not in request.FILES:
+        return Response({
+            'error': '请上传文件'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    file_obj = request.FILES['file']
+    
+    # 解析导入选项
+    options = {
+        'overwrite_tags': request.POST.get('overwrite_tags', 'false').lower() == 'true',
+        'skip_duplicates': request.POST.get('skip_duplicates', 'true').lower() == 'true',
+        'import_storage_settings': request.POST.get('import_storage_settings', 'false').lower() == 'true',
+    }
+    
+    try:
+        importer = DataImporter(request.user, options)
+        stats = importer.import_from_file(file_obj)
+        
+        return Response({
+            'success': True,
+            'message': '数据导入成功',
+            'stats': stats
+        })
+    
+    except ImportError as e:
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': f'导入失败: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@extend_schema(
+    tags=['Data'],
+    request={
+        'multipart/form-data': {
+            'type': 'object',
+            'properties': {
+                'file': {
+                    'type': 'string',
+                    'format': 'binary',
+                    'description': '待验证的导入文件'
+                }
+            },
+            'required': ['file']
+        }
+    },
+    responses={
+        200: {
+            'description': '文件验证结果',
+            'content': {
+                'application/json': {
+                    'schema': {
+                        'type': 'object',
+                        'properties': {
+                            'valid': {'type': 'boolean'},
+                            'file_type': {'type': 'string'},
+                            'version': {'type': 'string'},
+                            'export_time': {'type': 'string'},
+                            'preview': {
+                                'type': 'object',
+                                'properties': {
+                                    'tags_count': {'type': 'integer'},
+                                    'bbtalks_count': {'type': 'integer'},
+                                    'storage_settings_count': {'type': 'integer'}
+                                }
+                            },
+                            'error': {'type': 'string'}
+                        }
+                    }
+                }
+            }
+        }
+    }
+)
+@api_view(['POST'])
+@permission_classes_decorator([permissions.IsAuthenticated])
+def validate_import(request):
+    """验证导入文件格式"""
+    if 'file' not in request.FILES:
+        return Response({
+            'error': '请上传文件'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    file_obj = request.FILES['file']
+    
+    try:
+        result = validate_import_file(file_obj)
+        return Response(result)
+    
+    except Exception as e:
+        return Response({
+            'valid': False,
+            'error': str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)

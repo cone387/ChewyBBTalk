@@ -65,6 +65,27 @@ export default function SettingsPage() {
           </div>
         </button>
 
+        {/* 数据管理 */}
+        <button
+          onClick={() => navigate('/settings/data')}
+          className="w-full p-5 bg-white rounded-2xl shadow-lg border border-gray-100 hover:border-gray-300 transition-all text-left"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-600 rounded-xl flex items-center justify-center flex-shrink-0">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <div className="text-base font-semibold text-gray-900">数据管理</div>
+              <p className="text-sm text-gray-500 mt-1">导入导出数据，跨服务器迁移</p>
+            </div>
+            <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+        </button>
+
         {/* 用户信息 & 退出 */}
         {currentUser && (
           <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mt-8">
