@@ -8,7 +8,8 @@ from .views import (
     list_storage_settings, get_storage_settings, create_storage_settings,
     update_storage_settings, delete_storage_settings, activate_storage_settings,
     deactivate_all_storage, test_storage_connection, test_storage_connection_by_id,
-    export_data, import_data, validate_import
+    export_data, import_data, validate_import,
+    storage_migration_preview, storage_migration_execute
 )
 
 router = DefaultRouter()
@@ -41,6 +42,9 @@ urlpatterns = [
     path('data/export/', export_data, name='data_export'),
     path('data/import/', import_data, name='data_import'),
     path('data/validate/', validate_import, name='data_validate'),
+    # 存储迁移接口
+    path('storage/migration/preview/', storage_migration_preview, name='storage_migration_preview'),
+    path('storage/migration/execute/', storage_migration_execute, name='storage_migration_execute'),
     # BBTalk 和 Tag 路由
     path('', include(router.urls)),
 ]

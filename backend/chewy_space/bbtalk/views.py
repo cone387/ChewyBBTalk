@@ -9,6 +9,7 @@ from .serializers import BBTalkSerializer, TagSerializer, UserSerializer, UserSt
 from .authentication import authenticate_with_password, create_user_with_password
 from .data_export import DataExporter
 from .data_import import DataImporter, validate_import_file, ImportError
+from .storage_migration import StorageMigrationService
 from drf_spectacular.utils import extend_schema
 from django.shortcuts import get_object_or_404
 from django.db.models import Count
@@ -794,3 +795,110 @@ def validate_import(request):
             'valid': False,
             'error': str(e)
         }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@extend_schema(
+    tags=['Storage'],
+    request={
+        'application/json': {
+            'type': 'object',
+            'properties': {
+                'target_config_id': {
+                    'type': 'integer',
+                    'nullable': True,
+                    'description': '目标存储配置 ID，null 表示迁移到本地存储'
+                }
+            }
+        }
+    },
+    responses={
+        200: {
+            'description': '迁移预览信息',
+            'content': {
+                'application/json': {
+                    'schema': {
+                        'type': 'object',
+                        'properties': {
+                            'total': {'type': 'integer'},
+                            'need_migrate': {'type': 'integer'},
+                            'already_on_target': {'type': 'integer'},
+                        }
+                    }
+                }
+            }
+        }
+    }
+)
+@api_view(['POST'])
+@permission_classes_decorator([permissions.IsAuthenticated])
+def storage_migration_preview(request):
+    """预览存储迁移：查看需要迁移的附件数量"""
+    target_config_id = request.data.get('target_config_id')
+    
+    try:
+        service = StorageMigrationService(request.user)
+        preview = service.get_migration_preview(target_config_id)
+        return Response(preview)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@extend_schema(
+    tags=['Storage'],
+    request={
+        'application/json': {
+            'type': 'object',
+            'properties': {
+                'target_config_id': {
+                    'type': 'integer',
+                    'nullable': True,
+                    'description': '目标存储配置 ID，null 表示迁移到本地存储'
+                }
+            }
+        }
+    },
+    responses={
+        200: {
+            'description': '迁移结果',
+            'content': {
+                'application/json': {
+                    'schema': {
+                        'type': 'object',
+                        'properties': {
+                            'success': {'type': 'boolean'},
+                            'stats': {
+                                'type': 'object',
+                                'properties': {
+                                    'total': {'type': 'integer'},
+                                    'migrated': {'type': 'integer'},
+                                    'skipped': {'type': 'integer'},
+                                    'failed': {'type': 'integer'},
+                                    'errors': {'type': 'array', 'items': {'type': 'string'}}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+)
+@api_view(['POST'])
+@permission_classes_decorator([permissions.IsAuthenticated])
+def storage_migration_execute(request):
+    """执行存储迁移：将附件从旧存储迁移到新存储"""
+    target_config_id = request.data.get('target_config_id')
+    
+    try:
+        service = StorageMigrationService(request.user)
+        stats = service.migrate(target_config_id)
+        
+        return Response({
+            'success': stats['failed'] == 0,
+            'stats': stats
+        })
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
