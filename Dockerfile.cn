@@ -57,8 +57,12 @@ COPY frontend/ ./
 # 复制根目录 .env 供 Vite 构建时读取 VITE_* 变量
 COPY .env* ./
 
-# 构建前端（使用 shell 方式以便 Vite 能读取 .env 文件）
-RUN cat .env 2>/dev/null | grep "^VITE_" || echo "Warning: No VITE_ vars in .env"
+# 通过 ARG 触发缓存失效：当 .env 变化时，后续步骤会重新执行
+ARG ENV_HASH=default
+RUN echo "ENV_HASH: $ENV_HASH" && \
+    cat .env 2>/dev/null | grep "^VITE_" || echo "Warning: No VITE_ vars in .env"
+
+# 构建前端
 RUN npm run build
 
 

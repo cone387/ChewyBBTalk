@@ -55,8 +55,17 @@ check_env() {
 build() {
     log_info "构建 Docker 镜像..."
     log_info "使用 Dockerfile: $DOCKERFILE"
-    # 使用 --no-cache 确保 .env 变更被正确读取
-    docker build --no-cache -f "$DOCKERFILE" -t "$IMAGE_NAME" .
+    
+    # 计算 .env 文件的 hash，用于触发前端缓存失效
+    if [ -f ".env" ]; then
+        ENV_HASH=$(md5sum .env 2>/dev/null | cut -d' ' -f1 || echo "no-env")
+    else
+        ENV_HASH="no-env"
+    fi
+    log_info "ENV_HASH: $ENV_HASH"
+    
+    # 使用 --build-arg 传递 hash，只在 .env 变化时重建前端
+    docker build --build-arg ENV_HASH="$ENV_HASH" -f "$DOCKERFILE" -t "$IMAGE_NAME" .
     log_info "镜像构建完成: $IMAGE_NAME"
 }
 
