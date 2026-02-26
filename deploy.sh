@@ -55,7 +55,8 @@ check_env() {
 build() {
     log_info "构建 Docker 镜像..."
     log_info "使用 Dockerfile: $DOCKERFILE"
-    docker build -f "$DOCKERFILE" -t "$IMAGE_NAME" .
+    # 使用 --no-cache 确保 .env 变更被正确读取
+    docker build --no-cache -f "$DOCKERFILE" -t "$IMAGE_NAME" .
     log_info "镜像构建完成: $IMAGE_NAME"
 }
 

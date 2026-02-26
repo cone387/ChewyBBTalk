@@ -11,6 +11,16 @@ function transformAttachment(data: any): Attachment {
     url = API_BASE_URL + url;
   }
   
+  // 协议转换：仅在显式配置 VITE_MEDIA_URL_PROTOCOL 时生效
+  const targetProtocol = import.meta.env.VITE_MEDIA_URL_PROTOCOL;
+  if (targetProtocol && url) {
+    if (targetProtocol === 'https' && url.startsWith('http://')) {
+      url = url.replace('http://', 'https://');
+    } else if (targetProtocol === 'http' && url.startsWith('https://')) {
+      url = url.replace('https://', 'http://');
+    }
+  }
+  
   return {
     uid: data.uid || data.id || '',
     url: url,

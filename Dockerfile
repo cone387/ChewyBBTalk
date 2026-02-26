@@ -49,6 +49,9 @@ RUN npm ci
 
 COPY frontend/ ./
 
+# 复制根目录 .env 供 Vite 构建时读取 VITE_* 变量
+COPY .env* ./
+
 # 构建前端
 RUN npm run build
 
