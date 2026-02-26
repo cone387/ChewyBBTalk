@@ -7,11 +7,11 @@
 
 set -e
 
-IMAGE_NAME="chewybbtalk"
+IMAGE_NAME="chewy-bbtalk"
 CONTAINER_NAME="chewy-bbtalk"
 PORT="4010"
 DOCKERFILE="Dockerfile"  # 默认使用普通版，可改为 Dockerfile.cn
-REMOTE_IMAGE="ghcr.io/cone387/chewybbtalk:latest"  # GitHub Container Registry 镜像
+REMOTE_IMAGE="ghcr.io/cone387/chewy-bbtalk:latest"  # GitHub Container Registry 镜像
 
 # 颜色输出
 RED='\033[0;31m'
@@ -216,12 +216,10 @@ pull() {
     
     check_env
     
-    # 停止并删除旧容器
-    if docker ps -a --format 'table {{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
-        log_info "停止并删除旧容器..."
-        docker stop "$CONTAINER_NAME" 2>/dev/null || true
-        docker rm "$CONTAINER_NAME" 2>/dev/null || true
-    fi
+    # 停止并删除旧容器（兼容旧名称）
+    log_info "停止并删除旧容器..."
+    docker stop chewy-bbtalk chewybbtalk 2>/dev/null || true
+    docker rm chewy-bbtalk chewybbtalk 2>/dev/null || true
     
     # 使用远程镜像启动新容器
     log_info "启动新容器..."
