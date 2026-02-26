@@ -131,7 +131,7 @@ restart() {
     fi
 }
 
-# 重新构建并启动
+# 重新构建并启动（删除旧镜像，完全重建）
 rebuild() {
     log_info "重新构建并启动..."
     
@@ -151,6 +151,27 @@ rebuild() {
     # 重新构建并启动
     build
     start
+}
+
+# 更新部署（保留缓存，快速构建）
+update() {
+    log_info "快速更新部署..."
+    
+    # 构建新镜像（利用缓存）
+    build
+    
+    # 停止并删除旧容器
+    log_info "停止旧容器..."
+    docker stop chewy-bbtalk chewybbtalk 2>/dev/null || true
+    docker rm chewy-bbtalk chewybbtalk 2>/dev/null || true
+    
+    # 启动新容器
+    start
+    
+    # 清理悬空镜像
+    docker image prune -f
+    
+    log_info "更新完成！"
 }
 
 # 查看日志
@@ -279,7 +300,8 @@ ChewyBBTalk 单容器部署脚本
   start         启动容器 (如果镜像不存在会自动构建)
   stop          停止容器
   restart       重启容器
-  rebuild [cn]  重新构建镜像并启动容器 (可选 cn 使用国内镜像源)
+  update [cn]   快速更新部署，保留缓存 (推荐用于 CI/CD)
+  rebuild [cn]  完全重新构建镜像并启动容器 (删除旧镜像)
   pull          从 GitHub Container Registry 拉取最新镜像并更新
   logs          查看容器日志
   status        查看容器状态
@@ -296,7 +318,8 @@ ChewyBBTalk 单容器部署脚本
 示例:
   $0 start         # 构建并启动容器
   $0 build cn      # 使用国内镜像源构建
-  $0 rebuild cn    # 使用国内镜像源重新构建
+  $0 update cn     # 快速更新部署 (推荐，利用缓存)
+  $0 rebuild cn    # 完全重新构建 (删除旧镜像)
   $0 pull          # 从远程拉取最新镜像并更新 (GitHub Actions 构建后使用)
   $0 logs          # 查看日志
   $0 status        # 查看状态
@@ -327,6 +350,10 @@ main() {
             ;;
         restart)
             restart
+            ;;
+        update)
+            switch_dockerfile "$2"
+            update
             ;;
         rebuild)
             switch_dockerfile "$2"

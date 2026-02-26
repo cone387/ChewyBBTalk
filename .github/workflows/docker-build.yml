@@ -75,4 +75,4 @@ jobs:
         script: |
           cd ${{ secrets.DEPLOY_PATH || '/home/bzl/projects/ChewyBBTalk' }}
           git pull
-          ./deploy.sh rebuild cn
+          ./deploy.sh update cn
