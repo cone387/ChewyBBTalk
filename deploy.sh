@@ -8,9 +8,10 @@
 set -e
 
 IMAGE_NAME="chewybbtalk"
-CONTAINER_NAME="chewybbtalk"
+CONTAINER_NAME="chewy-bbtalk"
 PORT="4010"
 DOCKERFILE="Dockerfile"  # 默认使用普通版，可改为 Dockerfile.cn
+REMOTE_IMAGE="ghcr.io/cone387/chewybbtalk:latest"  # GitHub Container Registry 镜像
 
 # 颜色输出
 RED='\033[0;31m'
@@ -208,6 +209,37 @@ clean() {
     log_info "清理完成"
 }
 
+# 从远程拉取镜像并更新
+pull() {
+    log_info "从远程拉取最新镜像..."
+    docker pull "$REMOTE_IMAGE"
+    
+    check_env
+    
+    # 停止并删除旧容器
+    if docker ps -a --format 'table {{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+        log_info "停止并删除旧容器..."
+        docker stop "$CONTAINER_NAME" 2>/dev/null || true
+        docker rm "$CONTAINER_NAME" 2>/dev/null || true
+    fi
+    
+    # 使用远程镜像启动新容器
+    log_info "启动新容器..."
+    docker run -d \
+        --name "$CONTAINER_NAME" \
+        --restart unless-stopped \
+        -p "$PORT:$PORT" \
+        $ENV_FILE_OPT \
+        -v "$(pwd)/data:/app/data" \
+        "$REMOTE_IMAGE"
+    
+    # 清理旧镜像
+    docker image prune -f
+    
+    log_info "更新完成！"
+    show_access_info
+}
+
 # 显示访问信息
 show_access_info() {
     log_info "访问地址: http://localhost:$PORT"
@@ -250,6 +282,7 @@ ChewyBBTalk 单容器部署脚本
   stop          停止容器
   restart       重启容器
   rebuild [cn]  重新构建镜像并启动容器 (可选 cn 使用国内镜像源)
+  pull          从 GitHub Container Registry 拉取最新镜像并更新
   logs          查看容器日志
   status        查看容器状态
   shell         进入容器 shell
@@ -266,6 +299,7 @@ ChewyBBTalk 单容器部署脚本
   $0 start         # 构建并启动容器
   $0 build cn      # 使用国内镜像源构建
   $0 rebuild cn    # 使用国内镜像源重新构建
+  $0 pull          # 从远程拉取最新镜像并更新 (GitHub Actions 构建后使用)
   $0 logs          # 查看日志
   $0 status        # 查看状态
   $0 clean         # 清理资源
@@ -299,6 +333,9 @@ main() {
         rebuild)
             switch_dockerfile "$2"
             rebuild
+            ;;
+        pull)
+            pull
             ;;
         logs)
             logs
