@@ -12,6 +12,9 @@ import LoginScreen from './src/screens/LoginScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import ComposeScreen from './src/screens/ComposeScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
+import PrivacySettingsScreen from './src/screens/PrivacySettingsScreen';
+import StorageSettingsScreen from './src/screens/StorageSettingsScreen';
+import DataManagementScreen from './src/screens/DataManagementScreen';
 import DrawerContent from './src/screens/DrawerContent';
 
 const Stack = createNativeStackNavigator();
@@ -97,6 +100,12 @@ function AuthenticatedStack({ onLogout }: { onLogout: () => void }) {
       }}>
         {() => <SettingsScreen onLogout={onLogout} />}
       </Stack.Screen>
+      <Stack.Screen name="PrivacySettings" component={PrivacySettingsScreen}
+        options={{ title: '防窥设置', headerStyle: { backgroundColor: '#F0F4FF' }, headerShadowVisible: false, headerBackTitle: '返回' }} />
+      <Stack.Screen name="StorageSettings" component={StorageSettingsScreen}
+        options={{ title: '存储设置', headerStyle: { backgroundColor: '#F0F4FF' }, headerShadowVisible: false, headerBackTitle: '返回' }} />
+      <Stack.Screen name="DataManagement" component={DataManagementScreen}
+        options={{ title: '数据管理', headerStyle: { backgroundColor: '#F0F4FF' }, headerShadowVisible: false, headerBackTitle: '返回' }} />
     </Stack.Navigator>
   );
 }

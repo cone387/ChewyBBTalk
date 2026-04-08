@@ -37,7 +37,7 @@ export default function DrawerContent({ selectedTag, onSelectTag, onClose }: Pro
       {/* 标签区 - 可折叠 */}
       <TouchableOpacity style={styles.sectionHeader} onPress={toggleExpand} activeOpacity={0.7}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <View style={styles.dot} />
+          <Ionicons name="pricetags-outline" size={16} color="#6B7280" />
           <Text style={styles.sectionTitle}>标签</Text>
         </View>
         <Ionicons name={tagsExpanded ? 'chevron-up' : 'chevron-down'} size={16} color="#9CA3AF" />
@@ -54,7 +54,7 @@ export default function DrawerContent({ selectedTag, onSelectTag, onClose }: Pro
 
             {tags.map(tag => (
               <TouchableOpacity key={tag.id} style={[styles.item, selectedTag === tag.id && styles.itemActive]} onPress={() => select(tag.id)}>
-                <Ionicons name="pricetag-outline" size={16} color="#9CA3AF" style={{ marginRight: 8 }} />
+                <View style={[styles.tagDot, { backgroundColor: tag.color || '#3B82F6' }]} />
                 <Text style={[styles.itemText, selectedTag === tag.id && styles.itemTextActive]}>{tag.name}</Text>
                 {(tag.bbtalkCount ?? 0) > 0 && <Text style={styles.itemCount}>{tag.bbtalkCount}</Text>}
               </TouchableOpacity>
@@ -90,11 +90,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingBottom: 10,
   },
-  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#F97316' },
   sectionTitle: { fontSize: 13, fontWeight: '600', color: '#6B7280' },
   tagScroll: { flex: 1, paddingHorizontal: 12 },
   item: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 11, borderRadius: 10, marginBottom: 2 },
   itemActive: { backgroundColor: '#F3F4F6' },
+  tagDot: { width: 8, height: 8, borderRadius: 4, marginRight: 10 },
   itemText: { flex: 1, fontSize: 14, color: '#374151' },
   itemTextActive: { fontWeight: '600', color: '#111827' },
   itemCount: { fontSize: 12, color: '#9CA3AF' },
