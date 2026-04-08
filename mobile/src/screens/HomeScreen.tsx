@@ -1,12 +1,13 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
   RefreshControl, Image, Alert, ActivityIndicator, Modal,
-  TextInput, ActionSheetIOS, Platform, ScrollView, Linking,
+  TextInput, ActionSheetIOS, Platform, ScrollView, Linking, AppState,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { loadBBTalks, loadMoreBBTalks, deleteBBTalkAsync, updateBBTalkAsync } from '../store/slices/bbtalkSlice';
 import { loadTags } from '../store/slices/tagSlice';
@@ -25,6 +26,49 @@ export default function HomeScreen({ selectedTag, onOpenDrawer }: Props) {
   const [searchVisible, setSearchVisible] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+
+  // 防窥倒计时
+  const [privacySeconds, setPrivacySeconds] = useState<number | null>(null);
+  const [showCountdown, setShowCountdown] = useState(false);
+  const lastActivity = useRef(Date.now());
+  const privacyTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    let timeoutMins = 5;
+    let countdown = false;
+    (async () => {
+      const t = await AsyncStorage.getItem('privacy_timeout_minutes');
+      if (t) timeoutMins = parseInt(t, 10);
+      const c = await AsyncStorage.getItem('show_privacy_countdown');
+      countdown = c === 'true';
+      setShowCountdown(countdown);
+    })();
+
+    const tick = () => {
+      const elapsed = (Date.now() - lastActivity.current) / 1000;
+      const remaining = timeoutMins * 60 - elapsed;
+      if (remaining <= 0) {
+        // 防窥触发 - 这里可以导航到锁定页或模糊内容
+        setPrivacySeconds(0);
+      } else {
+        setPrivacySeconds(Math.ceil(remaining));
+      }
+    };
+
+    privacyTimer.current = setInterval(tick, 1000);
+    tick();
+
+    // 用户活动重置计时器
+    const resetTimer = () => { lastActivity.current = Date.now(); };
+    const appStateSub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') resetTimer();
+    });
+
+    return () => {
+      if (privacyTimer.current) clearInterval(privacyTimer.current);
+      appStateSub.remove();
+    };
+  }, []);
 
   useEffect(() => { dispatch(loadBBTalks({})); dispatch(loadTags()); }, [dispatch]);
   useEffect(() => {
@@ -232,6 +276,16 @@ export default function HomeScreen({ selectedTag, onOpenDrawer }: Props) {
         onEndReached={onEndReached} onEndReachedThreshold={0.3}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 80 }} />
 
+      {/* 防窥倒计时 */}
+      {showCountdown && privacySeconds !== null && privacySeconds > 0 && (
+        <View style={[styles.countdownBadge, { bottom: insets.bottom + 88 }]}>
+          <Ionicons name="lock-closed" size={12} color="#fff" />
+          <Text style={styles.countdownText}>
+            {privacySeconds >= 60 ? `${Math.floor(privacySeconds / 60)}:${(privacySeconds % 60).toString().padStart(2, '0')}` : `${privacySeconds}s`}
+          </Text>
+        </View>
+      )}
+
       <TouchableOpacity style={[styles.fab, { bottom: insets.bottom + 24 }]}
         onPress={() => navigation.navigate('Compose')} activeOpacity={0.85}>
         <Ionicons name="add" size={28} color="#fff" />
@@ -307,6 +361,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#2563EB', justifyContent: 'center', alignItems: 'center',
     shadowColor: '#2563EB', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 8, elevation: 6,
   },
+  countdownBadge: {
+    position: 'absolute', right: 22,
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: '#2563EB', borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6,
+  },
+  countdownText: { color: '#fff', fontSize: 12, fontWeight: '600' },
   previewOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)' },
   previewClose: { position: 'absolute', top: 50, right: 20, zIndex: 10, padding: 8 },
   previewImage: { width: '100%', height: '100%' },

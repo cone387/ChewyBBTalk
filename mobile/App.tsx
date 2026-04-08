@@ -24,10 +24,13 @@ const DRAWER_WIDTH = SCREEN_WIDTH * 0.78;
 function HomeWithDrawer({ onLogout }: { onLogout: () => void }) {
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [drawerVisible, setDrawerVisible] = useState(false);
+  const isOpen = useRef(false);
   const translateX = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
 
   const openDrawer = useCallback(() => {
+    if (isOpen.current) return;
+    isOpen.current = true;
     setDrawerVisible(true);
     Animated.parallel([
       Animated.timing(translateX, { toValue: 0, duration: 250, useNativeDriver: true }),
@@ -36,6 +39,7 @@ function HomeWithDrawer({ onLogout }: { onLogout: () => void }) {
   }, []);
 
   const closeDrawer = useCallback(() => {
+    isOpen.current = false;
     Animated.parallel([
       Animated.timing(translateX, { toValue: -DRAWER_WIDTH, duration: 200, useNativeDriver: true }),
       Animated.timing(overlayOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
@@ -46,12 +50,10 @@ function HomeWithDrawer({ onLogout }: { onLogout: () => void }) {
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: (evt) => {
-        // Only capture touches starting from the left 20px edge
-        return evt.nativeEvent.pageX < 20;
+        return !isOpen.current && evt.nativeEvent.pageX < 20;
       },
       onMoveShouldSetPanResponder: (evt, gesture) => {
-        // From left edge, horizontal swipe right
-        return evt.nativeEvent.pageX < 40 && gesture.dx > 15 && Math.abs(gesture.dy) < 30;
+        return !isOpen.current && evt.nativeEvent.pageX < 40 && gesture.dx > 15 && Math.abs(gesture.dy) < 30;
       },
       onPanResponderMove: (_, gesture) => {
         const x = Math.min(0, Math.max(-DRAWER_WIDTH, -DRAWER_WIDTH + gesture.dx));
