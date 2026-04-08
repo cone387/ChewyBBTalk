@@ -1,17 +1,46 @@
-// API 基础 URL
-// 真机调试：用电脑局域网 IP（手机和电脑需在同一 WiFi）
-// iOS 模拟器：可以用 localhost
-// Android 模拟器：用 10.0.2.2
+/**
+ * API 配置 - 支持自定义服务地址（self-hosted）
+ * 用户可在登录页配置后端地址，持久化到 AsyncStorage
+ */
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// ⚠️ 改成你电脑的局域网 IP
+const STORAGE_KEY = 'bbtalk_api_base_url';
+
 const LAN_IP = '192.168.0.83';
 
-const DEV_API_URL = Platform.select({
+const DEFAULT_API_URL = Platform.select({
   android: `http://10.0.2.2:8020`,
   ios: `http://${LAN_IP}:8020`,
   web: 'http://localhost:8020',
   default: `http://${LAN_IP}:8020`,
-});
+})!;
 
-export const API_BASE_URL = __DEV__ ? DEV_API_URL : 'https://your-production-url.com';
+// 运行时可变的 API 地址
+let _apiBaseUrl: string = DEFAULT_API_URL;
+
+export function getApiBaseUrl(): string {
+  return _apiBaseUrl;
+}
+
+export async function setApiBaseUrl(url: string): Promise<void> {
+  const trimmed = url.replace(/\/+$/, ''); // 去掉末尾斜杠
+  _apiBaseUrl = trimmed;
+  await AsyncStorage.setItem(STORAGE_KEY, trimmed);
+}
+
+export async function loadApiBaseUrl(): Promise<string> {
+  try {
+    const saved = await AsyncStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      _apiBaseUrl = saved;
+      return saved;
+    }
+  } catch {}
+  return DEFAULT_API_URL;
+}
+
+export const DEFAULT_URL = DEFAULT_API_URL;
+
+// 兼容旧的导入方式
+export const API_BASE_URL = DEFAULT_API_URL;

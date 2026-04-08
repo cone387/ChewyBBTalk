@@ -1,11 +1,11 @@
 import { apiClient } from './apiClient';
-import { API_BASE_URL } from '../../config';
+import { getApiBaseUrl } from '../../config';
 import type { BBTalk, PaginatedResponse, Attachment } from '../../types';
 
 function transformAttachment(data: any): Attachment {
   let url = data.url || '';
   if (url && url.startsWith('/')) {
-    url = API_BASE_URL + url;
+    url = getApiBaseUrl() + url;
   }
   return {
     uid: data.uid || data.id || '',

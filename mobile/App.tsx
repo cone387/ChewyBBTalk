@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Provider } from 'react-redux';
 import { store } from './src/store';
 import { initAuth } from './src/services/auth';
+import { loadApiBaseUrl } from './src/config';
 
 import LoginScreen from './src/screens/LoginScreen';
 import HomeScreen from './src/screens/HomeScreen';
@@ -103,7 +104,7 @@ function AuthenticatedStack({ onLogout }: { onLogout: () => void }) {
 export default function App() {
   const [isReady, setIsReady] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  useEffect(() => { (async () => { setIsAuthenticated(await initAuth()); setIsReady(true); })(); }, []);
+  useEffect(() => { (async () => { await loadApiBaseUrl(); setIsAuthenticated(await initAuth()); setIsReady(true); })(); }, []);
   const handleLoginSuccess = useCallback(() => setIsAuthenticated(true), []);
   const handleLogout = useCallback(() => setIsAuthenticated(false), []);
 

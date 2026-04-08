@@ -3,13 +3,11 @@
  * 与 Web 版逻辑一致，但 getAccessToken 是异步的
  */
 import { getAccessToken, refreshAccessToken, logout } from '../auth';
-import { API_BASE_URL } from '../../config';
+import { getApiBaseUrl } from '../../config';
 
 class ApiClient {
-  private baseUrl: string;
-
-  constructor(baseUrl: string) {
-    this.baseUrl = baseUrl;
+  private getBaseUrl(): string {
+    return getApiBaseUrl();
   }
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -24,7 +22,7 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    let response = await fetch(`${this.baseUrl}${endpoint}`, {
+    let response = await fetch(`${this.getBaseUrl()}${endpoint}`, {
       ...options,
       headers,
     });
@@ -41,7 +39,7 @@ class ApiClient {
           const newToken = await getAccessToken();
           if (newToken) {
             headers['Authorization'] = `Bearer ${newToken}`;
-            response = await fetch(`${this.baseUrl}${endpoint}`, {
+            response = await fetch(`${this.getBaseUrl()}${endpoint}`, {
               ...options,
               headers,
             });
@@ -101,4 +99,4 @@ class ApiClient {
   }
 }
 
-export const apiClient = new ApiClient(API_BASE_URL);
+export const apiClient = new ApiClient();

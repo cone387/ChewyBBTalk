@@ -2,15 +2,15 @@ import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
   RefreshControl, Image, Alert, ActivityIndicator, Modal,
-  TextInput, ActionSheetIOS, Platform, ScrollView,
+  TextInput, ActionSheetIOS, Platform, ScrollView, Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { loadBBTalks, loadMoreBBTalks, deleteBBTalkAsync } from '../store/slices/bbtalkSlice';
+import { loadBBTalks, loadMoreBBTalks, deleteBBTalkAsync, updateBBTalkAsync } from '../store/slices/bbtalkSlice';
 import { loadTags } from '../store/slices/tagSlice';
-import type { BBTalk } from '../types';
+import type { BBTalk, Attachment } from '../types';
 
 interface Props { selectedTag: string | null; onOpenDrawer: () => void; }
 
@@ -36,17 +36,14 @@ export default function HomeScreen({ selectedTag, onOpenDrawer }: Props) {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     const tagNames = selectedTag ? [tags.find(t => t.id === selectedTag)?.name].filter(Boolean) as string[] : [];
-    await dispatch(loadBBTalks({ tags: tagNames }));
-    dispatch(loadTags());
-    setRefreshing(false);
+    await dispatch(loadBBTalks({ tags: tagNames })); dispatch(loadTags()); setRefreshing(false);
   }, [dispatch, selectedTag, tags]);
 
   const onEndReached = useCallback(async () => {
     if (loadingMore || !hasMore || isLoading) return;
     setLoadingMore(true);
     const tagNames = selectedTag ? [tags.find(t => t.id === selectedTag)?.name].filter(Boolean) as string[] : [];
-    await dispatch(loadMoreBBTalks({ tags: tagNames }));
-    setLoadingMore(false);
+    await dispatch(loadMoreBBTalks({ tags: tagNames })); setLoadingMore(false);
   }, [dispatch, loadingMore, hasMore, isLoading, selectedTag, tags]);
 
   const showMenu = (item: BBTalk) => {
@@ -71,14 +68,31 @@ export default function HomeScreen({ selectedTag, onOpenDrawer }: Props) {
     }
   };
 
+  // 6. 切换可见性 - 直接调用 API
   const toggleVisibility = (item: BBTalk) => {
     const newVis = item.visibility === 'public' ? 'private' : 'public';
     Alert.alert('切换可见性', `确定设为${newVis === 'public' ? '公开' : '私密'}？`, [
       { text: '取消', style: 'cancel' },
       { text: '确定', onPress: () => {
-        // TODO: dispatch update visibility
-        Alert.alert('提示', '功能开发中');
+        dispatch(updateBBTalkAsync({
+          id: item.id,
+          data: { visibility: newVis } as any,
+        }));
       }},
+    ]);
+  };
+
+  // 2. 点击定位显示信息
+  const showLocation = (loc: { latitude: number; longitude: number }) => {
+    Alert.alert('定位信息', `纬度: ${loc.latitude.toFixed(6)}\n经度: ${loc.longitude.toFixed(6)}`, [
+      { text: '在地图中打开', onPress: () => {
+        const url = Platform.select({
+          ios: `maps:?q=${loc.latitude},${loc.longitude}`,
+          default: `geo:${loc.latitude},${loc.longitude}`,
+        });
+        Linking.openURL(url!).catch(() => {});
+      }},
+      { text: '关闭' },
     ]);
   };
 
@@ -99,22 +113,43 @@ export default function HomeScreen({ selectedTag, onOpenDrawer }: Props) {
     ? bbtalks.filter(b => b.content.toLowerCase().includes(searchText.toLowerCase()))
     : bbtalks;
 
+  // 3. 附件卡片渲染（非图片）
+  const renderFileAttachment = (att: Attachment) => {
+    const iconName = att.type === 'video' ? 'videocam-outline' : att.type === 'audio' ? 'musical-notes-outline' : 'document-outline';
+    const iconColor = att.type === 'video' ? '#8B5CF6' : att.type === 'audio' ? '#F59E0B' : '#6B7280';
+    const label = att.type === 'video' ? '视频' : att.type === 'audio' ? '音频' : '文件';
+    return (
+      <TouchableOpacity key={att.uid} style={styles.fileCard} activeOpacity={0.7}
+        onPress={(e) => { e.stopPropagation(); Linking.openURL(att.url).catch(() => Alert.alert('提示', '无法打开此文件')); }}>
+        <View style={[styles.fileIconWrap, { backgroundColor: iconColor + '15' }]}>
+          <Ionicons name={iconName} size={20} color={iconColor} />
+        </View>
+        <View style={styles.fileInfo}>
+          <Text style={styles.fileCardName} numberOfLines={1}>{att.originalFilename || att.filename || '附件'}</Text>
+          <Text style={styles.fileCardMeta}>{label}{att.fileSize ? ` · ${(att.fileSize / 1024).toFixed(0)}KB` : ''}</Text>
+        </View>
+        <Ionicons name="open-outline" size={16} color="#D1D5DB" />
+      </TouchableOpacity>
+    );
+  };
+
   const renderItem = ({ item }: { item: BBTalk }) => {
     const isMobile = item.context?.source?.platform === 'mobile';
+    const loc = item.context?.location as { latitude: number; longitude: number } | undefined;
+    const images = item.attachments.filter(a => a.type === 'image');
+    const files = item.attachments.filter(a => a.type !== 'image');
+
     return (
+      // 1. 点击内容区进入编辑
       <TouchableOpacity style={styles.card} activeOpacity={0.8}
         onPress={() => navigation.navigate('Compose', { editItem: item })}>
-
-        {/* 更多按钮 */}
         <TouchableOpacity style={styles.moreBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          onPress={(e) => { e.stopPropagation(); showMenu(item); }}>
+          onPress={() => showMenu(item)}>
           <Ionicons name="ellipsis-horizontal" size={18} color="#C4C4C4" />
         </TouchableOpacity>
 
-        {/* 内容 */}
         <Text style={styles.content}>{item.content}</Text>
 
-        {/* 标签 */}
         {item.tags.length > 0 && (
           <View style={styles.tagRow}>
             {item.tags.map(tag => (
@@ -125,28 +160,36 @@ export default function HomeScreen({ selectedTag, onOpenDrawer }: Props) {
           </View>
         )}
 
-        {/* 图片 - 点击预览 */}
-        {item.attachments.filter(a => a.type === 'image').length > 0 && (
+        {/* 图片 */}
+        {images.length > 0 && (
           <View style={styles.imageRow}>
-            {item.attachments.filter(a => a.type === 'image').map(att => (
-              <TouchableOpacity key={att.uid} onPress={(e) => { e.stopPropagation(); setPreviewImage(att.url); }}>
+            {images.map(att => (
+              <TouchableOpacity key={att.uid} onPress={() => setPreviewImage(att.url)}>
                 <Image source={{ uri: att.url }} style={styles.thumbnail} resizeMode="cover" />
               </TouchableOpacity>
             ))}
           </View>
         )}
 
-        {/* 底部信息 */}
+        {/* 3. 非图片附件卡片 */}
+        {files.length > 0 && (
+          <View style={styles.fileRow}>{files.map(renderFileAttachment)}</View>
+        )}
+
+        {/* 底部信息 - 4. 去掉点分隔 */}
         <View style={styles.footer}>
           <View style={styles.footerLeft}>
             <Text style={styles.time}>{formatTime(item.createdAt)}</Text>
-            <Text style={styles.dot}>·</Text>
             <Ionicons name={isMobile ? 'phone-portrait-outline' : 'laptop-outline'} size={12} color="#D1D5DB" />
-            {item.context?.location && (
-              <><Text style={styles.dot}>·</Text><Ionicons name="location-outline" size={12} color="#10B981" /></>
+            {/* 2. 点击定位弹出信息 */}
+            {loc && (
+              <TouchableOpacity onPress={() => showLocation(loc)} style={{ padding: 2 }}>
+                <Ionicons name="location-outline" size={13} color="#10B981" />
+              </TouchableOpacity>
             )}
           </View>
-          <TouchableOpacity onPress={(e) => { e.stopPropagation(); toggleVisibility(item); }} style={styles.visBtn}>
+          {/* 6. 点击切换可见性 */}
+          <TouchableOpacity onPress={() => toggleVisibility(item)} style={styles.visBtn}>
             <Ionicons
               name={item.visibility === 'public' ? 'globe-outline' : 'lock-closed-outline'}
               size={15} color={item.visibility === 'public' ? '#60A5FA' : '#C4C4C4'}
@@ -161,7 +204,6 @@ export default function HomeScreen({ selectedTag, onOpenDrawer }: Props) {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity onPress={onOpenDrawer} style={styles.headerBtn}>
           <Ionicons name="menu-outline" size={26} color="#374151" />
@@ -169,18 +211,10 @@ export default function HomeScreen({ selectedTag, onOpenDrawer }: Props) {
         {searchVisible ? (
           <View style={styles.searchBar}>
             <Ionicons name="search" size={16} color="#9CA3AF" />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="搜索碎碎念..."
-              placeholderTextColor="#C4C4C4"
-              value={searchText}
-              onChangeText={setSearchText}
-              autoFocus
-            />
+            <TextInput style={styles.searchInput} placeholder="搜索碎碎念..." placeholderTextColor="#C4C4C4"
+              value={searchText} onChangeText={setSearchText} autoFocus />
             {searchText.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchText('')}>
-                <Ionicons name="close-circle" size={18} color="#C4C4C4" />
-              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setSearchText('')}><Ionicons name="close-circle" size={18} color="#C4C4C4" /></TouchableOpacity>
             )}
           </View>
         ) : (
@@ -191,44 +225,26 @@ export default function HomeScreen({ selectedTag, onOpenDrawer }: Props) {
         </TouchableOpacity>
       </View>
 
-      {/* 列表 */}
-      <FlatList
-        data={filteredBBTalks}
-        keyExtractor={item => item.id}
-        renderItem={renderItem}
+      <FlatList data={filteredBBTalks} keyExtractor={item => item.id} renderItem={renderItem}
         ListEmptyComponent={!isLoading ? <View style={styles.emptyCard}><Text style={styles.emptyText}>{searchText ? '没有找到匹配的碎碎念' : '暂无碎碎念'}</Text></View> : null}
-        ListFooterComponent={
-          loadingMore ? <ActivityIndicator style={{ paddingVertical: 16 }} /> :
-          !hasMore && filteredBBTalks.length > 0 ? <Text style={styles.noMore}>没有更多了</Text> : null
-        }
+        ListFooterComponent={loadingMore ? <ActivityIndicator style={{ paddingVertical: 16 }} /> : !hasMore && filteredBBTalks.length > 0 ? <Text style={styles.noMore}>没有更多了</Text> : null}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        onEndReached={onEndReached}
-        onEndReachedThreshold={0.3}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 80 }}
-      />
+        onEndReached={onEndReached} onEndReachedThreshold={0.3}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 80 }} />
 
-      {/* FAB */}
       <TouchableOpacity style={[styles.fab, { bottom: insets.bottom + 24 }]}
         onPress={() => navigation.navigate('Compose')} activeOpacity={0.85}>
         <Ionicons name="add" size={28} color="#fff" />
       </TouchableOpacity>
 
-      {/* 图片预览 - 支持双指缩放 */}
       <Modal visible={!!previewImage} transparent animationType="fade" onRequestClose={() => setPreviewImage(null)}>
         <View style={styles.previewOverlay}>
           <TouchableOpacity style={styles.previewClose} onPress={() => setPreviewImage(null)}>
             <Ionicons name="close" size={28} color="#fff" />
           </TouchableOpacity>
           {previewImage && (
-            <ScrollView
-              style={{ flex: 1 }}
-              contentContainerStyle={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
-              maximumZoomScale={5}
-              minimumZoomScale={1}
-              showsHorizontalScrollIndicator={false}
-              showsVerticalScrollIndicator={false}
-              bouncesZoom
-            >
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
+              maximumZoomScale={5} minimumZoomScale={1} bouncesZoom showsHorizontalScrollIndicator={false} showsVerticalScrollIndicator={false}>
               <Image source={{ uri: previewImage }} style={styles.previewImage} resizeMode="contain" />
             </ScrollView>
           )}
@@ -250,9 +266,9 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#111827' },
   searchBar: {
     flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#F3F4F6', borderRadius: 10, paddingHorizontal: 10, marginHorizontal: 8, height: 36,
+    backgroundColor: '#F3F4F6', borderRadius: 10, paddingHorizontal: 10, marginHorizontal: 8, height: 38,
   },
-  searchInput: { flex: 1, fontSize: 15, color: '#111827', padding: 0 },
+  searchInput: { flex: 1, fontSize: 15, color: '#111827', paddingVertical: 0, paddingHorizontal: 0, textAlignVertical: 'center' },
   card: {
     backgroundColor: '#fff', borderRadius: 16, padding: 16, marginTop: 12,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
@@ -264,14 +280,24 @@ const styles = StyleSheet.create({
   tagText: { color: '#fff', fontSize: 12, fontWeight: '500' },
   imageRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
   thumbnail: { width: 100, height: 100, borderRadius: 10, backgroundColor: '#F3F4F6' },
+  // 附件卡片
+  fileRow: { marginTop: 12, gap: 8 },
+  fileCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#F9FAFB', borderRadius: 10, padding: 10,
+    borderWidth: 1, borderColor: '#F3F4F6',
+  },
+  fileIconWrap: { width: 36, height: 36, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+  fileInfo: { flex: 1 },
+  fileCardName: { fontSize: 13, color: '#374151', fontWeight: '500' },
+  fileCardMeta: { fontSize: 11, color: '#9CA3AF', marginTop: 1 },
+  // 底部
   footer: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     marginTop: 14, paddingTop: 12, borderTopWidth: 0.5, borderTopColor: '#F3F4F6',
   },
   footerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  footerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   time: { fontSize: 12, color: '#9CA3AF' },
-  dot: { fontSize: 10, color: '#D1D5DB', marginHorizontal: -2 },
   visBtn: { padding: 4 },
   emptyCard: { backgroundColor: '#fff', borderRadius: 16, padding: 40, marginTop: 12, alignItems: 'center' },
   emptyText: { fontSize: 15, color: '#9CA3AF' },

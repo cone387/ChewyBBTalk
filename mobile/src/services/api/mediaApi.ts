@@ -1,10 +1,10 @@
 import { getAccessToken } from '../auth';
-import { API_BASE_URL } from '../../config';
+import { getApiBaseUrl } from '../../config';
 import type { Attachment } from '../../types';
 
 function transformAttachment(data: any): Attachment {
   let url = data.preview_url || data.url || data.file;
-  if (url && url.startsWith('/')) url = API_BASE_URL + url;
+  if (url && url.startsWith('/')) url = getApiBaseUrl() + url;
 
   let type = data.media_type || data.type || 'file';
   const mimeType = data.mime_type || '';
@@ -37,7 +37,7 @@ export const attachmentApi = {
     } as any);
     formData.append('is_public', 'true');
 
-    const response = await fetch(`${API_BASE_URL}/api/v1/attachments/files/`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/attachments/files/`, {
       method: 'POST',
       headers: {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),

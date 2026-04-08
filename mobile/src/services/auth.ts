@@ -4,7 +4,7 @@
  */
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
-import { API_BASE_URL } from '../config';
+import { getApiBaseUrl } from '../config';
 import type { User } from '../types';
 
 // Web 端 SecureStore 不可用，fallback 到 localStorage
@@ -96,7 +96,7 @@ async function doRefresh(): Promise<boolean> {
   if (!refreshToken) return false;
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/v1/bbtalk/auth/token/refresh/`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/auth/token/refresh/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh: refreshToken }),
@@ -142,7 +142,7 @@ export async function login(
   password: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/v1/bbtalk/auth/token/`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/auth/token/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password }),
@@ -168,7 +168,7 @@ export async function register(data: {
   display_name?: string;
 }): Promise<{ success: boolean; error?: string }> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/v1/bbtalk/auth/register/`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/auth/register/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -192,7 +192,7 @@ export async function logout(): Promise<void> {
   if (refreshToken) {
     const accessToken = await getAccessToken();
     try {
-      await fetch(`${API_BASE_URL}/api/v1/bbtalk/auth/token/blacklist/`, {
+      await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/auth/token/blacklist/`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -248,7 +248,7 @@ async function fetchCurrentUser(): Promise<User | null> {
     const token = await getAccessToken();
     if (!token) return null;
 
-    const response = await fetch(`${API_BASE_URL}/api/v1/bbtalk/user/me/`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/user/me/`, {
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
