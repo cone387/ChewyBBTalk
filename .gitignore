@@ -60,4 +60,5 @@ test-*.png
 # Local certificates
 certs/
 *.pem
-*.key
+*.key.playwright-mcp/
+web-*.png

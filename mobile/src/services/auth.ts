@@ -1,10 +1,27 @@
 /**
  * JWT Token 认证服务 (React Native 版)
- * 使用 expo-secure-store 替代 localStorage
+ * 原生端用 expo-secure-store，Web 端 fallback 到 localStorage
  */
+import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { API_BASE_URL } from '../config';
 import type { User } from '../types';
+
+// Web 端 SecureStore 不可用，fallback 到 localStorage
+const storage = {
+  async getItemAsync(key: string): Promise<string | null> {
+    if (Platform.OS === 'web') return localStorage.getItem(key);
+    return SecureStore.getItemAsync(key);
+  },
+  async setItemAsync(key: string, value: string): Promise<void> {
+    if (Platform.OS === 'web') { localStorage.setItem(key, value); return; }
+    return SecureStore.setItemAsync(key, value);
+  },
+  async deleteItemAsync(key: string): Promise<void> {
+    if (Platform.OS === 'web') { localStorage.removeItem(key); return; }
+    return SecureStore.deleteItemAsync(key);
+  },
+};
 
 interface LoginResponse {
   access: string;
@@ -23,25 +40,25 @@ let refreshPromise: Promise<boolean> | null = null;
 // --- Token 存储 ---
 
 export async function getAccessToken(): Promise<string | null> {
-  return SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
+  return storage.getItemAsync(ACCESS_TOKEN_KEY);
 }
 
 async function getRefreshToken(): Promise<string | null> {
-  return SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+  return storage.getItemAsync(REFRESH_TOKEN_KEY);
 }
 
 async function storeAuth(response: LoginResponse): Promise<void> {
-  await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, response.access);
-  await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, response.refresh);
-  await SecureStore.setItemAsync(USER_INFO_KEY, JSON.stringify(response.user));
+  await storage.setItemAsync(ACCESS_TOKEN_KEY, response.access);
+  await storage.setItemAsync(REFRESH_TOKEN_KEY, response.refresh);
+  await storage.setItemAsync(USER_INFO_KEY, JSON.stringify(response.user));
   currentUser = response.user;
   startTokenRefresh(response.access);
 }
 
 async function clearAuth(): Promise<void> {
-  await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
-  await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
-  await SecureStore.deleteItemAsync(USER_INFO_KEY);
+  await storage.deleteItemAsync(ACCESS_TOKEN_KEY);
+  await storage.deleteItemAsync(REFRESH_TOKEN_KEY);
+  await storage.deleteItemAsync(USER_INFO_KEY);
   currentUser = null;
   if (refreshTimer) {
     clearTimeout(refreshTimer);
@@ -87,9 +104,9 @@ async function doRefresh(): Promise<boolean> {
 
     if (response.ok) {
       const data = await response.json();
-      await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, data.access);
+      await storage.setItemAsync(ACCESS_TOKEN_KEY, data.access);
       if (data.refresh) {
-        await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, data.refresh);
+        await storage.setItemAsync(REFRESH_TOKEN_KEY, data.refresh);
       }
       startTokenRefresh(data.access);
       return true;
@@ -206,7 +223,7 @@ export async function initAuth(): Promise<boolean> {
     }
 
     // 恢复缓存的用户信息
-    const saved = await SecureStore.getItemAsync(USER_INFO_KEY);
+    const saved = await storage.getItemAsync(USER_INFO_KEY);
     if (saved) {
       try { currentUser = JSON.parse(saved); } catch {}
     }
@@ -215,7 +232,7 @@ export async function initAuth(): Promise<boolean> {
     const userInfo = await fetchCurrentUser();
     if (userInfo) {
       currentUser = userInfo;
-      await SecureStore.setItemAsync(USER_INFO_KEY, JSON.stringify(userInfo));
+      await storage.setItemAsync(USER_INFO_KEY, JSON.stringify(userInfo));
       return true;
     }
 

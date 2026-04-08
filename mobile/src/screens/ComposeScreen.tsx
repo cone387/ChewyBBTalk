@@ -1,9 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ScrollView, Alert, ActivityIndicator, Image,
+  Platform, Keyboard, InputAccessoryView,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
+import * as Location from 'expo-location';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { createBBTalkAsync, updateBBTalkAsync } from '../store/slices/bbtalkSlice';
@@ -11,347 +16,262 @@ import { loadTags } from '../store/slices/tagSlice';
 import { attachmentApi } from '../services/api/mediaApi';
 import type { Attachment, BBTalk } from '../types';
 
+const INPUT_ACCESSORY_ID = 'compose-toolbar';
+
 export default function ComposeScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const dispatch = useAppDispatch();
-  const { tags } = useAppSelector(s => s.tag);
+  const { tags: existingTags } = useAppSelector(s => s.tag);
+  const inputRef = useRef<TextInput>(null);
+  const insets = useSafeAreaInsets();
 
   const editItem: BBTalk | undefined = route.params?.editItem;
   const isEditing = !!editItem;
 
-  const [content, setContent] = useState(editItem?.content || '');
-  const [selectedTags, setSelectedTags] = useState<string[]>(
-    editItem?.tags.map(t => t.name) || []
-  );
-  const [visibility, setVisibility] = useState<'public' | 'private'>(
-    (editItem?.visibility as 'public' | 'private') || 'private'
-  );
+  const getInitialContent = () => {
+    if (!editItem) return '';
+    return editItem.tags.map(t => `#${t.name} `).join('') + editItem.content;
+  };
+
+  const [content, setContent] = useState(getInitialContent());
+  const [visibility, setVisibility] = useState<'public' | 'private'>((editItem?.visibility as any) || 'private');
   const [attachments, setAttachments] = useState<Attachment[]>(editItem?.attachments || []);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [newTag, setNewTag] = useState('');
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [showQuickTags, setShowQuickTags] = useState(false);
 
   useEffect(() => {
-    if (tags.length === 0) dispatch(loadTags());
-  }, [dispatch, tags.length]);
+    if (existingTags.length === 0) dispatch(loadTags());
+    const s1 = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
+    const s2 = Keyboard.addListener('keyboardDidHide', () => setKeyboardVisible(false));
+    return () => { s1.remove(); s2.remove(); };
+  }, []);
 
-  const toggleTag = (name: string) => {
-    setSelectedTags(prev =>
-      prev.includes(name) ? prev.filter(t => t !== name) : [...prev, name]
-    );
-  };
+  const parseTags = (text: string): string[] => [...new Set(Array.from(text.matchAll(/(?:^|\s)#([^\s#]+)\s/g)).map(m => m[1]))];
+  const cleanContent = (text: string): string => text.replace(/(?:^|\s)#([^\s#]+)\s/g, ' ').trim();
+  const currentTags = parseTags(content + ' ');
 
-  const addNewTag = () => {
-    const name = newTag.trim();
-    if (name && !selectedTags.includes(name)) {
-      setSelectedTags(prev => [...prev, name]);
-    }
-    setNewTag('');
-  };
-
-  const pickImage = async () => {
+  const pickMedia = async (type: 'images' | 'videos') => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsMultipleSelection: true,
-      quality: 0.8,
+      mediaTypes: type === 'images' ? ['images'] : ['videos'],
+      allowsMultipleSelection: true, quality: 0.8,
     });
-
-    if (!result.canceled && result.assets.length > 0) {
-      setUploading(true);
-      try {
-        for (const asset of result.assets) {
-          const fileName = asset.fileName || `photo_${Date.now()}.jpg`;
-          const mimeType = asset.mimeType || 'image/jpeg';
-          const att = await attachmentApi.upload(asset.uri, fileName, mimeType);
-          setAttachments(prev => [...prev, att]);
-        }
-      } catch (err: any) {
-        Alert.alert('上传失败', err.message || '请重试');
-      } finally {
-        setUploading(false);
+    if (result.canceled || result.assets.length === 0) return;
+    setUploading(true);
+    try {
+      for (const asset of result.assets) {
+        const att = await attachmentApi.upload(asset.uri, asset.fileName || `media_${Date.now()}.${type === 'images' ? 'jpg' : 'mp4'}`, asset.mimeType || (type === 'images' ? 'image/jpeg' : 'video/mp4'));
+        setAttachments(prev => [...prev, att]);
       }
-    }
+    } catch (err: any) { Alert.alert('上传失败', err.message); }
+    finally { setUploading(false); }
   };
 
-  const removeAttachment = (uid: string) => {
-    setAttachments(prev => prev.filter(a => a.uid !== uid));
+  const pickFile = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({ multiple: true });
+      if (result.canceled || !result.assets?.length) return;
+      setUploading(true);
+      for (const asset of result.assets) {
+        const att = await attachmentApi.upload(asset.uri, asset.name, asset.mimeType || 'application/octet-stream');
+        setAttachments(prev => [...prev, att]);
+      }
+    } catch (err: any) { Alert.alert('上传失败', err.message); }
+    finally { setUploading(false); }
+  };
+
+  const getLocation = async () => {
+    if (location) { setLocation(null); return; }
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') { Alert.alert('提示', '需要定位权限'); return; }
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      setLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+    } catch { Alert.alert('定位失败', '请稍后重试'); }
+  };
+
+  const insertTag = (tagName: string) => {
+    const prefix = content.length > 0 && !content.endsWith(' ') && !content.endsWith('\n') ? ' ' : '';
+    setContent(prev => `${prev}${prefix}#${tagName} `);
+    setShowQuickTags(false);
+    inputRef.current?.focus();
   };
 
   const handleSubmit = async () => {
-    if (!content.trim()) {
-      Alert.alert('提示', '请输入内容');
-      return;
-    }
-
-    setSubmitting(true);
+    const cleaned = cleanContent(content);
+    if (!cleaned) { Alert.alert('提示', '请输入内容'); return; }
+    Keyboard.dismiss(); setSubmitting(true);
     try {
+      const context: Record<string, any> = { source: { client: 'ChewyBBTalk Mobile', version: '1.0', platform: 'mobile' } };
+      if (location) context.location = location;
       if (isEditing && editItem) {
-        await dispatch(updateBBTalkAsync({
-          id: editItem.id,
-          data: {
-            content,
-            tags: selectedTags.map(name => ({
-              id: '', name, color: '', sortOrder: 0, bbtalkCount: 0,
-            })),
-            visibility,
-            attachments,
-          },
-        })).unwrap();
+        await dispatch(updateBBTalkAsync({ id: editItem.id, data: { content: cleaned, tags: currentTags.map(name => ({ id: '', name, color: '', sortOrder: 0, bbtalkCount: 0 })), visibility, attachments } })).unwrap();
       } else {
-        await dispatch(createBBTalkAsync({
-          content,
-          tags: selectedTags,
-          visibility,
-          attachments,
-        })).unwrap();
+        await dispatch(createBBTalkAsync({ content: cleaned, tags: currentTags, visibility, attachments, context })).unwrap();
       }
-      dispatch(loadTags());
-      navigation.goBack();
-    } catch (err: any) {
-      Alert.alert('失败', err.message || '请重试');
-    } finally {
-      setSubmitting(false);
-    }
+      dispatch(loadTags()); navigation.goBack();
+    } catch (err: any) { Alert.alert('失败', err.message || '请重试'); }
+    finally { setSubmitting(false); }
   };
 
-  return (
-    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
-      {/* 内容输入 */}
-      <TextInput
-        style={styles.textInput}
-        placeholder="分享你的想法..."
-        value={content}
-        onChangeText={setContent}
-        multiline
-        textAlignVertical="top"
-        autoFocus={!isEditing}
-      />
+  const canSubmit = cleanContent(content).length > 0 && !submitting && !uploading;
 
-      {/* 附件预览 */}
-      {attachments.length > 0 && (
-        <View style={styles.attachmentRow}>
-          {attachments.filter(a => a.type === 'image').map(att => (
-            <View key={att.uid} style={styles.attachmentItem}>
-              <Image source={{ uri: att.url }} style={styles.attachmentImage} />
-              <TouchableOpacity
-                style={styles.removeBtn}
-                onPress={() => removeAttachment(att.uid)}
-              >
-                <Text style={styles.removeBtnText}>✕</Text>
+  const renderToolbarContent = () => (
+    <>
+      {/* 快速标签展开区 - 紧贴工具栏上方 */}
+      {showQuickTags && existingTags.length > 0 && (
+        <View style={styles.quickTagBar}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 12, gap: 8 }}>
+            {existingTags.filter(t => !currentTags.includes(t.name)).slice(0, 15).map(tag => (
+              <TouchableOpacity key={tag.id} style={styles.quickTagChip} onPress={() => insertTag(tag.name)}>
+                <Text style={styles.quickTagText}>#{tag.name}</Text>
               </TouchableOpacity>
-            </View>
-          ))}
+            ))}
+          </ScrollView>
         </View>
       )}
-
-      {/* 添加图片 */}
-      <TouchableOpacity style={styles.addImageBtn} onPress={pickImage} disabled={uploading}>
-        {uploading ? (
-          <ActivityIndicator size="small" />
-        ) : (
-          <Text style={styles.addImageText}>📷 添加图片</Text>
-        )}
-      </TouchableOpacity>
-
-      {/* 标签选择 */}
-      <Text style={styles.sectionTitle}>标签</Text>
-      <View style={styles.tagRow}>
-        {tags.map(tag => (
-          <TouchableOpacity
-            key={tag.id}
-            style={[styles.tagChip, selectedTags.includes(tag.name) && styles.tagChipActive]}
-            onPress={() => toggleTag(tag.name)}
-          >
-            <Text style={[
-              styles.tagChipText,
-              selectedTags.includes(tag.name) && styles.tagChipTextActive,
-            ]}>
-              {tag.name}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* 新标签输入 */}
-      <View style={styles.newTagRow}>
-        <TextInput
-          style={styles.newTagInput}
-          placeholder="添加新标签"
-          value={newTag}
-          onChangeText={setNewTag}
-          onSubmitEditing={addNewTag}
-          returnKeyType="done"
-        />
-        {newTag.trim() ? (
-          <TouchableOpacity style={styles.newTagBtn} onPress={addNewTag}>
-            <Text style={styles.newTagBtnText}>添加</Text>
-          </TouchableOpacity>
-        ) : null}
-      </View>
-
-      {/* 已选新标签 */}
-      {selectedTags.filter(name => !tags.some(t => t.name === name)).length > 0 && (
-        <View style={[styles.tagRow, { marginTop: 8 }]}>
-          {selectedTags.filter(name => !tags.some(t => t.name === name)).map(name => (
-            <TouchableOpacity
-              key={name}
-              style={[styles.tagChip, styles.tagChipActive]}
-              onPress={() => toggleTag(name)}
-            >
-              <Text style={[styles.tagChipText, styles.tagChipTextActive]}>{name} ✕</Text>
-            </TouchableOpacity>
-          ))}
+      {/* 定位信息条 */}
+      {location && (
+        <View style={styles.locationBar}>
+          <Ionicons name="location" size={14} color="#10B981" />
+          <Text style={styles.locationText}>{location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}</Text>
+          <TouchableOpacity onPress={() => setLocation(null)}><Ionicons name="close-circle" size={16} color="#C4C4C4" /></TouchableOpacity>
         </View>
       )}
-
-      {/* 可见性 */}
-      <Text style={styles.sectionTitle}>可见性</Text>
-      <View style={styles.visibilityRow}>
-        <TouchableOpacity
-          style={[styles.visibilityBtn, visibility === 'private' && styles.visibilityBtnActive]}
-          onPress={() => setVisibility('private')}
-        >
-          <Text style={[styles.visibilityText, visibility === 'private' && styles.visibilityTextActive]}>
-            🔒 仅自己
-          </Text>
+      {/* 工具栏 */}
+      <View style={styles.toolbar}>
+        <TouchableOpacity style={styles.toolBtn} onPress={() => pickMedia('images')}><Ionicons name="image-outline" size={22} color="#6B7280" /></TouchableOpacity>
+        <TouchableOpacity style={styles.toolBtn} onPress={() => pickMedia('videos')}><Ionicons name="videocam-outline" size={22} color="#6B7280" /></TouchableOpacity>
+        <TouchableOpacity style={styles.toolBtn} onPress={pickFile}><Ionicons name="attach-outline" size={22} color="#6B7280" /></TouchableOpacity>
+        <TouchableOpacity style={styles.toolBtn} onPress={() => setShowQuickTags(!showQuickTags)}><Ionicons name="pricetag-outline" size={20} color={showQuickTags ? '#2563EB' : '#6B7280'} /></TouchableOpacity>
+        <TouchableOpacity style={styles.toolBtn} onPress={getLocation}><Ionicons name="location-outline" size={20} color={location ? '#10B981' : '#6B7280'} /></TouchableOpacity>
+        <TouchableOpacity style={styles.toolBtn} onPress={() => setVisibility(v => v === 'private' ? 'public' : 'private')}>
+          <Ionicons name={visibility === 'private' ? 'lock-closed-outline' : 'globe-outline'} size={20} color={visibility === 'public' ? '#2563EB' : '#6B7280'} />
         </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.visibilityBtn, visibility === 'public' && styles.visibilityBtnActive]}
-          onPress={() => setVisibility('public')}
-        >
-          <Text style={[styles.visibilityText, visibility === 'public' && styles.visibilityTextActive]}>
-            🌐 公开
-          </Text>
+        <View style={{ flex: 1 }} />
+        {uploading && <ActivityIndicator size="small" color="#6B7280" style={{ marginRight: 4 }} />}
+        <Text style={styles.charCount}>{cleanContent(content).length}</Text>
+      </View>
+    </>
+  );
+
+  return (
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()}><Text style={styles.cancelText}>取消</Text></TouchableOpacity>
+        <Text style={styles.headerTitle}>{isEditing ? '编辑' : '发碎碎念'}</Text>
+        <TouchableOpacity style={[styles.publishBtn, !canSubmit && { opacity: 0.4 }]} onPress={handleSubmit} disabled={!canSubmit}>
+          {submitting ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.publishText}>{isEditing ? '更新' : '发布'}</Text>}
         </TouchableOpacity>
       </View>
 
-      {/* 发布按钮 */}
-      <TouchableOpacity
-        style={[styles.submitBtn, submitting && { opacity: 0.6 }]}
-        onPress={handleSubmit}
-        disabled={submitting || !content.trim()}
-      >
-        {submitting ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.submitText}>{isEditing ? '更新' : '发布'}</Text>
-        )}
-      </TouchableOpacity>
+      {/* 内容滚动区 - flex: 1 占满中间 */}
+      <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive">
+        <TextInput ref={inputRef} style={styles.textInput}
+          placeholder="你要BB什么？输入 # 添加标签" placeholderTextColor="#C4C4C4"
+          value={content} onChangeText={setContent} multiline textAlignVertical="top" autoFocus={!isEditing}
+          inputAccessoryViewID={Platform.OS === 'ios' ? INPUT_ACCESSORY_ID : undefined} />
 
-      <View style={{ height: 40 }} />
-    </ScrollView>
+        {currentTags.length > 0 && (
+          <View style={styles.parsedTags}>
+            {currentTags.map(tag => (
+              <View key={tag} style={styles.parsedTag}>
+                <Ionicons name="pricetag" size={11} color="#2563EB" />
+                <Text style={styles.parsedTagText}>{tag}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {attachments.length > 0 && (
+          <View style={styles.attachmentGrid}>
+            {attachments.map(att => (
+              <View key={att.uid} style={styles.attachmentItem}>
+                {att.type === 'image' ? (
+                  <Image source={{ uri: att.url }} style={styles.attachmentImage} resizeMode="cover" />
+                ) : (
+                  <View style={styles.filePlaceholder}>
+                    <Ionicons name={att.type === 'video' ? 'videocam' : att.type === 'audio' ? 'musical-notes' : 'document'} size={24} color="#9CA3AF" />
+                    <Text style={styles.fileName} numberOfLines={1}>{att.originalFilename || att.filename || '附件'}</Text>
+                  </View>
+                )}
+                <TouchableOpacity style={styles.removeBtn} onPress={() => setAttachments(prev => prev.filter(a => a.uid !== att.uid))}>
+                  <Ionicons name="close" size={14} color="#fff" />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        )}
+      </ScrollView>
+
+      {/* 底部区域：快速标签 + 定位 + 工具栏，紧贴底部，统一背景色 */}
+      {!keyboardVisible && <View style={[styles.bottomArea, { paddingBottom: insets.bottom || 12 }]}>{renderToolbarContent()}</View>}
+
+      {/* iOS 键盘上方 */}
+      {Platform.OS === 'ios' && (
+        <InputAccessoryView nativeID={INPUT_ACCESSORY_ID}>{renderToolbarContent()}</InputAccessoryView>
+      )}
+    </View>
   );
 }
 
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', padding: 16 },
-  textInput: {
-    fontSize: 16,
-    lineHeight: 24,
-    minHeight: 160,
-    color: '#1F2937',
-    padding: 0,
-    marginBottom: 16,
+  container: { flex: 1, backgroundColor: '#FAFAFA' },
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: '#F3F4F6',
+    backgroundColor: '#fff',
   },
-  attachmentRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 12,
+  cancelText: { fontSize: 16, color: '#6B7280' },
+  headerTitle: { fontSize: 17, fontWeight: '600', color: '#111827' },
+  publishBtn: { backgroundColor: '#2563EB', borderRadius: 20, paddingHorizontal: 18, paddingVertical: 8 },
+  publishText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  scroll: { flex: 1, backgroundColor: '#fff' },
+  bottomArea: { backgroundColor: '#FAFAFA', borderTopWidth: 0.5, borderTopColor: '#E5E7EB' },  textInput: { fontSize: 17, lineHeight: 28, color: '#1F2937', paddingHorizontal: 20, paddingTop: 16, minHeight: 180 },
+  parsedTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 20, paddingBottom: 8 },
+  parsedTag: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: '#EFF6FF', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5,
   },
+  parsedTagText: { color: '#2563EB', fontSize: 13, fontWeight: '500' },
+  attachmentGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 20, paddingBottom: 12 },
   attachmentItem: { position: 'relative' },
-  attachmentImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
-    backgroundColor: '#F3F4F6',
+  attachmentImage: { width: 80, height: 80, borderRadius: 10, backgroundColor: '#F3F4F6' },
+  filePlaceholder: {
+    width: 80, height: 80, borderRadius: 10, backgroundColor: '#F9FAFB',
+    borderWidth: 1, borderColor: '#E5E7EB', justifyContent: 'center', alignItems: 'center', padding: 4,
   },
+  fileName: { fontSize: 9, color: '#9CA3AF', marginTop: 2, textAlign: 'center' },
   removeBtn: {
-    position: 'absolute',
-    top: -6,
-    right: -6,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#EF4444',
-    justifyContent: 'center',
-    alignItems: 'center',
+    position: 'absolute', top: -6, right: -6, width: 22, height: 22, borderRadius: 11,
+    backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center',
   },
-  removeBtnText: { color: '#fff', fontSize: 12, fontWeight: '700' },
-  addImageBtn: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: '#F3F4F6',
-    borderRadius: 12,
-    alignItems: 'center',
-    marginBottom: 20,
+  // 快速标签 - 紧贴工具栏上方
+  quickTagBar: {
+    backgroundColor: '#FAFAFA',
+    paddingVertical: 8,
   },
-  addImageText: { fontSize: 14, color: '#374151' },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 10,
+  quickTagChip: {
+    backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB',
+    borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6,
   },
-  tagRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 12,
+  quickTagText: { fontSize: 13, color: '#6B7280' },
+  // 定位条 - 紧贴工具栏上方
+  locationBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#FAFAFA',
   },
-  tagChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
-    backgroundColor: '#F3F4F6',
+  locationText: { flex: 1, fontSize: 12, color: '#059669' },
+  // 工具栏
+  toolbar: {
+    flexDirection: 'row', alignItems: 'center', gap: 2,
+    paddingHorizontal: 8, paddingVertical: 8,
+    backgroundColor: '#FAFAFA',
   },
-  tagChipActive: { backgroundColor: '#4F46E5' },
-  tagChipText: { fontSize: 13, color: '#374151', fontWeight: '500' },
-  tagChipTextActive: { color: '#fff' },
-  newTagRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 20,
-  },
-  newTagInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 14,
-  },
-  newTagBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: '#4F46E5',
-    borderRadius: 10,
-  },
-  newTagBtnText: { color: '#fff', fontSize: 14, fontWeight: '500' },
-  visibilityRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 24,
-  },
-  visibilityBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-  },
-  visibilityBtnActive: { backgroundColor: '#4F46E5' },
-  visibilityText: { fontSize: 14, color: '#374151', fontWeight: '500' },
-  visibilityTextActive: { color: '#fff' },
-  submitBtn: {
-    backgroundColor: '#4F46E5',
-    borderRadius: 14,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  submitText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  toolBtn: { padding: 8 },
+  charCount: { fontSize: 13, color: '#D1D5DB', marginRight: 4 },
 });
