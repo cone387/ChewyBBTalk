@@ -24,3 +24,13 @@ build-backend = "hatchling.build"
 
 [tool.hatch.metadata]
 allow-direct-references = true
+
+[project.scripts]
+# 用法: uv run dev / uv run migrate / uv run init ...
+dev = "cli:dev"
+migrate = "cli:migrate"
+init = "cli:init"
+makemigrations = "cli:makemigrations"
+collectstatic = "cli:collectstatic"
+test = "cli:test"
+shell = "cli:shell"
