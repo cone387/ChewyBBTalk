@@ -89,25 +89,32 @@ export default function DataManagementScreen() {
       const picked = result.assets[0];
       setImporting(true);
 
-      // 根据文件扩展名判断 MIME type（DocumentPicker 有时返回不准确的 mimeType）
       let mimeType = picked.mimeType || 'application/octet-stream';
       if (picked.name.endsWith('.json')) mimeType = 'application/json';
       else if (picked.name.endsWith('.zip')) mimeType = 'application/zip';
 
       const token = await getAccessToken();
-      const formData = new FormData();
-      formData.append('file', {
-        uri: picked.uri,
-        name: picked.name,
-        type: mimeType,
-      } as any);
 
-      const res = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/data/import/`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
+      // 用 XMLHttpRequest 确保二进制文件正确上传
+      const uploadResult = await new Promise<{ success: boolean; data: any }>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `${getApiBaseUrl()}/api/v1/bbtalk/data/import/`);
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        xhr.onload = () => {
+          try {
+            const data = JSON.parse(xhr.responseText);
+            resolve({ success: xhr.status < 300, data });
+          } catch {
+            reject(new Error(`服务器响应异常: ${xhr.status}`));
+          }
+        };
+        xhr.onerror = () => reject(new Error('网络错误'));
+        const formData = new FormData();
+        formData.append('file', { uri: picked.uri, name: picked.name, type: mimeType } as any);
+        xhr.send(formData);
       });
-      const data = await res.json();
+
+      const data = uploadResult.data;
       if (data.success) {
         const s = data.stats;
         Alert.alert('导入成功',
