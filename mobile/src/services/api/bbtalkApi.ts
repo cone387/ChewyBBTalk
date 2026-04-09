@@ -32,6 +32,7 @@ function transformBBTalk(data: any): BBTalk {
     })),
     attachments: (data.attachments || []).map(transformAttachment),
     context: data.context || {},
+    isPinned: data.is_pinned || false,
     createdAt: data.create_time,
     updatedAt: data.update_time,
   };
@@ -107,5 +108,14 @@ export const bbtalkApi = {
       count: data.count, next: data.next, previous: data.previous,
       results: data.results.map(transformBBTalk),
     };
+  },
+
+  async togglePin(uid: string): Promise<BBTalk> {
+    const data = await apiClient.post<any>(`/api/v1/bbtalk/${uid}/pin/`);
+    return transformBBTalk(data);
+  },
+
+  async getDateCounts(params?: { year?: number; month?: number }): Promise<{ date: string; count: number }[]> {
+    return apiClient.get<{ date: string; count: number }[]>('/api/v1/bbtalk/date-counts/', params);
   },
 };

@@ -23,6 +23,7 @@ export interface BBTalk {
   tags: Tag[];
   attachments: Attachment[];
   context?: Record<string, any>;
+  isPinned?: boolean;
   createdAt: string;
   updatedAt: string;
 }

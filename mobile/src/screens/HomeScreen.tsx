@@ -11,7 +11,7 @@ import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { loadBBTalks, loadMoreBBTalks, deleteBBTalkAsync, updateBBTalkAsync } from '../store/slices/bbtalkSlice';
+import { loadBBTalks, loadMoreBBTalks, deleteBBTalkAsync, updateBBTalkAsync, togglePinAsync } from '../store/slices/bbtalkSlice';
 import { loadTags } from '../store/slices/tagSlice';
 import type { BBTalk, Attachment } from '../types';
 
@@ -199,11 +199,13 @@ export default function HomeScreen({ selectedTag, onOpenDrawer, onLockChange }: 
   }, [dispatch, loadingMore, hasMore, isLoading, selectedTag, tags]);
 
   const showMenu = (item: BBTalk) => {
+    const pinLabel = item.isPinned ? '取消置顶' : '置顶';
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
-        { options: ['编辑', '置顶', '删除', '取消'], destructiveButtonIndex: 2, cancelButtonIndex: 3 },
+        { options: ['编辑', pinLabel, '删除', '取消'], destructiveButtonIndex: 2, cancelButtonIndex: 3 },
         (idx) => {
           if (idx === 0) navigation.navigate('Compose', { editItem: item });
+          if (idx === 1) dispatch(togglePinAsync(item.id));
           if (idx === 2) Alert.alert('确认删除', '确定要删除吗？', [
             { text: '取消', style: 'cancel' },
             { text: '删除', style: 'destructive', onPress: () => dispatch(deleteBBTalkAsync(item.id)) },
@@ -213,7 +215,7 @@ export default function HomeScreen({ selectedTag, onOpenDrawer, onLockChange }: 
     } else {
       Alert.alert('操作', '', [
         { text: '编辑', onPress: () => navigation.navigate('Compose', { editItem: item }) },
-        { text: '置顶' },
+        { text: pinLabel, onPress: () => dispatch(togglePinAsync(item.id)) },
         { text: '删除', style: 'destructive', onPress: () => dispatch(deleteBBTalkAsync(item.id)) },
         { text: '取消', style: 'cancel' },
       ]);
@@ -299,6 +301,13 @@ export default function HomeScreen({ selectedTag, onOpenDrawer, onLockChange }: 
           onPress={() => showMenu(item)}>
           <Ionicons name="ellipsis-horizontal" size={18} color="#C4C4C4" />
         </TouchableOpacity>
+
+        {item.isPinned && (
+          <View style={styles.pinBadge}>
+            <Ionicons name="pin" size={12} color="#F59E0B" />
+            <Text style={styles.pinText}>置顶</Text>
+          </View>
+        )}
 
         <Markdown style={mdStyles}>{item.content}</Markdown>
 
@@ -504,6 +513,11 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
   },
   moreBtn: { position: 'absolute', top: 14, right: 14, zIndex: 10, padding: 2 },
+  pinBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    marginBottom: 6, alignSelf: 'flex-start',
+  },
+  pinText: { fontSize: 11, color: '#F59E0B', fontWeight: '600' },
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12 },
   tag: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
   tagText: { color: '#fff', fontSize: 12, fontWeight: '500' },

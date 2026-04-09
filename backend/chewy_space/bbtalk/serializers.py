@@ -67,7 +67,7 @@ class BBTalkSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = BBTalk
-        fields = ('uid', 'user', 'post_tags', 'content', 'visibility', 'context', 'tags', 'attachments', 'create_time', 'update_time')
+        fields = ('uid', 'user', 'post_tags', 'content', 'visibility', 'context', 'tags', 'attachments', 'is_pinned', 'create_time', 'update_time')
         read_only_fields = ('uid', 'user', 'create_time', 'update_time')
 
 

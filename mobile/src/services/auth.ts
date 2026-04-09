@@ -268,6 +268,11 @@ export function getCurrentUser(): User | null {
   return currentUser;
 }
 
+export async function updateCachedUser(user: User): Promise<void> {
+  currentUser = user;
+  await storage.setItemAsync(USER_INFO_KEY, JSON.stringify(user));
+}
+
 export async function isAuthenticated(): Promise<boolean> {
   return (await getAccessToken()) !== null;
 }

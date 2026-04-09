@@ -7,6 +7,7 @@ import { Provider } from 'react-redux';
 import { store } from './src/store';
 import { initAuth } from './src/services/auth';
 import { loadApiBaseUrl } from './src/config';
+import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 
 import LoginScreen from './src/screens/LoginScreen';
 import HomeScreen from './src/screens/HomeScreen';
@@ -15,6 +16,8 @@ import SettingsScreen from './src/screens/SettingsScreen';
 import PrivacySettingsScreen from './src/screens/PrivacySettingsScreen';
 import StorageSettingsScreen from './src/screens/StorageSettingsScreen';
 import DataManagementScreen from './src/screens/DataManagementScreen';
+import ProfileEditScreen from './src/screens/ProfileEditScreen';
+import ThemeSettingsScreen from './src/screens/ThemeSettingsScreen';
 import DrawerContent from './src/screens/DrawerContent';
 
 const Stack = createNativeStackNavigator();
@@ -48,7 +51,6 @@ function HomeWithDrawer({ onLogout }: { onLogout: () => void }) {
     ]).start(() => setDrawerVisible(false));
   }, []);
 
-  // Edge swipe to open drawer
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: (evt) => {
@@ -90,27 +92,50 @@ function HomeWithDrawer({ onLogout }: { onLogout: () => void }) {
   );
 }
 
-function AuthenticatedStack({ onLogout }: { onLogout: () => void }) {
+function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
+  isAuthenticated: boolean; onLoginSuccess: () => void; onLogout: () => void;
+}) {
+  const { theme } = useTheme();
+  const c = theme.colors;
+  const headerOptions = {
+    headerStyle: { backgroundColor: c.surfaceSecondary },
+    headerShadowVisible: false,
+    headerTintColor: c.text,
+    headerTitleStyle: { fontSize: 18, fontWeight: '600' as const },
+    headerBackTitle: '返回',
+  };
+
   return (
-    <Stack.Navigator>
-      <Stack.Screen name="Home" options={{ headerShown: false }}>
-        {() => <HomeWithDrawer onLogout={onLogout} />}
-      </Stack.Screen>
-      <Stack.Screen name="Compose" component={ComposeScreen}
-        options={{ headerShown: false, presentation: 'modal', animation: 'slide_from_bottom', gestureEnabled: true }} />
-      <Stack.Screen name="Settings" options={{
-        title: '设置', headerStyle: { backgroundColor: '#F0F4FF' },
-        headerShadowVisible: false, headerTitleStyle: { fontSize: 18, fontWeight: '600' }, headerBackTitle: '返回',
-      }}>
-        {() => <SettingsScreen onLogout={onLogout} />}
-      </Stack.Screen>
-      <Stack.Screen name="PrivacySettings" component={PrivacySettingsScreen}
-        options={{ title: '防窥设置', headerStyle: { backgroundColor: '#F0F4FF' }, headerShadowVisible: false, headerBackTitle: '返回' }} />
-      <Stack.Screen name="StorageSettings" component={StorageSettingsScreen}
-        options={{ title: '存储设置', headerStyle: { backgroundColor: '#F0F4FF' }, headerShadowVisible: false, headerBackTitle: '返回' }} />
-      <Stack.Screen name="DataManagement" component={DataManagementScreen}
-        options={{ title: '数据管理', headerStyle: { backgroundColor: '#F0F4FF' }, headerShadowVisible: false, headerBackTitle: '返回' }} />
-    </Stack.Navigator>
+    <NavigationContainer>
+      {isAuthenticated ? (
+        <Stack.Navigator>
+          <Stack.Screen name="Home" options={{ headerShown: false }}>
+            {() => <HomeWithDrawer onLogout={onLogout} />}
+          </Stack.Screen>
+          <Stack.Screen name="Compose" component={ComposeScreen}
+            options={{ headerShown: false, presentation: 'modal', animation: 'slide_from_bottom', gestureEnabled: true }} />
+          <Stack.Screen name="Settings" options={{ title: '设置', ...headerOptions }}>
+            {() => <SettingsScreen onLogout={onLogout} />}
+          </Stack.Screen>
+          <Stack.Screen name="ProfileEdit" component={ProfileEditScreen}
+            options={{ title: '编辑个人信息', ...headerOptions }} />
+          <Stack.Screen name="ThemeSettings" component={ThemeSettingsScreen}
+            options={{ title: '主题设置', ...headerOptions }} />
+          <Stack.Screen name="PrivacySettings" component={PrivacySettingsScreen}
+            options={{ title: '防窥设置', ...headerOptions }} />
+          <Stack.Screen name="StorageSettings" component={StorageSettingsScreen}
+            options={{ title: '存储设置', ...headerOptions }} />
+          <Stack.Screen name="DataManagement" component={DataManagementScreen}
+            options={{ title: '数据管理', ...headerOptions }} />
+        </Stack.Navigator>
+      ) : (
+        <Stack.Navigator>
+          <Stack.Screen name="Login" options={{ headerShown: false }}>
+            {() => <LoginScreen onLoginSuccess={onLoginSuccess} />}
+          </Stack.Screen>
+        </Stack.Navigator>
+      )}
+    </NavigationContainer>
   );
 }
 
@@ -126,11 +151,9 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <Provider store={store}>
-        <NavigationContainer>
-          {isAuthenticated ? <AuthenticatedStack onLogout={handleLogout} /> : (
-            <Stack.Navigator><Stack.Screen name="Login" options={{ headerShown: false }}>{() => <LoginScreen onLoginSuccess={handleLoginSuccess} />}</Stack.Screen></Stack.Navigator>
-          )}
-        </NavigationContainer>
+        <ThemeProvider>
+          <ThemedNavigator isAuthenticated={isAuthenticated} onLoginSuccess={handleLoginSuccess} onLogout={handleLogout} />
+        </ThemeProvider>
       </Provider>
     </SafeAreaProvider>
   );

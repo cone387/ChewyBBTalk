@@ -353,12 +353,17 @@ class BBTalk(BaseModel):
         help_text="存储 GPS/天气/设备等上下文信息",
         verbose_name="上下文信息"
     )
+    is_pinned = models.BooleanField(
+        default=False,
+        verbose_name="是否置顶",
+        db_index=True,
+    )
 
     def __str__(self):
         return self.content[:20]
 
     class Meta:
-        ordering = ["-update_time"]
+        ordering = ["-is_pinned", "-update_time"]
         verbose_name = verbose_name_plural = "碎碎念"
         db_table = "cb_bbtalks"
         indexes = [

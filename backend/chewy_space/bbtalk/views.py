@@ -13,7 +13,9 @@ from .storage_migration import StorageMigrationService
 from drf_spectacular.utils import extend_schema
 from django.shortcuts import get_object_or_404
 from django.db.models import Count
+from django.db.models.functions import TruncDate
 from django.contrib.auth import login as django_login, logout as django_logout
+from rest_framework.decorators import action
 
 
 @extend_schema(
@@ -230,10 +232,15 @@ def register_view(request):
         200: UserSerializer
     }
 )
-@api_view(['GET'])
+@api_view(['GET', 'PATCH'])
 @permission_classes_decorator([permissions.IsAuthenticated])
 def get_current_user(request):
-    """获取当前登录用户信息"""
+    """获取/更新当前登录用户信息"""
+    if request.method == 'PATCH':
+        serializer = UserSerializer(request.user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
     serializer = UserSerializer(request.user)
     return Response(serializer.data)
 
@@ -259,7 +266,36 @@ class BBTalkViewSet(viewsets.ModelViewSet):
             user=user
         ).prefetch_related(
             'tags'  # 预加载标签
-        ).order_by('-update_time')
+        ).order_by('-is_pinned', '-update_time')
+
+    @action(detail=True, methods=['post'], url_path='pin')
+    def toggle_pin(self, request, uid=None):
+        """切换置顶状态"""
+        bbtalk = self.get_object()
+        bbtalk.is_pinned = not bbtalk.is_pinned
+        bbtalk.save(update_fields=['is_pinned'])
+        return Response(BBTalkSerializer(bbtalk).data)
+
+    @action(detail=False, methods=['get'], url_path='date-counts')
+    def date_counts(self, request):
+        """按日期聚合 BBTalk 数量，用于日历展示"""
+        user = request.user
+        year = request.query_params.get('year')
+        month = request.query_params.get('month')
+        qs = BBTalk.objects.filter(user=user)
+        if year:
+            qs = qs.filter(create_time__year=int(year))
+        if month:
+            qs = qs.filter(create_time__month=int(month))
+        counts = qs.annotate(
+            date=TruncDate('create_time')
+        ).values('date').annotate(
+            count=Count('id')
+        ).order_by('date')
+        return Response([
+            {'date': item['date'].isoformat(), 'count': item['count']}
+            for item in counts
+        ])
 
 
 class TagViewSet(viewsets.ModelViewSet):

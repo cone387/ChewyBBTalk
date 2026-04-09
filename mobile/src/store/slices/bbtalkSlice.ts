@@ -92,6 +92,17 @@ export const deleteBBTalkAsync = createAsyncThunk(
   }
 );
 
+export const togglePinAsync = createAsyncThunk(
+  'bbtalk/togglePin',
+  async (id: string, { rejectWithValue }) => {
+    try {
+      return await bbtalkApi.togglePin(id);
+    } catch (error: any) {
+      return rejectWithValue(error.message || '置顶操作失败');
+    }
+  }
+);
+
 const bbtalkSlice = createSlice({
   name: 'bbtalk',
   initialState,
@@ -132,6 +143,16 @@ const bbtalkSlice = createSlice({
       .addCase(deleteBBTalkAsync.fulfilled, (state, action) => {
         state.bbtalks = state.bbtalks.filter(b => b.id !== action.payload);
         state.totalCount -= 1;
+      })
+      .addCase(togglePinAsync.fulfilled, (state, action) => {
+        const idx = state.bbtalks.findIndex(b => b.id === action.payload.id);
+        if (idx !== -1) state.bbtalks[idx] = action.payload;
+        // Re-sort: pinned first, then by updatedAt
+        state.bbtalks.sort((a, b) => {
+          if (a.isPinned && !b.isPinned) return -1;
+          if (!a.isPinned && b.isPinned) return 1;
+          return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+        });
       });
   },
 });
