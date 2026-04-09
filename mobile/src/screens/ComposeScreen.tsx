@@ -24,7 +24,6 @@ export default function ComposeScreen() {
   const dispatch = useAppDispatch();
   const { tags: existingTags } = useAppSelector(s => s.tag);
   const inputRef = useRef<TextInput>(null);
-  const scrollRef = useRef<ScrollView>(null);
   const insets = useSafeAreaInsets();
 
   const editItem: BBTalk | undefined = route.params?.editItem;
@@ -103,34 +102,44 @@ export default function ComposeScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* 中间内容区 - 占满 header 和工具栏之间 */}
-      <View style={{ flex: 1 }}>
-        <ScrollView ref={scrollRef} style={styles.scroll} keyboardShouldPersistTaps="always"
-          onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}>
-          <TextInput ref={inputRef} style={styles.textInput}
-            placeholder="你要BB什么？支持 Markdown，输入 # 添加标签" placeholderTextColor="#C4C4C4"
-            value={content} onChangeText={setContent} multiline textAlignVertical="top" autoFocus={!isEditing} />
-
-          {currentTags.length > 0 && (
-            <View style={styles.parsedTags}>{currentTags.map(tag => (
-              <View key={tag} style={styles.parsedTag}><Ionicons name="pricetag" size={11} color="#2563EB" /><Text style={styles.parsedTagText}>{tag}</Text></View>
-            ))}</View>
-          )}
-
-          {attachments.length > 0 && (
-            <View style={styles.attachmentGrid}>{attachments.map(att => (
-              <View key={att.uid} style={styles.attachmentItem}>
-                {att.type === 'image' ? <Image source={{ uri: att.url }} style={styles.attachmentImage} resizeMode="cover" /> : (
-                  <View style={styles.filePlaceholder}><Ionicons name={att.type === 'video' ? 'videocam' : 'document'} size={24} color="#9CA3AF" /><Text style={styles.fileName} numberOfLines={1}>{att.originalFilename || '附件'}</Text></View>
-                )}
-                <TouchableOpacity style={styles.removeBtn} onPress={() => setAttachments(p => p.filter(a => a.uid !== att.uid))}><Ionicons name="close" size={14} color="#fff" /></TouchableOpacity>
-              </View>
-            ))}</View>
-          )}
-        </ScrollView>
+      {/* 编辑区 - TextInput 自己滚动，填满可用空间 */}
+      <View style={styles.editorArea}>
+        <TextInput ref={inputRef} style={styles.textInput}
+          placeholder="你要BB什么？支持 Markdown，输入 # 添加标签" placeholderTextColor="#C4C4C4"
+          value={content} onChangeText={setContent} multiline textAlignVertical="top" autoFocus={!isEditing}
+          scrollEnabled={true} />
       </View>
 
-      {/* 工具栏 - 一行横向滚动 */}
+      {/* 附件预览 - 编辑区和工具栏之间 */}
+      {attachments.length > 0 && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always"
+          style={styles.attachmentBar} contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}>
+          {attachments.map(att => (
+            <View key={att.uid} style={styles.attachmentItem}>
+              {att.type === 'image' ? <Image source={{ uri: att.url }} style={styles.attachmentImage} resizeMode="cover" /> : (
+                <View style={styles.filePlaceholder}><Ionicons name={att.type === 'video' ? 'videocam' : 'document'} size={20} color="#9CA3AF" /><Text style={styles.fileName} numberOfLines={1}>{att.originalFilename || '附件'}</Text></View>
+              )}
+              <TouchableOpacity style={styles.removeBtn} onPress={() => setAttachments(p => p.filter(a => a.uid !== att.uid))}><Ionicons name="close" size={12} color="#fff" /></TouchableOpacity>
+            </View>
+          ))}
+        </ScrollView>
+      )}
+
+      {/* 标签栏 + 字数 - 工具栏上方 */}
+      <View style={styles.tagsBar}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always"
+          style={{ flex: 1 }} contentContainerStyle={{ paddingLeft: 12, gap: 6 }}>
+          {currentTags.map(tag => (
+            <View key={tag} style={styles.parsedTag}><Ionicons name="pricetag" size={11} color="#2563EB" /><Text style={styles.parsedTagText}>{tag}</Text></View>
+          ))}
+        </ScrollView>
+        <View style={styles.charCountWrap}>
+          {uploading && <ActivityIndicator size="small" color="#6B7280" />}
+          <Text style={styles.charCount}>{cleanContent(content).length}</Text>
+        </View>
+      </View>
+
+      {/* 工具栏 */}
       <View style={[styles.toolbarWrap, { paddingBottom: bottomPad, marginBottom: keyboardH }]}>
         {showQuickTags && existingTags.length > 0 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always" style={styles.quickTagBar} contentContainerStyle={{ paddingHorizontal: 12, gap: 8 }}>
@@ -143,29 +152,25 @@ export default function ComposeScreen() {
           <View style={styles.locationBar}><Ionicons name="location" size={14} color="#10B981" /><Text style={styles.locationText}>{location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}</Text>
             <TouchableOpacity onPress={() => setLocation(null)}><Ionicons name="close-circle" size={16} color="#C4C4C4" /></TouchableOpacity></View>
         )}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always"
-          contentContainerStyle={styles.toolbarRow}>
-          {/* 媒体工具 */}
-          <TouchableOpacity style={styles.toolBtn} onPress={() => pickMedia('images')}><Ionicons name="image-outline" size={21} color="#6B7280" /></TouchableOpacity>
-          <TouchableOpacity style={styles.toolBtn} onPress={() => pickMedia('videos')}><Ionicons name="videocam-outline" size={21} color="#6B7280" /></TouchableOpacity>
-          <TouchableOpacity style={styles.toolBtn} onPress={pickFile}><Ionicons name="attach-outline" size={21} color="#6B7280" /></TouchableOpacity>
-          <TouchableOpacity style={styles.toolBtn} onPress={() => { setShowQuickTags(!showQuickTags); setTimeout(() => inputRef.current?.focus(), 30); }}><Ionicons name="pricetag-outline" size={19} color={showQuickTags ? '#2563EB' : '#6B7280'} /></TouchableOpacity>
-          <TouchableOpacity style={styles.toolBtn} onPress={getLocation}><Ionicons name="location-outline" size={19} color={location ? '#10B981' : '#6B7280'} /></TouchableOpacity>
-          <TouchableOpacity style={styles.toolBtn} onPress={() => setVisibility(v => v === 'private' ? 'public' : 'private')}><Ionicons name={visibility === 'private' ? 'lock-closed-outline' : 'globe-outline'} size={19} color={visibility === 'public' ? '#2563EB' : '#6B7280'} /></TouchableOpacity>
-          {/* 分隔线 */}
-          <View style={styles.toolDivider} />
-          {/* Markdown 工具 */}
-          <TouchableOpacity style={styles.mdBtn} onPress={() => mdInsert('bold')}><Text style={styles.mdBold}>B</Text></TouchableOpacity>
-          <TouchableOpacity style={styles.mdBtn} onPress={() => mdInsert('italic')}><Text style={styles.mdItalic}>I</Text></TouchableOpacity>
-          <TouchableOpacity style={styles.mdBtn} onPress={() => mdInsert('heading')}><Text style={styles.mdBtnText}>H</Text></TouchableOpacity>
-          <TouchableOpacity style={styles.mdBtn} onPress={() => mdInsert('list')}><Ionicons name="list" size={15} color="#6B7280" /></TouchableOpacity>
-          <TouchableOpacity style={styles.mdBtn} onPress={() => mdInsert('quote')}><Ionicons name="chatbox-outline" size={15} color="#6B7280" /></TouchableOpacity>
-          <TouchableOpacity style={styles.mdBtn} onPress={() => mdInsert('code')}><Ionicons name="code-slash" size={15} color="#6B7280" /></TouchableOpacity>
-          <TouchableOpacity style={styles.mdBtn} onPress={() => mdInsert('link')}><Ionicons name="link-outline" size={15} color="#6B7280" /></TouchableOpacity>
-          {/* 字数 */}
-          <View style={{ marginLeft: 8 }}><Text style={styles.charCount}>{cleanContent(content).length}</Text></View>
-          {uploading && <ActivityIndicator size="small" color="#6B7280" style={{ marginLeft: 4 }} />}
-        </ScrollView>
+        <View style={styles.toolbarInner}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always"
+            contentContainerStyle={styles.toolbarRow}>
+            <TouchableOpacity style={styles.toolBtn} onPress={() => pickMedia('images')}><Ionicons name="image-outline" size={21} color="#6B7280" /></TouchableOpacity>
+            <TouchableOpacity style={styles.toolBtn} onPress={() => pickMedia('videos')}><Ionicons name="videocam-outline" size={21} color="#6B7280" /></TouchableOpacity>
+            <TouchableOpacity style={styles.toolBtn} onPress={pickFile}><Ionicons name="attach-outline" size={21} color="#6B7280" /></TouchableOpacity>
+            <TouchableOpacity style={styles.toolBtn} onPress={() => { setShowQuickTags(!showQuickTags); setTimeout(() => inputRef.current?.focus(), 30); }}><Ionicons name="pricetag-outline" size={19} color={showQuickTags ? '#2563EB' : '#6B7280'} /></TouchableOpacity>
+            <TouchableOpacity style={styles.toolBtn} onPress={getLocation}><Ionicons name="location-outline" size={19} color={location ? '#10B981' : '#6B7280'} /></TouchableOpacity>
+            <TouchableOpacity style={styles.toolBtn} onPress={() => setVisibility(v => v === 'private' ? 'public' : 'private')}><Ionicons name={visibility === 'private' ? 'lock-closed-outline' : 'globe-outline'} size={19} color={visibility === 'public' ? '#2563EB' : '#6B7280'} /></TouchableOpacity>
+            <View style={styles.toolDivider} />
+            <TouchableOpacity style={styles.mdBtn} onPress={() => mdInsert('bold')}><Text style={styles.mdBold}>B</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.mdBtn} onPress={() => mdInsert('italic')}><Text style={styles.mdItalic}>I</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.mdBtn} onPress={() => mdInsert('heading')}><Text style={styles.mdBtnText}>H</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.mdBtn} onPress={() => mdInsert('list')}><Ionicons name="list" size={15} color="#6B7280" /></TouchableOpacity>
+            <TouchableOpacity style={styles.mdBtn} onPress={() => mdInsert('quote')}><Ionicons name="chatbox-outline" size={15} color="#6B7280" /></TouchableOpacity>
+            <TouchableOpacity style={styles.mdBtn} onPress={() => mdInsert('code')}><Ionicons name="code-slash" size={15} color="#6B7280" /></TouchableOpacity>
+            <TouchableOpacity style={styles.mdBtn} onPress={() => mdInsert('link')}><Ionicons name="link-outline" size={15} color="#6B7280" /></TouchableOpacity>
+          </ScrollView>
+        </View>
       </View>
     </View>
   );
@@ -183,17 +188,21 @@ const styles = StyleSheet.create({
   publishBtn: { backgroundColor: '#2563EB', borderRadius: 20, paddingHorizontal: 18, paddingVertical: 8 },
   publishText: { color: '#fff', fontSize: 15, fontWeight: '600' },
   scroll: { flex: 1, backgroundColor: '#fff' },
-  textInput: { fontSize: 17, lineHeight: 28, color: '#1F2937', paddingHorizontal: 20, paddingTop: 16, minHeight: 120 },
-  parsedTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 20, paddingVertical: 8 },
+  editorArea: { flex: 1, backgroundColor: '#fff' },
+  textInput: { flex: 1, fontSize: 17, lineHeight: 28, color: '#1F2937', paddingHorizontal: 20, paddingTop: 16 },
+  attachmentBar: { backgroundColor: '#fff', paddingVertical: 8, borderTopWidth: 0.5, borderTopColor: '#F3F4F6' },
+  attachmentItem: { position: 'relative' },
+  attachmentImage: { width: 60, height: 60, borderRadius: 8, backgroundColor: '#F3F4F6' },
+  filePlaceholder: { width: 60, height: 60, borderRadius: 8, backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB', justifyContent: 'center', alignItems: 'center', padding: 2 },
+  fileName: { fontSize: 8, color: '#9CA3AF', marginTop: 1, textAlign: 'center' },
+  removeBtn: { position: 'absolute', top: -4, right: -4, width: 18, height: 18, borderRadius: 9, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
+  tagsBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', paddingVertical: 6 },
   parsedTag: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#EFF6FF', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5 },
   parsedTagText: { color: '#2563EB', fontSize: 13, fontWeight: '500' },
-  attachmentGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 20, paddingBottom: 12 },
-  attachmentItem: { position: 'relative' },
-  attachmentImage: { width: 80, height: 80, borderRadius: 10, backgroundColor: '#F3F4F6' },
-  filePlaceholder: { width: 80, height: 80, borderRadius: 10, backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB', justifyContent: 'center', alignItems: 'center', padding: 4 },
-  fileName: { fontSize: 9, color: '#9CA3AF', marginTop: 2, textAlign: 'center' },
-  removeBtn: { position: 'absolute', top: -6, right: -6, width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
+  charCountWrap: { paddingHorizontal: 12 },
+  charCount: { fontSize: 12, color: '#D1D5DB' },
   toolbarWrap: { backgroundColor: '#FAFAFA', borderTopWidth: 0.5, borderTopColor: '#E5E7EB' },
+  toolbarInner: { flexDirection: 'row', alignItems: 'center' },
   quickTagBar: { paddingVertical: 6 },
   quickTagChip: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 5 },
   quickTagText: { fontSize: 13, color: '#6B7280' },
@@ -206,5 +215,4 @@ const styles = StyleSheet.create({
   mdBold: { fontSize: 13, fontWeight: '800', color: '#374151' },
   mdItalic: { fontSize: 13, fontWeight: '600', fontStyle: 'italic', color: '#374151' },
   mdBtnText: { fontSize: 12, fontWeight: '700', color: '#6B7280' },
-  charCount: { fontSize: 13, color: '#D1D5DB' },
 });

@@ -149,6 +149,14 @@ export default function HomeScreen({ selectedTag, onOpenDrawer, onLockChange }: 
   // 通知父组件锁定状态变化
   useEffect(() => { onLockChange?.(locked); }, [locked, onLockChange]);
 
+  // 从其他页面回来时重置防窥计时器
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      lastActivity.current = Date.now();
+    });
+    return unsubscribe;
+  }, [navigation]);
+
   useEffect(() => { dispatch(loadBBTalks({})); dispatch(loadTags()); }, [dispatch]);
   useEffect(() => {
     if (tags.length === 0) return;
