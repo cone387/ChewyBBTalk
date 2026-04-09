@@ -7,9 +7,28 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getAccessToken } from '../services/auth';
 import { getApiBaseUrl } from '../config';
 
+// blob -> base64 string (works in RN, no blob.text())
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve((reader.result as string).split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+// blob -> text via FileReader (RN compatible)
+function blobToText(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsText(blob);
+  });
+}
+
 async function saveAndShare(blob: Blob, fileName: string, mimeType: string) {
   if (Platform.OS === 'web') {
-    // Web: 直接触发浏览器下载
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = fileName; a.click();
@@ -17,22 +36,18 @@ async function saveAndShare(blob: Blob, fileName: string, mimeType: string) {
     return;
   }
 
-  // Native: 用 expo-file-system/next 写文件再分享
   const { Paths, File, Directory } = await import('expo-file-system/next');
   const exportDir = new Directory(Paths.document, 'bbtalk_exports');
   if (!exportDir.exists) exportDir.create();
   const file = new File(exportDir, fileName);
 
   if (mimeType === 'application/json') {
-    const text = await blob.text();
+    // JSON: 读成文本写入
+    const text = await blobToText(blob);
     file.write(text);
   } else {
-    const base64 = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve((reader.result as string).split(',')[1]);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
+    // 二进制(ZIP): 读成 base64 写入
+    const base64 = await blobToBase64(blob);
     file.write(base64);
   }
 
@@ -67,22 +82,38 @@ export default function DataManagementScreen() {
 
   const handleImport = async () => {
     try {
-      const result = await DocumentPicker.getDocumentAsync({ type: ['application/json', 'application/zip'] });
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/json', 'application/zip', 'application/octet-stream', '*/*'],
+      });
       if (result.canceled || !result.assets?.length) return;
       const picked = result.assets[0];
       setImporting(true);
 
+      // 根据文件扩展名判断 MIME type（DocumentPicker 有时返回不准确的 mimeType）
+      let mimeType = picked.mimeType || 'application/octet-stream';
+      if (picked.name.endsWith('.json')) mimeType = 'application/json';
+      else if (picked.name.endsWith('.zip')) mimeType = 'application/zip';
+
       const token = await getAccessToken();
       const formData = new FormData();
-      formData.append('file', { uri: picked.uri, name: picked.name, type: picked.mimeType || 'application/octet-stream' } as any);
+      formData.append('file', {
+        uri: picked.uri,
+        name: picked.name,
+        type: mimeType,
+      } as any);
 
       const res = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/data/import/`, {
-        method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData,
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
       });
       const data = await res.json();
       if (data.success) {
         const s = data.stats;
-        Alert.alert('导入成功', `标签: ${s.tags_created} 条\nBBTalk: ${s.bbtalks_created} 条${s.errors?.length ? `\n错误: ${s.errors.length}` : ''}`);
+        Alert.alert('导入成功',
+          `标签: ${s.tags_created} 条\nBBTalk: ${s.bbtalks_created} 条` +
+          (s.errors?.length ? `\n错误: ${s.errors.length}` : '')
+        );
       } else {
         Alert.alert('导入失败', data.error || '未知错误');
       }

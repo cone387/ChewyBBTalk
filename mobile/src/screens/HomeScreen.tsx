@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { loadBBTalks, loadMoreBBTalks, deleteBBTalkAsync, updateBBTalkAsync } from '../store/slices/bbtalkSlice';
 import { loadTags } from '../store/slices/tagSlice';
@@ -49,10 +50,8 @@ export default function HomeScreen({ selectedTag, onOpenDrawer }: Props) {
       if (c === 'false') setShowCountdown(false);
       // 检测生物识别
       try {
-        // @ts-ignore - dynamic import for platform compatibility
-        const LocalAuth = await import('expo-local-authentication');
-        const hasHw = await LocalAuth.hasHardwareAsync();
-        const enrolled = await LocalAuth.isEnrolledAsync();
+        const hasHw = await LocalAuthentication.hasHardwareAsync();
+        const enrolled = await LocalAuthentication.isEnrolledAsync();
         setBiometricAvailable(hasHw && enrolled);
       } catch {}
     })();
@@ -73,19 +72,20 @@ export default function HomeScreen({ selectedTag, onOpenDrawer }: Props) {
 
   const handleBiometricUnlock = async () => {
     try {
-      // @ts-ignore - dynamic import for platform compatibility
-      const LocalAuth = await import('expo-local-authentication');
-      const result = await LocalAuth.authenticateAsync({
+      const result = await LocalAuthentication.authenticateAsync({
         promptMessage: '验证身份以解锁',
         cancelLabel: '使用密码',
-        disableDeviceFallback: true,
+        disableDeviceFallback: false,
+        fallbackLabel: '使用密码',
       });
       if (result.success) {
         setLocked(false);
         setUnlockPassword('');
         lastActivity.current = Date.now();
       }
-    } catch {}
+    } catch (e: any) {
+      Alert.alert('认证失败', e?.message || '请使用密码解锁');
+    }
   };
 
   const handleUnlock = async () => {
