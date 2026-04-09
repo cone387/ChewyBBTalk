@@ -1,9 +1,15 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, Animated, Platform, Alert, TouchableOpacity,
+  View, Text, StyleSheet, Animated, Alert, TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
+import {
+  useAudioRecorder,
+  RecordingPresets,
+  AudioModule,
+  setAudioModeAsync,
+  useAudioRecorderState,
+} from 'expo-audio';
 import { useTheme } from '../theme/ThemeContext';
 
 // Lazy-load Voice to avoid crash in Expo Go
@@ -27,15 +33,15 @@ export default function VoiceRecordingOverlay({ visible, onFinish, onCancel }: P
   const c = theme.colors;
   const [transcript, setTranscript] = useState('');
   const [partialResult, setPartialResult] = useState('');
-  const [isRecording, setIsRecording] = useState(false);
-  const [duration, setDuration] = useState(0);
   const [sttAvailable, setSttAvailable] = useState(voiceAvailable);
-  const recordingRef = useRef<Audio.Recording | null>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const transcriptRef = useRef('');
+  const isRecordingRef = useRef(false);
 
-  // Setup Voice event handlers (only if available)
+  const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recorderState = useAudioRecorderState(audioRecorder);
+
+  // Setup Voice event handlers
   useEffect(() => {
     if (!Voice) return;
     Voice.onSpeechResults = (e: any) => {
@@ -48,7 +54,6 @@ export default function VoiceRecordingOverlay({ visible, onFinish, onCancel }: P
       setPartialResult(e.value?.[0] || '');
     };
     Voice.onSpeechError = (e: any) => {
-      // code 5 = no speech, code 11 = not available
       if (e.error?.code !== '5' && e.error?.code !== '11') {
         console.warn('Speech error:', e.error);
       }
@@ -70,46 +75,32 @@ export default function VoiceRecordingOverlay({ visible, onFinish, onCancel }: P
   }, [visible]);
 
   useEffect(() => {
-    if (visible) startRecording();
+    if (visible && !isRecordingRef.current) {
+      startRecording();
+    }
   }, [visible]);
 
   const startRecording = async () => {
     try {
       setTranscript('');
       setPartialResult('');
-      setDuration(0);
       transcriptRef.current = '';
 
-      const { granted } = await Audio.requestPermissionsAsync();
-      if (!granted) {
+      const status = await AudioModule.requestRecordingPermissionsAsync();
+      if (!status.granted) {
         Alert.alert('权限不足', '需要麦克风权限才能录音');
         onCancel();
         return;
       }
 
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-      });
-
-      const recording = new Audio.Recording();
-      await recording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
-      await recording.startAsync();
-      recordingRef.current = recording;
-      setIsRecording(true);
-
-      const start = Date.now();
-      timerRef.current = setInterval(() => {
-        setDuration(Math.floor((Date.now() - start) / 1000));
-      }, 200);
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      await audioRecorder.prepareToRecordAsync();
+      audioRecorder.record();
+      isRecordingRef.current = true;
 
       // Start STT if available
       if (Voice && sttAvailable) {
-        try {
-          await Voice.start('zh-CN');
-        } catch {
-          setSttAvailable(false);
-        }
+        try { await Voice.start('zh-CN'); } catch { setSttAvailable(false); }
       }
     } catch (e: any) {
       console.error('Failed to start recording:', e);
@@ -119,38 +110,34 @@ export default function VoiceRecordingOverlay({ visible, onFinish, onCancel }: P
   };
 
   const stopAndFinish = async () => {
-    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
-
+    isRecordingRef.current = false;
     let audioUri: string | null = null;
     try {
-      if (recordingRef.current) {
-        await recordingRef.current.stopAndUnloadAsync();
-        audioUri = recordingRef.current.getURI();
-        recordingRef.current = null;
-      }
+      await audioRecorder.stop();
+      audioUri = audioRecorder.uri;
     } catch {}
 
     if (Voice && sttAvailable) { try { await Voice.stop(); } catch {} }
-    await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
+    await setAudioModeAsync({ allowsRecording: false });
 
-    setIsRecording(false);
-    onFinish({ text: transcriptRef.current, audioUri, audioDuration: duration });
+    const dur = Math.round(recorderState.durationMillis / 1000);
+    onFinish({ text: transcriptRef.current, audioUri, audioDuration: dur });
   };
 
   const stopAndCancel = async () => {
-    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
-    try { if (recordingRef.current) { await recordingRef.current.stopAndUnloadAsync(); recordingRef.current = null; } } catch {}
+    isRecordingRef.current = false;
+    try { await audioRecorder.stop(); } catch {}
     if (Voice && sttAvailable) { try { await Voice.stop(); } catch {} }
-    await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
-    setIsRecording(false);
+    await setAudioModeAsync({ allowsRecording: false });
     onCancel();
   };
 
   if (!visible) return null;
 
   const displayText = transcript || partialResult;
-  const mins = Math.floor(duration / 60);
-  const secs = duration % 60;
+  const secs = Math.round(recorderState.durationMillis / 1000);
+  const mins = Math.floor(secs / 60);
+  const secsPart = secs % 60;
 
   return (
     <View style={styles.overlay}>
@@ -162,11 +149,11 @@ export default function VoiceRecordingOverlay({ visible, onFinish, onCancel }: P
         </Animated.View>
 
         <Text style={[styles.timer, { color: c.text }]}>
-          {mins}:{secs.toString().padStart(2, '0')}
+          {mins}:{secsPart.toString().padStart(2, '0')}
         </Text>
 
         <Text style={[styles.hint, { color: c.textTertiary }]}>
-          {isRecording ? '点击下方按钮结束录音' : '正在准备...'}
+          {recorderState.isRecording ? '点击下方按钮结束录音' : '正在准备...'}
         </Text>
 
         {displayText ? (

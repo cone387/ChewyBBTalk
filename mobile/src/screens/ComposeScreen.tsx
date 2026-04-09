@@ -16,6 +16,7 @@ import { createBBTalkAsync, updateBBTalkAsync } from '../store/slices/bbtalkSlic
 import { loadTags } from '../store/slices/tagSlice';
 import { attachmentApi } from '../services/api/mediaApi';
 import type { Attachment, BBTalk } from '../types';
+import VoiceRecordingOverlay from '../components/VoiceRecordingOverlay';
 
 const SCREEN_H = Dimensions.get('window').height;
 
@@ -42,6 +43,7 @@ export default function ComposeScreen() {
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [showQuickTags, setShowQuickTags] = useState(false);
   const [keyboardH, setKeyboardH] = useState(0);
+  const [voiceRecording, setVoiceRecording] = useState(false);
   const publishedRef = useRef(false);
 
   useEffect(() => {
@@ -115,6 +117,39 @@ export default function ComposeScreen() {
     setTimeout(() => inputRef.current?.focus(), 30);
   };
   const mdInsert = (k: string) => { const m: Record<string, string> = { bold: '**粗体**', italic: '*斜体*', heading: '\n## ', list: '\n- ', code: '`代码`', codeblock: '\n```\n\n```\n', link: '[文字](url)', quote: '\n> ' }; insertText(m[k] || ''); };
+
+  const handleVoiceFinish = async (result: { text: string; audioUri: string | null; audioDuration: number }) => {
+    setVoiceRecording(false);
+    const { text, audioUri } = result;
+
+    // Append transcribed text to content
+    if (text) {
+      const sep = content.trim() ? '\n' : '';
+      setContent(prev => prev + sep + text);
+    }
+
+    // Upload audio as attachment
+    if (audioUri) {
+      setUploading(true);
+      try {
+        const ext = Platform.OS === 'ios' ? 'm4a' : (Platform.OS === 'web' ? 'webm' : '3gp');
+        const mime = Platform.OS === 'ios' ? 'audio/mp4' : (Platform.OS === 'web' ? 'audio/webm' : 'audio/3gpp');
+        let att: Attachment;
+        if (Platform.OS === 'web') {
+          const blob = await (await fetch(audioUri)).blob();
+          const file = new File([blob], `voice_${Date.now()}.${ext}`, { type: mime });
+          att = await attachmentApi.uploadFile(file);
+        } else {
+          att = await attachmentApi.upload(audioUri, `voice_${Date.now()}.${ext}`, mime);
+        }
+        setAttachments(prev => [...prev, att]);
+      } catch (e: any) {
+        Alert.alert('上传失败', e.message || '音频上传失败');
+      } finally {
+        setUploading(false);
+      }
+    }
+  };
 
   const handleSubmit = async () => {
     const cleaned = cleanContent(content); if (!cleaned) { Alert.alert('提示', '请输入内容'); return; }
@@ -213,6 +248,7 @@ export default function ComposeScreen() {
             <TouchableOpacity style={styles.toolBtn} onPress={() => pickMedia('images')}><Ionicons name="image-outline" size={21} color="#6B7280" /></TouchableOpacity>
             <TouchableOpacity style={styles.toolBtn} onPress={() => pickMedia('videos')}><Ionicons name="videocam-outline" size={21} color="#6B7280" /></TouchableOpacity>
             <TouchableOpacity style={styles.toolBtn} onPress={pickFile}><Ionicons name="attach-outline" size={21} color="#6B7280" /></TouchableOpacity>
+            <TouchableOpacity style={styles.toolBtn} onPress={() => setVoiceRecording(true)}><Ionicons name="mic-outline" size={21} color="#6B7280" /></TouchableOpacity>
             <TouchableOpacity style={styles.toolBtn} onPress={() => {
               if (showQuickTags) {
                 // 第二次点击：隐藏快速标签
@@ -243,6 +279,12 @@ export default function ComposeScreen() {
           </ScrollView>
         </View>
       </View>
+
+      <VoiceRecordingOverlay
+        visible={voiceRecording}
+        onFinish={handleVoiceFinish}
+        onCancel={() => setVoiceRecording(false)}
+      />
     </View>
   );
 }

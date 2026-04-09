@@ -39,7 +39,8 @@
           "faceIDPermission": "使用 Face ID 解锁防窥模式"
         }
       ],
-      "@react-native-voice/voice"
+      "@react-native-voice/voice",
+      "expo-audio"
     ]
   }
 }

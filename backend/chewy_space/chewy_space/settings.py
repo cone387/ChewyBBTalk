@@ -7,6 +7,13 @@ Django settings for chewy_space project.
 import os
 from pathlib import Path
 from datetime import timedelta
+import mimetypes
+
+# Fix incorrect MIME types that break iOS AVPlayer
+mimetypes.add_type('audio/mp4', '.m4a')
+mimetypes.add_type('audio/aac', '.aac')
+mimetypes.add_type('audio/ogg', '.ogg')
+mimetypes.add_type('audio/webm', '.webm')
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent

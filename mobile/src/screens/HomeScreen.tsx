@@ -16,7 +16,7 @@ import { loadBBTalks, loadMoreBBTalks, deleteBBTalkAsync, updateBBTalkAsync, tog
 import { loadTags } from '../store/slices/tagSlice';
 import type { BBTalk, Attachment } from '../types';
 import { useTheme } from '../theme/ThemeContext';
-import { Audio } from 'expo-av';
+import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import { attachmentApi } from '../services/api/mediaApi';
 import VoiceRecordingOverlay from '../components/VoiceRecordingOverlay';
 
@@ -297,41 +297,44 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
 
   // Audio player state
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const playerRef = useRef<any>(null);
 
   const playAudio = async (att: Attachment) => {
     try {
       // Stop current playback
-      if (soundRef.current) {
-        await soundRef.current.stopAsync();
-        await soundRef.current.unloadAsync();
-        soundRef.current = null;
+      if (playerRef.current) {
+        playerRef.current.remove();
+        playerRef.current = null;
       }
       if (playingAudioId === att.uid) {
         setPlayingAudioId(null);
         return;
       }
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: false, playsInSilentModeIOS: true });
-      const { sound } = await Audio.Sound.createAsync({ uri: att.url });
-      soundRef.current = sound;
+      await setAudioModeAsync({ playsInSilentMode: true });
+      const player = createAudioPlayer(att.url);
+      playerRef.current = player;
       setPlayingAudioId(att.uid);
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) {
+
+      // Listen for playback end
+      const sub = player.addListener('playbackStatusUpdate', (status: any) => {
+        if (status.didJustFinish) {
           setPlayingAudioId(null);
-          sound.unloadAsync();
-          soundRef.current = null;
+          player.remove();
+          playerRef.current = null;
+          sub.remove();
         }
       });
-      await sound.playAsync();
+
+      player.play();
     } catch (e: any) {
       showError('播放失败', e.message || '无法播放此音频');
       setPlayingAudioId(null);
     }
   };
 
-  // Cleanup sound on unmount
+  // Cleanup player on unmount
   useEffect(() => {
-    return () => { soundRef.current?.unloadAsync(); };
+    return () => { playerRef.current?.remove(); };
   }, []);
 
   // 3. 附件卡片渲染（非图片）
@@ -462,7 +465,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
           audioAttachment = await attachmentApi.uploadFile(file);
         } else {
           const ext = Platform.OS === 'ios' ? 'm4a' : '3gp';
-          const mime = Platform.OS === 'ios' ? 'audio/x-m4a' : 'audio/3gpp';
+          const mime = Platform.OS === 'ios' ? 'audio/mp4' : 'audio/3gpp';
           audioAttachment = await attachmentApi.upload(audioUri, `voice_${Date.now()}.${ext}`, mime);
         }
       }
