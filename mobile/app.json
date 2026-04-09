@@ -15,7 +15,9 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSFaceIDUsageDescription": "使用 Face ID 解锁防窥模式"
+        "NSFaceIDUsageDescription": "使用 Face ID 解锁防窥模式",
+        "NSMicrophoneUsageDescription": "长按新建按钮进行语音录入",
+        "NSSpeechRecognitionUsageDescription": "将语音转换为文字"
       }
     },
     "android": {
@@ -36,7 +38,8 @@
         {
           "faceIDPermission": "使用 Face ID 解锁防窥模式"
         }
-      ]
+      ],
+      "@react-native-voice/voice"
     ]
   }
 }

@@ -347,6 +347,7 @@ CHEWY_ATTACHMENT = {
         ".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg",
         ".pdf", ".doc", ".docx", ".txt", ".zip",
         ".mp3", ".mp4", ".mov", ".avi",
+        ".m4a", ".aac", ".wav", ".ogg", ".webm", ".3gp", ".caf", ".flac",
     ],
 }
 

@@ -53,4 +53,28 @@ export const attachmentApi = {
     const data = await response.json();
     return transformAttachment(data);
   },
+
+  /** Web-only: upload a File/Blob object directly */
+  async uploadFile(file: File): Promise<Attachment> {
+    const token = await getAccessToken();
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('is_public', 'true');
+
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/attachments/files/`, {
+      method: 'POST',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || '上传失败');
+    }
+
+    const data = await response.json();
+    return transformAttachment(data);
+  },
 };

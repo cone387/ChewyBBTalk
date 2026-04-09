@@ -11,10 +11,13 @@ import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { loadBBTalks, loadMoreBBTalks, deleteBBTalkAsync, updateBBTalkAsync, togglePinAsync } from '../store/slices/bbtalkSlice';
+import { loadBBTalks, loadMoreBBTalks, deleteBBTalkAsync, updateBBTalkAsync, togglePinAsync, createBBTalkAsync } from '../store/slices/bbtalkSlice';
 import { loadTags } from '../store/slices/tagSlice';
 import type { BBTalk, Attachment } from '../types';
 import { useTheme } from '../theme/ThemeContext';
+import { Audio } from 'expo-av';
+import { attachmentApi } from '../services/api/mediaApi';
+import VoiceRecordingOverlay from '../components/VoiceRecordingOverlay';
 
 interface Props { selectedTag: string | null; selectedDate: string | null; onOpenDrawer: () => void; onLockChange?: (locked: boolean) => void; }
 
@@ -32,6 +35,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
   const [searchVisible, setSearchVisible] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [voiceRecording, setVoiceRecording] = useState(false);
 
   // 防窥倒计时
   const [privacySeconds, setPrivacySeconds] = useState<number | null>(null);
@@ -283,22 +287,67 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
     ? bbtalks.filter(b => b.content.toLowerCase().includes(searchText.toLowerCase()))
     : bbtalks;
 
+  // Audio player state
+  const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
+  const soundRef = useRef<Audio.Sound | null>(null);
+
+  const playAudio = async (att: Attachment) => {
+    try {
+      // Stop current playback
+      if (soundRef.current) {
+        await soundRef.current.stopAsync();
+        await soundRef.current.unloadAsync();
+        soundRef.current = null;
+      }
+      if (playingAudioId === att.uid) {
+        setPlayingAudioId(null);
+        return;
+      }
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: false, playsInSilentModeIOS: true });
+      const { sound } = await Audio.Sound.createAsync({ uri: att.url });
+      soundRef.current = sound;
+      setPlayingAudioId(att.uid);
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded && status.didJustFinish) {
+          setPlayingAudioId(null);
+          sound.unloadAsync();
+          soundRef.current = null;
+        }
+      });
+      await sound.playAsync();
+    } catch (e: any) {
+      Alert.alert('播放失败', e.message || '无法播放此音频');
+      setPlayingAudioId(null);
+    }
+  };
+
+  // Cleanup sound on unmount
+  useEffect(() => {
+    return () => { soundRef.current?.unloadAsync(); };
+  }, []);
+
   // 3. 附件卡片渲染（非图片）
   const renderFileAttachment = (att: Attachment) => {
-    const iconName = att.type === 'video' ? 'videocam-outline' : att.type === 'audio' ? 'musical-notes-outline' : 'document-outline';
-    const iconColor = att.type === 'video' ? '#8B5CF6' : att.type === 'audio' ? '#F59E0B' : '#6B7280';
-    const label = att.type === 'video' ? '视频' : att.type === 'audio' ? '音频' : '文件';
+    const isAudio = att.type === 'audio';
+    const isPlaying = playingAudioId === att.uid;
+    const iconName = att.type === 'video' ? 'videocam-outline' : isAudio ? (isPlaying ? 'pause' : 'play') : 'document-outline';
+    const iconColor = att.type === 'video' ? '#8B5CF6' : isAudio ? c.primary : '#6B7280';
+    const label = att.type === 'video' ? '视频' : isAudio ? '音频' : '文件';
     return (
-      <TouchableOpacity key={att.uid} style={styles.fileCard} activeOpacity={0.7}
-        onPress={(e) => { e.stopPropagation(); Linking.openURL(att.url).catch(() => Alert.alert('提示', '无法打开此文件')); }}>
-        <View style={[styles.fileIconWrap, { backgroundColor: iconColor + '15' }]}>
+      <TouchableOpacity key={att.uid} style={[styles.fileCard, { backgroundColor: c.borderLight, borderColor: c.border }]} activeOpacity={0.7}
+        onPress={(e) => {
+          e.stopPropagation();
+          if (isAudio) { playAudio(att); }
+          else { Linking.openURL(att.url).catch(() => Alert.alert('提示', '无法打开此文件')); }
+        }}>
+        <View style={[styles.fileIconWrap, { backgroundColor: iconColor + '18' }]}>
           <Ionicons name={iconName} size={20} color={iconColor} />
         </View>
         <View style={styles.fileInfo}>
-          <Text style={styles.fileCardName} numberOfLines={1}>{att.originalFilename || att.filename || '附件'}</Text>
-          <Text style={styles.fileCardMeta}>{label}{att.fileSize ? ` · ${(att.fileSize / 1024).toFixed(0)}KB` : ''}</Text>
+          <Text style={[styles.fileCardName, { color: c.text }]} numberOfLines={1}>{att.originalFilename || att.filename || (isAudio ? '语音录音' : '附件')}</Text>
+          <Text style={[styles.fileCardMeta, { color: c.textTertiary }]}>{label}{att.fileSize ? ` · ${(att.fileSize / 1024).toFixed(0)}KB` : ''}{isPlaying ? ' · 播放中' : ''}</Text>
         </View>
-        <Ionicons name="open-outline" size={16} color="#D1D5DB" />
+        <Ionicons name={isAudio ? (isPlaying ? 'stop-circle-outline' : 'play-circle-outline') : 'open-outline'} size={20} color={iconColor} />
       </TouchableOpacity>
     );
   };
@@ -389,6 +438,41 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
     );
   };
 
+  const handleVoiceFinish = useCallback(async (result: { text: string; audioUri: string | null; audioDuration: number }) => {
+    setVoiceRecording(false);
+    const { text, audioUri, audioDuration } = result;
+    if (!text && !audioUri) return;
+
+    try {
+      let audioAttachment: Attachment | undefined;
+      if (audioUri) {
+        if (Platform.OS === 'web') {
+          // Web: fetch blob URI → File → FormData
+          const blob = await (await fetch(audioUri)).blob();
+          const fileName = `voice_${Date.now()}.webm`;
+          const file = new File([blob], fileName, { type: blob.type || 'audio/webm' });
+          audioAttachment = await attachmentApi.uploadFile(file);
+        } else {
+          const ext = Platform.OS === 'ios' ? 'm4a' : '3gp';
+          const mime = Platform.OS === 'ios' ? 'audio/x-m4a' : 'audio/3gpp';
+          audioAttachment = await attachmentApi.upload(audioUri, `voice_${Date.now()}.${ext}`, mime);
+        }
+      }
+
+      const content = text || '🎙️ 语音记录';
+      const attachments = audioAttachment ? [audioAttachment] : [];
+
+      await dispatch(createBBTalkAsync({
+        content,
+        attachments,
+        visibility: 'private',
+        context: { source: { client: 'ChewyBBTalk Mobile', version: '1.0', platform: 'mobile', input: 'voice' } },
+      }));
+    } catch (e: any) {
+      Alert.alert('保存失败', e.message || '请稍后重试');
+    }
+  }, [dispatch]);
+
   const selectedTagName = selectedTag ? tags.find(t => t.id === selectedTag)?.name : null;
   const filterLabel = selectedDate
     ? selectedDate
@@ -448,7 +532,10 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
       )}
 
       <TouchableOpacity style={[styles.fab, { bottom: insets.bottom + 24, backgroundColor: c.primary, shadowColor: c.fabShadow }]}
-        onPress={() => navigation.navigate('Compose')} activeOpacity={0.85}>
+        onPress={() => navigation.navigate('Compose')}
+        onLongPress={() => setVoiceRecording(true)}
+        delayLongPress={300}
+        activeOpacity={0.85}>
         <Ionicons name="add" size={28} color="#fff" />
       </TouchableOpacity>
 
@@ -516,6 +603,8 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
             <TouchableOpacity
               style={[styles.fab, { bottom: insets.bottom + 24, backgroundColor: c.primary, shadowColor: c.fabShadow }]}
               onPress={() => navigation.navigate('Compose')}
+              onLongPress={() => setVoiceRecording(true)}
+              delayLongPress={300}
               activeOpacity={0.85}
             >
               <Ionicons name="add" size={28} color="#fff" />
@@ -523,6 +612,12 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
           )}
         </View>
       )}
+
+      <VoiceRecordingOverlay
+        visible={voiceRecording}
+        onFinish={handleVoiceFinish}
+        onCancel={() => setVoiceRecording(false)}
+      />
     </View>
   );
 }
