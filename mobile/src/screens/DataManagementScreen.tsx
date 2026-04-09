@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { writeAsStringAsync, getInfoAsync, makeDirectoryAsync } from 'expo-file-system';
-import { Paths } from 'expo-file-system/next';
+import { Paths, File as FSFile, Directory } from 'expo-file-system/next';
+import { writeAsStringAsync } from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getAccessToken } from '../services/auth';
 import { getApiBaseUrl } from '../config';
 
-// blob -> base64 string (works in RN, no blob.text())
+// blob -> base64
 function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -19,7 +19,7 @@ function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
-// blob -> text via FileReader (RN compatible)
+// blob -> text
 function blobToText(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -38,24 +38,21 @@ async function saveAndShare(blob: Blob, fileName: string, mimeType: string) {
     return;
   }
 
-  // 用 expo-file-system 旧 API，支持 base64 写入真正的二进制文件
-  const docDir = Paths.document.uri;
-  const exportDir = `${docDir}bbtalk_exports/`;
-  const dirInfo = await getInfoAsync(exportDir);
-  if (!dirInfo.exists) await makeDirectoryAsync(exportDir, { intermediates: true });
-
-  const filePath = `${exportDir}${fileName}`;
+  // 写文件
+  const exportDir = new Directory(Paths.document, 'bbtalk_exports');
+  if (!exportDir.exists) exportDir.create();
+  const file = new FSFile(exportDir, fileName);
 
   if (mimeType === 'application/json') {
-    const text = await blobToText(blob);
-    await writeAsStringAsync(filePath, text, { encoding: 'utf8' });
+    file.write(await blobToText(blob));
   } else {
+    // 二进制(ZIP)：用 legacy API 写 base64 -> 真正的二进制文件
     const base64 = await blobToBase64(blob);
-    await writeAsStringAsync(filePath, base64, { encoding: 'base64' });
+    await writeAsStringAsync(file.uri, base64, { encoding: 'base64' });
   }
 
   if (await Sharing.isAvailableAsync()) {
-    await Sharing.shareAsync(filePath, { mimeType, dialogTitle: '导出数据' });
+    await Sharing.shareAsync(file.uri, { mimeType, dialogTitle: '导出数据' });
   }
 }
 
@@ -72,7 +69,6 @@ export default function DataManagementScreen() {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) { Alert.alert('导出失败', `服务器返回 ${res.status}`); return; }
-
       const blob = await res.blob();
       const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
       const ext = format === 'zip' ? 'zip' : 'json';
@@ -98,48 +94,33 @@ export default function DataManagementScreen() {
 
       const token = await getAccessToken();
 
-      // 用 XMLHttpRequest 确保二进制文件正确上传
-      const uploadResult = await new Promise<{ success: boolean; data: any }>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', `${getApiBaseUrl()}/api/v1/bbtalk/data/import/`);
-        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-        xhr.onload = () => {
-          try {
-            const data = JSON.parse(xhr.responseText);
-            resolve({ success: xhr.status < 300, data });
-          } catch {
-            reject(new Error(`服务器响应异常 (${xhr.status}): ${xhr.responseText.slice(0, 200)}`));
-          }
-        };
-        xhr.onerror = () => reject(new Error('网络错误'));
-
+      if (Platform.OS === 'web') {
+        // Web: fetch URI -> blob -> File 对象
+        const blob = await (await fetch(picked.uri)).blob();
         const formData = new FormData();
-        if (Platform.OS === 'web') {
-          // Web: fetch URI 拿到 blob，构造真正的 File 对象
-          fetch(picked.uri)
-            .then(r => r.blob())
-            .then(blob => {
-              const file = new File([blob], picked.name, { type: mimeType });
-              formData.append('file', file);
-              xhr.send(formData);
-            })
-            .catch(reject);
-        } else {
-          // Native: RN FormData 接受 { uri, name, type }
-          formData.append('file', { uri: picked.uri, name: picked.name, type: mimeType } as any);
-          xhr.send(formData);
-        }
-      });
-
-      const data = uploadResult.data;
+        formData.append('file', new File([blob], picked.name, { type: mimeType }));
+        const res = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/data/import/`, {
+          method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData,
+        });
+        var data = await res.json();
+      } else {
+        // Native: 用 fetch + FormData，RN fetch 原生支持 file:// URI
+        const formData = new FormData();
+        formData.append('file', { uri: picked.uri, name: picked.name, type: mimeType } as any);
+        const res = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/data/import/`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
+        });
+        var data = await res.json();
+      }
       if (data.success) {
         const s = data.stats;
-        const lines = [
+        Alert.alert('导入完成', [
           `标签: 新增 ${s.tags_created}，跳过 ${s.tags_skipped}，共 ${s.tags_created + s.tags_skipped}`,
           `BBTalk: 新增 ${s.bbtalks_created}，跳过 ${s.bbtalks_skipped}，共 ${s.bbtalks_created + s.bbtalks_skipped}`,
-        ];
-        if (s.errors?.length) lines.push(`错误: ${s.errors.length} 条`);
-        Alert.alert('导入完成', lines.join('\n'));
+          s.errors?.length ? `错误: ${s.errors.length} 条` : '',
+        ].filter(Boolean).join('\n'));
       } else {
         Alert.alert('导入失败', data.error || '未知错误');
       }
