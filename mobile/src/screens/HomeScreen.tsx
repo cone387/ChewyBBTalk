@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
   RefreshControl, Image, Alert, ActivityIndicator, Modal,
-  TextInput, ActionSheetIOS, Platform, ScrollView, Linking,
+  TextInput, ActionSheetIOS, Platform, ScrollView, Linking, Animated, Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Markdown from 'react-native-markdown-display';
@@ -35,6 +35,7 @@ export default function HomeScreen({ selectedTag, onOpenDrawer, onLockChange }: 
   const [privacyEnabled, setPrivacyEnabled] = useState(true);
   const [locked, setLockedState] = useState(false);
   const [allowComposeWhenLocked, setAllowComposeWhenLocked] = useState(true);
+  const lockKeyboardH = useRef(new Animated.Value(0)).current;
 
   const setLocked = useCallback((val: boolean) => {
     setLockedState(val);
@@ -77,8 +78,21 @@ export default function HomeScreen({ selectedTag, onOpenDrawer, onLockChange }: 
       } catch {}
     })();
 
+    // 锁屏键盘动画
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const kbShow = Keyboard.addListener(showEvent, (e) => {
+      Animated.spring(lockKeyboardH, { toValue: -e.endCoordinates.height / 2.5, useNativeDriver: true, speed: 20, bounciness: 0 }).start();
+    });
+    const kbHide = Keyboard.addListener(hideEvent, () => {
+      Animated.spring(lockKeyboardH, { toValue: 0, useNativeDriver: true, speed: 20, bounciness: 0 }).start();
+    });
+
+    const isLockedRef = { current: false };
     const timer = setInterval(async () => {
-      // 每 5 秒重新读一次设置（处理从设置页改了时长的情况）
+      // 已锁定时不再轮询，减少重渲染
+      if (isLockedRef.current) return;
+
       const t = await AsyncStorage.getItem('privacy_timeout_minutes');
       if (t) timeoutMinsRef.current = parseInt(t, 10);
       const e = await AsyncStorage.getItem('privacy_enabled');
@@ -95,12 +109,13 @@ export default function HomeScreen({ selectedTag, onOpenDrawer, onLockChange }: 
       if (remaining <= 0) {
         setPrivacySeconds(0);
         setLocked(true);
+        isLockedRef.current = true;
       } else {
         setPrivacySeconds(Math.ceil(remaining));
       }
     }, 1000);
 
-    return () => clearInterval(timer);
+    return () => { clearInterval(timer); kbShow.remove(); kbHide.remove(); };
   }, []);
 
   const handleBiometricUnlock = useCallback(async () => {
@@ -407,7 +422,8 @@ export default function HomeScreen({ selectedTag, onOpenDrawer, onLockChange }: 
       {/* 防窥锁定遮罩 */}
       {locked && (
         <View style={styles.lockOverlay}>
-          <View style={styles.lockCard}>
+          <Animated.View style={[styles.lockInner, { transform: [{ translateY: lockKeyboardH }] }]}>
+            <View style={styles.lockCard}>
             <Ionicons name="lock-closed" size={40} color="#7C3AED" />
             <Text style={styles.lockTitle}>内容已锁定</Text>
             <Text style={styles.lockSub}>验证身份以解锁查看</Text>
@@ -450,6 +466,7 @@ export default function HomeScreen({ selectedTag, onOpenDrawer, onLockChange }: 
               {unlocking ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.lockBtnText}>密码解锁</Text>}
             </TouchableOpacity>
           </View>
+          </Animated.View>
 
           {/* 防窥模式下可新建（如果设置允许） */}
           {allowComposeWhenLocked && (
@@ -533,6 +550,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject, backgroundColor: '#F9FAFB',
     justifyContent: 'center', alignItems: 'center', zIndex: 200,
   },
+  lockInner: { flex: 1, justifyContent: 'center', alignItems: 'center', width: '100%' },
   lockCard: { alignItems: 'center', padding: 32, width: '80%' },
   lockTitle: { fontSize: 20, fontWeight: '700', color: '#111827', marginTop: 16 },
   lockSub: { fontSize: 14, color: '#9CA3AF', marginTop: 6, marginBottom: 24 },
