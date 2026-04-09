@@ -75,8 +75,7 @@ export default function HomeScreen({ selectedTag, onOpenDrawer }: Props) {
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: '验证身份以解锁',
         cancelLabel: '使用密码',
-        disableDeviceFallback: false,
-        fallbackLabel: '使用密码',
+        disableDeviceFallback: true,
       });
       if (result.success) {
         setLocked(false);
