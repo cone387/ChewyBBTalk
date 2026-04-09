@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { writeAsStringAsync, getInfoAsync, makeDirectoryAsync } from 'expo-file-system';
+import { Paths } from 'expo-file-system/next';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -36,23 +38,24 @@ async function saveAndShare(blob: Blob, fileName: string, mimeType: string) {
     return;
   }
 
-  const { Paths, File, Directory } = await import('expo-file-system/next');
-  const exportDir = new Directory(Paths.document, 'bbtalk_exports');
-  if (!exportDir.exists) exportDir.create();
-  const file = new File(exportDir, fileName);
+  // 用 expo-file-system 旧 API，支持 base64 写入真正的二进制文件
+  const docDir = Paths.document.uri;
+  const exportDir = `${docDir}bbtalk_exports/`;
+  const dirInfo = await getInfoAsync(exportDir);
+  if (!dirInfo.exists) await makeDirectoryAsync(exportDir, { intermediates: true });
+
+  const filePath = `${exportDir}${fileName}`;
 
   if (mimeType === 'application/json') {
-    // JSON: 读成文本写入
     const text = await blobToText(blob);
-    file.write(text);
+    await writeAsStringAsync(filePath, text, { encoding: 'utf8' });
   } else {
-    // 二进制(ZIP): 读成 base64 写入
     const base64 = await blobToBase64(blob);
-    file.write(base64);
+    await writeAsStringAsync(filePath, base64, { encoding: 'base64' });
   }
 
   if (await Sharing.isAvailableAsync()) {
-    await Sharing.shareAsync(file.uri, { mimeType, dialogTitle: '导出数据' });
+    await Sharing.shareAsync(filePath, { mimeType, dialogTitle: '导出数据' });
   }
 }
 
@@ -105,7 +108,7 @@ export default function DataManagementScreen() {
             const data = JSON.parse(xhr.responseText);
             resolve({ success: xhr.status < 300, data });
           } catch {
-            reject(new Error(`服务器响应异常: ${xhr.status}`));
+            reject(new Error(`服务器响应异常 (${xhr.status}): ${xhr.responseText.slice(0, 200)}`));
           }
         };
         xhr.onerror = () => reject(new Error('网络错误'));
@@ -117,10 +120,12 @@ export default function DataManagementScreen() {
       const data = uploadResult.data;
       if (data.success) {
         const s = data.stats;
-        Alert.alert('导入成功',
-          `标签: ${s.tags_created} 条\nBBTalk: ${s.bbtalks_created} 条` +
-          (s.errors?.length ? `\n错误: ${s.errors.length}` : '')
-        );
+        const lines = [
+          `标签: 新增 ${s.tags_created}，跳过 ${s.tags_skipped}，共 ${s.tags_created + s.tags_skipped}`,
+          `BBTalk: 新增 ${s.bbtalks_created}，跳过 ${s.bbtalks_skipped}，共 ${s.bbtalks_created + s.bbtalks_skipped}`,
+        ];
+        if (s.errors?.length) lines.push(`错误: ${s.errors.length} 条`);
+        Alert.alert('导入完成', lines.join('\n'));
       } else {
         Alert.alert('导入失败', data.error || '未知错误');
       }
