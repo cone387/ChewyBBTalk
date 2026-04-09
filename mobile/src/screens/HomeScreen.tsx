@@ -451,7 +451,7 @@ const styles = StyleSheet.create({
     flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: '#F3F4F6', borderRadius: 10, paddingHorizontal: 10, marginHorizontal: 8, height: 38,
   },
-  searchInput: { flex: 1, fontSize: 15, color: '#111827', paddingVertical: 0, paddingHorizontal: 0, textAlignVertical: 'center' },
+  searchInput: { flex: 1, fontSize: 15, color: '#111827', paddingVertical: 0, paddingHorizontal: 0, lineHeight: 20, includeFontPadding: false },
   card: {
     backgroundColor: '#fff', borderRadius: 16, padding: 16, marginTop: 12,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
