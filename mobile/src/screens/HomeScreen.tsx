@@ -14,9 +14,9 @@ import { loadBBTalks, loadMoreBBTalks, deleteBBTalkAsync, updateBBTalkAsync } fr
 import { loadTags } from '../store/slices/tagSlice';
 import type { BBTalk, Attachment } from '../types';
 
-interface Props { selectedTag: string | null; onOpenDrawer: () => void; }
+interface Props { selectedTag: string | null; onOpenDrawer: () => void; onLockChange?: (locked: boolean) => void; }
 
-export default function HomeScreen({ selectedTag, onOpenDrawer }: Props) {
+export default function HomeScreen({ selectedTag, onOpenDrawer, onLockChange }: Props) {
   const navigation = useNavigation<any>();
   const dispatch = useAppDispatch();
   const insets = useSafeAreaInsets();
@@ -137,6 +137,9 @@ export default function HomeScreen({ selectedTag, onOpenDrawer }: Props) {
       setUnlocking(false);
     }
   };
+
+  // 通知父组件锁定状态变化
+  useEffect(() => { onLockChange?.(locked); }, [locked, onLockChange]);
 
   useEffect(() => { dispatch(loadBBTalks({})); dispatch(loadTags()); }, [dispatch]);
   useEffect(() => {
@@ -490,7 +493,7 @@ const styles = StyleSheet.create({
   previewImage: { width: '100%', height: '100%' },
   // 防窥锁定
   lockOverlay: {
-    ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255,255,255,0.97)',
+    ...StyleSheet.absoluteFillObject, backgroundColor: '#F9FAFB',
     justifyContent: 'center', alignItems: 'center', zIndex: 200,
   },
   lockCard: { alignItems: 'center', padding: 32, width: '80%' },

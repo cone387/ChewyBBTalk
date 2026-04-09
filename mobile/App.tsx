@@ -24,12 +24,14 @@ const DRAWER_WIDTH = SCREEN_WIDTH * 0.78;
 function HomeWithDrawer({ onLogout }: { onLogout: () => void }) {
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [drawerVisible, setDrawerVisible] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
+  const isLockedRef = useRef(false);
   const isOpen = useRef(false);
   const translateX = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
 
   const openDrawer = useCallback(() => {
-    if (isOpen.current) return;
+    if (isOpen.current || isLockedRef.current) return;
     isOpen.current = true;
     setDrawerVisible(true);
     Animated.parallel([
@@ -50,10 +52,10 @@ function HomeWithDrawer({ onLogout }: { onLogout: () => void }) {
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: (evt) => {
-        return !isOpen.current && evt.nativeEvent.pageX < 20;
+        return !isOpen.current && !isLockedRef.current && evt.nativeEvent.pageX < 20;
       },
       onMoveShouldSetPanResponder: (evt, gesture) => {
-        return !isOpen.current && evt.nativeEvent.pageX < 40 && gesture.dx > 15 && Math.abs(gesture.dy) < 30;
+        return !isOpen.current && !isLockedRef.current && evt.nativeEvent.pageX < 40 && gesture.dx > 15 && Math.abs(gesture.dy) < 30;
       },
       onPanResponderMove: (_, gesture) => {
         const x = Math.min(0, Math.max(-DRAWER_WIDTH, -DRAWER_WIDTH + gesture.dx));
@@ -73,7 +75,7 @@ function HomeWithDrawer({ onLogout }: { onLogout: () => void }) {
 
   return (
     <View style={{ flex: 1 }} {...panResponder.panHandlers}>
-      <HomeScreen selectedTag={selectedTag} onOpenDrawer={openDrawer} />
+      <HomeScreen selectedTag={selectedTag} onOpenDrawer={openDrawer} onLockChange={(v) => { setIsLocked(v); isLockedRef.current = v; if (v && isOpen.current) closeDrawer(); }} />
       {drawerVisible && (
         <>
           <Animated.View style={[styles.overlay, { opacity: overlayOpacity }]}>
