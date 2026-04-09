@@ -33,6 +33,7 @@ export default function ComposeScreen() {
     if (!editItem) return '';
     return editItem.tags.map(t => `#${t.name} `).join('') + editItem.content;
   });
+  const [cursorPos, setCursorPos] = useState(0);
   const [visibility, setVisibility] = useState<'public' | 'private'>((editItem?.visibility as any) || 'private');
   const [attachments, setAttachments] = useState<Attachment[]>(editItem?.attachments || []);
   const [uploading, setUploading] = useState(false);
@@ -70,8 +71,25 @@ export default function ComposeScreen() {
     } catch { Alert.alert('定位失败', '请稍后重试'); }
   };
 
-  const insertText = (s: string) => { setContent(p => p + s); setTimeout(() => inputRef.current?.focus(), 30); };
-  const insertTag = (n: string) => { const p = content.length > 0 && !content.endsWith(' ') && !content.endsWith('\n') ? ' ' : ''; setContent(prev => `${prev}${p}#${n} `); setShowQuickTags(false); setTimeout(() => inputRef.current?.focus(), 30); };
+  const insertText = (s: string) => {
+    const pos = cursorPos;
+    const before = content.slice(0, pos);
+    const after = content.slice(pos);
+    setContent(before + s + after);
+    setCursorPos(pos + s.length);
+    setTimeout(() => inputRef.current?.focus(), 30);
+  };
+  const insertTag = (n: string) => {
+    const pos = cursorPos;
+    const before = content.slice(0, pos);
+    const after = content.slice(pos);
+    const p = before.length > 0 && !before.endsWith(' ') && !before.endsWith('\n') ? ' ' : '';
+    const insert = `${p}#${n} `;
+    setContent(before + insert + after);
+    setCursorPos(pos + insert.length);
+    setShowQuickTags(false);
+    setTimeout(() => inputRef.current?.focus(), 30);
+  };
   const mdInsert = (k: string) => { const m: Record<string, string> = { bold: '**粗体**', italic: '*斜体*', heading: '\n## ', list: '\n- ', code: '`代码`', codeblock: '\n```\n\n```\n', link: '[文字](url)', quote: '\n> ' }; insertText(m[k] || ''); };
 
   const handleSubmit = async () => {
@@ -107,6 +125,7 @@ export default function ComposeScreen() {
         <TextInput ref={inputRef} style={styles.textInput}
           placeholder="你要BB什么？支持 Markdown，输入 # 添加标签" placeholderTextColor="#C4C4C4"
           value={content} onChangeText={setContent} multiline textAlignVertical="top" autoFocus={!isEditing}
+          onSelectionChange={(e) => setCursorPos(e.nativeEvent.selection.start)}
           scrollEnabled={true} />
       </View>
 
@@ -130,7 +149,16 @@ export default function ComposeScreen() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always"
           style={{ flex: 1 }} contentContainerStyle={{ paddingLeft: 12, gap: 6 }}>
           {currentTags.map(tag => (
-            <View key={tag} style={styles.parsedTag}><Ionicons name="pricetag" size={11} color="#2563EB" /><Text style={styles.parsedTagText}>{tag}</Text></View>
+            <View key={tag} style={styles.parsedTag}>
+              <Ionicons name="pricetag" size={11} color="#2563EB" />
+              <Text style={styles.parsedTagText}>{tag}</Text>
+              <TouchableOpacity onPress={() => {
+                // 从内容中删除 #tag 
+                setContent(prev => prev.replace(new RegExp(`(^|\\s)#${tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s`, 'g'), '$1'));
+              }} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}>
+                <Ionicons name="close-circle" size={14} color="#93C5FD" />
+              </TouchableOpacity>
+            </View>
           ))}
         </ScrollView>
         <View style={styles.charCountWrap}>
@@ -158,7 +186,18 @@ export default function ComposeScreen() {
             <TouchableOpacity style={styles.toolBtn} onPress={() => pickMedia('images')}><Ionicons name="image-outline" size={21} color="#6B7280" /></TouchableOpacity>
             <TouchableOpacity style={styles.toolBtn} onPress={() => pickMedia('videos')}><Ionicons name="videocam-outline" size={21} color="#6B7280" /></TouchableOpacity>
             <TouchableOpacity style={styles.toolBtn} onPress={pickFile}><Ionicons name="attach-outline" size={21} color="#6B7280" /></TouchableOpacity>
-            <TouchableOpacity style={styles.toolBtn} onPress={() => { setShowQuickTags(!showQuickTags); setTimeout(() => inputRef.current?.focus(), 30); }}><Ionicons name="pricetag-outline" size={19} color={showQuickTags ? '#2563EB' : '#6B7280'} /></TouchableOpacity>
+            <TouchableOpacity style={styles.toolBtn} onPress={() => {
+              const pos = cursorPos;
+              const before = content.slice(0, pos);
+              const after = content.slice(pos);
+              const prefix = before.length > 0 && !before.endsWith(' ') && !before.endsWith('\n') ? ' ' : '';
+              const newContent = before + prefix + '#' + after;
+              const newPos = pos + prefix.length + 1;
+              setContent(newContent);
+              setCursorPos(newPos);
+              setShowQuickTags(true);
+              setTimeout(() => inputRef.current?.focus(), 30);
+            }}><Ionicons name="pricetag-outline" size={19} color={showQuickTags ? '#2563EB' : '#6B7280'} /></TouchableOpacity>
             <TouchableOpacity style={styles.toolBtn} onPress={getLocation}><Ionicons name="location-outline" size={19} color={location ? '#10B981' : '#6B7280'} /></TouchableOpacity>
             <TouchableOpacity style={styles.toolBtn} onPress={() => setVisibility(v => v === 'private' ? 'public' : 'private')}><Ionicons name={visibility === 'private' ? 'lock-closed-outline' : 'globe-outline'} size={19} color={visibility === 'public' ? '#2563EB' : '#6B7280'} /></TouchableOpacity>
             <View style={styles.toolDivider} />
