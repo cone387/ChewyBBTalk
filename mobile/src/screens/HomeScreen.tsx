@@ -5,6 +5,7 @@ import {
   TextInput, ActionSheetIOS, Platform, ScrollView, Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Markdown from 'react-native-markdown-display';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -270,7 +271,7 @@ export default function HomeScreen({ selectedTag, onOpenDrawer, onLockChange }: 
           <Ionicons name="ellipsis-horizontal" size={18} color="#C4C4C4" />
         </TouchableOpacity>
 
-        <Text style={styles.content}>{item.content}</Text>
+        <Markdown style={mdStyles}>{item.content}</Markdown>
 
         {item.tags.length > 0 && (
           <View style={styles.tagRow}>
@@ -456,7 +457,6 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
   },
   moreBtn: { position: 'absolute', top: 14, right: 14, zIndex: 10, padding: 2 },
-  content: { fontSize: 15, lineHeight: 26, color: '#1F2937', paddingRight: 28 },
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12 },
   tag: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
   tagText: { color: '#fff', fontSize: 12, fontWeight: '500' },
@@ -476,7 +476,7 @@ const styles = StyleSheet.create({
   // 底部
   footer: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    marginTop: 14, paddingTop: 12, borderTopWidth: 0.5, borderTopColor: '#F3F4F6',
+    marginTop: 12,
   },
   footerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   time: { fontSize: 12, color: '#9CA3AF' },
@@ -523,4 +523,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center', marginTop: 14,
   },
   lockBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+});
+
+const mdStyles = StyleSheet.create({
+  body: { fontSize: 15, lineHeight: 24, color: '#1F2937' },
+  heading1: { fontSize: 22, fontWeight: '700', color: '#111827', marginVertical: 8 },
+  heading2: { fontSize: 19, fontWeight: '700', color: '#111827', marginVertical: 6 },
+  heading3: { fontSize: 17, fontWeight: '600', color: '#111827', marginVertical: 4 },
+  strong: { fontWeight: '700' },
+  em: { fontStyle: 'italic' },
+  blockquote: { borderLeftWidth: 3, borderLeftColor: '#D1D5DB', paddingLeft: 12, marginVertical: 6, backgroundColor: '#F9FAFB', borderRadius: 4, padding: 8 },
+  code_inline: { backgroundColor: '#F3F4F6', color: '#DC2626', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4, fontSize: 14 },
+  fence: { backgroundColor: '#F3F4F6', padding: 12, borderRadius: 8, marginVertical: 6, fontSize: 13 },
+  code_block: { backgroundColor: '#F3F4F6', padding: 12, borderRadius: 8, marginVertical: 6, fontSize: 13 },
+  link: { color: '#2563EB', textDecorationLine: 'underline' },
+  list_item: { marginVertical: 2 },
+  paragraph: { marginVertical: 2 },
 });
