@@ -7,17 +7,25 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function PrivacySettingsScreen() {
   const insets = useSafeAreaInsets();
+  const [enabled, setEnabled] = useState(true);
   const [timeout, setTimeout_] = useState(5);
   const [showCountdown, setShowCountdown] = useState(true);
 
   React.useEffect(() => {
     (async () => {
+      const e = await AsyncStorage.getItem('privacy_enabled');
+      if (e === 'false') setEnabled(false);
       const t = await AsyncStorage.getItem('privacy_timeout_minutes');
       if (t) setTimeout_(parseInt(t, 10));
       const c = await AsyncStorage.getItem('show_privacy_countdown');
-      if (c) setShowCountdown(c === 'true');
+      if (c === 'false') setShowCountdown(false);
     })();
   }, []);
+
+  const onEnabledChange = async (val: boolean) => {
+    setEnabled(val);
+    await AsyncStorage.setItem('privacy_enabled', val.toString());
+  };
 
   const onTimeoutChange = async (val: number) => {
     const v = Math.round(val);
@@ -37,11 +45,24 @@ export default function PrivacySettingsScreen() {
           <View style={styles.headerIcon}><Ionicons name="lock-closed" size={20} color="#fff" /></View>
           <View>
             <Text style={styles.headerTitle}>防窥模式</Text>
-            <Text style={styles.headerSub}>长时间不操作后自动模糊内容，保护隐私</Text>
+            <Text style={styles.headerSub}>长时间不操作后自动锁定，保护隐私</Text>
           </View>
         </View>
 
-        <View style={styles.section}>
+        {/* 总开关 */}
+        <View style={styles.switchRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.switchLabel}>启用防窥模式</Text>
+            <Text style={styles.switchHint}>关闭后不会自动锁定</Text>
+          </View>
+          <Switch value={enabled} onValueChange={onEnabledChange}
+            trackColor={{ false: '#E5E7EB', true: '#7C3AED' }} thumbColor="#fff" />
+        </View>
+
+        <View style={styles.divider} />
+
+        {/* 超时时长 */}
+        <View style={[styles.section, !enabled && { opacity: 0.4 }]} pointerEvents={enabled ? 'auto' : 'none'}>
           <Text style={styles.sectionLabel}>防窥超时时长</Text>
           <View style={styles.sliderRow}>
             <Slider style={{ flex: 1 }} minimumValue={1} maximumValue={60} step={1}
@@ -51,12 +72,13 @@ export default function PrivacySettingsScreen() {
               minimumTrackTintColor="#2563EB" maximumTrackTintColor="#E5E7EB" thumbTintColor="#2563EB" />
             <Text style={styles.sliderValue}>{timeout} 分钟</Text>
           </View>
-          <Text style={styles.hint}>长时间不操作后，App 内容将自动模糊以保护隐私</Text>
+          <Text style={styles.hint}>无操作超过此时长后自动锁定</Text>
         </View>
 
         <View style={styles.divider} />
 
-        <View style={styles.switchRow}>
+        {/* 显示倒计时 */}
+        <View style={[styles.switchRow, !enabled && { opacity: 0.4 }]} pointerEvents={enabled ? 'auto' : 'none'}>
           <View style={{ flex: 1 }}>
             <Text style={styles.switchLabel}>显示防窥倒计时</Text>
             <Text style={styles.switchHint}>在首页右下角显示剩余时间</Text>
@@ -78,8 +100,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F0F4FF' },
   card: { backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden' },
   cardHeader: {
-    flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16,
-    backgroundColor: '#F5F3FF',
+    flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, backgroundColor: '#F5F3FF',
   },
   headerIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#7C3AED', justifyContent: 'center', alignItems: 'center' },
   headerTitle: { fontSize: 16, fontWeight: '600', color: '#111827' },

@@ -31,6 +31,7 @@ export default function HomeScreen({ selectedTag, onOpenDrawer }: Props) {
   // 防窥倒计时
   const [privacySeconds, setPrivacySeconds] = useState<number | null>(null);
   const [showCountdown, setShowCountdown] = useState(true);
+  const [privacyEnabled, setPrivacyEnabled] = useState(true);
   const [locked, setLocked] = useState(false);
   const [unlockPassword, setUnlockPassword] = useState('');
   const [unlocking, setUnlocking] = useState(false);
@@ -42,13 +43,22 @@ export default function HomeScreen({ selectedTag, onOpenDrawer }: Props) {
     lastActivity.current = Date.now();
   }, []);
 
+  // 加载设置 + 每次从设置页回来时刷新
+  const loadPrivacySettings = useCallback(async () => {
+    const t = await AsyncStorage.getItem('privacy_timeout_minutes');
+    if (t) timeoutMinsRef.current = parseInt(t, 10);
+    const c = await AsyncStorage.getItem('show_privacy_countdown');
+    if (c === 'false') setShowCountdown(false); else setShowCountdown(true);
+    const e = await AsyncStorage.getItem('privacy_enabled');
+    if (e === 'false') setPrivacyEnabled(false); else setPrivacyEnabled(true);
+    // 重置计时器
+    lastActivity.current = Date.now();
+  }, []);
+
   useEffect(() => {
+    loadPrivacySettings();
+    // 检测生物识别
     (async () => {
-      const t = await AsyncStorage.getItem('privacy_timeout_minutes');
-      if (t) timeoutMinsRef.current = parseInt(t, 10);
-      const c = await AsyncStorage.getItem('show_privacy_countdown');
-      if (c === 'false') setShowCountdown(false);
-      // 检测生物识别
       try {
         const hasHw = await LocalAuthentication.hasHardwareAsync();
         const enrolled = await LocalAuthentication.isEnrolledAsync();
@@ -56,7 +66,16 @@ export default function HomeScreen({ selectedTag, onOpenDrawer }: Props) {
       } catch {}
     })();
 
-    const timer = setInterval(() => {
+    const timer = setInterval(async () => {
+      // 每 5 秒重新读一次设置（处理从设置页改了时长的情况）
+      const t = await AsyncStorage.getItem('privacy_timeout_minutes');
+      if (t) timeoutMinsRef.current = parseInt(t, 10);
+      const e = await AsyncStorage.getItem('privacy_enabled');
+      const enabled = e !== 'false';
+      setPrivacyEnabled(enabled);
+
+      if (!enabled) { setPrivacySeconds(null); return; }
+
       const elapsed = (Date.now() - lastActivity.current) / 1000;
       const remaining = timeoutMinsRef.current * 60 - elapsed;
       if (remaining <= 0) {
@@ -70,7 +89,7 @@ export default function HomeScreen({ selectedTag, onOpenDrawer }: Props) {
     return () => clearInterval(timer);
   }, []);
 
-  const handleBiometricUnlock = async () => {
+  const handleBiometricUnlock = useCallback(async () => {
     try {
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: '验证身份以解锁',
@@ -81,11 +100,20 @@ export default function HomeScreen({ selectedTag, onOpenDrawer }: Props) {
         setLocked(false);
         setUnlockPassword('');
         lastActivity.current = Date.now();
+      } else if (result.error === 'not_enrolled') {
+        Alert.alert('提示', '设备未设置生物识别，请使用密码解锁');
+        setBiometricAvailable(false);
+      } else if (result.error !== 'user_cancel' && result.error !== 'system_cancel') {
+        // Expo Go 里 Face ID 未配置会走到这里
+        Alert.alert('提示', '生物识别不可用（Expo Go 不支持 Face ID，需要独立构建），请使用密码解锁');
+        setBiometricAvailable(false);
       }
     } catch (e: any) {
-      Alert.alert('认证失败', e?.message || '请使用密码解锁');
+      // NSFaceIDUsageDescription 未配置时会抛异常
+      setBiometricAvailable(false);
+      Alert.alert('提示', '生物识别暂不可用，请使用密码解锁');
     }
-  };
+  }, []);
 
   const handleUnlock = async () => {
     if (!unlockPassword) return;

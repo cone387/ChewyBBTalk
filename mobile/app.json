@@ -13,7 +13,10 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "使用 Face ID 解锁防窥模式"
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -27,7 +30,13 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "使用 Face ID 解锁防窥模式"
+        }
+      ]
     ]
   }
 }
