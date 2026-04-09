@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12,
     paddingHorizontal: 14, height: 48, backgroundColor: '#fff',
   },
-  input: { flex: 1, fontSize: 16, color: '#111827', paddingVertical: 0 },
+  input: { flex: 1, fontSize: 16, color: '#111827', paddingVertical: 0, includeFontPadding: false, lineHeight: 20 },
   submitBtn: {
     marginTop: 20, borderRadius: 12, height: 50, justifyContent: 'center', alignItems: 'center',
     backgroundColor: '#2563EB',

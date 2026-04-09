@@ -7,7 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const STORAGE_KEY = 'bbtalk_api_base_url';
 
-const LAN_IP = '192.168.0.83';
+const LAN_IP = '192.168.31.66';
 
 const DEFAULT_API_URL = Platform.select({
   android: `http://10.0.2.2:8020`,
