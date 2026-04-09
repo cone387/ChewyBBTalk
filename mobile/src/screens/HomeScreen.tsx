@@ -364,14 +364,19 @@ export default function HomeScreen({ selectedTag, onOpenDrawer, onLockChange }: 
         onEndReached={onEndReached} onEndReachedThreshold={0.3}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 80 }} />
 
-      {/* 防窥倒计时 */}
-      {showCountdown && privacySeconds !== null && privacySeconds > 0 && (
-        <View style={[styles.countdownBadge, { bottom: insets.bottom + 88 }]}>
+      {/* 防窥倒计时 - 点击立即锁定，长按进设置 */}
+      {showCountdown && privacyEnabled && privacySeconds !== null && privacySeconds > 0 && !locked && (
+        <TouchableOpacity
+          style={[styles.countdownBadge, { bottom: insets.bottom + 88 }]}
+          onPress={() => { setLocked(true); }}
+          onLongPress={() => navigation.navigate('PrivacySettings')}
+          activeOpacity={0.7}
+        >
           <Ionicons name="lock-closed" size={12} color="#fff" />
           <Text style={styles.countdownText}>
             {privacySeconds >= 60 ? `${Math.floor(privacySeconds / 60)}:${(privacySeconds % 60).toString().padStart(2, '0')}` : `${privacySeconds}s`}
           </Text>
-        </View>
+        </TouchableOpacity>
       )}
 
       <TouchableOpacity style={[styles.fab, { bottom: insets.bottom + 24 }]}
@@ -439,6 +444,15 @@ export default function HomeScreen({ selectedTag, onOpenDrawer, onLockChange }: 
               {unlocking ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.lockBtnText}>密码解锁</Text>}
             </TouchableOpacity>
           </View>
+
+          {/* 防窥模式下仍可新建 */}
+          <TouchableOpacity
+            style={[styles.fab, { bottom: insets.bottom + 24 }]}
+            onPress={() => navigation.navigate('Compose')}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="add" size={28} color="#fff" />
+          </TouchableOpacity>
         </View>
       )}
     </View>
