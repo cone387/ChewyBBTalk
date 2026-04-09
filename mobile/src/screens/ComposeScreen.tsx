@@ -153,23 +153,25 @@ export default function ComposeScreen() {
           scrollEnabled={true} />
       </View>
 
-      {/* 附件预览 - 编辑区和工具栏之间 */}
-      {attachments.length > 0 && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always"
-          style={styles.attachmentBar} contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}>
-          {attachments.map(att => (
-            <View key={att.uid} style={styles.attachmentItem}>
-              {att.type === 'image' ? <Image source={{ uri: att.url }} style={styles.attachmentImage} resizeMode="cover" /> : (
-                <View style={styles.filePlaceholder}><Ionicons name={att.type === 'video' ? 'videocam' : 'document'} size={20} color="#9CA3AF" /><Text style={styles.fileName} numberOfLines={1}>{att.originalFilename || '附件'}</Text></View>
-              )}
-              <TouchableOpacity style={styles.removeBtn} onPress={() => setAttachments(p => p.filter(a => a.uid !== att.uid))}><Ionicons name="close" size={12} color="#fff" /></TouchableOpacity>
-            </View>
-          ))}
-        </ScrollView>
-      )}
+      {/* 附件 + 标签 + 字数 - 紧贴工具栏上方 */}
+      <View style={styles.bottomInfo}>
+        {/* 附件预览 */}
+        {attachments.length > 0 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always"
+            contentContainerStyle={{ paddingHorizontal: 12, gap: 8, paddingVertical: 6 }}>
+            {attachments.map(att => (
+              <View key={att.uid} style={styles.attachmentItem}>
+                {att.type === 'image' ? <Image source={{ uri: att.url }} style={styles.attachmentImage} resizeMode="cover" /> : (
+                  <View style={styles.filePlaceholder}><Ionicons name={att.type === 'video' ? 'videocam' : 'document'} size={20} color="#9CA3AF" /><Text style={styles.fileName} numberOfLines={1}>{att.originalFilename || '附件'}</Text></View>
+                )}
+                <TouchableOpacity style={styles.removeBtn} onPress={() => setAttachments(p => p.filter(a => a.uid !== att.uid))}><Ionicons name="close" size={12} color="#fff" /></TouchableOpacity>
+              </View>
+            ))}
+          </ScrollView>
+        )}
 
-      {/* 标签栏 + 字数 - 工具栏上方 */}
-      <View style={styles.tagsBar}>
+        {/* 标签 + 字数 */}
+        <View style={styles.tagsRow}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always"
           style={{ flex: 1 }} contentContainerStyle={{ paddingLeft: 12, gap: 6 }}>
           {currentTags.map(tag => (
@@ -188,6 +190,7 @@ export default function ComposeScreen() {
         <View style={styles.charCountWrap}>
           {uploading && <ActivityIndicator size="small" color="#6B7280" />}
           <Text style={styles.charCount}>{cleanContent(content).length}</Text>
+        </View>
         </View>
       </View>
 
@@ -258,13 +261,13 @@ const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: '#fff' },
   editorArea: { flex: 1, backgroundColor: '#fff' },
   textInput: { flex: 1, fontSize: 17, lineHeight: 28, color: '#1F2937', paddingHorizontal: 20, paddingTop: 16 },
-  attachmentBar: { backgroundColor: '#fff', paddingVertical: 8, borderTopWidth: 0.5, borderTopColor: '#F3F4F6' },
+  bottomInfo: { backgroundColor: '#fff' },
+  tagsRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
   attachmentItem: { position: 'relative' },
   attachmentImage: { width: 60, height: 60, borderRadius: 8, backgroundColor: '#F3F4F6' },
   filePlaceholder: { width: 60, height: 60, borderRadius: 8, backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB', justifyContent: 'center', alignItems: 'center', padding: 2 },
   fileName: { fontSize: 8, color: '#9CA3AF', marginTop: 1, textAlign: 'center' },
   removeBtn: { position: 'absolute', top: -4, right: -4, width: 18, height: 18, borderRadius: 9, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
-  tagsBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', paddingVertical: 6 },
   parsedTag: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#EFF6FF', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5 },
   parsedTagText: { color: '#2563EB', fontSize: 13, fontWeight: '500' },
   charCountWrap: { paddingHorizontal: 12 },
