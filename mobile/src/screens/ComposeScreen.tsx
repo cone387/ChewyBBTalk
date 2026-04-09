@@ -168,8 +168,8 @@ export default function ComposeScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* 内容滚动区 - flex: 1 占满中间 */}
-      <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive">
+      {/* 内容区 */}
+      <ScrollView style={styles.scroll} contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive">
         <TextInput ref={inputRef} style={styles.textInput}
           placeholder="你要BB什么？输入 # 添加标签" placeholderTextColor="#C4C4C4"
           value={content} onChangeText={setContent} multiline textAlignVertical="top" autoFocus={!isEditing}
@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
   publishBtn: { backgroundColor: '#2563EB', borderRadius: 20, paddingHorizontal: 18, paddingVertical: 8 },
   publishText: { color: '#fff', fontSize: 15, fontWeight: '600' },
   scroll: { flex: 1, backgroundColor: '#fff' },
-  bottomArea: { backgroundColor: '#FAFAFA', borderTopWidth: 0.5, borderTopColor: '#E5E7EB' },  textInput: { fontSize: 17, lineHeight: 28, color: '#1F2937', paddingHorizontal: 20, paddingTop: 16, minHeight: 180 },
+  bottomArea: { backgroundColor: '#FAFAFA', borderTopWidth: 0.5, borderTopColor: '#E5E7EB' },  textInput: { fontSize: 17, lineHeight: 28, color: '#1F2937', paddingHorizontal: 20, paddingTop: 16, flex: 1 },
   parsedTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 20, paddingBottom: 8 },
   parsedTag: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
