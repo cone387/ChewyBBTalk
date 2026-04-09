@@ -187,15 +187,20 @@ export default function ComposeScreen() {
             <TouchableOpacity style={styles.toolBtn} onPress={() => pickMedia('videos')}><Ionicons name="videocam-outline" size={21} color="#6B7280" /></TouchableOpacity>
             <TouchableOpacity style={styles.toolBtn} onPress={pickFile}><Ionicons name="attach-outline" size={21} color="#6B7280" /></TouchableOpacity>
             <TouchableOpacity style={styles.toolBtn} onPress={() => {
-              const pos = cursorPos;
-              const before = content.slice(0, pos);
-              const after = content.slice(pos);
-              const prefix = before.length > 0 && !before.endsWith(' ') && !before.endsWith('\n') ? ' ' : '';
-              const newContent = before + prefix + '#' + after;
-              const newPos = pos + prefix.length + 1;
-              setContent(newContent);
-              setCursorPos(newPos);
-              setShowQuickTags(true);
+              if (showQuickTags) {
+                // 第二次点击：隐藏快速标签
+                setShowQuickTags(false);
+              } else {
+                // 第一次点击：插入 # + 显示快速标签
+                const pos = cursorPos;
+                const before = content.slice(0, pos);
+                const after = content.slice(pos);
+                const prefix = before.length > 0 && !before.endsWith(' ') && !before.endsWith('\n') ? ' ' : '';
+                const newContent = before + prefix + '#' + after;
+                setContent(newContent);
+                setCursorPos(pos + prefix.length + 1);
+                setShowQuickTags(true);
+              }
               setTimeout(() => inputRef.current?.focus(), 30);
             }}><Ionicons name="pricetag-outline" size={19} color={showQuickTags ? '#2563EB' : '#6B7280'} /></TouchableOpacity>
             <TouchableOpacity style={styles.toolBtn} onPress={getLocation}><Ionicons name="location-outline" size={19} color={location ? '#10B981' : '#6B7280'} /></TouchableOpacity>
