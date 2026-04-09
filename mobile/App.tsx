@@ -95,7 +95,7 @@ function AuthenticatedStack({ onLogout }: { onLogout: () => void }) {
         {() => <HomeWithDrawer onLogout={onLogout} />}
       </Stack.Screen>
       <Stack.Screen name="Compose" component={ComposeScreen}
-        options={{ headerShown: false, presentation: 'containedModal', animation: 'slide_from_bottom' }} />
+        options={{ headerShown: false, presentation: 'modal', animation: 'slide_from_bottom', gestureEnabled: true }} />
       <Stack.Screen name="Settings" options={{
         title: '设置', headerStyle: { backgroundColor: '#F0F4FF' },
         headerShadowVisible: false, headerTitleStyle: { fontSize: 18, fontWeight: '600' }, headerBackTitle: '返回',

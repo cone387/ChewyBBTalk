@@ -30,24 +30,26 @@ export default function DataManagementScreen() {
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) { Alert.alert('导出失败', `服务器返回 ${res.status}`); return; }
 
-      const blob = await res.blob();
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
       const fileName = `bbtalk_export_${timestamp}.${format === 'zip' ? 'zip' : 'json'}`;
       const file = new File(EXPORT_DIR, fileName);
 
-      // 将 blob 写入文件
-      const reader = new FileReader();
-      const base64 = await new Promise<string>((resolve, reject) => {
-        reader.onload = () => {
-          const result = reader.result as string;
-          resolve(result.split(',')[1]); // 去掉 data:xxx;base64, 前缀
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
-      file.write(base64, { encoding: 'base64' });
+      if (format === 'json') {
+        // JSON: read as text and write directly
+        const text = await res.text();
+        file.write(text);
+      } else {
+        // ZIP: read as blob -> base64 -> write
+        const blob = await res.blob();
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve((reader.result as string).split(',')[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+        file.write(base64);
+      }
 
-      // 分享文件
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(file.uri, {
           mimeType: format === 'zip' ? 'application/zip' : 'application/json',
@@ -55,7 +57,7 @@ export default function DataManagementScreen() {
         });
       }
 
-      Alert.alert('导出成功', `文件已保存到:\n${file.uri}`);
+      Alert.alert('导出成功', `文件已保存并可通过分享发送`);
     } catch (e: any) { Alert.alert('导出失败', e.message); }
     finally { setExporting(false); }
   };
