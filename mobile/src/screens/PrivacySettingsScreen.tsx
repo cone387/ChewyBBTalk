@@ -10,6 +10,7 @@ export default function PrivacySettingsScreen() {
   const [enabled, setEnabled] = useState(true);
   const [timeout, setTimeout_] = useState(5);
   const [showCountdown, setShowCountdown] = useState(true);
+  const [allowCompose, setAllowCompose] = useState(true);
 
   React.useEffect(() => {
     (async () => {
@@ -19,6 +20,8 @@ export default function PrivacySettingsScreen() {
       if (t) setTimeout_(parseInt(t, 10));
       const c = await AsyncStorage.getItem('show_privacy_countdown');
       if (c === 'false') setShowCountdown(false);
+      const a = await AsyncStorage.getItem('privacy_allow_compose');
+      if (a === 'false') setAllowCompose(false);
     })();
   }, []);
 
@@ -36,6 +39,11 @@ export default function PrivacySettingsScreen() {
   const onCountdownChange = async (val: boolean) => {
     setShowCountdown(val);
     await AsyncStorage.setItem('show_privacy_countdown', val.toString());
+  };
+
+  const onAllowComposeChange = async (val: boolean) => {
+    setAllowCompose(val);
+    await AsyncStorage.setItem('privacy_allow_compose', val.toString());
   };
 
   return (
@@ -84,6 +92,18 @@ export default function PrivacySettingsScreen() {
             <Text style={styles.switchHint}>在首页右下角显示剩余时间</Text>
           </View>
           <Switch value={showCountdown} onValueChange={onCountdownChange}
+            trackColor={{ false: '#E5E7EB', true: '#2563EB' }} thumbColor="#fff" />
+        </View>
+
+        <View style={styles.divider} />
+
+        {/* 锁定时允许新建 */}
+        <View style={[styles.switchRow, !enabled && { opacity: 0.4 }]} pointerEvents={enabled ? 'auto' : 'none'}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.switchLabel}>锁定时允许新建</Text>
+            <Text style={styles.switchHint}>防窥模式下仍可发布碎碎念</Text>
+          </View>
+          <Switch value={allowCompose} onValueChange={onAllowComposeChange}
             trackColor={{ false: '#E5E7EB', true: '#2563EB' }} thumbColor="#fff" />
         </View>
 

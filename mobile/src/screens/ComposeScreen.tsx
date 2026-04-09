@@ -42,6 +42,7 @@ export default function ComposeScreen() {
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [showQuickTags, setShowQuickTags] = useState(false);
   const [keyboardH, setKeyboardH] = useState(0);
+  const publishedRef = useRef(false);
 
   useEffect(() => {
     if (existingTags.length === 0) dispatch(loadTags());
@@ -58,10 +59,11 @@ export default function ComposeScreen() {
     return () => { s1.remove(); s2.remove(); };
   }, []);
 
-  // 新建模式：离开时自动保存草稿
+  // 新建模式：离开时自动保存草稿（发布成功后不保存）
   useEffect(() => {
     if (isEditing) return;
     const unsubscribe = navigation.addListener('beforeRemove', () => {
+      if (publishedRef.current) return; // 已发布，不保存草稿
       if (content.trim()) {
         AsyncStorage.setItem('compose_draft', content);
       } else {
@@ -121,7 +123,7 @@ export default function ComposeScreen() {
       const ctx: Record<string, any> = { source: { client: 'ChewyBBTalk Mobile', version: '1.0', platform: 'mobile' } }; if (location) ctx.location = location;
       if (isEditing && editItem) await dispatch(updateBBTalkAsync({ id: editItem.id, data: { content: cleaned, tags: currentTags.map(n => ({ id: '', name: n, color: '', sortOrder: 0, bbtalkCount: 0 })), visibility, attachments } })).unwrap();
       else await dispatch(createBBTalkAsync({ content: cleaned, tags: currentTags, visibility, attachments, context: ctx })).unwrap();
-      dispatch(loadTags()); AsyncStorage.removeItem('compose_draft'); navigation.goBack();
+      dispatch(loadTags()); await AsyncStorage.removeItem('compose_draft'); publishedRef.current = true; navigation.goBack();
     } catch (e: any) { Alert.alert('失败', e.message || '请重试'); } finally { setSubmitting(false); }
   };
 

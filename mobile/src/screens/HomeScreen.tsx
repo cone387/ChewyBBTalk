@@ -34,6 +34,7 @@ export default function HomeScreen({ selectedTag, onOpenDrawer, onLockChange }: 
   const [showCountdown, setShowCountdown] = useState(true);
   const [privacyEnabled, setPrivacyEnabled] = useState(true);
   const [locked, setLockedState] = useState(false);
+  const [allowComposeWhenLocked, setAllowComposeWhenLocked] = useState(true);
 
   const setLocked = useCallback((val: boolean) => {
     setLockedState(val);
@@ -57,6 +58,8 @@ export default function HomeScreen({ selectedTag, onOpenDrawer, onLockChange }: 
     if (c === 'false') setShowCountdown(false); else setShowCountdown(true);
     const e = await AsyncStorage.getItem('privacy_enabled');
     if (e === 'false') setPrivacyEnabled(false); else setPrivacyEnabled(true);
+    const ac = await AsyncStorage.getItem('privacy_allow_compose');
+    if (ac === 'false') setAllowComposeWhenLocked(false); else setAllowComposeWhenLocked(true);
     // 恢复锁定状态
     const l = await AsyncStorage.getItem('privacy_locked');
     if (l === 'true') { setLockedState(true); onLockChange?.(true); }
@@ -81,6 +84,9 @@ export default function HomeScreen({ selectedTag, onOpenDrawer, onLockChange }: 
       const e = await AsyncStorage.getItem('privacy_enabled');
       const enabled = e !== 'false';
       setPrivacyEnabled(enabled);
+
+      const ac = await AsyncStorage.getItem('privacy_allow_compose');
+      setAllowComposeWhenLocked(ac !== 'false');
 
       if (!enabled) { setPrivacySeconds(null); return; }
 
@@ -445,14 +451,16 @@ export default function HomeScreen({ selectedTag, onOpenDrawer, onLockChange }: 
             </TouchableOpacity>
           </View>
 
-          {/* 防窥模式下仍可新建 */}
-          <TouchableOpacity
-            style={[styles.fab, { bottom: insets.bottom + 24 }]}
-            onPress={() => navigation.navigate('Compose')}
-            activeOpacity={0.85}
-          >
-            <Ionicons name="add" size={28} color="#fff" />
-          </TouchableOpacity>
+          {/* 防窥模式下可新建（如果设置允许） */}
+          {allowComposeWhenLocked && (
+            <TouchableOpacity
+              style={[styles.fab, { bottom: insets.bottom + 24 }]}
+              onPress={() => navigation.navigate('Compose')}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="add" size={28} color="#fff" />
+            </TouchableOpacity>
+          )}
         </View>
       )}
     </View>
