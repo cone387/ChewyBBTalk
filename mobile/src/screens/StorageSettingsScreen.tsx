@@ -4,9 +4,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiClient } from '../services/api/apiClient';
 import type { StorageSettings } from '../types';
+import { useTheme } from '../theme/ThemeContext';
 
 export default function StorageSettingsScreen() {
   const insets = useSafeAreaInsets();
+  const { theme } = useTheme();
+  const c = theme.colors;
   const [configs, setConfigs] = useState<StorageSettings[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -59,47 +62,43 @@ export default function StorageSettingsScreen() {
     } catch (e: any) { Alert.alert('失败', e.message); }
   };
 
-  if (loading) return <View style={styles.center}><ActivityIndicator size="large" color="#059669" /></View>;
+  if (loading) return <View style={styles.center}><ActivityIndicator size="large" color={c.primary} /></View>;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 20 }}>
-      {/* 当前状态 */}
-      <View style={styles.statusCard}>
-        <Ionicons name="server" size={20} color="#059669" />
-        <Text style={styles.statusText}>
-          当前: {configs.find(c => c.is_active) ? configs.find(c => c.is_active)!.name : '服务器本地存储'}
+    <ScrollView style={[styles.container, { backgroundColor: c.surfaceSecondary }]} contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 20 }}>
+      <View style={[styles.statusCard, { backgroundColor: c.primaryLight }]}>
+        <Ionicons name="server" size={20} color={c.primary} />
+        <Text style={[styles.statusText, { color: c.primary }]}>
+          当前: {configs.find(c2 => c2.is_active) ? configs.find(c2 => c2.is_active)!.name : '服务器本地存储'}
         </Text>
       </View>
 
-      {/* 使用服务器存储 */}
-      <TouchableOpacity style={styles.optionCard} onPress={deactivateAll}>
-        <Ionicons name="folder-outline" size={20} color="#6B7280" />
-        <Text style={styles.optionText}>使用服务器本地存储</Text>
-        {!configs.find(c => c.is_active) && <Ionicons name="checkmark-circle" size={20} color="#10B981" />}
+      <TouchableOpacity style={[styles.optionCard, { backgroundColor: c.cardBg }]} onPress={deactivateAll}>
+        <Ionicons name="folder-outline" size={20} color={c.textSecondary} />
+        <Text style={[styles.optionText, { color: c.text }]}>使用服务器本地存储</Text>
+        {!configs.find(c2 => c2.is_active) && <Ionicons name="checkmark-circle" size={20} color="#10B981" />}
       </TouchableOpacity>
 
-      {/* S3 配置列表 */}
-      {configs.map(c => (
-        <View key={c.id} style={[styles.configCard, c.is_active && styles.configCardActive]}>
+      {configs.map(cfg => (
+        <View key={cfg.id} style={[styles.configCard, { backgroundColor: c.cardBg, borderColor: c.borderLight }, cfg.is_active && { borderColor: '#10B981' }]}>
           <View style={styles.configHeader}>
-            <Text style={styles.configName}>{c.name}</Text>
-            {c.is_active && <View style={styles.activeBadge}><Text style={styles.activeBadgeText}>已激活</Text></View>}
+            <Text style={[styles.configName, { color: c.text }]}>{cfg.name}</Text>
+            {cfg.is_active && <View style={styles.activeBadge}><Text style={styles.activeBadgeText}>已激活</Text></View>}
           </View>
-          <Text style={styles.configDetail}>桶: {c.s3_bucket_name || '-'}</Text>
-          <Text style={styles.configDetail}>区域: {c.s3_region_name || '-'}</Text>
-          {c.s3_endpoint_url ? <Text style={styles.configDetail}>端点: {c.s3_endpoint_url}</Text> : null}
+          <Text style={[styles.configDetail, { color: c.textTertiary }]}>桶: {cfg.s3_bucket_name || '-'}</Text>
+          <Text style={[styles.configDetail, { color: c.textTertiary }]}>区域: {cfg.s3_region_name || '-'}</Text>
+          {cfg.s3_endpoint_url ? <Text style={[styles.configDetail, { color: c.textTertiary }]}>端点: {cfg.s3_endpoint_url}</Text> : null}
           <View style={styles.configActions}>
-            {!c.is_active && <TouchableOpacity style={styles.actionBtn} onPress={() => activate(c.id)}><Text style={styles.actionBtnText}>激活</Text></TouchableOpacity>}
-            <TouchableOpacity style={styles.actionBtn} onPress={() => testConnection(c.id)}><Text style={styles.actionBtnText}>测试</Text></TouchableOpacity>
-            <TouchableOpacity style={styles.actionBtn} onPress={() => deleteConfig(c.id)}><Text style={[styles.actionBtnText, { color: '#EF4444' }]}>删除</Text></TouchableOpacity>
+            {!cfg.is_active && <TouchableOpacity style={styles.actionBtn} onPress={() => activate(cfg.id)}><Text style={[styles.actionBtnText, { color: c.primary }]}>激活</Text></TouchableOpacity>}
+            <TouchableOpacity style={styles.actionBtn} onPress={() => testConnection(cfg.id)}><Text style={[styles.actionBtnText, { color: c.primary }]}>测试</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.actionBtn} onPress={() => deleteConfig(cfg.id)}><Text style={[styles.actionBtnText, { color: c.danger }]}>删除</Text></TouchableOpacity>
           </View>
         </View>
       ))}
 
-      {/* 添加配置 */}
       {showAdd ? (
-        <View style={styles.addForm}>
-          <Text style={styles.addTitle}>新建 S3 配置</Text>
+        <View style={[styles.addForm, { backgroundColor: c.cardBg }]}>
+          <Text style={[styles.addTitle, { color: c.text }]}>新建 S3 配置</Text>
           {[
             { key: 'name', label: '配置名称', placeholder: '例如：阿里云OSS' },
             { key: 's3_access_key_id', label: 'Access Key ID', placeholder: '' },
@@ -109,25 +108,25 @@ export default function StorageSettingsScreen() {
             { key: 's3_endpoint_url', label: '端点 URL（可选）', placeholder: 'https://oss-cn-hangzhou.aliyuncs.com' },
           ].map(f => (
             <View key={f.key}>
-              <Text style={styles.fieldLabel}>{f.label}</Text>
-              <TextInput style={styles.fieldInput} placeholder={f.placeholder} placeholderTextColor="#C4C4C4"
+              <Text style={[styles.fieldLabel, { color: c.textSecondary }]}>{f.label}</Text>
+              <TextInput style={[styles.fieldInput, { borderColor: c.border, color: c.text }]} placeholder={f.placeholder} placeholderTextColor={c.textTertiary}
                 value={(form as any)[f.key]} onChangeText={v => setForm(p => ({ ...p, [f.key]: v }))}
                 secureTextEntry={f.secure} autoCapitalize="none" />
             </View>
           ))}
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-            <TouchableOpacity style={[styles.formBtn, { backgroundColor: '#F3F4F6', flex: 1 }]} onPress={() => setShowAdd(false)}>
-              <Text style={{ color: '#6B7280', fontWeight: '500' }}>取消</Text>
+            <TouchableOpacity style={[styles.formBtn, { backgroundColor: c.borderLight, flex: 1 }]} onPress={() => setShowAdd(false)}>
+              <Text style={{ color: c.textSecondary, fontWeight: '500' }}>取消</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.formBtn, { flex: 1 }]} onPress={createConfig}>
+            <TouchableOpacity style={[styles.formBtn, { backgroundColor: c.primary, flex: 1 }]} onPress={createConfig}>
               <Text style={{ color: '#fff', fontWeight: '600' }}>创建</Text>
             </TouchableOpacity>
           </View>
         </View>
       ) : (
         <TouchableOpacity style={styles.addBtn} onPress={() => setShowAdd(true)}>
-          <Ionicons name="add-circle-outline" size={20} color="#059669" />
-          <Text style={styles.addBtnText}>添加 S3 存储配置</Text>
+          <Ionicons name="add-circle-outline" size={20} color={c.primary} />
+          <Text style={[styles.addBtnText, { color: c.primary }]}>添加 S3 存储配置</Text>
         </TouchableOpacity>
       )}
     </ScrollView>
@@ -135,27 +134,26 @@ export default function StorageSettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F0F4FF' },
+  container: { flex: 1 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  statusCard: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#ECFDF5', borderRadius: 12, padding: 14, marginBottom: 12 },
-  statusText: { fontSize: 14, color: '#059669', fontWeight: '500' },
-  optionCard: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', borderRadius: 12, padding: 14, marginBottom: 12 },
-  optionText: { flex: 1, fontSize: 15, color: '#374151' },
-  configCard: { backgroundColor: '#fff', borderRadius: 12, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: '#F3F4F6' },
-  configCardActive: { borderColor: '#10B981' },
+  statusCard: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 12, padding: 14, marginBottom: 12 },
+  statusText: { fontSize: 14, fontWeight: '500' },
+  optionCard: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 12, padding: 14, marginBottom: 12 },
+  optionText: { flex: 1, fontSize: 15 },
+  configCard: { borderRadius: 12, padding: 14, marginBottom: 10, borderWidth: 1 },
   configHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  configName: { fontSize: 15, fontWeight: '600', color: '#111827' },
+  configName: { fontSize: 15, fontWeight: '600' },
   activeBadge: { backgroundColor: '#ECFDF5', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2 },
   activeBadgeText: { fontSize: 11, color: '#059669', fontWeight: '600' },
-  configDetail: { fontSize: 12, color: '#9CA3AF', marginBottom: 2 },
+  configDetail: { fontSize: 12, marginBottom: 2 },
   configActions: { flexDirection: 'row', gap: 12, marginTop: 10 },
   actionBtn: { paddingVertical: 4 },
-  actionBtnText: { fontSize: 13, color: '#2563EB', fontWeight: '500' },
-  addForm: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginTop: 4 },
-  addTitle: { fontSize: 15, fontWeight: '600', color: '#111827', marginBottom: 12 },
-  fieldLabel: { fontSize: 12, fontWeight: '500', color: '#6B7280', marginBottom: 4, marginTop: 8 },
-  fieldInput: { borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, paddingHorizontal: 10, height: 40, fontSize: 14, color: '#111827' },
-  formBtn: { backgroundColor: '#059669', borderRadius: 10, height: 40, justifyContent: 'center', alignItems: 'center' },
+  actionBtnText: { fontSize: 13, fontWeight: '500' },
+  addForm: { borderRadius: 12, padding: 16, marginTop: 4 },
+  addTitle: { fontSize: 15, fontWeight: '600', marginBottom: 12 },
+  fieldLabel: { fontSize: 12, fontWeight: '500', marginBottom: 4, marginTop: 8 },
+  fieldInput: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, height: 40, fontSize: 14 },
+  formBtn: { borderRadius: 10, height: 40, justifyContent: 'center', alignItems: 'center' },
   addBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 16 },
-  addBtnText: { fontSize: 14, color: '#059669', fontWeight: '500' },
+  addBtnText: { fontSize: 14, fontWeight: '500' },
 });

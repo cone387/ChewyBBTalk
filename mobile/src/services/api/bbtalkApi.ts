@@ -43,6 +43,7 @@ export const bbtalkApi = {
     page?: number;
     search?: string;
     tags__name?: string;
+    create_time__date?: string;
   }): Promise<PaginatedResponse<BBTalk>> {
     const data = await apiClient.get<any>('/api/v1/bbtalk/', params);
     return {

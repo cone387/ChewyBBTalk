@@ -3,6 +3,7 @@ from rest_framework.decorators import api_view, permission_classes as permission
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from django_filters.rest_framework import DjangoFilterBackend
+import django_filters
 from django.http import HttpResponse
 from .models import BBTalk, Tag, generate_tag_color, User, UserStorageSettings
 from .serializers import BBTalkSerializer, TagSerializer, UserSerializer, UserStorageSettingsSerializer
@@ -245,13 +246,21 @@ def get_current_user(request):
     return Response(serializer.data)
 
 
+class BBTalkFilter(django_filters.FilterSet):
+    create_time__date = django_filters.DateFilter(field_name='create_time', lookup_expr='date')
+
+    class Meta:
+        model = BBTalk
+        fields = ['tags__name', 'visibility', 'create_time__date']
+
+
 class BBTalkViewSet(viewsets.ModelViewSet):
     """提供BBTalk的CRUD操作的视图集"""
     queryset = BBTalk.objects.all()  # 用于路由自动识别，实际查询使用 get_queryset()
     serializer_class = BBTalkSerializer
     permission_classes = [permissions.IsAuthenticated,]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    filterset_fields = ['tags__name', 'visibility']
+    filterset_class = BBTalkFilter
     search_fields = ['content', "tags__name"]
     lookup_field = 'uid'
     

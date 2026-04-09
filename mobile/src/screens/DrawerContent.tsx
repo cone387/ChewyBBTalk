@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, LayoutAnimation, UIManager, Platform } from 'react-native';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -9,11 +9,11 @@ import { getCurrentUser } from '../services/auth';
 import { bbtalkApi } from '../services/api/bbtalkApi';
 import { useTheme } from '../theme/ThemeContext';
 
-if (Platform.OS === 'android') UIManager.setLayoutAnimationEnabledExperimental?.(true);
-
 interface Props {
   selectedTag: string | null;
+  selectedDate: string | null;
   onSelectTag: (tagId: string | null) => void;
+  onSelectDate: (date: string | null) => void;
   onClose: () => void;
 }
 
@@ -22,12 +22,11 @@ const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
 function getDaysInMonth(year: number, month: number) {
   return new Date(year, month + 1, 0).getDate();
 }
-
 function getFirstDayOfWeek(year: number, month: number) {
   return new Date(year, month, 1).getDay();
 }
 
-export default function DrawerContent({ selectedTag, onSelectTag, onClose }: Props) {
+export default React.memo(function DrawerContent({ selectedTag, selectedDate, onSelectTag, onSelectDate, onClose }: Props) {
   const dispatch = useAppDispatch();
   const { tags } = useAppSelector(s => s.tag);
   const { totalCount } = useAppSelector(s => s.bbtalk);
@@ -39,7 +38,6 @@ export default function DrawerContent({ selectedTag, onSelectTag, onClose }: Pro
   const [tagsExpanded, setTagsExpanded] = useState(true);
   const [calendarExpanded, setCalendarExpanded] = useState(true);
 
-  // Calendar state
   const now = new Date();
   const [calYear, setCalYear] = useState(now.getFullYear());
   const [calMonth, setCalMonth] = useState(now.getMonth());
@@ -58,14 +56,11 @@ export default function DrawerContent({ selectedTag, onSelectTag, onClose }: Pro
 
   useEffect(() => { loadDateCounts(calYear, calMonth); }, [calYear, calMonth]);
 
-  const select = (id: string | null) => { onSelectTag(id); onClose(); };
-  const toggleExpand = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setTagsExpanded(!tagsExpanded);
-  };
-  const toggleCalendar = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setCalendarExpanded(!calendarExpanded);
+  const selectTag = (id: string | null) => { onSelectTag(id); onClose(); };
+  const selectDate = (dateKey: string) => {
+    // Toggle: tap same date again to clear
+    onSelectDate(selectedDate === dateKey ? null : dateKey);
+    onClose();
   };
 
   const prevMonth = () => {
@@ -77,12 +72,15 @@ export default function DrawerContent({ selectedTag, onSelectTag, onClose }: Pro
     else setCalMonth(calMonth + 1);
   };
 
-  // Build calendar grid
-  const daysInMonth = getDaysInMonth(calYear, calMonth);
-  const firstDay = getFirstDayOfWeek(calYear, calMonth);
-  const calendarDays: (number | null)[] = [];
-  for (let i = 0; i < firstDay; i++) calendarDays.push(null);
-  for (let d = 1; d <= daysInMonth; d++) calendarDays.push(d);
+  // Build calendar grid (memoized)
+  const calendarDays = useMemo(() => {
+    const daysInMonth = getDaysInMonth(calYear, calMonth);
+    const firstDay = getFirstDayOfWeek(calYear, calMonth);
+    const days: (number | null)[] = [];
+    for (let i = 0; i < firstDay; i++) days.push(null);
+    for (let d = 1; d <= daysInMonth; d++) days.push(d);
+    return days;
+  }, [calYear, calMonth]);
 
   const today = new Date();
   const isToday = (day: number) =>
@@ -96,16 +94,16 @@ export default function DrawerContent({ selectedTag, onSelectTag, onClose }: Pro
 
   const getIntensity = (count: number) => {
     if (count === 0) return 'transparent';
-    if (count <= 1) return c.primary + '30';
-    if (count <= 3) return c.primary + '60';
-    if (count <= 5) return c.primary + '90';
-    return c.primary + 'CC';
+    if (count <= 1) return c.primary + '40';
+    if (count <= 3) return c.primary + '70';
+    if (count <= 5) return c.primary + 'A0';
+    return c.primary + 'DD';
   };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 16, backgroundColor: c.surface }]}>
       {/* 日历区 */}
-      <TouchableOpacity style={styles.sectionHeader} onPress={toggleCalendar} activeOpacity={0.7}>
+      <TouchableOpacity style={styles.sectionHeader} onPress={() => setCalendarExpanded(!calendarExpanded)} activeOpacity={0.7}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <Ionicons name="calendar-outline" size={16} color={c.textSecondary} />
           <Text style={[styles.sectionTitle, { color: c.textSecondary }]}>日历</Text>
@@ -115,7 +113,6 @@ export default function DrawerContent({ selectedTag, onSelectTag, onClose }: Pro
 
       {calendarExpanded && (
         <View style={styles.calendarWrap}>
-          {/* Month nav */}
           <View style={styles.calNav}>
             <TouchableOpacity onPress={prevMonth} style={styles.calNavBtn}>
               <Ionicons name="chevron-back" size={18} color={c.textSecondary} />
@@ -126,7 +123,6 @@ export default function DrawerContent({ selectedTag, onSelectTag, onClose }: Pro
             </TouchableOpacity>
           </View>
 
-          {/* Weekday headers */}
           <View style={styles.calRow}>
             {WEEKDAYS.map(w => (
               <View key={w} style={styles.calCell}>
@@ -135,35 +131,52 @@ export default function DrawerContent({ selectedTag, onSelectTag, onClose }: Pro
             ))}
           </View>
 
-          {/* Days grid */}
           <View style={styles.calGrid}>
             {calendarDays.map((day, i) => {
               if (day === null) return <View key={`e${i}`} style={styles.calCell} />;
               const key = getDateKey(day);
               const count = dateCounts[key] || 0;
+              const isSelected = selectedDate === key;
+              const hasData = count > 0;
               return (
                 <View key={key} style={styles.calCell}>
-                  <View style={[
-                    styles.calDay,
-                    count > 0 && { backgroundColor: getIntensity(count) },
-                    isToday(day) && { borderWidth: 1.5, borderColor: c.primary },
-                  ]}>
+                  <TouchableOpacity
+                    activeOpacity={hasData ? 0.6 : 1}
+                    onPress={() => hasData ? selectDate(key) : undefined}
+                    disabled={!hasData}
+                    style={[
+                      styles.calDay,
+                      hasData && { backgroundColor: getIntensity(count) },
+                      isToday(day) && !isSelected && { borderWidth: 1.5, borderColor: c.primary },
+                      isSelected && { borderWidth: 2, borderColor: c.text },
+                    ]}
+                  >
                     <Text style={[
                       styles.calDayText,
-                      { color: count > 3 ? '#fff' : c.text },
-                      isToday(day) && { fontWeight: '700' },
+                      { color: hasData ? (count > 3 ? '#fff' : c.text) : c.textTertiary },
+                      isToday(day) && { fontWeight: '700', color: c.primary },
                     ]}>{day}</Text>
-                  </View>
-                  {count > 0 && <Text style={[styles.calCount, { color: c.primary }]}>{count}</Text>}
+                    {hasData && (
+                      <Text style={[styles.calCountInside, { color: count > 3 ? 'rgba(255,255,255,0.85)' : c.primary }]}>{count}</Text>
+                    )}
+                  </TouchableOpacity>
                 </View>
               );
             })}
           </View>
+
+          {/* Clear date filter hint */}
+          {selectedDate && (
+            <TouchableOpacity style={styles.clearDateBtn} onPress={() => { onSelectDate(null); onClose(); }}>
+              <Ionicons name="close-circle" size={14} color={c.textTertiary} />
+              <Text style={[styles.clearDateText, { color: c.textTertiary }]}>清除日期筛选</Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
       {/* 标签区 */}
-      <TouchableOpacity style={styles.sectionHeader} onPress={toggleExpand} activeOpacity={0.7}>
+      <TouchableOpacity style={styles.sectionHeader} onPress={() => setTagsExpanded(!tagsExpanded)} activeOpacity={0.7}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <Ionicons name="pricetags-outline" size={16} color={c.textSecondary} />
           <Text style={[styles.sectionTitle, { color: c.textSecondary }]}>标签</Text>
@@ -174,14 +187,14 @@ export default function DrawerContent({ selectedTag, onSelectTag, onClose }: Pro
       <ScrollView style={styles.tagScroll} showsVerticalScrollIndicator={false}>
         {tagsExpanded && (
           <>
-            <TouchableOpacity style={[styles.item, !selectedTag && { backgroundColor: c.borderLight }]} onPress={() => select(null)}>
+            <TouchableOpacity style={[styles.item, !selectedTag && !selectedDate && { backgroundColor: c.borderLight }]} onPress={() => selectTag(null)}>
               <Ionicons name="pricetag-outline" size={16} color={c.textTertiary} style={{ marginRight: 8 }} />
-              <Text style={[styles.itemText, { color: c.text }, !selectedTag && { fontWeight: '600' }]}>全部</Text>
+              <Text style={[styles.itemText, { color: c.text }, !selectedTag && !selectedDate && { fontWeight: '600' }]}>全部</Text>
               {totalCount > 0 && <Text style={[styles.itemCount, { color: c.textTertiary }]}>{totalCount}</Text>}
             </TouchableOpacity>
 
             {tags.map(tag => (
-              <TouchableOpacity key={tag.id} style={[styles.item, selectedTag === tag.id && { backgroundColor: c.borderLight }]} onPress={() => select(tag.id)}>
+              <TouchableOpacity key={tag.id} style={[styles.item, selectedTag === tag.id && { backgroundColor: c.borderLight }]} onPress={() => selectTag(tag.id)}>
                 <View style={[styles.tagDot, { backgroundColor: tag.color || '#3B82F6' }]} />
                 <Text style={[styles.itemText, { color: c.text }, selectedTag === tag.id && { fontWeight: '600' }]}>{tag.name}</Text>
                 {(tag.bbtalkCount ?? 0) > 0 && <Text style={[styles.itemCount, { color: c.textTertiary }]}>{tag.bbtalkCount}</Text>}
@@ -191,7 +204,6 @@ export default function DrawerContent({ selectedTag, onSelectTag, onClose }: Pro
         )}
       </ScrollView>
 
-      {/* 底部用户 + 设置 */}
       {currentUser && (
         <View style={[styles.userSection, { paddingBottom: insets.bottom + 12, borderTopColor: c.borderLight }]}>
           <View style={styles.userRow}>
@@ -210,7 +222,7 @@ export default function DrawerContent({ selectedTag, onSelectTag, onClose }: Pro
       )}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
@@ -219,28 +231,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingBottom: 10, paddingTop: 6,
   },
   sectionTitle: { fontSize: 13, fontWeight: '600' },
-  // Calendar
   calendarWrap: { paddingHorizontal: 12, marginBottom: 8 },
   calNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   calNavBtn: { padding: 4 },
   calNavTitle: { fontSize: 14, fontWeight: '600' },
   calRow: { flexDirection: 'row' },
   calGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-  calCell: { width: '14.28%', alignItems: 'center', marginBottom: 4 },
+  calCell: { width: '14.28%', alignItems: 'center', marginBottom: 3 },
   calWeekday: { fontSize: 11, fontWeight: '500' },
   calDay: {
-    width: 28, height: 28, borderRadius: 14,
+    width: 32, height: 38, borderRadius: 6,
     justifyContent: 'center', alignItems: 'center',
   },
-  calDayText: { fontSize: 12 },
-  calCount: { fontSize: 8, fontWeight: '700', marginTop: -2 },
-  // Tags
+  calDayText: { fontSize: 12, fontWeight: '500' },
+  calCountInside: { fontSize: 9, fontWeight: '700', marginTop: -1 },
+  clearDateBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 4, paddingVertical: 6,
+  },
+  clearDateText: { fontSize: 12 },
   tagScroll: { flex: 1, paddingHorizontal: 12 },
   item: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 11, borderRadius: 10, marginBottom: 2 },
   tagDot: { width: 8, height: 8, borderRadius: 4, marginRight: 10 },
   itemText: { flex: 1, fontSize: 14 },
   itemCount: { fontSize: 12 },
-  // User
   userSection: { padding: 16, borderTopWidth: 0.5 },
   userRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   avatar: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },

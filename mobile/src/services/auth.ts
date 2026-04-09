@@ -4,6 +4,7 @@
  */
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApiBaseUrl } from '../config';
 import type { User } from '../types';
 
@@ -151,6 +152,7 @@ export async function login(
     if (response.ok) {
       const data: LoginResponse = await response.json();
       await storeAuth(data);
+      await AsyncStorage.setItem('privacy_locked', 'false');
       return { success: true };
     }
 

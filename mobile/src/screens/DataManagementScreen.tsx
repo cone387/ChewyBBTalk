@@ -8,6 +8,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getAccessToken } from '../services/auth';
 import { getApiBaseUrl } from '../config';
+import { useTheme } from '../theme/ThemeContext';
 
 // blob -> base64
 function blobToBase64(blob: Blob): Promise<string> {
@@ -58,6 +59,8 @@ async function saveAndShare(blob: Blob, fileName: string, mimeType: string) {
 
 export default function DataManagementScreen() {
   const insets = useSafeAreaInsets();
+  const { theme } = useTheme();
+  const c = theme.colors;
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
 
@@ -129,26 +132,26 @@ export default function DataManagementScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 20 }}>
-      <View style={styles.card}>
-        <View style={styles.cardHeader}>
-          <View style={[styles.headerIcon, { backgroundColor: '#2563EB' }]}><Ionicons name="cloud-download-outline" size={20} color="#fff" /></View>
-          <View><Text style={styles.headerTitle}>导出数据</Text><Text style={styles.headerSub}>导出你的碎碎念和标签数据</Text></View>
+    <ScrollView style={[styles.container, { backgroundColor: c.surfaceSecondary }]} contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 20 }}>
+      <View style={[styles.card, { backgroundColor: c.cardBg }]}>
+        <View style={[styles.cardHeader, { backgroundColor: c.borderLight }]}>
+          <View style={[styles.headerIcon, { backgroundColor: c.primary }]}><Ionicons name="cloud-download-outline" size={20} color="#fff" /></View>
+          <View><Text style={[styles.headerTitle, { color: c.text }]}>导出数据</Text><Text style={[styles.headerSub, { color: c.textSecondary }]}>导出你的碎碎念和标签数据</Text></View>
         </View>
         <View style={styles.cardBody}>
-          <TouchableOpacity style={styles.exportBtn} onPress={() => handleExport('json')} disabled={exporting}>
-            {exporting ? <ActivityIndicator size="small" color="#2563EB" /> : <><Ionicons name="document-text-outline" size={18} color="#2563EB" /><Text style={styles.exportBtnText}>导出 JSON</Text></>}
+          <TouchableOpacity style={[styles.exportBtn, { borderColor: c.primary }]} onPress={() => handleExport('json')} disabled={exporting}>
+            {exporting ? <ActivityIndicator size="small" color={c.primary} /> : <><Ionicons name="document-text-outline" size={18} color={c.primary} /><Text style={[styles.exportBtnText, { color: c.primary }]}>导出 JSON</Text></>}
           </TouchableOpacity>
-          <TouchableOpacity style={styles.exportBtn} onPress={() => handleExport('zip')} disabled={exporting}>
-            {exporting ? <ActivityIndicator size="small" color="#2563EB" /> : <><Ionicons name="archive-outline" size={18} color="#2563EB" /><Text style={styles.exportBtnText}>导出 ZIP（含附件）</Text></>}
+          <TouchableOpacity style={[styles.exportBtn, { borderColor: c.primary }]} onPress={() => handleExport('zip')} disabled={exporting}>
+            {exporting ? <ActivityIndicator size="small" color={c.primary} /> : <><Ionicons name="archive-outline" size={18} color={c.primary} /><Text style={[styles.exportBtnText, { color: c.primary }]}>导出 ZIP（含附件）</Text></>}
           </TouchableOpacity>
         </View>
       </View>
 
-      <View style={styles.card}>
-        <View style={styles.cardHeader}>
+      <View style={[styles.card, { backgroundColor: c.cardBg }]}>
+        <View style={[styles.cardHeader, { backgroundColor: c.borderLight }]}>
           <View style={[styles.headerIcon, { backgroundColor: '#EA580C' }]}><Ionicons name="cloud-upload-outline" size={20} color="#fff" /></View>
-          <View><Text style={styles.headerTitle}>导入数据</Text><Text style={styles.headerSub}>从 JSON 或 ZIP 文件导入数据</Text></View>
+          <View><Text style={[styles.headerTitle, { color: c.text }]}>导入数据</Text><Text style={[styles.headerSub, { color: c.textSecondary }]}>从 JSON 或 ZIP 文件导入数据</Text></View>
         </View>
         <View style={styles.cardBody}>
           <TouchableOpacity style={[styles.exportBtn, { borderColor: '#EA580C' }]} onPress={handleImport} disabled={importing}>
@@ -156,23 +159,23 @@ export default function DataManagementScreen() {
           </TouchableOpacity>
         </View>
       </View>
-      <Text style={styles.hint}>导出的数据可用于跨服务器迁移或备份</Text>
+      <Text style={[styles.hint, { color: c.textTertiary }]}>导出的数据可用于跨服务器迁移或备份</Text>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F0F4FF' },
-  card: { backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', marginBottom: 14 },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, backgroundColor: '#F9FAFB' },
+  container: { flex: 1 },
+  card: { borderRadius: 16, overflow: 'hidden', marginBottom: 14 },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16 },
   headerIcon: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { fontSize: 16, fontWeight: '600', color: '#111827' },
-  headerSub: { fontSize: 12, color: '#6B7280', marginTop: 2 },
+  headerTitle: { fontSize: 16, fontWeight: '600' },
+  headerSub: { fontSize: 12, marginTop: 2 },
   cardBody: { padding: 16, gap: 10 },
   exportBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    borderWidth: 1, borderColor: '#2563EB', borderRadius: 10, height: 44,
+    borderWidth: 1, borderRadius: 10, height: 44,
   },
-  exportBtnText: { fontSize: 14, color: '#2563EB', fontWeight: '500' },
-  hint: { textAlign: 'center', fontSize: 12, color: '#9CA3AF', marginTop: 16 },
+  exportBtnText: { fontSize: 14, fontWeight: '500' },
+  hint: { textAlign: 'center', fontSize: 12, marginTop: 16 },
 });

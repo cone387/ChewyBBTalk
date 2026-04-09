@@ -26,6 +26,7 @@ const DRAWER_WIDTH = SCREEN_WIDTH * 0.78;
 
 function HomeWithDrawer({ onLogout }: { onLogout: () => void }) {
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const isLockedRef = useRef(false);
@@ -38,16 +39,17 @@ function HomeWithDrawer({ onLogout }: { onLogout: () => void }) {
     isOpen.current = true;
     setDrawerVisible(true);
     Animated.parallel([
-      Animated.timing(translateX, { toValue: 0, duration: 250, useNativeDriver: true }),
-      Animated.timing(overlayOpacity, { toValue: 1, duration: 250, useNativeDriver: true }),
+      Animated.spring(translateX, { toValue: 0, useNativeDriver: true, speed: 20, bounciness: 0 }),
+      Animated.spring(overlayOpacity, { toValue: 1, useNativeDriver: true, speed: 20, bounciness: 0 }),
     ]).start();
   }, []);
 
   const closeDrawer = useCallback(() => {
+    if (!isOpen.current) return;
     isOpen.current = false;
     Animated.parallel([
-      Animated.timing(translateX, { toValue: -DRAWER_WIDTH, duration: 200, useNativeDriver: true }),
-      Animated.timing(overlayOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
+      Animated.spring(translateX, { toValue: -DRAWER_WIDTH, useNativeDriver: true, speed: 20, bounciness: 0 }),
+      Animated.spring(overlayOpacity, { toValue: 0, useNativeDriver: true, speed: 20, bounciness: 0 }),
     ]).start(() => setDrawerVisible(false));
   }, []);
 
@@ -75,19 +77,37 @@ function HomeWithDrawer({ onLogout }: { onLogout: () => void }) {
     })
   ).current;
 
+  const handleLockChange = useCallback((v: boolean) => {
+    setIsLocked(v);
+    isLockedRef.current = v;
+    if (v && isOpen.current) closeDrawer();
+  }, [closeDrawer]);
+
+  const handleSelectTag = useCallback((id: string | null) => {
+    setSelectedTag(id);
+    setSelectedDate(null);
+  }, []);
+
+  const handleSelectDate = useCallback((date: string | null) => {
+    setSelectedDate(date);
+    setSelectedTag(null);
+  }, []);
+
   return (
     <View style={{ flex: 1 }} {...panResponder.panHandlers}>
-      <HomeScreen selectedTag={selectedTag} onOpenDrawer={openDrawer} onLockChange={(v) => { setIsLocked(v); isLockedRef.current = v; if (v && isOpen.current) closeDrawer(); }} />
-      {drawerVisible && (
-        <>
-          <Animated.View style={[styles.overlay, { opacity: overlayOpacity }]}>
-            <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={closeDrawer} />
-          </Animated.View>
-          <Animated.View style={[styles.drawer, { transform: [{ translateX }] }]}>
-            <DrawerContent selectedTag={selectedTag} onSelectTag={setSelectedTag} onClose={closeDrawer} />
-          </Animated.View>
-        </>
-      )}
+      <HomeScreen selectedTag={selectedTag} selectedDate={selectedDate} onOpenDrawer={openDrawer} onLockChange={handleLockChange} />
+      <Animated.View style={[styles.overlay, { opacity: overlayOpacity }]} pointerEvents={drawerVisible ? 'auto' : 'none'}>
+        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={closeDrawer} />
+      </Animated.View>
+      <Animated.View style={[styles.drawer, { transform: [{ translateX }] }]} pointerEvents={drawerVisible ? 'auto' : 'none'}>
+        <DrawerContent
+          selectedTag={selectedTag}
+          selectedDate={selectedDate}
+          onSelectTag={handleSelectTag}
+          onSelectDate={handleSelectDate}
+          onClose={closeDrawer}
+        />
+      </Animated.View>
     </View>
   );
 }

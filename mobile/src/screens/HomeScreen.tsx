@@ -14,17 +14,21 @@ import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { loadBBTalks, loadMoreBBTalks, deleteBBTalkAsync, updateBBTalkAsync, togglePinAsync } from '../store/slices/bbtalkSlice';
 import { loadTags } from '../store/slices/tagSlice';
 import type { BBTalk, Attachment } from '../types';
+import { useTheme } from '../theme/ThemeContext';
 
-interface Props { selectedTag: string | null; onOpenDrawer: () => void; onLockChange?: (locked: boolean) => void; }
+interface Props { selectedTag: string | null; selectedDate: string | null; onOpenDrawer: () => void; onLockChange?: (locked: boolean) => void; }
 
-export default function HomeScreen({ selectedTag, onOpenDrawer, onLockChange }: Props) {
+export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, onLockChange }: Props) {
   const navigation = useNavigation<any>();
   const dispatch = useAppDispatch();
   const insets = useSafeAreaInsets();
+  const { theme } = useTheme();
+  const c = theme.colors;
   const { bbtalks, isLoading, hasMore } = useAppSelector(s => s.bbtalk);
   const { tags } = useAppSelector(s => s.tag);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const loadingMoreRef = useRef(false);
   const [searchVisible, setSearchVisible] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -46,6 +50,8 @@ export default function HomeScreen({ selectedTag, onOpenDrawer, onLockChange }: 
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const lastActivity = useRef(Date.now());
   const timeoutMinsRef = useRef(5);
+  const onLockChangeRef = useRef(onLockChange);
+  onLockChangeRef.current = onLockChange;
 
   const resetPrivacyTimer = useCallback(() => {
     lastActivity.current = Date.now();
@@ -55,17 +61,22 @@ export default function HomeScreen({ selectedTag, onOpenDrawer, onLockChange }: 
   const loadPrivacySettings = useCallback(async () => {
     const t = await AsyncStorage.getItem('privacy_timeout_minutes');
     if (t) timeoutMinsRef.current = parseInt(t, 10);
-    const c = await AsyncStorage.getItem('show_privacy_countdown');
-    if (c === 'false') setShowCountdown(false); else setShowCountdown(true);
+    const cVal = await AsyncStorage.getItem('show_privacy_countdown');
+    setShowCountdown(prev => { const v = cVal !== 'false'; return prev === v ? prev : v; });
     const e = await AsyncStorage.getItem('privacy_enabled');
-    if (e === 'false') setPrivacyEnabled(false); else setPrivacyEnabled(true);
+    const enabled = e !== 'false';
+    setPrivacyEnabled(prev => prev === enabled ? prev : enabled);
     const ac = await AsyncStorage.getItem('privacy_allow_compose');
-    if (ac === 'false') setAllowComposeWhenLocked(false); else setAllowComposeWhenLocked(true);
-    // 恢复锁定状态
-    const l = await AsyncStorage.getItem('privacy_locked');
-    if (l === 'true') { setLockedState(true); onLockChange?.(true); }
-    else { lastActivity.current = Date.now(); }
-  }, [onLockChange]);
+    setAllowComposeWhenLocked(prev => { const v = ac !== 'false'; return prev === v ? prev : v; });
+    // 恢复锁定状态 - 仅在防窥明确启用时
+    if (enabled) {
+      const l = await AsyncStorage.getItem('privacy_locked');
+      if (l === 'true') { setLockedState(true); onLockChangeRef.current?.(true); }
+      else { lastActivity.current = Date.now(); }
+    } else {
+      lastActivity.current = Date.now();
+    }
+  }, []);
 
   useEffect(() => {
     loadPrivacySettings();
@@ -97,10 +108,11 @@ export default function HomeScreen({ selectedTag, onOpenDrawer, onLockChange }: 
       if (t) timeoutMinsRef.current = parseInt(t, 10);
       const e = await AsyncStorage.getItem('privacy_enabled');
       const enabled = e !== 'false';
-      setPrivacyEnabled(enabled);
+      setPrivacyEnabled(prev => prev === enabled ? prev : enabled);
 
       const ac = await AsyncStorage.getItem('privacy_allow_compose');
-      setAllowComposeWhenLocked(ac !== 'false');
+      const allowVal = ac !== 'false';
+      setAllowComposeWhenLocked(prev => prev === allowVal ? prev : allowVal);
 
       if (!enabled) { setPrivacySeconds(null); return; }
 
@@ -168,7 +180,7 @@ export default function HomeScreen({ selectedTag, onOpenDrawer, onLockChange }: 
   };
 
   // 通知父组件锁定状态变化
-  useEffect(() => { onLockChange?.(locked); }, [locked, onLockChange]);
+  useEffect(() => { onLockChangeRef.current?.(locked); }, [locked]);
 
   // 从其他页面回来时重置防窥计时器
   useEffect(() => {
@@ -180,23 +192,27 @@ export default function HomeScreen({ selectedTag, onOpenDrawer, onLockChange }: 
 
   useEffect(() => { dispatch(loadBBTalks({})); dispatch(loadTags()); }, [dispatch]);
   useEffect(() => {
-    if (tags.length === 0) return;
+    if (tags.length === 0 && !selectedDate) return;
     const tagNames = selectedTag ? [tags.find(t => t.id === selectedTag)?.name].filter(Boolean) as string[] : [];
-    dispatch(loadBBTalks({ tags: tagNames }));
-  }, [selectedTag]);
+    dispatch(loadBBTalks({ tags: tagNames, date: selectedDate || undefined }));
+  }, [selectedTag, selectedDate]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     const tagNames = selectedTag ? [tags.find(t => t.id === selectedTag)?.name].filter(Boolean) as string[] : [];
-    await dispatch(loadBBTalks({ tags: tagNames })); dispatch(loadTags()); setRefreshing(false);
-  }, [dispatch, selectedTag, tags]);
+    await dispatch(loadBBTalks({ tags: tagNames, date: selectedDate || undefined })); dispatch(loadTags()); setRefreshing(false);
+  }, [dispatch, selectedTag, selectedDate, tags]);
 
-  const onEndReached = useCallback(async () => {
-    if (loadingMore || !hasMore || isLoading) return;
+  const onEndReached = useCallback(() => {
+    if (loadingMoreRef.current || !hasMore || isLoading) return;
+    loadingMoreRef.current = true;
     setLoadingMore(true);
     const tagNames = selectedTag ? [tags.find(t => t.id === selectedTag)?.name].filter(Boolean) as string[] : [];
-    await dispatch(loadMoreBBTalks({ tags: tagNames })); setLoadingMore(false);
-  }, [dispatch, loadingMore, hasMore, isLoading, selectedTag, tags]);
+    dispatch(loadMoreBBTalks({ tags: tagNames, date: selectedDate || undefined })).finally(() => {
+      loadingMoreRef.current = false;
+      setLoadingMore(false);
+    });
+  }, [dispatch, hasMore, isLoading, selectedTag, selectedDate, tags]);
 
   const showMenu = (item: BBTalk) => {
     const pinLabel = item.isPinned ? '取消置顶' : '置顶';
@@ -295,11 +311,11 @@ export default function HomeScreen({ selectedTag, onOpenDrawer, onLockChange }: 
 
     return (
       // 1. 点击内容区进入编辑
-      <TouchableOpacity style={styles.card} activeOpacity={0.8}
+      <TouchableOpacity style={[styles.card, { backgroundColor: c.cardBg }]} activeOpacity={0.8}
         onPress={() => navigation.navigate('Compose', { editItem: item })}>
         <TouchableOpacity style={styles.moreBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           onPress={() => showMenu(item)}>
-          <Ionicons name="ellipsis-horizontal" size={18} color="#C4C4C4" />
+          <Ionicons name="ellipsis-horizontal" size={18} color={c.textTertiary} />
         </TouchableOpacity>
 
         {item.isPinned && (
@@ -309,7 +325,21 @@ export default function HomeScreen({ selectedTag, onOpenDrawer, onLockChange }: 
           </View>
         )}
 
-        <Markdown style={mdStyles}>{item.content}</Markdown>
+        <Markdown style={{
+          body: { fontSize: 15, lineHeight: 24, color: c.text },
+          heading1: { fontSize: 22, fontWeight: '700', color: c.text, marginVertical: 8 },
+          heading2: { fontSize: 19, fontWeight: '700', color: c.text, marginVertical: 6 },
+          heading3: { fontSize: 17, fontWeight: '600', color: c.text, marginVertical: 4 },
+          strong: { fontWeight: '700' },
+          em: { fontStyle: 'italic' },
+          blockquote: { borderLeftWidth: 3, borderLeftColor: c.border, paddingLeft: 12, marginVertical: 6, backgroundColor: c.borderLight, borderRadius: 4, padding: 8 },
+          code_inline: { backgroundColor: c.borderLight, color: '#DC2626', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4, fontSize: 14 },
+          fence: { backgroundColor: c.borderLight, padding: 12, borderRadius: 8, marginVertical: 6, fontSize: 13 },
+          code_block: { backgroundColor: c.borderLight, padding: 12, borderRadius: 8, marginVertical: 6, fontSize: 13 },
+          link: { color: c.primary, textDecorationLine: 'underline' },
+          list_item: { marginVertical: 2 },
+          paragraph: { marginVertical: 2 },
+        }}>{item.content}</Markdown>
 
         {item.tags.length > 0 && (
           <View style={styles.tagRow}>
@@ -340,20 +370,18 @@ export default function HomeScreen({ selectedTag, onOpenDrawer, onLockChange }: 
         {/* 底部信息 - 4. 去掉点分隔 */}
         <View style={styles.footer}>
           <View style={styles.footerLeft}>
-            <Text style={styles.time}>{formatTime(item.createdAt)}</Text>
-            <Ionicons name={isMobile ? 'phone-portrait-outline' : 'laptop-outline'} size={12} color="#D1D5DB" />
-            {/* 2. 点击定位弹出信息 */}
+            <Text style={[styles.time, { color: c.textTertiary }]}>{formatTime(item.createdAt)}</Text>
+            <Ionicons name={isMobile ? 'phone-portrait-outline' : 'laptop-outline'} size={12} color={c.borderLight} />
             {loc && (
               <TouchableOpacity onPress={() => showLocation(loc)} style={{ padding: 2 }}>
                 <Ionicons name="location-outline" size={13} color="#10B981" />
               </TouchableOpacity>
             )}
           </View>
-          {/* 6. 点击切换可见性 */}
           <TouchableOpacity onPress={() => toggleVisibility(item)} style={styles.visBtn}>
             <Ionicons
               name={item.visibility === 'public' ? 'globe-outline' : 'lock-closed-outline'}
-              size={15} color={item.visibility === 'public' ? '#60A5FA' : '#C4C4C4'}
+              size={15} color={item.visibility === 'public' ? c.primary : c.textTertiary}
             />
           </TouchableOpacity>
         </View>
@@ -362,34 +390,44 @@ export default function HomeScreen({ selectedTag, onOpenDrawer, onLockChange }: 
   };
 
   const selectedTagName = selectedTag ? tags.find(t => t.id === selectedTag)?.name : null;
+  const filterLabel = selectedDate
+    ? selectedDate
+    : selectedTagName || null;
 
   return (
-    <View style={styles.container} onTouchStart={resetPrivacyTimer}>
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+    <View style={[styles.container, { backgroundColor: c.background }]} onTouchStart={resetPrivacyTimer}>
+      <View style={[styles.header, { paddingTop: insets.top + 8, backgroundColor: c.headerBg, borderBottomColor: c.border }]}>
         <TouchableOpacity onPress={onOpenDrawer} style={styles.headerBtn}>
-          <Ionicons name="menu-outline" size={26} color="#374151" />
+          <Ionicons name="menu-outline" size={26} color={c.text} />
         </TouchableOpacity>
         {searchVisible ? (
-          <View style={styles.searchBar}>
-            <Ionicons name="search" size={16} color="#9CA3AF" />
-            <TextInput style={styles.searchInput} placeholder="搜索碎碎念..." placeholderTextColor="#C4C4C4"
+          <View style={[styles.searchBar, { backgroundColor: c.borderLight }]}>
+            <Ionicons name="search" size={16} color={c.textTertiary} />
+            <TextInput style={[styles.searchInput, { color: c.text }]} placeholder="搜索碎碎念..." placeholderTextColor={c.textTertiary}
               value={searchText} onChangeText={setSearchText} autoFocus />
             {searchText.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchText('')}><Ionicons name="close-circle" size={18} color="#C4C4C4" /></TouchableOpacity>
+              <TouchableOpacity onPress={() => setSearchText('')}><Ionicons name="close-circle" size={18} color={c.textTertiary} /></TouchableOpacity>
             )}
           </View>
         ) : (
-          <Text style={styles.headerTitle}>{selectedTagName ? `# ${selectedTagName}` : '碎碎念'}</Text>
+          <View style={styles.headerCenter}>
+            <Text style={[styles.headerTitle, { color: c.text }]}>碎碎念</Text>
+            {filterLabel != null && (
+              <View style={[styles.filterBadge, { backgroundColor: c.primary + '18' }]}>
+                <Text style={[styles.filterBadgeText, { color: c.primary }]} numberOfLines={1}>{filterLabel}</Text>
+              </View>
+            )}
+          </View>
         )}
         <TouchableOpacity onPress={() => { setSearchVisible(!searchVisible); if (searchVisible) setSearchText(''); }} style={styles.headerBtn}>
-          <Ionicons name={searchVisible ? 'close' : 'search-outline'} size={22} color="#374151" />
+          <Ionicons name={searchVisible ? 'close' : 'search-outline'} size={22} color={c.text} />
         </TouchableOpacity>
       </View>
 
       <FlatList data={filteredBBTalks} keyExtractor={item => item.id} renderItem={renderItem}
         onScrollBeginDrag={resetPrivacyTimer}
-        ListEmptyComponent={!isLoading ? <View style={styles.emptyCard}><Text style={styles.emptyText}>{searchText ? '没有找到匹配的碎碎念' : '暂无碎碎念'}</Text></View> : null}
-        ListFooterComponent={loadingMore ? <ActivityIndicator style={{ paddingVertical: 16 }} /> : !hasMore && filteredBBTalks.length > 0 ? <Text style={styles.noMore}>没有更多了</Text> : null}
+        ListEmptyComponent={!isLoading ? <View style={[styles.emptyCard, { backgroundColor: c.cardBg }]}><Text style={[styles.emptyText, { color: c.textTertiary }]}>{searchText ? '没有找到匹配的碎碎念' : '暂无碎碎念'}</Text></View> : null}
+        ListFooterComponent={loadingMore ? <ActivityIndicator style={{ paddingVertical: 16 }} /> : !hasMore && filteredBBTalks.length > 0 ? <Text style={[styles.noMore, { color: c.textTertiary }]}>没有更多了</Text> : null}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         onEndReached={onEndReached} onEndReachedThreshold={0.3}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 80 }} />
@@ -397,7 +435,7 @@ export default function HomeScreen({ selectedTag, onOpenDrawer, onLockChange }: 
       {/* 防窥倒计时 - 点击立即锁定，长按进设置 */}
       {showCountdown && privacyEnabled && privacySeconds !== null && privacySeconds > 0 && !locked && (
         <TouchableOpacity
-          style={[styles.countdownBadge, { bottom: insets.bottom + 88 }]}
+          style={[styles.countdownBadge, { bottom: insets.bottom + 88, backgroundColor: c.primary }]}
           onPress={() => { setLocked(true); }}
           onLongPress={() => navigation.navigate('PrivacySettings')}
           activeOpacity={0.7}
@@ -409,7 +447,7 @@ export default function HomeScreen({ selectedTag, onOpenDrawer, onLockChange }: 
         </TouchableOpacity>
       )}
 
-      <TouchableOpacity style={[styles.fab, { bottom: insets.bottom + 24 }]}
+      <TouchableOpacity style={[styles.fab, { bottom: insets.bottom + 24, backgroundColor: c.primary, shadowColor: c.fabShadow }]}
         onPress={() => navigation.navigate('Compose')} activeOpacity={0.85}>
         <Ionicons name="add" size={28} color="#fff" />
       </TouchableOpacity>
@@ -430,37 +468,34 @@ export default function HomeScreen({ selectedTag, onOpenDrawer, onLockChange }: 
 
       {/* 防窥锁定遮罩 */}
       {locked && (
-        <View style={styles.lockOverlay}>
+        <View style={[styles.lockOverlay, { backgroundColor: c.lockBg }]}>
           <Animated.View style={[styles.lockInner, { transform: [{ translateY: lockKeyboardH }] }]}>
             <View style={styles.lockCard}>
-            <Ionicons name="lock-closed" size={40} color="#7C3AED" />
-            <Text style={styles.lockTitle}>内容已锁定</Text>
-            <Text style={styles.lockSub}>验证身份以解锁查看</Text>
+            <Ionicons name="lock-closed" size={40} color={c.lockAccent} />
+            <Text style={[styles.lockTitle, { color: c.text }]}>内容已锁定</Text>
+            <Text style={[styles.lockSub, { color: c.textTertiary }]}>验证身份以解锁查看</Text>
 
-            {/* 生物识别按钮 */}
             {biometricAvailable && (
-              <TouchableOpacity style={styles.biometricBtn} onPress={handleBiometricUnlock}>
-                <Ionicons name={Platform.OS === 'ios' ? 'scan' : 'finger-print'} size={32} color="#7C3AED" />
-                <Text style={styles.biometricText}>
+              <TouchableOpacity style={[styles.biometricBtn, { borderColor: c.border }]} onPress={handleBiometricUnlock}>
+                <Ionicons name={Platform.OS === 'ios' ? 'scan' : 'finger-print'} size={32} color={c.lockAccent} />
+                <Text style={[styles.biometricText, { color: c.lockAccent }]}>
                   {Platform.OS === 'ios' ? 'Face ID / Touch ID' : '指纹解锁'}
                 </Text>
               </TouchableOpacity>
             )}
 
-            {/* 分割线 */}
             {biometricAvailable && (
               <View style={styles.lockDivider}>
-                <View style={styles.lockDividerLine} />
-                <Text style={styles.lockDividerText}>或使用密码</Text>
-                <View style={styles.lockDividerLine} />
+                <View style={[styles.lockDividerLine, { backgroundColor: c.border }]} />
+                <Text style={[styles.lockDividerText, { color: c.textTertiary }]}>或使用密码</Text>
+                <View style={[styles.lockDividerLine, { backgroundColor: c.border }]} />
               </View>
             )}
 
-            {/* 密码输入 */}
             <TextInput
-              style={styles.lockInput}
+              style={[styles.lockInput, { borderColor: c.border, color: c.text }]}
               placeholder="请输入密码"
-              placeholderTextColor="#C4C4C4"
+              placeholderTextColor={c.textTertiary}
               secureTextEntry
               value={unlockPassword}
               onChangeText={setUnlockPassword}
@@ -468,7 +503,7 @@ export default function HomeScreen({ selectedTag, onOpenDrawer, onLockChange }: 
               returnKeyType="done"
             />
             <TouchableOpacity
-              style={[styles.lockBtn, (unlocking || !unlockPassword) && { opacity: 0.5 }]}
+              style={[styles.lockBtn, { backgroundColor: c.lockAccent }, (unlocking || !unlockPassword) && { opacity: 0.5 }]}
               onPress={handleUnlock}
               disabled={unlocking || !unlockPassword}
             >
@@ -477,10 +512,9 @@ export default function HomeScreen({ selectedTag, onOpenDrawer, onLockChange }: 
           </View>
           </Animated.View>
 
-          {/* 防窥模式下可新建（如果设置允许） */}
           {allowComposeWhenLocked && (
             <TouchableOpacity
-              style={[styles.fab, { bottom: insets.bottom + 24 }]}
+              style={[styles.fab, { bottom: insets.bottom + 24, backgroundColor: c.primary, shadowColor: c.fabShadow }]}
               onPress={() => navigation.navigate('Compose')}
               activeOpacity={0.85}
             >
@@ -495,21 +529,27 @@ export default function HomeScreen({ selectedTag, onOpenDrawer, onLockChange }: 
 
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9FAFB' },
+  container: { flex: 1 },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingBottom: 12, backgroundColor: '#fff',
-    borderBottomWidth: 0.5, borderBottomColor: '#E5E7EB',
+    paddingHorizontal: 16, paddingBottom: 12,
+    borderBottomWidth: 0.5,
   },
   headerBtn: { padding: 4, width: 34, alignItems: 'center' },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#111827' },
+  headerCenter: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontSize: 18, fontWeight: '700' },
+  filterBadge: {
+    marginLeft: 8, paddingHorizontal: 8, paddingVertical: 3,
+    borderRadius: 8, maxWidth: 140,
+  },
+  filterBadgeText: { fontSize: 12, fontWeight: '600' },
   searchBar: {
     flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#F3F4F6', borderRadius: 10, paddingHorizontal: 10, marginHorizontal: 8, height: 38,
+    borderRadius: 10, paddingHorizontal: 10, marginHorizontal: 8, height: 38,
   },
-  searchInput: { flex: 1, fontSize: 15, color: '#111827', paddingVertical: 0, paddingHorizontal: 0, lineHeight: 20, includeFontPadding: false },
+  searchInput: { flex: 1, fontSize: 15, paddingVertical: 0, paddingHorizontal: 0, lineHeight: 20, includeFontPadding: false },
   card: {
-    backgroundColor: '#fff', borderRadius: 16, padding: 16, marginTop: 12,
+    borderRadius: 16, padding: 16, marginTop: 12,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
   },
   moreBtn: { position: 'absolute', top: 14, right: 14, zIndex: 10, padding: 2 },
@@ -540,20 +580,20 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   footerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  time: { fontSize: 12, color: '#9CA3AF' },
+  time: { fontSize: 12 },
   visBtn: { padding: 4 },
-  emptyCard: { backgroundColor: '#fff', borderRadius: 16, padding: 40, marginTop: 12, alignItems: 'center' },
-  emptyText: { fontSize: 15, color: '#9CA3AF' },
-  noMore: { textAlign: 'center', color: '#D1D5DB', fontSize: 13, paddingVertical: 16 },
+  emptyCard: { borderRadius: 16, padding: 40, marginTop: 12, alignItems: 'center' },
+  emptyText: { fontSize: 15 },
+  noMore: { textAlign: 'center', fontSize: 13, paddingVertical: 16 },
   fab: {
     position: 'absolute', right: 20, width: 56, height: 56, borderRadius: 28,
-    backgroundColor: '#2563EB', justifyContent: 'center', alignItems: 'center',
-    shadowColor: '#2563EB', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 8, elevation: 6,
+    justifyContent: 'center', alignItems: 'center',
+    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 8, elevation: 6,
   },
   countdownBadge: {
     position: 'absolute', right: 22,
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: '#2563EB', borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6,
+    borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6,
   },
   countdownText: { color: '#fff', fontSize: 12, fontWeight: '600' },
   previewOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)' },
@@ -561,44 +601,28 @@ const styles = StyleSheet.create({
   previewImage: { width: '100%', height: '100%' },
   // 防窥锁定
   lockOverlay: {
-    ...StyleSheet.absoluteFillObject, backgroundColor: '#F9FAFB',
+    ...StyleSheet.absoluteFillObject,
     justifyContent: 'center', alignItems: 'center', zIndex: 200,
   },
   lockInner: { flex: 1, justifyContent: 'center', alignItems: 'center', width: '100%' },
   lockCard: { alignItems: 'center', padding: 32, width: '80%' },
-  lockTitle: { fontSize: 20, fontWeight: '700', color: '#111827', marginTop: 16 },
-  lockSub: { fontSize: 14, color: '#9CA3AF', marginTop: 6, marginBottom: 24 },
+  lockTitle: { fontSize: 20, fontWeight: '700', marginTop: 16 },
+  lockSub: { fontSize: 14, marginTop: 6, marginBottom: 24 },
   biometricBtn: {
     alignItems: 'center', gap: 8, paddingVertical: 20,
-    width: '100%', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 16,
+    width: '100%', borderWidth: 1, borderRadius: 16,
   },
-  biometricText: { fontSize: 14, color: '#7C3AED', fontWeight: '500' },
+  biometricText: { fontSize: 14, fontWeight: '500' },
   lockDivider: { flexDirection: 'row', alignItems: 'center', width: '100%', marginVertical: 16 },
-  lockDividerLine: { flex: 1, height: 1, backgroundColor: '#E5E7EB' },
-  lockDividerText: { marginHorizontal: 10, fontSize: 12, color: '#C4C4C4' },
+  lockDividerLine: { flex: 1, height: 1 },
+  lockDividerText: { marginHorizontal: 10, fontSize: 12 },
   lockInput: {
-    width: '100%', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12,
-    paddingHorizontal: 16, height: 48, fontSize: 16, color: '#111827', textAlign: 'center',
+    width: '100%', borderWidth: 1, borderRadius: 12,
+    paddingHorizontal: 16, height: 48, fontSize: 16, textAlign: 'center',
   },
   lockBtn: {
-    width: '100%', backgroundColor: '#7C3AED', borderRadius: 12, height: 48,
+    width: '100%', borderRadius: 12, height: 48,
     justifyContent: 'center', alignItems: 'center', marginTop: 14,
   },
   lockBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-});
-
-const mdStyles = StyleSheet.create({
-  body: { fontSize: 15, lineHeight: 24, color: '#1F2937' },
-  heading1: { fontSize: 22, fontWeight: '700', color: '#111827', marginVertical: 8 },
-  heading2: { fontSize: 19, fontWeight: '700', color: '#111827', marginVertical: 6 },
-  heading3: { fontSize: 17, fontWeight: '600', color: '#111827', marginVertical: 4 },
-  strong: { fontWeight: '700' },
-  em: { fontStyle: 'italic' },
-  blockquote: { borderLeftWidth: 3, borderLeftColor: '#D1D5DB', paddingLeft: 12, marginVertical: 6, backgroundColor: '#F9FAFB', borderRadius: 4, padding: 8 },
-  code_inline: { backgroundColor: '#F3F4F6', color: '#DC2626', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4, fontSize: 14 },
-  fence: { backgroundColor: '#F3F4F6', padding: 12, borderRadius: 8, marginVertical: 6, fontSize: 13 },
-  code_block: { backgroundColor: '#F3F4F6', padding: 12, borderRadius: 8, marginVertical: 6, fontSize: 13 },
-  link: { color: '#2563EB', textDecorationLine: 'underline' },
-  list_item: { marginVertical: 2 },
-  paragraph: { marginVertical: 2 },
 });

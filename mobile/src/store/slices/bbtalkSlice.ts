@@ -22,16 +22,17 @@ const initialState: BBTalkState = {
 
 export const loadBBTalks = createAsyncThunk(
   'bbtalk/loadBBTalks',
-  async (params: { page?: number; search?: string; tags?: string[] } = {}, { rejectWithValue }) => {
+  async (params: { page?: number; search?: string; tags?: string[]; date?: string } = {}, { rejectWithValue }) => {
     try {
-      const { page = 1, search, tags } = params;
+      const { page = 1, search, tags, date } = params;
       const result = await bbtalkApi.getBBTalks({
         page, search, tags__name: tags?.join(','),
+        create_time__date: date,
       });
       return {
         bbtalks: result.results, page, hasMore: !!result.next,
         totalCount: result.count,
-        isFullLoad: !search && (!tags || tags.length === 0),
+        isFullLoad: !search && (!tags || tags.length === 0) && !date,
       };
     } catch (error: any) {
       return rejectWithValue(error.message || '加载失败');
@@ -41,12 +42,13 @@ export const loadBBTalks = createAsyncThunk(
 
 export const loadMoreBBTalks = createAsyncThunk(
   'bbtalk/loadMoreBBTalks',
-  async (params: { search?: string; tags?: string[] } = {}, { getState, rejectWithValue }) => {
+  async (params: { search?: string; tags?: string[]; date?: string } = {}, { getState, rejectWithValue }) => {
     try {
       const state = getState() as any;
       const nextPage = state.bbtalk.currentPage + 1;
       const result = await bbtalkApi.getBBTalks({
         page: nextPage, search: params.search, tags__name: params.tags?.join(','),
+        create_time__date: params.date,
       });
       return { bbtalks: result.results, page: nextPage, hasMore: !!result.next };
     } catch (error: any) {
@@ -131,6 +133,7 @@ const bbtalkSlice = createSlice({
       })
       .addCase(loadMoreBBTalks.rejected, (state, action) => {
         state.isLoading = false; state.error = action.payload as string;
+        state.hasMore = false; // Stop retrying on error
       })
       .addCase(createBBTalkAsync.fulfilled, (state, action) => {
         state.bbtalks.unshift(action.payload);
