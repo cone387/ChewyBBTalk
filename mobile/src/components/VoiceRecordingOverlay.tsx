@@ -118,7 +118,7 @@ export default function VoiceRecordingOverlay({ visible, onFinish, onCancel }: P
     } catch {}
 
     if (Voice && sttAvailable) { try { await Voice.stop(); } catch {} }
-    await setAudioModeAsync({ allowsRecording: false });
+    await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
 
     const dur = Math.round(recorderState.durationMillis / 1000);
     onFinish({ text: transcriptRef.current, audioUri, audioDuration: dur });
@@ -128,7 +128,7 @@ export default function VoiceRecordingOverlay({ visible, onFinish, onCancel }: P
     isRecordingRef.current = false;
     try { await audioRecorder.stop(); } catch {}
     if (Voice && sttAvailable) { try { await Voice.stop(); } catch {} }
-    await setAudioModeAsync({ allowsRecording: false });
+    await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
     onCancel();
   };
 

@@ -18,6 +18,7 @@ import StorageSettingsScreen from './src/screens/StorageSettingsScreen';
 import DataManagementScreen from './src/screens/DataManagementScreen';
 import ProfileEditScreen from './src/screens/ProfileEditScreen';
 import ThemeSettingsScreen from './src/screens/ThemeSettingsScreen';
+import AudioPlayScreen from './src/screens/AudioPlayScreen';
 import DrawerContent from './src/screens/DrawerContent';
 
 const Stack = createNativeStackNavigator();
@@ -147,6 +148,8 @@ function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
             options={{ title: '存储设置', ...headerOptions }} />
           <Stack.Screen name="DataManagement" component={DataManagementScreen}
             options={{ title: '数据管理', ...headerOptions }} />
+          <Stack.Screen name="AudioPlay" component={AudioPlayScreen}
+            options={{ title: '播放音频', ...headerOptions }} />
         </Stack.Navigator>
       ) : (
         <Stack.Navigator>

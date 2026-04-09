@@ -16,9 +16,9 @@ import { loadBBTalks, loadMoreBBTalks, deleteBBTalkAsync, updateBBTalkAsync, tog
 import { loadTags } from '../store/slices/tagSlice';
 import type { BBTalk, Attachment } from '../types';
 import { useTheme } from '../theme/ThemeContext';
-import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import { attachmentApi } from '../services/api/mediaApi';
 import VoiceRecordingOverlay from '../components/VoiceRecordingOverlay';
+import AudioPlayerButton from '../components/AudioPlayerButton';
 
 interface Props { selectedTag: string | null; selectedDate: string | null; onOpenDrawer: () => void; onLockChange?: (locked: boolean) => void; }
 
@@ -295,70 +295,25 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
     ? bbtalks.filter(b => b.content.toLowerCase().includes(searchText.toLowerCase()))
     : bbtalks;
 
-  // Audio player state
-  const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
-  const playerRef = useRef<any>(null);
-
-  const playAudio = async (att: Attachment) => {
-    try {
-      // Stop current playback
-      if (playerRef.current) {
-        playerRef.current.remove();
-        playerRef.current = null;
-      }
-      if (playingAudioId === att.uid) {
-        setPlayingAudioId(null);
-        return;
-      }
-      await setAudioModeAsync({ playsInSilentMode: true });
-      const player = createAudioPlayer(att.url);
-      playerRef.current = player;
-      setPlayingAudioId(att.uid);
-
-      // Listen for playback end
-      const sub = player.addListener('playbackStatusUpdate', (status: any) => {
-        if (status.didJustFinish) {
-          setPlayingAudioId(null);
-          player.remove();
-          playerRef.current = null;
-          sub.remove();
-        }
-      });
-
-      player.play();
-    } catch (e: any) {
-      showError('播放失败', e.message || '无法播放此音频');
-      setPlayingAudioId(null);
-    }
-  };
-
-  // Cleanup player on unmount
-  useEffect(() => {
-    return () => { playerRef.current?.remove(); };
-  }, []);
-
   // 3. 附件卡片渲染（非图片）
   const renderFileAttachment = (att: Attachment) => {
-    const isAudio = att.type === 'audio';
-    const isPlaying = playingAudioId === att.uid;
-    const iconName = att.type === 'video' ? 'videocam-outline' : isAudio ? (isPlaying ? 'pause' : 'play') : 'document-outline';
-    const iconColor = att.type === 'video' ? '#8B5CF6' : isAudio ? c.primary : '#6B7280';
-    const label = att.type === 'video' ? '视频' : isAudio ? '音频' : '文件';
+    if (att.type === 'audio') {
+      return <AudioPlayerButton key={att.uid} attachment={att} />;
+    }
+    const iconName = att.type === 'video' ? 'videocam-outline' : 'document-outline';
+    const iconColor = att.type === 'video' ? '#8B5CF6' : '#6B7280';
+    const label = att.type === 'video' ? '视频' : '文件';
     return (
       <TouchableOpacity key={att.uid} style={[styles.fileCard, { backgroundColor: c.borderLight, borderColor: c.border }]} activeOpacity={0.7}
-        onPress={(e) => {
-          e.stopPropagation();
-          if (isAudio) { playAudio(att); }
-          else { Linking.openURL(att.url).catch(() => Alert.alert('提示', '无法打开此文件')); }
-        }}>
+        onPress={() => Linking.openURL(att.url).catch(() => Alert.alert('提示', '无法打开此文件'))}>
         <View style={[styles.fileIconWrap, { backgroundColor: iconColor + '18' }]}>
           <Ionicons name={iconName} size={20} color={iconColor} />
         </View>
         <View style={styles.fileInfo}>
-          <Text style={[styles.fileCardName, { color: c.text }]} numberOfLines={1}>{att.originalFilename || att.filename || (isAudio ? '语音录音' : '附件')}</Text>
-          <Text style={[styles.fileCardMeta, { color: c.textTertiary }]}>{label}{att.fileSize ? ` · ${(att.fileSize / 1024).toFixed(0)}KB` : ''}{isPlaying ? ' · 播放中' : ''}</Text>
+          <Text style={[styles.fileCardName, { color: c.text }]} numberOfLines={1}>{att.originalFilename || att.filename || '附件'}</Text>
+          <Text style={[styles.fileCardMeta, { color: c.textTertiary }]}>{label}{att.fileSize ? ` · ${(att.fileSize / 1024).toFixed(0)}KB` : ''}</Text>
         </View>
-        <Ionicons name={isAudio ? (isPlaying ? 'stop-circle-outline' : 'play-circle-outline') : 'open-outline'} size={20} color={iconColor} />
+        <Ionicons name="open-outline" size={16} color={c.textTertiary} />
       </TouchableOpacity>
     );
   };
@@ -370,46 +325,47 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
     const files = item.attachments.filter(a => a.type !== 'image');
 
     return (
-      // 1. 点击内容区进入编辑
-      <TouchableOpacity style={[styles.card, { backgroundColor: c.cardBg }]} activeOpacity={0.8}
-        onPress={() => navigation.navigate('Compose', { editItem: item })}>
+      <View style={[styles.card, { backgroundColor: c.cardBg }]}>
         <TouchableOpacity style={styles.moreBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           onPress={() => showMenu(item)}>
           <Ionicons name="ellipsis-horizontal" size={18} color={c.textTertiary} />
         </TouchableOpacity>
 
-        {item.isPinned && (
-          <View style={styles.pinBadge}>
-            <Ionicons name="pin" size={12} color="#F59E0B" />
-            <Text style={styles.pinText}>置顶</Text>
-          </View>
-        )}
+        {/* 点击内容区进入编辑 */}
+        <TouchableOpacity activeOpacity={0.8} onPress={() => navigation.navigate('Compose', { editItem: item })}>
+          {item.isPinned && (
+            <View style={styles.pinBadge}>
+              <Ionicons name="pin" size={12} color="#F59E0B" />
+              <Text style={styles.pinText}>置顶</Text>
+            </View>
+          )}
 
-        <Markdown style={{
-          body: { fontSize: 15, lineHeight: 24, color: c.text },
-          heading1: { fontSize: 22, fontWeight: '700', color: c.text, marginVertical: 8 },
-          heading2: { fontSize: 19, fontWeight: '700', color: c.text, marginVertical: 6 },
-          heading3: { fontSize: 17, fontWeight: '600', color: c.text, marginVertical: 4 },
-          strong: { fontWeight: '700' },
-          em: { fontStyle: 'italic' },
-          blockquote: { borderLeftWidth: 3, borderLeftColor: c.border, paddingLeft: 12, marginVertical: 6, backgroundColor: c.borderLight, borderRadius: 4, padding: 8 },
-          code_inline: { backgroundColor: c.borderLight, color: '#DC2626', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4, fontSize: 14 },
-          fence: { backgroundColor: c.borderLight, padding: 12, borderRadius: 8, marginVertical: 6, fontSize: 13 },
-          code_block: { backgroundColor: c.borderLight, padding: 12, borderRadius: 8, marginVertical: 6, fontSize: 13 },
-          link: { color: c.primary, textDecorationLine: 'underline' },
-          list_item: { marginVertical: 2 },
-          paragraph: { marginVertical: 2 },
-        }}>{item.content}</Markdown>
+          <Markdown style={{
+            body: { fontSize: 15, lineHeight: 24, color: c.text },
+            heading1: { fontSize: 22, fontWeight: '700', color: c.text, marginVertical: 8 },
+            heading2: { fontSize: 19, fontWeight: '700', color: c.text, marginVertical: 6 },
+            heading3: { fontSize: 17, fontWeight: '600', color: c.text, marginVertical: 4 },
+            strong: { fontWeight: '700' },
+            em: { fontStyle: 'italic' },
+            blockquote: { borderLeftWidth: 3, borderLeftColor: c.border, paddingLeft: 12, marginVertical: 6, backgroundColor: c.borderLight, borderRadius: 4, padding: 8 },
+            code_inline: { backgroundColor: c.borderLight, color: '#DC2626', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4, fontSize: 14 },
+            fence: { backgroundColor: c.borderLight, padding: 12, borderRadius: 8, marginVertical: 6, fontSize: 13 },
+            code_block: { backgroundColor: c.borderLight, padding: 12, borderRadius: 8, marginVertical: 6, fontSize: 13 },
+            link: { color: c.primary, textDecorationLine: 'underline' },
+            list_item: { marginVertical: 2 },
+            paragraph: { marginVertical: 2 },
+          }}>{item.content}</Markdown>
 
-        {item.tags.length > 0 && (
-          <View style={styles.tagRow}>
-            {item.tags.map(tag => (
-              <View key={tag.id} style={[styles.tag, { backgroundColor: tag.color || '#3B82F6' }]}>
-                <Text style={styles.tagText}>{tag.name}</Text>
-              </View>
-            ))}
-          </View>
-        )}
+          {item.tags.length > 0 && (
+            <View style={styles.tagRow}>
+              {item.tags.map(tag => (
+                <View key={tag.id} style={[styles.tag, { backgroundColor: tag.color || '#3B82F6' }]}>
+                  <Text style={styles.tagText}>{tag.name}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </TouchableOpacity>
 
         {/* 图片 */}
         {images.length > 0 && (
@@ -422,7 +378,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
           </View>
         )}
 
-        {/* 3. 非图片附件卡片 */}
+        {/* 非图片附件 */}
         {files.length > 0 && (
           <View style={styles.fileRow}>{files.map(renderFileAttachment)}</View>
         )}
@@ -445,7 +401,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
             />
           </TouchableOpacity>
         </View>
-      </TouchableOpacity>
+      </View>
     );
   };
 
