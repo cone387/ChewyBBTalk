@@ -5,6 +5,7 @@ import {
   TextInput, ActionSheetIOS, Platform, ScrollView, Linking, Animated, Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 import Markdown from 'react-native-markdown-display';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -27,6 +28,13 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const c = theme.colors;
+
+  const showError = useCallback((title: string, msg: string) => {
+    Alert.alert(title, msg, [
+      { text: '复制', onPress: () => Clipboard.setStringAsync(`${title}: ${msg}`) },
+      { text: '关闭' },
+    ]);
+  }, []);
   const { bbtalks, isLoading, hasMore } = useAppSelector(s => s.bbtalk);
   const { tags } = useAppSelector(s => s.tag);
   const [refreshing, setRefreshing] = useState(false);
@@ -173,11 +181,11 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
         setUnlockPassword('');
         lastActivity.current = Date.now();
       } else {
-        Alert.alert('解锁失败', result.error || '密码错误，请重试');
+        showError('解锁失败', result.error || '密码错误，请重试');
         setUnlockPassword('');
       }
     } catch (e: any) {
-      Alert.alert('解锁失败', e?.message || '网络错误，请重试');
+      showError('解锁失败', e?.message || '网络错误，请重试');
     } finally {
       setUnlocking(false);
     }
@@ -316,7 +324,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
       });
       await sound.playAsync();
     } catch (e: any) {
-      Alert.alert('播放失败', e.message || '无法播放此音频');
+      showError('播放失败', e.message || '无法播放此音频');
       setPlayingAudioId(null);
     }
   };
@@ -469,7 +477,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
         context: { source: { client: 'ChewyBBTalk Mobile', version: '1.0', platform: 'mobile', input: 'voice' } },
       }));
     } catch (e: any) {
-      Alert.alert('保存失败', e.message || '请稍后重试');
+      showError('保存失败', e.message || '请稍后重试');
     }
   }, [dispatch]);
 
