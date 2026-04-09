@@ -112,9 +112,23 @@ export default function DataManagementScreen() {
           }
         };
         xhr.onerror = () => reject(new Error('网络错误'));
+
         const formData = new FormData();
-        formData.append('file', { uri: picked.uri, name: picked.name, type: mimeType } as any);
-        xhr.send(formData);
+        if (Platform.OS === 'web') {
+          // Web: fetch URI 拿到 blob，构造真正的 File 对象
+          fetch(picked.uri)
+            .then(r => r.blob())
+            .then(blob => {
+              const file = new File([blob], picked.name, { type: mimeType });
+              formData.append('file', file);
+              xhr.send(formData);
+            })
+            .catch(reject);
+        } else {
+          // Native: RN FormData 接受 { uri, name, type }
+          formData.append('file', { uri: picked.uri, name: picked.name, type: mimeType } as any);
+          xhr.send(formData);
+        }
       });
 
       const data = uploadResult.data;
