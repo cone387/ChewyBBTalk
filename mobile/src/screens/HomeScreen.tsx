@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
   RefreshControl, Image, Alert, ActivityIndicator, Modal,
-  TextInput, ActionSheetIOS, Platform, ScrollView, Linking, AppState,
+  TextInput, ActionSheetIOS, Platform, ScrollView, Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,46 +29,87 @@ export default function HomeScreen({ selectedTag, onOpenDrawer }: Props) {
 
   // 防窥倒计时
   const [privacySeconds, setPrivacySeconds] = useState<number | null>(null);
-  const [showCountdown, setShowCountdown] = useState(false);
+  const [showCountdown, setShowCountdown] = useState(true);
+  const [locked, setLocked] = useState(false);
+  const [unlockPassword, setUnlockPassword] = useState('');
+  const [unlocking, setUnlocking] = useState(false);
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
   const lastActivity = useRef(Date.now());
-  const privacyTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timeoutMinsRef = useRef(5);
+
+  const resetPrivacyTimer = useCallback(() => {
+    lastActivity.current = Date.now();
+  }, []);
 
   useEffect(() => {
-    let timeoutMins = 5;
-    let countdown = false;
     (async () => {
       const t = await AsyncStorage.getItem('privacy_timeout_minutes');
-      if (t) timeoutMins = parseInt(t, 10);
+      if (t) timeoutMinsRef.current = parseInt(t, 10);
       const c = await AsyncStorage.getItem('show_privacy_countdown');
-      countdown = c === 'true';
-      setShowCountdown(countdown);
+      if (c === 'false') setShowCountdown(false);
+      // 检测生物识别
+      try {
+        // @ts-ignore - dynamic import for platform compatibility
+        const LocalAuth = await import('expo-local-authentication');
+        const hasHw = await LocalAuth.hasHardwareAsync();
+        const enrolled = await LocalAuth.isEnrolledAsync();
+        setBiometricAvailable(hasHw && enrolled);
+      } catch {}
     })();
 
-    const tick = () => {
+    const timer = setInterval(() => {
       const elapsed = (Date.now() - lastActivity.current) / 1000;
-      const remaining = timeoutMins * 60 - elapsed;
+      const remaining = timeoutMinsRef.current * 60 - elapsed;
       if (remaining <= 0) {
-        // 防窥触发 - 这里可以导航到锁定页或模糊内容
         setPrivacySeconds(0);
+        setLocked(true);
       } else {
         setPrivacySeconds(Math.ceil(remaining));
       }
-    };
+    }, 1000);
 
-    privacyTimer.current = setInterval(tick, 1000);
-    tick();
-
-    // 用户活动重置计时器
-    const resetTimer = () => { lastActivity.current = Date.now(); };
-    const appStateSub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') resetTimer();
-    });
-
-    return () => {
-      if (privacyTimer.current) clearInterval(privacyTimer.current);
-      appStateSub.remove();
-    };
+    return () => clearInterval(timer);
   }, []);
+
+  const handleBiometricUnlock = async () => {
+    try {
+      // @ts-ignore - dynamic import for platform compatibility
+      const LocalAuth = await import('expo-local-authentication');
+      const result = await LocalAuth.authenticateAsync({
+        promptMessage: '验证身份以解锁',
+        cancelLabel: '使用密码',
+        disableDeviceFallback: true,
+      });
+      if (result.success) {
+        setLocked(false);
+        setUnlockPassword('');
+        lastActivity.current = Date.now();
+      }
+    } catch {}
+  };
+
+  const handleUnlock = async () => {
+    if (!unlockPassword) return;
+    setUnlocking(true);
+    try {
+      const { login: loginFn, getCurrentUser } = await import('../services/auth');
+      const user = getCurrentUser();
+      if (!user) { Alert.alert('错误', '用户信息丢失'); setUnlocking(false); return; }
+      const result = await loginFn(user.username, unlockPassword);
+      if (result.success) {
+        setLocked(false);
+        setUnlockPassword('');
+        lastActivity.current = Date.now();
+      } else {
+        Alert.alert('解锁失败', result.error || '密码错误，请重试');
+        setUnlockPassword('');
+      }
+    } catch (e: any) {
+      Alert.alert('解锁失败', e?.message || '网络错误，请重试');
+    } finally {
+      setUnlocking(false);
+    }
+  };
 
   useEffect(() => { dispatch(loadBBTalks({})); dispatch(loadTags()); }, [dispatch]);
   useEffect(() => {
@@ -247,7 +288,7 @@ export default function HomeScreen({ selectedTag, onOpenDrawer }: Props) {
   const selectedTagName = selectedTag ? tags.find(t => t.id === selectedTag)?.name : null;
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} onTouchStart={resetPrivacyTimer}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity onPress={onOpenDrawer} style={styles.headerBtn}>
           <Ionicons name="menu-outline" size={26} color="#374151" />
@@ -270,6 +311,7 @@ export default function HomeScreen({ selectedTag, onOpenDrawer }: Props) {
       </View>
 
       <FlatList data={filteredBBTalks} keyExtractor={item => item.id} renderItem={renderItem}
+        onScrollBeginDrag={resetPrivacyTimer}
         ListEmptyComponent={!isLoading ? <View style={styles.emptyCard}><Text style={styles.emptyText}>{searchText ? '没有找到匹配的碎碎念' : '暂无碎碎念'}</Text></View> : null}
         ListFooterComponent={loadingMore ? <ActivityIndicator style={{ paddingVertical: 16 }} /> : !hasMore && filteredBBTalks.length > 0 ? <Text style={styles.noMore}>没有更多了</Text> : null}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
@@ -304,6 +346,55 @@ export default function HomeScreen({ selectedTag, onOpenDrawer }: Props) {
           )}
         </View>
       </Modal>
+
+      {/* 防窥锁定遮罩 */}
+      {locked && (
+        <View style={styles.lockOverlay}>
+          <View style={styles.lockCard}>
+            <Ionicons name="lock-closed" size={40} color="#7C3AED" />
+            <Text style={styles.lockTitle}>内容已锁定</Text>
+            <Text style={styles.lockSub}>验证身份以解锁查看</Text>
+
+            {/* 生物识别按钮 */}
+            {biometricAvailable && (
+              <TouchableOpacity style={styles.biometricBtn} onPress={handleBiometricUnlock}>
+                <Ionicons name={Platform.OS === 'ios' ? 'scan' : 'finger-print'} size={32} color="#7C3AED" />
+                <Text style={styles.biometricText}>
+                  {Platform.OS === 'ios' ? 'Face ID / Touch ID' : '指纹解锁'}
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {/* 分割线 */}
+            {biometricAvailable && (
+              <View style={styles.lockDivider}>
+                <View style={styles.lockDividerLine} />
+                <Text style={styles.lockDividerText}>或使用密码</Text>
+                <View style={styles.lockDividerLine} />
+              </View>
+            )}
+
+            {/* 密码输入 */}
+            <TextInput
+              style={styles.lockInput}
+              placeholder="请输入密码"
+              placeholderTextColor="#C4C4C4"
+              secureTextEntry
+              value={unlockPassword}
+              onChangeText={setUnlockPassword}
+              onSubmitEditing={handleUnlock}
+              returnKeyType="done"
+            />
+            <TouchableOpacity
+              style={[styles.lockBtn, (unlocking || !unlockPassword) && { opacity: 0.5 }]}
+              onPress={handleUnlock}
+              disabled={unlocking || !unlockPassword}
+            >
+              {unlocking ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.lockBtnText}>密码解锁</Text>}
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -370,4 +461,29 @@ const styles = StyleSheet.create({
   previewOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)' },
   previewClose: { position: 'absolute', top: 50, right: 20, zIndex: 10, padding: 8 },
   previewImage: { width: '100%', height: '100%' },
+  // 防窥锁定
+  lockOverlay: {
+    ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255,255,255,0.97)',
+    justifyContent: 'center', alignItems: 'center', zIndex: 200,
+  },
+  lockCard: { alignItems: 'center', padding: 32, width: '80%' },
+  lockTitle: { fontSize: 20, fontWeight: '700', color: '#111827', marginTop: 16 },
+  lockSub: { fontSize: 14, color: '#9CA3AF', marginTop: 6, marginBottom: 24 },
+  biometricBtn: {
+    alignItems: 'center', gap: 8, paddingVertical: 20,
+    width: '100%', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 16,
+  },
+  biometricText: { fontSize: 14, color: '#7C3AED', fontWeight: '500' },
+  lockDivider: { flexDirection: 'row', alignItems: 'center', width: '100%', marginVertical: 16 },
+  lockDividerLine: { flex: 1, height: 1, backgroundColor: '#E5E7EB' },
+  lockDividerText: { marginHorizontal: 10, fontSize: 12, color: '#C4C4C4' },
+  lockInput: {
+    width: '100%', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12,
+    paddingHorizontal: 16, height: 48, fontSize: 16, color: '#111827', textAlign: 'center',
+  },
+  lockBtn: {
+    width: '100%', backgroundColor: '#7C3AED', borderRadius: 12, height: 48,
+    justifyContent: 'center', alignItems: 'center', marginTop: 14,
+  },
+  lockBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });

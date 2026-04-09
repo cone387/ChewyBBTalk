@@ -45,11 +45,13 @@ export default function PrivacySettingsScreen() {
           <Text style={styles.sectionLabel}>防窥超时时长</Text>
           <View style={styles.sliderRow}>
             <Slider style={{ flex: 1 }} minimumValue={1} maximumValue={60} step={1}
-              value={timeout} onSlidingComplete={onTimeoutChange}
+              value={timeout}
+              onValueChange={(val: number) => setTimeout_(Math.round(val))}
+              onSlidingComplete={onTimeoutChange}
               minimumTrackTintColor="#2563EB" maximumTrackTintColor="#E5E7EB" thumbTintColor="#2563EB" />
             <Text style={styles.sliderValue}>{timeout} 分钟</Text>
           </View>
-          <Text style={styles.hint}>长时间不活动后，内容将自动模糊以保护隐私</Text>
+          <Text style={styles.hint}>长时间不操作后，App 内容将自动模糊以保护隐私</Text>
         </View>
 
         <View style={styles.divider} />
@@ -57,7 +59,7 @@ export default function PrivacySettingsScreen() {
         <View style={styles.switchRow}>
           <View style={{ flex: 1 }}>
             <Text style={styles.switchLabel}>显示防窥倒计时</Text>
-            <Text style={styles.switchHint}>在页面底部显示倒计时提示</Text>
+            <Text style={styles.switchHint}>在首页右下角显示剩余时间</Text>
           </View>
           <Switch value={showCountdown} onValueChange={onCountdownChange}
             trackColor={{ false: '#E5E7EB', true: '#2563EB' }} thumbColor="#fff" />
