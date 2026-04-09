@@ -32,7 +32,12 @@ export default function HomeScreen({ selectedTag, onOpenDrawer, onLockChange }: 
   const [privacySeconds, setPrivacySeconds] = useState<number | null>(null);
   const [showCountdown, setShowCountdown] = useState(true);
   const [privacyEnabled, setPrivacyEnabled] = useState(true);
-  const [locked, setLocked] = useState(false);
+  const [locked, setLockedState] = useState(false);
+
+  const setLocked = useCallback((val: boolean) => {
+    setLockedState(val);
+    AsyncStorage.setItem('privacy_locked', val ? 'true' : 'false');
+  }, []);
   const [unlockPassword, setUnlockPassword] = useState('');
   const [unlocking, setUnlocking] = useState(false);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
@@ -51,9 +56,11 @@ export default function HomeScreen({ selectedTag, onOpenDrawer, onLockChange }: 
     if (c === 'false') setShowCountdown(false); else setShowCountdown(true);
     const e = await AsyncStorage.getItem('privacy_enabled');
     if (e === 'false') setPrivacyEnabled(false); else setPrivacyEnabled(true);
-    // 重置计时器
-    lastActivity.current = Date.now();
-  }, []);
+    // 恢复锁定状态
+    const l = await AsyncStorage.getItem('privacy_locked');
+    if (l === 'true') { setLockedState(true); onLockChange?.(true); }
+    else { lastActivity.current = Date.now(); }
+  }, [onLockChange]);
 
   useEffect(() => {
     loadPrivacySettings();
