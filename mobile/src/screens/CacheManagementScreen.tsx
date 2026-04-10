@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
 
 interface CacheInfo {
@@ -29,6 +30,8 @@ async function scanCacheDir(): Promise<CacheInfo> {
   try {
     const files = await FileSystem.readDirectoryAsync(cacheDir);
     for (const file of files) {
+      // Only count our own cached files
+      if (!file.startsWith('audio_') && !file.startsWith('video_') && !file.startsWith('voice_')) continue;
       try {
         const fInfo = await FileSystem.getInfoAsync(cacheDir + file);
         if (fInfo.exists && !fInfo.isDirectory && fInfo.size) {
@@ -39,8 +42,6 @@ async function scanCacheDir(): Promise<CacheInfo> {
             info.audio += fInfo.size;
           } else if (['mp4', 'mov', 'avi', 'mkv'].includes(ext)) {
             info.video += fInfo.size;
-          } else if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic'].includes(ext)) {
-            info.image += fInfo.size;
           } else {
             info.other += fInfo.size;
           }
@@ -66,10 +67,15 @@ export default function CacheManagementScreen() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { loadCache(); }, []);
+  useFocusEffect(useCallback(() => { loadCache(); }, []));
+
+  // Only delete our own cached media files, not Expo system caches
+  const isOurCacheFile = (name: string) => {
+    return name.startsWith('audio_') || name.startsWith('video_') || name.startsWith('voice_');
+  };
 
   const clearCache = () => {
-    Alert.alert('清理缓存', '将删除所有已下载的音频、视频和图片缓存，不会影响服务器上的数据。', [
+    Alert.alert('清理缓存', '将删除所有已下载的音频、视频缓存，不会影响服务器上的数据。', [
       { text: '取消', style: 'cancel' },
       { text: '清理', style: 'destructive', onPress: async () => {
         setClearing(true);
@@ -78,7 +84,9 @@ export default function CacheManagementScreen() {
           if (cacheDir) {
             const files = await FileSystem.readDirectoryAsync(cacheDir);
             for (const file of files) {
-              try { await FileSystem.deleteAsync(cacheDir + file, { idempotent: true }); } catch {}
+              if (isOurCacheFile(file)) {
+                try { await FileSystem.deleteAsync(cacheDir + file, { idempotent: true }); } catch {}
+              }
             }
           }
           await loadCache();
@@ -95,9 +103,8 @@ export default function CacheManagementScreen() {
   const categories = cacheInfo ? [
     { label: '音频', size: cacheInfo.audio, icon: 'musical-notes' as const, color: '#3B82F6' },
     { label: '视频', size: cacheInfo.video, icon: 'videocam' as const, color: '#8B5CF6' },
-    { label: '图片', size: cacheInfo.image, icon: 'image' as const, color: '#10B981' },
     { label: '其他', size: cacheInfo.other, icon: 'document' as const, color: '#6B7280' },
-  ] : [];
+  ].filter(c => c.size > 0) : [];
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: c.surfaceSecondary }]}
