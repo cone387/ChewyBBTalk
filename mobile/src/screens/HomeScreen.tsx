@@ -19,6 +19,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { attachmentApi } from '../services/api/mediaApi';
 import VoiceRecordingOverlay from '../components/VoiceRecordingOverlay';
 import AudioPlayerButton from '../components/AudioPlayerButton';
+import VideoPlayerButton from '../components/VideoPlayerButton';
 
 interface Props { selectedTag: string | null; selectedDate: string | null; onOpenDrawer: () => void; onLockChange?: (locked: boolean) => void; }
 
@@ -300,18 +301,19 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
     if (att.type === 'audio') {
       return <AudioPlayerButton key={att.uid} attachment={att} />;
     }
-    const iconName = att.type === 'video' ? 'videocam-outline' : 'document-outline';
-    const iconColor = att.type === 'video' ? '#8B5CF6' : '#6B7280';
-    const label = att.type === 'video' ? '视频' : '文件';
+    if (att.type === 'video') {
+      return <VideoPlayerButton key={att.uid} attachment={att} />;
+    }
+    const iconColor = '#6B7280';
     return (
       <TouchableOpacity key={att.uid} style={[styles.fileCard, { backgroundColor: c.borderLight, borderColor: c.border }]} activeOpacity={0.7}
         onPress={() => Linking.openURL(att.url).catch(() => Alert.alert('提示', '无法打开此文件'))}>
         <View style={[styles.fileIconWrap, { backgroundColor: iconColor + '18' }]}>
-          <Ionicons name={iconName} size={20} color={iconColor} />
+          <Ionicons name="document-outline" size={20} color={iconColor} />
         </View>
         <View style={styles.fileInfo}>
           <Text style={[styles.fileCardName, { color: c.text }]} numberOfLines={1}>{att.originalFilename || att.filename || '附件'}</Text>
-          <Text style={[styles.fileCardMeta, { color: c.textTertiary }]}>{label}{att.fileSize ? ` · ${(att.fileSize / 1024).toFixed(0)}KB` : ''}</Text>
+          <Text style={[styles.fileCardMeta, { color: c.textTertiary }]}>文件{att.fileSize ? ` · ${(att.fileSize / 1024).toFixed(0)}KB` : ''}</Text>
         </View>
         <Ionicons name="open-outline" size={16} color={c.textTertiary} />
       </TouchableOpacity>

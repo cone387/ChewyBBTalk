@@ -13,6 +13,7 @@ const MENU_ITEMS = [
   { key: 'privacy', title: '防窥设置', subtitle: '超时时长、倒计时显示', icon: 'lock-closed' as const, bgColor: '#7C3AED' },
   { key: 'storage', title: '存储设置', subtitle: '服务器存储、S3 云存储配置', icon: 'server' as const, bgColor: '#059669' },
   { key: 'data', title: '数据管理', subtitle: '导入导出数据，跨服务器迁移', icon: 'swap-horizontal' as const, bgColor: '#EA580C' },
+  { key: 'cache', title: '缓存管理', subtitle: '查看和清理已下载的媒体文件', icon: 'folder-open' as const, bgColor: '#0EA5E9' },
 ];
 
 export default function SettingsScreen({ onLogout }: Props) {
@@ -35,6 +36,7 @@ export default function SettingsScreen({ onLogout }: Props) {
       privacy: 'PrivacySettings',
       storage: 'StorageSettings',
       data: 'DataManagement',
+      cache: 'CacheManagement',
     };
     navigation.navigate(routes[key]);
   };

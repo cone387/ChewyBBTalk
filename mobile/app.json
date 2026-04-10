@@ -40,7 +40,8 @@
         }
       ],
       "@react-native-voice/voice",
-      "expo-audio"
+      "expo-audio",
+      "expo-video"
     ]
   }
 }

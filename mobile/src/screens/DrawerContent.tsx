@@ -188,7 +188,7 @@ export default React.memo(function DrawerContent({ selectedTag, selectedDate, on
         {tagsExpanded && (
           <>
             <TouchableOpacity style={[styles.item, !selectedTag && !selectedDate && { backgroundColor: c.borderLight }]} onPress={() => selectTag(null)}>
-              <Ionicons name="pricetag-outline" size={16} color={c.textTertiary} style={{ marginRight: 8 }} />
+              <View style={[styles.tagDot, { backgroundColor: c.textTertiary }]} />
               <Text style={[styles.itemText, { color: c.text }, !selectedTag && !selectedDate && { fontWeight: '600' }]}>全部</Text>
               {totalCount > 0 && <Text style={[styles.itemCount, { color: c.textTertiary }]}>{totalCount}</Text>}
             </TouchableOpacity>
