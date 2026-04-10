@@ -98,7 +98,7 @@ function HomeWithDrawer({ onLogout }: { onLogout: () => void }) {
 
   return (
     <View style={{ flex: 1 }} {...panResponder.panHandlers}>
-      <HomeScreen selectedTag={selectedTag} selectedDate={selectedDate} onOpenDrawer={openDrawer} onLockChange={handleLockChange} />
+      <HomeScreen selectedTag={selectedTag} selectedDate={selectedDate} onOpenDrawer={openDrawer} onLockChange={handleLockChange} onSelectTag={handleSelectTag} />
       <Animated.View style={[styles.overlay, { opacity: overlayOpacity }]} pointerEvents={drawerVisible ? 'auto' : 'none'}>
         <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={closeDrawer} />
       </Animated.View>

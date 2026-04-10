@@ -1,8 +1,8 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
   RefreshControl, Alert, ActivityIndicator, Modal,
-  TextInput, ActionSheetIOS, Platform, ScrollView, Linking, Animated, Keyboard,
+  TextInput, ActionSheetIOS, Platform, ScrollView, Linking, Animated, Keyboard, LayoutAnimation, UIManager, PanResponder,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -23,9 +23,11 @@ import AudioPlayerButton from '../components/AudioPlayerButton';
 import VideoPlayerButton from '../components/VideoPlayerButton';
 import * as Sharing from 'expo-sharing';
 
-interface Props { selectedTag: string | null; selectedDate: string | null; onOpenDrawer: () => void; onLockChange?: (locked: boolean) => void; }
+if (Platform.OS === 'android') UIManager.setLayoutAnimationEnabledExperimental?.(true);
 
-export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, onLockChange }: Props) {
+interface Props { selectedTag: string | null; selectedDate: string | null; onOpenDrawer: () => void; onLockChange?: (locked: boolean) => void; onSelectTag?: (tagId: string | null) => void; }
+
+export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, onLockChange, onSelectTag }: Props) {
   const navigation = useNavigation<any>();
   const dispatch = useAppDispatch();
   const insets = useSafeAreaInsets();
@@ -48,6 +50,10 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [voiceRecording, setVoiceRecording] = useState(false);
+  const [showTagTabs, setShowTagTabs] = useState(false);
+  const listSlideAnim = useRef(new Animated.Value(0)).current;
+  const tagScrollRef = useRef<ScrollView>(null);
+  const swipingRef = useRef(false);
 
   // 防窥倒计时
   const [privacySeconds, setPrivacySeconds] = useState<number | null>(null);
@@ -98,6 +104,9 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
     loadPrivacySettings();
     AsyncStorage.getItem('search_history').then(v => {
       if (v) try { setSearchHistory(JSON.parse(v)); } catch {}
+    });
+    AsyncStorage.getItem('show_tag_tabs').then(v => {
+      if (v === 'true') setShowTagTabs(true);
     });
     // 检测生物识别
     (async () => {
@@ -205,6 +214,8 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
       lastActivity.current = Date.now();
+      // Reload tag tabs setting
+      AsyncStorage.getItem('show_tag_tabs').then(v => setShowTagTabs(v === 'true'));
     });
     return unsubscribe;
   }, [navigation]);
@@ -212,6 +223,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
   useEffect(() => { dispatch(loadBBTalks({})); dispatch(loadTags()); }, [dispatch]);
   useEffect(() => {
     if (tags.length === 0 && !selectedDate) return;
+    LayoutAnimation.configureNext(LayoutAnimation.create(200, 'easeInEaseOut', 'opacity'));
     const tagNames = selectedTag ? [tags.find(t => t.id === selectedTag)?.name].filter(Boolean) as string[] : [];
     dispatch(loadBBTalks({ tags: tagNames, date: selectedDate || undefined }));
   }, [selectedTag, selectedDate]);
@@ -494,6 +506,62 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
   }, [dispatch]);
 
   const selectedTagName = selectedTag ? tags.find(t => t.id === selectedTag)?.name : null;
+
+  // Tag swipe: switch tags with slide animation
+  const allTagIds = useMemo(() => [null, ...tags.map(t => t.id)], [tags]);
+  const currentTagIdx = selectedTag ? allTagIds.indexOf(selectedTag) : 0;
+
+  const switchTag = useCallback((direction: 'left' | 'right') => {
+    if (!showTagTabs || !onSelectTag || tags.length === 0) return;
+    const nextIdx = direction === 'left'
+      ? Math.min(currentTagIdx + 1, allTagIds.length - 1)
+      : Math.max(currentTagIdx - 1, 0);
+    if (nextIdx === currentTagIdx) return;
+
+    const slideOut = direction === 'left' ? -1 : 1;
+    // Slide out
+    Animated.timing(listSlideAnim, { toValue: slideOut * 300, duration: 120, useNativeDriver: true }).start(() => {
+      onSelectTag(allTagIds[nextIdx]);
+      // Jump to opposite side
+      listSlideAnim.setValue(-slideOut * 300);
+      // Slide in
+      Animated.spring(listSlideAnim, { toValue: 0, useNativeDriver: true, speed: 20, bounciness: 4 }).start();
+    });
+
+    // Auto-scroll tab bar
+    if (tagScrollRef.current) {
+      tagScrollRef.current.scrollTo({ x: Math.max(0, nextIdx * 70 - 100), animated: true });
+    }
+  }, [showTagTabs, onSelectTag, tags, currentTagIdx, allTagIds]);
+
+  const switchTagRef = useRef(switchTag);
+  switchTagRef.current = switchTag;
+  const showTagTabsRef = useRef(showTagTabs);
+  showTagTabsRef.current = showTagTabs;
+
+  const listPanResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gesture) => {
+        return showTagTabsRef.current && Math.abs(gesture.dx) > 20 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.5;
+      },
+      onPanResponderGrant: () => { swipingRef.current = true; },
+      onPanResponderMove: (_, gesture) => {
+        listSlideAnim.setValue(gesture.dx * 0.3);
+      },
+      onPanResponderRelease: (_, gesture) => {
+        swipingRef.current = false;
+        if (Math.abs(gesture.dx) > 60 || Math.abs(gesture.vx) > 0.5) {
+          switchTagRef.current(gesture.dx < 0 ? 'left' : 'right');
+        } else {
+          Animated.spring(listSlideAnim, { toValue: 0, useNativeDriver: true, speed: 20, bounciness: 0 }).start();
+        }
+      },
+      onPanResponderTerminate: () => {
+        swipingRef.current = false;
+        Animated.spring(listSlideAnim, { toValue: 0, useNativeDriver: true, speed: 20, bounciness: 0 }).start();
+      },
+    })
+  ).current;
   const filterLabel = selectedDate
     ? selectedDate
     : selectedTagName || null;
@@ -518,9 +586,14 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
         ) : (
           <View style={styles.headerCenter}>
             <Text style={[styles.headerTitle, { color: c.text }]}>碎碎念</Text>
-            {filterLabel != null && (
+            {filterLabel != null && !showTagTabs && (
               <View style={[styles.filterBadge, { backgroundColor: c.primary + '18' }]}>
                 <Text style={[styles.filterBadgeText, { color: c.primary }]} numberOfLines={1}>{filterLabel}</Text>
+              </View>
+            )}
+            {selectedDate && (
+              <View style={[styles.filterBadge, { backgroundColor: c.primary + '18' }]}>
+                <Text style={[styles.filterBadgeText, { color: c.primary }]} numberOfLines={1}>{selectedDate}</Text>
               </View>
             )}
           </View>
@@ -550,9 +623,39 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
         </View>
       )}
 
-      <FlatList data={filteredBBTalks} keyExtractor={item => item.id} renderItem={renderItem}
-        onScrollBeginDrag={resetPrivacyTimer}
-        ListEmptyComponent={!isLoading ? (
+      {/* Tag tabs - 固定吸顶 */}
+      {showTagTabs && !searchVisible && tags.length > 0 && (
+        <View style={[styles.tagTabsWrap, { backgroundColor: c.background }]}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}
+            ref={tagScrollRef}
+            contentContainerStyle={styles.tagTabsContent}>
+            <TouchableOpacity
+              style={[styles.tagTab, !selectedTag && !selectedDate && styles.tagTabActive]}
+              onPress={() => { onSelectTag?.(null); listSlideAnim.setValue(0); }}>
+              <Text style={[styles.tagTabText, { color: !selectedTag && !selectedDate ? c.text : c.textTertiary },
+                !selectedTag && !selectedDate && styles.tagTabTextActive]}>全部</Text>
+              {!selectedTag && !selectedDate && <View style={[styles.tagTabIndicator, { backgroundColor: c.primary }]} />}
+            </TouchableOpacity>
+            {tags.map(tag => {
+              const active = selectedTag === tag.id;
+              return (
+                <TouchableOpacity key={tag.id} style={[styles.tagTab, active && styles.tagTabActive]}
+                  onPress={() => { onSelectTag?.(active ? null : tag.id); listSlideAnim.setValue(0); }}>
+                  <Text style={[styles.tagTabText, { color: active ? c.text : c.textTertiary },
+                    active && styles.tagTabTextActive]}>{tag.name}</Text>
+                  {active && <View style={[styles.tagTabIndicator, { backgroundColor: c.primary }]} />}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
+
+      <Animated.View style={{ flex: 1, transform: [{ translateX: showTagTabs ? listSlideAnim : 0 }] }}
+        {...(showTagTabs ? listPanResponder.panHandlers : {})}>
+        <FlatList data={filteredBBTalks} keyExtractor={item => item.id} renderItem={renderItem}
+          onScrollBeginDrag={resetPrivacyTimer}
+          ListEmptyComponent={!isLoading ? (
           <View style={[styles.emptyCard, { backgroundColor: c.cardBg }]}>
             {searchText || selectedTag || selectedDate ? (
               <>
@@ -573,6 +676,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         onEndReached={onEndReached} onEndReachedThreshold={0.3}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 80 }} />
+      </Animated.View>
 
       {/* 防窥倒计时 - 点击立即锁定，长按进设置 */}
       {showCountdown && privacyEnabled && privacySeconds !== null && privacySeconds > 0 && !locked && (
@@ -703,6 +807,17 @@ const styles = StyleSheet.create({
   searchHistoryTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   searchHistoryChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14 },
   searchHistoryChipText: { fontSize: 13 },
+  // Tag tabs - 知乎风格
+  tagTabsWrap: { },
+  tagTabsContent: { paddingHorizontal: 12 },
+  tagTab: {
+    alignItems: 'center',
+    paddingHorizontal: 14, paddingTop: 10, paddingBottom: 8,
+  },
+  tagTabActive: {},
+  tagTabText: { fontSize: 14 },
+  tagTabTextActive: { fontWeight: '700' },
+  tagTabIndicator: { width: 18, height: 3, borderRadius: 1.5, marginTop: 4 },
   searchBar: {
     flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8,
     borderRadius: 10, paddingHorizontal: 10, marginHorizontal: 8, height: 38,

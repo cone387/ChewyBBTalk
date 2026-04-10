@@ -1,10 +1,11 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView, Switch } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { getCurrentUser, logout } from '../services/auth';
 import { useTheme } from '../theme/ThemeContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface Props { onLogout: () => void; }
 
@@ -22,6 +23,11 @@ export default function SettingsScreen({ onLogout }: Props) {
   const navigation = useNavigation<any>();
   const { theme } = useTheme();
   const c = theme.colors;
+  const [showTagTabs, setShowTagTabs] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem('show_tag_tabs').then(v => setShowTagTabs(v === 'true'));
+  }, []);
 
   const handleLogout = () => {
     Alert.alert('确认退出', '确定要退出登录吗？', [
@@ -90,6 +96,23 @@ export default function SettingsScreen({ onLogout }: Props) {
             </View>
           </TouchableOpacity>
         ))}
+
+        {/* 显示设置 */}
+        <View style={[styles.menuCard, { backgroundColor: c.cardBg }]}>
+          <View style={styles.menuRow}>
+            <View style={[styles.menuIcon, { backgroundColor: '#6366F1' }]}>
+              <Ionicons name="pricetags" size={22} color="#fff" />
+            </View>
+            <View style={styles.menuInfo}>
+              <Text style={[styles.menuTitle, { color: c.text }]}>首页标签栏</Text>
+              <Text style={[styles.menuSubtitle, { color: c.textSecondary }]}>在首页顶部显示标签快捷切换</Text>
+            </View>
+            <Switch value={showTagTabs} onValueChange={(v) => {
+              setShowTagTabs(v);
+              AsyncStorage.setItem('show_tag_tabs', v ? 'true' : 'false');
+            }} trackColor={{ false: c.border, true: c.primary }} thumbColor="#fff" />
+          </View>
+        </View>
 
         <Text style={[styles.version, { color: c.textTertiary }]}>ChewyBBTalk v1.0.0</Text>
       </ScrollView>
