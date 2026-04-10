@@ -20,7 +20,6 @@ function InlineVideoPlayer({ uri, attachment }: { uri: string; attachment: Attac
       <VideoView
         player={player}
         style={styles.videoView}
-        allowsFullscreen
         allowsPictureInPicture
         contentFit="contain"
         nativeControls

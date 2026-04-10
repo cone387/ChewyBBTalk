@@ -176,13 +176,18 @@ export default React.memo(function DrawerContent({ selectedTag, selectedDate, on
       )}
 
       {/* 标签区 */}
-      <TouchableOpacity style={styles.sectionHeader} onPress={() => setTagsExpanded(!tagsExpanded)} activeOpacity={0.7}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+      <View style={styles.sectionHeader}>
+        <TouchableOpacity style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }} onPress={() => setTagsExpanded(!tagsExpanded)} activeOpacity={0.7}>
           <Ionicons name="pricetags-outline" size={16} color={c.textSecondary} />
           <Text style={[styles.sectionTitle, { color: c.textSecondary }]}>标签</Text>
-        </View>
-        <Ionicons name={tagsExpanded ? 'chevron-up' : 'chevron-down'} size={16} color={c.textTertiary} />
-      </TouchableOpacity>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => { onClose(); setTimeout(() => navigation.navigate('TagManagement'), 100); }} style={{ padding: 4 }}>
+          <Ionicons name="settings-outline" size={14} color={c.textTertiary} />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => setTagsExpanded(!tagsExpanded)} style={{ padding: 4 }}>
+          <Ionicons name={tagsExpanded ? 'chevron-up' : 'chevron-down'} size={16} color={c.textTertiary} />
+        </TouchableOpacity>
+      </View>
 
       <ScrollView style={styles.tagScroll} showsVerticalScrollIndicator={false}>
         {tagsExpanded && (

@@ -19,6 +19,7 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
   const [isLogin, setIsLogin] = useState(true);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -124,7 +125,10 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
           <View style={styles.inputWrap}>
             <Ionicons name="lock-closed-outline" size={18} color="#9CA3AF" />
             <TextInput style={styles.input} placeholder="请输入密码" placeholderTextColor="#C4C4C4"
-              value={password} onChangeText={setPassword} secureTextEntry editable={!loading} />
+              value={password} onChangeText={setPassword} secureTextEntry={!showPassword} editable={!loading} />
+            <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={{ padding: 4 }}>
+              <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={18} color="#9CA3AF" />
+            </TouchableOpacity>
           </View>
 
           {!isLogin && (

@@ -36,7 +36,11 @@ export const tagApi = {
     return transformTag(data);
   },
 
-  async deleteTag(uid: string): Promise<void> {
-    await apiClient.delete(`/api/v1/bbtalk/tags/${uid}/`);
+  async deleteTag(uid: string, deleteBBTalks = false): Promise<{ deleted_bbtalks: number }> {
+    return apiClient.delete(`/api/v1/bbtalk/tags/${uid}/${deleteBBTalks ? '?delete_bbtalks=true' : ''}`);
+  },
+
+  async reorder(items: { uid: string; sort_order: number }[]): Promise<void> {
+    await apiClient.post('/api/v1/bbtalk/tags/reorder/', { items });
   },
 };

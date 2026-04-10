@@ -21,6 +21,7 @@ import { attachmentApi } from '../services/api/mediaApi';
 import VoiceRecordingOverlay from '../components/VoiceRecordingOverlay';
 import AudioPlayerButton from '../components/AudioPlayerButton';
 import VideoPlayerButton from '../components/VideoPlayerButton';
+import * as Sharing from 'expo-sharing';
 
 interface Props { selectedTag: string | null; selectedDate: string | null; onOpenDrawer: () => void; onLockChange?: (locked: boolean) => void; }
 
@@ -44,6 +45,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
   const loadingMoreRef = useRef(false);
   const [searchVisible, setSearchVisible] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [voiceRecording, setVoiceRecording] = useState(false);
 
@@ -94,6 +96,9 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
 
   useEffect(() => {
     loadPrivacySettings();
+    AsyncStorage.getItem('search_history').then(v => {
+      if (v) try { setSearchHistory(JSON.parse(v)); } catch {}
+    });
     // 检测生物识别
     (async () => {
       try {
@@ -228,15 +233,44 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
     });
   }, [dispatch, hasMore, isLoading, selectedTag, selectedDate, tags]);
 
+  const shareBBTalk = async (item: BBTalk) => {
+    let text = item.content;
+    if (item.tags.length > 0) {
+      text += '\n\n' + item.tags.map(t => `#${t.name}`).join(' ');
+    }
+    try {
+      if (Platform.OS === 'web') {
+        if (navigator.share) await navigator.share({ text });
+        else { await Clipboard.setStringAsync(text); Alert.alert('已复制', '内容已复制到剪贴板'); }
+      } else {
+        const { Share } = require('react-native');
+        const result = await Share.share({ message: text });
+        // If user dismissed or share failed, offer clipboard copy
+        if (result.action === Share.dismissedAction) {
+          Alert.alert('分享', '已取消分享，是否复制到剪贴板？', [
+            { text: '取消' },
+            { text: '复制', onPress: () => Clipboard.setStringAsync(text) },
+          ]);
+        }
+      }
+    } catch {
+      // Fallback: copy to clipboard
+      await Clipboard.setStringAsync(text);
+      Alert.alert('已复制', '内容已复制到剪贴板，可粘贴到微信等应用');
+    }
+  };
+
   const showMenu = (item: BBTalk) => {
     const pinLabel = item.isPinned ? '取消置顶' : '置顶';
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
-        { options: ['编辑', pinLabel, '删除', '取消'], destructiveButtonIndex: 2, cancelButtonIndex: 3 },
+        { options: ['编辑', pinLabel, '分享', '复制', '删除', '取消'], destructiveButtonIndex: 4, cancelButtonIndex: 5 },
         (idx) => {
           if (idx === 0) navigation.navigate('Compose', { editItem: item });
           if (idx === 1) dispatch(togglePinAsync(item.id));
-          if (idx === 2) Alert.alert('确认删除', '确定要删除吗？', [
+          if (idx === 2) shareBBTalk(item);
+          if (idx === 3) { Clipboard.setStringAsync(item.content); }
+          if (idx === 4) Alert.alert('确认删除', '确定要删除吗？', [
             { text: '取消', style: 'cancel' },
             { text: '删除', style: 'destructive', onPress: () => dispatch(deleteBBTalkAsync(item.id)) },
           ]);
@@ -246,6 +280,8 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
       Alert.alert('操作', '', [
         { text: '编辑', onPress: () => navigation.navigate('Compose', { editItem: item }) },
         { text: pinLabel, onPress: () => dispatch(togglePinAsync(item.id)) },
+        { text: '分享', onPress: () => shareBBTalk(item) },
+        { text: '复制', onPress: () => Clipboard.setStringAsync(item.content) },
         { text: '删除', style: 'destructive', onPress: () => dispatch(deleteBBTalkAsync(item.id)) },
         { text: '取消', style: 'cancel' },
       ]);
@@ -292,6 +328,20 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
     if (days < 7) return `${days}天前`;
     return d.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' });
   };
+
+  const saveSearchHistory = useCallback((term: string) => {
+    if (!term.trim()) return;
+    setSearchHistory(prev => {
+      const next = [term, ...prev.filter(s => s !== term)].slice(0, 10);
+      AsyncStorage.setItem('search_history', JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const clearSearchHistory = useCallback(() => {
+    setSearchHistory([]);
+    AsyncStorage.removeItem('search_history');
+  }, []);
 
   const filteredBBTalks = searchText
     ? bbtalks.filter(b => b.content.toLowerCase().includes(searchText.toLowerCase()))
@@ -458,7 +508,9 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
           <View style={[styles.searchBar, { backgroundColor: c.borderLight }]}>
             <Ionicons name="search" size={16} color={c.textTertiary} />
             <TextInput style={[styles.searchInput, { color: c.text }]} placeholder="搜索碎碎念..." placeholderTextColor={c.textTertiary}
-              value={searchText} onChangeText={setSearchText} autoFocus />
+              value={searchText} onChangeText={setSearchText} autoFocus
+              onSubmitEditing={() => saveSearchHistory(searchText)}
+              returnKeyType="search" />
             {searchText.length > 0 && (
               <TouchableOpacity onPress={() => setSearchText('')}><Ionicons name="close-circle" size={18} color={c.textTertiary} /></TouchableOpacity>
             )}
@@ -473,10 +525,30 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
             )}
           </View>
         )}
-        <TouchableOpacity onPress={() => { setSearchVisible(!searchVisible); if (searchVisible) setSearchText(''); }} style={styles.headerBtn}>
+        <TouchableOpacity onPress={() => { setSearchVisible(!searchVisible); if (searchVisible) { saveSearchHistory(searchText); setSearchText(''); } }} style={styles.headerBtn}>
           <Ionicons name={searchVisible ? 'close' : 'search-outline'} size={22} color={c.text} />
         </TouchableOpacity>
       </View>
+
+      {/* Search history */}
+      {searchVisible && !searchText && searchHistory.length > 0 && (
+        <View style={[styles.searchHistoryWrap, { backgroundColor: c.cardBg, borderBottomColor: c.border }]}>
+          <View style={styles.searchHistoryHeader}>
+            <Text style={[styles.searchHistoryTitle, { color: c.textSecondary }]}>最近搜索</Text>
+            <TouchableOpacity onPress={clearSearchHistory}>
+              <Text style={[styles.searchHistoryClear, { color: c.textTertiary }]}>清除</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.searchHistoryTags}>
+            {searchHistory.map((term, i) => (
+              <TouchableOpacity key={i} style={[styles.searchHistoryChip, { backgroundColor: c.borderLight }]}
+                onPress={() => { setSearchText(term); }}>
+                <Text style={[styles.searchHistoryChipText, { color: c.text }]}>{term}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      )}
 
       <FlatList data={filteredBBTalks} keyExtractor={item => item.id} renderItem={renderItem}
         onScrollBeginDrag={resetPrivacyTimer}
@@ -624,6 +696,13 @@ const styles = StyleSheet.create({
     borderRadius: 8, maxWidth: 140,
   },
   filterBadgeText: { fontSize: 12, fontWeight: '600' },
+  searchHistoryWrap: { paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 0.5 },
+  searchHistoryHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  searchHistoryTitle: { fontSize: 12, fontWeight: '500' },
+  searchHistoryClear: { fontSize: 12 },
+  searchHistoryTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  searchHistoryChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14 },
+  searchHistoryChipText: { fontSize: 13 },
   searchBar: {
     flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8,
     borderRadius: 10, paddingHorizontal: 10, marginHorizontal: 8, height: 38,

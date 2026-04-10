@@ -360,6 +360,32 @@ class TagViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
+    def destroy(self, request, *args, **kwargs):
+        """删除标签，可选同时删除关联的 BBTalk"""
+        instance = self.get_object()
+        delete_bbtalks = request.query_params.get('delete_bbtalks', 'false').lower() == 'true'
+        if delete_bbtalks:
+            # 删除只属于这个标签的 BBTalk（没有其他标签的）
+            from django.db.models import Count as DjCount
+            bbtalks = instance.bbtalks.annotate(tag_count=DjCount('tags')).filter(tag_count=1)
+            deleted_count = bbtalks.count()
+            bbtalks.delete()
+        else:
+            deleted_count = 0
+        instance.delete()
+        return Response({'deleted_bbtalks': deleted_count}, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['post'], url_path='reorder')
+    def reorder(self, request):
+        """批量更新标签排序"""
+        items = request.data.get('items', [])
+        if not items:
+            return Response({'error': '缺少排序数据'}, status=status.HTTP_400_BAD_REQUEST)
+        user = request.user
+        for item in items:
+            Tag.objects.filter(uid=item['uid'], user=user).update(sort_order=item['sort_order'])
+        return Response({'success': True})
+
 
 class PublicBBTalkViewSet(viewsets.ReadOnlyModelViewSet):
     """
