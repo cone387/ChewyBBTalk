@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, Alert, ActivityIndicator, Image,
+  ScrollView, Alert, ActivityIndicator,
   Platform, Keyboard, Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Location from 'expo-location';
@@ -196,7 +197,7 @@ export default function ComposeScreen() {
             contentContainerStyle={{ paddingHorizontal: 12, gap: 8, paddingVertical: 6 }}>
             {attachments.map(att => (
               <View key={att.uid} style={styles.attachmentItem}>
-                {att.type === 'image' ? <Image source={{ uri: att.url }} style={styles.attachmentImage} resizeMode="cover" /> : (
+                {att.type === 'image' ? <Image source={att.url} style={styles.attachmentImage} contentFit="cover" /> : (
                   <View style={styles.filePlaceholder}><Ionicons name={att.type === 'video' ? 'videocam' : 'document'} size={20} color="#9CA3AF" /><Text style={styles.fileName} numberOfLines={1}>{att.originalFilename || '附件'}</Text></View>
                 )}
                 <TouchableOpacity style={styles.removeBtn} onPress={() => setAttachments(p => p.filter(a => a.uid !== att.uid))}><Ionicons name="close" size={12} color="#fff" /></TouchableOpacity>

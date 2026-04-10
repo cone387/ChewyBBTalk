@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
-  RefreshControl, Image, Alert, ActivityIndicator, Modal,
+  RefreshControl, Alert, ActivityIndicator, Modal,
   TextInput, ActionSheetIOS, Platform, ScrollView, Linking, Animated, Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import * as Clipboard from 'expo-clipboard';
 import Markdown from 'react-native-markdown-display';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -374,7 +375,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
           <View style={styles.imageRow}>
             {images.map(att => (
               <TouchableOpacity key={att.uid} onPress={() => setPreviewImage(att.url)}>
-                <Image source={{ uri: att.url }} style={styles.thumbnail} resizeMode="cover" />
+                <Image source={att.url} style={styles.thumbnail} contentFit="cover" cachePolicy="disk" />
               </TouchableOpacity>
             ))}
           </View>
@@ -479,7 +480,23 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
 
       <FlatList data={filteredBBTalks} keyExtractor={item => item.id} renderItem={renderItem}
         onScrollBeginDrag={resetPrivacyTimer}
-        ListEmptyComponent={!isLoading ? <View style={[styles.emptyCard, { backgroundColor: c.cardBg }]}><Text style={[styles.emptyText, { color: c.textTertiary }]}>{searchText ? '没有找到匹配的碎碎念' : '暂无碎碎念'}</Text></View> : null}
+        ListEmptyComponent={!isLoading ? (
+          <View style={[styles.emptyCard, { backgroundColor: c.cardBg }]}>
+            {searchText || selectedTag || selectedDate ? (
+              <>
+                <Ionicons name="search-outline" size={40} color={c.textTertiary} />
+                <Text style={[styles.emptyTitle, { color: c.textSecondary }]}>没有找到匹配的碎碎念</Text>
+                <Text style={[styles.emptyHint, { color: c.textTertiary }]}>试试其他关键词或筛选条件</Text>
+              </>
+            ) : (
+              <>
+                <Ionicons name="chatbubble-ellipses-outline" size={48} color={c.primary} />
+                <Text style={[styles.emptyTitle, { color: c.text }]}>写下你的第一条碎碎念</Text>
+                <Text style={[styles.emptyHint, { color: c.textTertiary }]}>点击右下角 + 按钮开始记录{'\n'}长按可以语音输入</Text>
+              </>
+            )}
+          </View>
+        ) : null}
         ListFooterComponent={loadingMore ? <ActivityIndicator style={{ paddingVertical: 16 }} /> : !hasMore && filteredBBTalks.length > 0 ? <Text style={[styles.noMore, { color: c.textTertiary }]}>没有更多了</Text> : null}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         onEndReached={onEndReached} onEndReachedThreshold={0.3}
@@ -516,7 +533,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
           {previewImage && (
             <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
               maximumZoomScale={5} minimumZoomScale={1} bouncesZoom showsHorizontalScrollIndicator={false} showsVerticalScrollIndicator={false}>
-              <Image source={{ uri: previewImage }} style={styles.previewImage} resizeMode="contain" />
+              <Image source={previewImage} style={styles.previewImage} contentFit="contain" />
             </ScrollView>
           )}
         </View>
@@ -646,8 +663,9 @@ const styles = StyleSheet.create({
   footerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   time: { fontSize: 12 },
   visBtn: { padding: 4 },
-  emptyCard: { borderRadius: 16, padding: 40, marginTop: 12, alignItems: 'center' },
-  emptyText: { fontSize: 15 },
+  emptyCard: { borderRadius: 16, padding: 40, marginTop: 40, alignItems: 'center', gap: 10 },
+  emptyTitle: { fontSize: 17, fontWeight: '600', marginTop: 8 },
+  emptyHint: { fontSize: 13, textAlign: 'center', lineHeight: 20 },
   noMore: { textAlign: 'center', fontSize: 13, paddingVertical: 16 },
   fab: {
     position: 'absolute', right: 20, width: 56, height: 56, borderRadius: 28,
