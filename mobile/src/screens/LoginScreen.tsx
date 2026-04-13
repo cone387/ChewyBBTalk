@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
-  ScrollView, Modal, FlatList,
+  ScrollView, Modal, FlatList, Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -152,6 +152,15 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
             {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>{isLogin ? '登录  →' : '注册  →'}</Text>}
           </TouchableOpacity>
 
+          {!isLogin && (
+            <Text style={styles.privacyText}>
+              注册即表示同意{' '}
+              <Text style={styles.privacyLink} onPress={() => Linking.openURL(`${getApiBaseUrl()}/privacy-policy/`)}>
+                隐私政策
+              </Text>
+            </Text>
+          )}
+
           <View style={styles.divider}><View style={styles.dividerLine} /><Text style={styles.dividerText}>{isLogin ? '新用户？' : '已有账户？'}</Text><View style={styles.dividerLine} /></View>
 
           <TouchableOpacity style={styles.switchBtn} onPress={() => setIsLogin(!isLogin)} disabled={loading} activeOpacity={0.7}>
@@ -251,6 +260,8 @@ const styles = StyleSheet.create({
   switchBtn: { borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, height: 48, justifyContent: 'center', alignItems: 'center' },
   switchText: { color: '#374151', fontSize: 15, fontWeight: '500' },
   footer: { textAlign: 'center', color: '#C4C4C4', fontSize: 12, marginTop: 20 },
+  privacyText: { textAlign: 'center', fontSize: 12, color: '#9CA3AF', marginTop: 12 },
+  privacyLink: { color: '#2563EB', textDecorationLine: 'underline' },
   // 服务器选择弹窗
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', padding: 24 },
   modalSheet: { backgroundColor: '#fff', borderRadius: 20, padding: 20 },

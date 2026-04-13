@@ -22,10 +22,15 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    let response = await fetch(`${this.getBaseUrl()}${endpoint}`, {
-      ...options,
-      headers,
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${this.getBaseUrl()}${endpoint}`, {
+        ...options,
+        headers,
+      });
+    } catch (error) {
+      throw new Error('网络连接失败，请检查网络设置');
+    }
 
     // 401 -> 尝试刷新 token
     if (response.status === 401) {
@@ -39,16 +44,24 @@ class ApiClient {
           const newToken = await getAccessToken();
           if (newToken) {
             headers['Authorization'] = `Bearer ${newToken}`;
-            response = await fetch(`${this.getBaseUrl()}${endpoint}`, {
-              ...options,
-              headers,
-            });
+            try {
+              response = await fetch(`${this.getBaseUrl()}${endpoint}`, {
+                ...options,
+                headers,
+              });
+            } catch (error) {
+              throw new Error('网络连接失败，请检查网络设置');
+            }
           }
         } else {
           await logout();
           throw new Error('会话已过期，请重新登录');
         }
       } catch (error) {
+        if ((error as Error).message === '网络连接失败，请检查网络设置' ||
+            (error as Error).message === '会话已过期，请重新登录') {
+          throw error;
+        }
         await logout();
         throw new Error('认证失败，请重新登录');
       }
@@ -56,7 +69,8 @@ class ApiClient {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || errorData.message || `请求失败: ${response.status}`);
+      const serverMessage = errorData.error || errorData.message;
+      throw new Error(serverMessage || `服务器错误 (${response.status})，请稍后重试`);
     }
 
     if (response.status === 204 || response.headers.get('content-length') === '0') {

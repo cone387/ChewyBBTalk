@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "mobile",
+    "name": "ChewyBBTalk",
     "slug": "mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -13,6 +13,8 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
+      "bundleIdentifier": "com.chewy.bbtalk",
+      "buildNumber": "1",
       "supportsTablet": true,
       "infoPlist": {
         "NSFaceIDUsageDescription": "使用 Face ID 解锁防窥模式",

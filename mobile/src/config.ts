@@ -9,11 +9,14 @@ const STORAGE_KEY = 'bbtalk_api_base_url';
 
 const LAN_IP = '192.168.0.83';
 
+// 生产环境 API 地址（HTTPS）
+const PRODUCTION_API_URL = 'https://api.chewy.example.com';
+
 const DEFAULT_API_URL = Platform.select({
-  android: `http://10.0.2.2:8020`,
-  ios: `http://${LAN_IP}:8020`,
-  web: 'http://localhost:8020',
-  default: `http://${LAN_IP}:8020`,
+  android: __DEV__ ? `http://10.0.2.2:8020` : PRODUCTION_API_URL,
+  ios: __DEV__ ? `http://${LAN_IP}:8020` : PRODUCTION_API_URL,
+  web: __DEV__ ? 'http://localhost:8020' : PRODUCTION_API_URL,
+  default: PRODUCTION_API_URL,
 })!;
 
 // 运行时可变的 API 地址

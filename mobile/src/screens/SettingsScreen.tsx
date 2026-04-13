@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView, Switch } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView, Switch, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { getCurrentUser, logout } from '../services/auth';
 import { useTheme } from '../theme/ThemeContext';
+import { getApiBaseUrl } from '../config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface Props { onLogout: () => void; }
@@ -15,6 +16,7 @@ const MENU_ITEMS = [
   { key: 'storage', title: '存储设置', subtitle: '服务器存储、S3 云存储配置', icon: 'server' as const, bgColor: '#059669' },
   { key: 'data', title: '数据管理', subtitle: '导入导出数据，跨服务器迁移', icon: 'swap-horizontal' as const, bgColor: '#EA580C' },
   { key: 'cache', title: '缓存管理', subtitle: '查看和清理已下载的媒体文件', icon: 'folder-open' as const, bgColor: '#0EA5E9' },
+  { key: 'privacy-policy', title: '隐私政策', subtitle: '查看数据收集与使用说明', icon: 'shield-checkmark' as const, bgColor: '#0EA5E9' },
 ];
 
 export default function SettingsScreen({ onLogout }: Props) {
@@ -37,6 +39,10 @@ export default function SettingsScreen({ onLogout }: Props) {
   };
 
   const handleMenuPress = (key: string) => {
+    if (key === 'privacy-policy') {
+      Linking.openURL(`${getApiBaseUrl()}/privacy-policy/`);
+      return;
+    }
     const routes: Record<string, string> = {
       theme: 'ThemeSettings',
       privacy: 'PrivacySettings',

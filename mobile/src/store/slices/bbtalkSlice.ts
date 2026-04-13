@@ -110,6 +110,14 @@ const bbtalkSlice = createSlice({
   initialState,
   reducers: {
     clearError: (state) => { state.error = null; },
+    optimisticDelete: (state, action: PayloadAction<string>) => {
+      state.bbtalks = state.bbtalks.filter(b => b.id !== action.payload);
+      state.totalCount -= 1;
+    },
+    undoDelete: (state, action: PayloadAction<{ bbtalk: BBTalk; index: number }>) => {
+      state.bbtalks.splice(action.payload.index, 0, action.payload.bbtalk);
+      state.totalCount += 1;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -160,5 +168,5 @@ const bbtalkSlice = createSlice({
   },
 });
 
-export const { clearError } = bbtalkSlice.actions;
+export const { clearError, optimisticDelete, undoDelete } = bbtalkSlice.actions;
 export default bbtalkSlice.reducer;

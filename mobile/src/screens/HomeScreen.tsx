@@ -13,14 +13,18 @@ import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { loadBBTalks, loadMoreBBTalks, deleteBBTalkAsync, updateBBTalkAsync, togglePinAsync, createBBTalkAsync } from '../store/slices/bbtalkSlice';
+import { loadBBTalks, loadMoreBBTalks, updateBBTalkAsync, togglePinAsync, createBBTalkAsync, optimisticDelete, undoDelete } from '../store/slices/bbtalkSlice';
 import { loadTags } from '../store/slices/tagSlice';
 import type { BBTalk, Attachment } from '../types';
 import { useTheme } from '../theme/ThemeContext';
 import { attachmentApi } from '../services/api/mediaApi';
+import { bbtalkApi } from '../services/api/bbtalkApi';
 import VoiceRecordingOverlay from '../components/VoiceRecordingOverlay';
+import UndoToast from '../components/UndoToast';
 import AudioPlayerButton from '../components/AudioPlayerButton';
 import VideoPlayerButton from '../components/VideoPlayerButton';
+import SkeletonCard from '../components/SkeletonCard';
+import ImageViewer from '../components/ImageViewer';
 import * as Sharing from 'expo-sharing';
 
 if (Platform.OS === 'android') UIManager.setLayoutAnimationEnabledExperimental?.(true);
@@ -54,6 +58,17 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
   const listSlideAnim = useRef(new Animated.Value(0)).current;
   const tagScrollRef = useRef<ScrollView>(null);
   const swipingRef = useRef(false);
+  const wasLoadingRef = useRef(false);
+  const [pendingDelete, setPendingDelete] = useState<{ bbtalk: BBTalk; index: number } | null>(null);
+  const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 骨架屏 → 实际内容的平滑过渡
+  useEffect(() => {
+    if (wasLoadingRef.current && !isLoading && bbtalks.length > 0) {
+      LayoutAnimation.configureNext(LayoutAnimation.create(300, 'easeInEaseOut', 'opacity'));
+    }
+    wasLoadingRef.current = isLoading;
+  }, [isLoading, bbtalks.length]);
 
   // 防窥倒计时
   const [privacySeconds, setPrivacySeconds] = useState<number | null>(null);
@@ -272,6 +287,38 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
     }
   };
 
+  const handleDelete = useCallback((item: BBTalk) => {
+    const index = bbtalks.findIndex(b => b.id === item.id);
+    if (index === -1) return;
+    setPendingDelete({ bbtalk: item, index });
+    dispatch(optimisticDelete(item.id));
+
+    deleteTimerRef.current = setTimeout(async () => {
+      try {
+        await bbtalkApi.deleteBBTalk(item.id);
+      } catch (error: any) {
+        dispatch(undoDelete({ bbtalk: item, index }));
+        showError('删除失败', error.message || '请稍后重试');
+      }
+      setPendingDelete(null);
+    }, 3000);
+  }, [bbtalks, dispatch, showError]);
+
+  const handleUndo = useCallback(() => {
+    if (deleteTimerRef.current) {
+      clearTimeout(deleteTimerRef.current);
+      deleteTimerRef.current = null;
+    }
+    if (pendingDelete) {
+      dispatch(undoDelete(pendingDelete));
+      setPendingDelete(null);
+    }
+  }, [pendingDelete, dispatch]);
+
+  const handleDismiss = useCallback(() => {
+    setPendingDelete(null);
+  }, []);
+
   const showMenu = (item: BBTalk) => {
     const pinLabel = item.isPinned ? '取消置顶' : '置顶';
     if (Platform.OS === 'ios') {
@@ -282,10 +329,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
           if (idx === 1) dispatch(togglePinAsync(item.id));
           if (idx === 2) shareBBTalk(item);
           if (idx === 3) { Clipboard.setStringAsync(item.content); }
-          if (idx === 4) Alert.alert('确认删除', '确定要删除吗？', [
-            { text: '取消', style: 'cancel' },
-            { text: '删除', style: 'destructive', onPress: () => dispatch(deleteBBTalkAsync(item.id)) },
-          ]);
+          if (idx === 4) handleDelete(item);
         }
       );
     } else {
@@ -294,7 +338,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
         { text: pinLabel, onPress: () => dispatch(togglePinAsync(item.id)) },
         { text: '分享', onPress: () => shareBBTalk(item) },
         { text: '复制', onPress: () => Clipboard.setStringAsync(item.content) },
-        { text: '删除', style: 'destructive', onPress: () => dispatch(deleteBBTalkAsync(item.id)) },
+        { text: '删除', style: 'destructive', onPress: () => handleDelete(item) },
         { text: '取消', style: 'cancel' },
       ]);
     }
@@ -655,7 +699,11 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
         {...(showTagTabs ? listPanResponder.panHandlers : {})}>
         <FlatList data={filteredBBTalks} keyExtractor={item => item.id} renderItem={renderItem}
           onScrollBeginDrag={resetPrivacyTimer}
-          ListEmptyComponent={!isLoading ? (
+          ListEmptyComponent={bbtalks.length === 0 && isLoading ? (
+          <View>
+            {[0, 1, 2, 3].map(i => <SkeletonCard key={i} />)}
+          </View>
+        ) : !isLoading ? (
           <View style={[styles.emptyCard, { backgroundColor: c.cardBg }]}>
             {searchText || selectedTag || selectedDate ? (
               <>
@@ -673,7 +721,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
           </View>
         ) : null}
         ListFooterComponent={loadingMore ? <ActivityIndicator style={{ paddingVertical: 16 }} /> : !hasMore && filteredBBTalks.length > 0 ? <Text style={[styles.noMore, { color: c.textTertiary }]}>没有更多了</Text> : null}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.primary} colors={[c.primary]} progressBackgroundColor={c.surface} />}
         onEndReached={onEndReached} onEndReachedThreshold={0.3}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 80 }} />
       </Animated.View>
@@ -707,10 +755,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
             <Ionicons name="close" size={28} color="#fff" />
           </TouchableOpacity>
           {previewImage && (
-            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
-              maximumZoomScale={5} minimumZoomScale={1} bouncesZoom showsHorizontalScrollIndicator={false} showsVerticalScrollIndicator={false}>
-              <Image source={previewImage} style={styles.previewImage} contentFit="contain" />
-            </ScrollView>
+            <ImageViewer imageUrl={previewImage} onClose={() => setPreviewImage(null)} />
           )}
         </View>
       </Modal>
@@ -774,6 +819,8 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
           )}
         </View>
       )}
+
+      <UndoToast visible={!!pendingDelete} onUndo={handleUndo} onDismiss={handleDismiss} />
 
       <VoiceRecordingOverlay
         visible={voiceRecording}

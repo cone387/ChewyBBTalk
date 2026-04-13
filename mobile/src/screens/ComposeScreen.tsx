@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ScrollView, Alert, ActivityIndicator,
@@ -47,6 +47,17 @@ export default function ComposeScreen() {
   const [voiceRecording, setVoiceRecording] = useState(false);
   const publishedRef = useRef(false);
 
+  // 判断是否有未保存修改
+  const hasUnsavedChanges = useCallback(() => {
+    if (isEditing && editItem) {
+      const originalContent = editItem.tags.map(t => `#${t.name} `).join('') + editItem.content;
+      return content !== originalContent ||
+             visibility !== editItem.visibility ||
+             JSON.stringify(attachments.map(a => a.uid)) !== JSON.stringify(editItem.attachments.map(a => a.uid));
+    }
+    return content.trim().length > 0 || attachments.length > 0;
+  }, [content, visibility, attachments, editItem, isEditing]);
+
   useEffect(() => {
     if (existingTags.length === 0) dispatch(loadTags());
     const s1 = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', (e) => setKeyboardH(e.endCoordinates.height));
@@ -63,18 +74,43 @@ export default function ComposeScreen() {
   }, []);
 
   // 新建模式：离开时自动保存草稿（发布成功后不保存）
+  // 编辑退出确认：有未保存修改时拦截返回操作
   useEffect(() => {
-    if (isEditing) return;
-    const unsubscribe = navigation.addListener('beforeRemove', () => {
-      if (publishedRef.current) return; // 已发布，不保存草稿
-      if (content.trim()) {
-        AsyncStorage.setItem('compose_draft', content);
-      } else {
-        AsyncStorage.removeItem('compose_draft');
+    const unsubscribe = navigation.addListener('beforeRemove', (e: any) => {
+      // 已发布成功，跳过确认，清理草稿
+      if (publishedRef.current) return;
+
+      // 无未保存修改，保存/清理草稿后直接返回
+      if (!hasUnsavedChanges()) {
+        if (!isEditing) {
+          AsyncStorage.removeItem('compose_draft');
+        }
+        return;
       }
+
+      // 有未保存修改，拦截返回并显示确认对话框
+      e.preventDefault();
+      Alert.alert('放弃编辑？', '你有未保存的内容，确定要放弃吗？', [
+        { text: '继续编辑', style: 'cancel' },
+        {
+          text: '放弃',
+          style: 'destructive',
+          onPress: () => {
+            // 新建模式下放弃时保存草稿
+            if (!isEditing) {
+              if (content.trim()) {
+                AsyncStorage.setItem('compose_draft', content);
+              } else {
+                AsyncStorage.removeItem('compose_draft');
+              }
+            }
+            navigation.dispatch(e.data.action);
+          },
+        },
+      ]);
     });
     return unsubscribe;
-  }, [navigation, content, isEditing]);
+  }, [navigation, hasUnsavedChanges, content, isEditing]);
 
   const parseTags = (t: string): string[] => [...new Set(Array.from(t.matchAll(/(?:^|\s)#([^\s#]+)\s/g)).map(m => m[1]))];
   const cleanContent = (t: string): string => t.replace(/(?:^|\s)#([^\s#]+)\s/g, ' ').trim();
