@@ -26,6 +26,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { Tag, Attachment } from '../types'
+import MarkdownRenderer from '../components/MarkdownRenderer'
 
 // Props 接口
 interface BBTalkPageProps {
@@ -801,7 +802,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                     </div>
 
                     {/* 内容 */}
-                    <p className="text-gray-800 whitespace-pre-wrap leading-relaxed text-[15px]">{bbtalk.content}</p>
+                    <MarkdownRenderer content={bbtalk.content} />
                     
                     {/* 标签 */}
                     {bbtalk.tags && bbtalk.tags.length > 0 && (

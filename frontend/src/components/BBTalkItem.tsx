@@ -1,4 +1,5 @@
 import type { BBTalk } from '../types';
+import MarkdownRenderer from './MarkdownRenderer';
 
 interface BBTalkItemProps {
   bbtalk: BBTalk;
@@ -15,9 +16,7 @@ export default function BBTalkItem({ bbtalk, onDelete }: BBTalkItemProps) {
 
   return (
     <div className="bg-white rounded-lg shadow-sm border p-6">
-      <p className="text-gray-800 whitespace-pre-wrap leading-relaxed">
-        {bbtalk.content}
-      </p>
+      <MarkdownRenderer content={bbtalk.content} />
       
       {bbtalk.tags && bbtalk.tags.length > 0 && (
         <div className="mt-4 flex gap-2 flex-wrap">

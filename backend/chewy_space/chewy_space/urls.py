@@ -20,6 +20,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from rest_framework import permissions
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
+from bbtalk.privacy_views import privacy_policy_view
 
 
 schema_url_patterns = [
@@ -45,6 +46,7 @@ schema_redoc_view = SpectacularRedocView(
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('privacy-policy/', privacy_policy_view, name='privacy_policy'),
     path('api/schema/', schema_view.as_view(), name='schema'),
     path('api/schema/redoc/', schema_redoc_view.as_view(url_name='schema'), name='redoc-ui'),
     path('api/schema/swagger-ui/', schema_swagger_view.as_view(url_name='schema'), name='swagger-ui'),

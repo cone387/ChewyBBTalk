@@ -1,15 +1,81 @@
 """
-自定义附件视图，支持用户自定义 S3 配置
+自定义附件视图，支持用户自定义 S3 配置和 HTTP Range 请求
 """
 import logging
+import os
 from typing import Optional, Tuple
 from chewy_attachment.django_app.views import AttachmentViewSet as BaseAttachmentViewSet
 from chewy_attachment.django_app.serializers import AttachmentUploadSerializer
 from chewy_attachment.core.storage import DjangoStorageEngine, BaseStorageEngine
+from django.http import HttpResponse, Http404, HttpResponseRedirect
 from rest_framework import status
+from rest_framework.decorators import action
 from rest_framework.response import Response
 
 logger = logging.getLogger(__name__)
+
+
+def parse_range_header(range_header: str, file_size: int):
+    """
+    解析 HTTP Range 请求头
+
+    Args:
+        range_header: 例如 "bytes=0-1023"、"bytes=1000-"、"bytes=-500"
+        file_size: 文件总大小（字节）
+
+    Returns:
+        (start, end) 元组表示合法范围，None 表示格式不合法
+
+    Raises:
+        ValueError: Range 范围超出文件大小
+    """
+    if not range_header or not range_header.startswith('bytes='):
+        return None
+
+    range_spec = range_header[6:]  # 去掉 "bytes="
+
+    # 不支持多段 Range
+    if ',' in range_spec:
+        return None
+
+    parts = range_spec.split('-', 1)
+    if len(parts) != 2:
+        return None
+
+    start_str, end_str = parts
+
+    try:
+        if start_str == '' and end_str:
+            # bytes=-500（最后 500 字节）
+            suffix = int(end_str)
+            if suffix <= 0:
+                return None
+            start = max(0, file_size - suffix)
+            end = file_size - 1
+        elif end_str == '' and start_str:
+            # bytes=1000-（从 1000 到末尾）
+            start = int(start_str)
+            end = file_size - 1
+        elif start_str and end_str:
+            # bytes=0-1023
+            start = int(start_str)
+            end = int(end_str)
+        else:
+            return None
+    except ValueError:
+        return None
+
+    # 验证范围
+    if start < 0 or end < 0 or start > end:
+        return None
+
+    if start >= file_size:
+        raise ValueError(f"Range start {start} exceeds file size {file_size}")
+
+    # 将 end 限制在 file_size - 1
+    end = min(end, file_size - 1)
+
+    return (start, end)
 
 
 class AttachmentViewSet(BaseAttachmentViewSet):
@@ -141,3 +207,84 @@ class AttachmentViewSet(BaseAttachmentViewSet):
             logger.warning(f"获取用户存储配置失败: {e}")
         
         return None
+
+    @action(detail=True, methods=["get"], url_path="preview")
+    def preview(self, request, pk=None):
+        """
+        预览文件，支持 HTTP Range 请求
+
+        - 无 Range 头: 返回 200 + 完整文件（原有行为）+ Accept-Ranges: bytes
+        - 有 Range 头 (本地存储): 返回 206 + 部分内容
+        - 有 Range 头 (S3 存储): 302 重定向到签名 URL（S3 原生支持 Range）
+        - Range 格式错误或超出范围: 返回 416 Range Not Satisfiable
+        """
+        range_header = request.META.get('HTTP_RANGE')
+
+        if not range_header:
+            # 无 Range 头：使用原有行为，添加 Accept-Ranges 头
+            response = super().preview(request, pk)
+            response['Accept-Ranges'] = 'bytes'
+            return response
+
+        # 有 Range 头 — 需要处理
+        instance = self.get_object()
+
+        # 权限检查（与父类一致）
+        from chewy_attachment.django_app.views import get_attachment_model
+        from chewy_attachment.core.permissions import PermissionChecker
+
+        user_context = get_attachment_model().get_user_context(request)
+        file_metadata = instance.to_file_metadata()
+        if not PermissionChecker.can_download(file_metadata, user_context):
+            return Response(
+                {"detail": "You do not have permission to preview this file"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        storage = self.get_storage_engine(instance.storage_config_id)
+
+        # S3/云存储：重定向（S3 原生支持 Range）
+        if hasattr(storage, 'get_file_url') and hasattr(storage, 'storage') and hasattr(storage.storage, 'url'):
+            file_url = storage.get_file_url(instance.storage_path)
+            return HttpResponseRedirect(file_url)
+        elif hasattr(storage, 's3_client'):
+            file_url = storage.get_file_url(instance.storage_path)
+            return HttpResponseRedirect(file_url)
+
+        # 本地存储：处理 Range 请求
+        try:
+            file_path = storage.get_file_path(instance.storage_path)
+        except Exception:
+            raise Http404("File not found on storage")
+
+        file_size = os.path.getsize(file_path)
+
+        try:
+            parsed = parse_range_header(range_header, file_size)
+        except ValueError:
+            # Range 超出文件大小
+            resp = HttpResponse(status=416)
+            resp['Content-Range'] = f'bytes */{file_size}'
+            resp['Accept-Ranges'] = 'bytes'
+            return resp
+
+        if parsed is None:
+            # 格式不合法
+            resp = HttpResponse(status=416)
+            resp['Content-Range'] = f'bytes */{file_size}'
+            resp['Accept-Ranges'] = 'bytes'
+            return resp
+
+        start, end = parsed
+        content_length = end - start + 1
+
+        with open(file_path, 'rb') as f:
+            f.seek(start)
+            data = f.read(content_length)
+
+        resp = HttpResponse(data, status=206, content_type=instance.mime_type)
+        resp['Content-Range'] = f'bytes {start}-{end}/{file_size}'
+        resp['Content-Length'] = content_length
+        resp['Accept-Ranges'] = 'bytes'
+        resp['Content-Disposition'] = f'inline; filename="{instance.original_name}"'
+        return resp

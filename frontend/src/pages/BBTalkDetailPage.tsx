@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { bbtalkApi } from "../services/api/bbtalkApi"
 import type { BBTalk } from '../types';
+import MarkdownRenderer from '../components/MarkdownRenderer';
 
 export default function BBTalkDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -59,9 +60,7 @@ export default function BBTalkDetailPage() {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4">
         <div className="bg-white rounded-2xl shadow-sm p-8">
-          <p className="text-gray-800 whitespace-pre-wrap leading-relaxed text-lg">
-            {bbtalk.content}
-          </p>
+          <MarkdownRenderer content={bbtalk.content} className="text-lg" />
           
           {bbtalk.tags && bbtalk.tags.length > 0 && (
             <div className="mt-6 flex gap-2 flex-wrap">
