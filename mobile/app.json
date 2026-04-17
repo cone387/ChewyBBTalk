@@ -40,6 +40,12 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "updates": {
+      "url": "https://u.expo.dev/9a378f38-7d33-409f-bb33-85669347a13c"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "extra": {
       "apiBaseUrl": "https://bbtalk.cone387.top",
       "eas": {
@@ -56,7 +62,8 @@
       ],
       "@react-native-voice/voice",
       "expo-audio",
-      "expo-video"
+      "expo-video",
+      "expo-updates"
     ]
   }
 }

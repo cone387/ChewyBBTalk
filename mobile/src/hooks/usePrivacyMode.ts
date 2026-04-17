@@ -3,6 +3,8 @@ import { Animated, Keyboard, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
 
+import { logError } from '../utils/errorHandler';
+
 export interface UsePrivacyModeReturn {
   // 状态
   locked: boolean;
@@ -138,7 +140,7 @@ export function usePrivacyMode(options: UsePrivacyModeOptions): UsePrivacyModeRe
         const hasHw = await LocalAuthentication.hasHardwareAsync();
         const enrolled = await LocalAuthentication.isEnrolledAsync();
         setBiometricAvailable(hasHw && enrolled);
-      } catch {}
+      } catch (e) { logError(e, 'biometric detection'); }
     })();
 
     // 锁屏键盘动画

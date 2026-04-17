@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
-import { loadBBTalks, createBBTalkAsync, deleteBBTalkAsync, updateBBTalkAsync, loadMoreBBTalks, loadPublicBBTalks, loadMorePublicBBTalks } from '../store/slices/bbtalkSlice'
+import { loadBBTalks, createBBTalkAsync, updateBBTalkAsync, loadMoreBBTalks, loadPublicBBTalks, loadMorePublicBBTalks, optimisticDelete, undoDelete } from '../store/slices/bbtalkSlice'
 import { loadTags, updateTagAsync } from '../store/slices/tagSlice'
 import BBTalkEditor from '../components/BBTalkEditor'
 import CachedImage from '../components/CachedImage'
@@ -27,6 +27,9 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import type { Tag, Attachment } from '../types'
 import MarkdownRenderer from '../components/MarkdownRenderer'
+import UndoToast from '../components/UndoToast'
+import SkeletonCard from '../components/SkeletonCard'
+import { bbtalkApi } from '../services/api'
 
 // Props 接口
 interface BBTalkPageProps {
@@ -118,7 +121,8 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
   const [isInitialLoad, setIsInitialLoad] = useState(true)
   const [copyTip, setCopyTip] = useState<{ show: boolean; id: string | null }>({ show: false, id: null })
   const [previewImage, setPreviewImage] = useState<{ src: string; alt: string } | null>(null)
-  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
+  const [pendingDelete, setPendingDelete] = useState<{ bbtalk: typeof bbtalks[0]; index: number } | null>(null)
+  const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastScrollY = useRef(0)
   const containerRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -635,8 +639,8 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
           {/* BBTalk 列表 */}
           <div className="space-y-4">
             {isLoading && bbtalks.length === 0 ? (
-              <div className="bg-white rounded-lg shadow p-6 text-center text-gray-600">
-                加载中...
+              <div className="space-y-4">
+                {[0, 1, 2].map(i => <SkeletonCard key={i} />)}
               </div>
             ) : filteredBBTalks.length === 0 ? (
               <div className="bg-white rounded-lg shadow p-6 text-center text-gray-600">
@@ -766,34 +770,29 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                             编辑
                           </button>
                           <button
-                            className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled={deletingIds.has(bbtalk.id)}
-                            onClick={async () => {
-                              if (deletingIds.has(bbtalk.id)) return
-                              setDeletingIds(prev => new Set(prev).add(bbtalk.id))
-                              try {
-                                await dispatch(deleteBBTalkAsync(bbtalk.id))
-                              } finally {
-                                setDeletingIds(prev => {
-                                  const next = new Set(prev)
-                                  next.delete(bbtalk.id)
-                                  return next
-                                })
-                              }
+                            className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-gray-100 flex items-center gap-2"
+                            onClick={() => {
+                              const index = bbtalks.findIndex(b => b.id === bbtalk.id)
+                              if (index === -1) return
+                              setPendingDelete({ bbtalk, index })
+                              dispatch(optimisticDelete(bbtalk.id))
                               setActiveMenu(null)
+
+                              deleteTimerRef.current = setTimeout(async () => {
+                                try {
+                                  await bbtalkApi.deleteBBTalk(bbtalk.id)
+                                } catch (error: any) {
+                                  dispatch(undoDelete({ bbtalk, index }))
+                                  alert('删除失败: ' + (error.message || '请稍后重试'))
+                                }
+                                setPendingDelete(null)
+                              }, 3000)
                             }}
                           >
-                            {deletingIds.has(bbtalk.id) ? (
-                              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                              </svg>
-                            ) : (
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1-1v3M4 7h16" />
-                              </svg>
-                            )}
-                            {deletingIds.has(bbtalk.id) ? '删除中...' : '删除'}
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1-1v3M4 7h16" />
+                            </svg>
+                            删除
                           </button>
                           </>
                           )}
@@ -1143,9 +1142,22 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
           onClose={() => setPreviewImage(null)}
         />
       )}
-      
 
-      
+      {/* 删除撤销提示 */}
+      <UndoToast
+        visible={!!pendingDelete}
+        onUndo={() => {
+          if (deleteTimerRef.current) {
+            clearTimeout(deleteTimerRef.current)
+            deleteTimerRef.current = null
+          }
+          if (pendingDelete) {
+            dispatch(undoDelete(pendingDelete))
+            setPendingDelete(null)
+          }
+        }}
+        onDismiss={() => setPendingDelete(null)}
+      />
       {/* 移动端底部导航栏 */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 safe-area-pb">
         <div className="flex items-center justify-around h-14">

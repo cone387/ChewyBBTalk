@@ -35,7 +35,7 @@ export function formatTime(dateStr: string): string {
 }
 
 /** Render a non-image attachment (audio / video / file card) */
-function renderFileAttachment(att: Attachment, colors: any): JSX.Element {
+function renderFileAttachment(att: Attachment, colors: any): React.JSX.Element {
   if (att.type === 'audio') {
     return <AudioPlayerButton key={att.uid} attachment={att} />;
   }
@@ -64,6 +64,44 @@ function renderFileAttachment(att: Attachment, colors: any): JSX.Element {
       <Ionicons name="open-outline" size={16} color={colors.textTertiary} />
     </TouchableOpacity>
   );
+}
+
+/** Custom comparison function for React.memo — avoids unnecessary re-renders */
+export function arePropsEqual(prev: BBTalkCardProps, next: BBTalkCardProps): boolean {
+  // Basic fields
+  if (prev.item.id !== next.item.id) return false;
+  if (prev.item.content !== next.item.content) return false;
+  if (prev.item.updatedAt !== next.item.updatedAt) return false;
+  if (prev.item.isPinned !== next.item.isPinned) return false;
+  if (prev.item.visibility !== next.item.visibility) return false;
+
+  // Tags array
+  const pTags = prev.item.tags;
+  const nTags = next.item.tags;
+  if (pTags.length !== nTags.length) return false;
+  for (let i = 0; i < pTags.length; i++) {
+    if (pTags[i].id !== nTags[i].id) return false;
+  }
+
+  // Attachments array
+  const pAtts = prev.item.attachments;
+  const nAtts = next.item.attachments;
+  if (pAtts.length !== nAtts.length) return false;
+  for (let i = 0; i < pAtts.length; i++) {
+    if (pAtts[i].uid !== nAtts[i].uid) return false;
+  }
+
+  // Callback references
+  if (prev.onMenu !== next.onMenu) return false;
+  if (prev.onEdit !== next.onEdit) return false;
+  if (prev.onToggleVisibility !== next.onToggleVisibility) return false;
+  if (prev.onImagePreview !== next.onImagePreview) return false;
+  if (prev.onLocationPress !== next.onLocationPress) return false;
+
+  // Theme reference
+  if (prev.theme !== next.theme) return false;
+
+  return true;
 }
 
 const BBTalkCard = React.memo(function BBTalkCard({
@@ -178,7 +216,7 @@ const BBTalkCard = React.memo(function BBTalkCard({
       </View>
     </View>
   );
-});
+}, arePropsEqual);
 
 export default BBTalkCard;
 

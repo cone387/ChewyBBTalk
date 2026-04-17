@@ -8,6 +8,7 @@ import { store } from './src/store';
 import { initAuth } from './src/services/auth';
 import { loadApiBaseUrl } from './src/config';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
+import { checkForUpdates } from './src/utils/versionChecker';
 
 import LoginScreen from './src/screens/LoginScreen';
 import HomeScreen from './src/screens/HomeScreen';
@@ -120,6 +121,14 @@ function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
 }) {
   const { theme } = useTheme();
   const c = theme.colors;
+
+  // 认证成功后检测版本更新
+  useEffect(() => {
+    if (isAuthenticated) {
+      checkForUpdates();
+    }
+  }, [isAuthenticated]);
+
   const headerOptions = {
     headerStyle: { backgroundColor: c.surfaceSecondary },
     headerShadowVisible: false,
