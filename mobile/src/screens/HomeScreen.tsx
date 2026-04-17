@@ -2,16 +2,13 @@ import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
   RefreshControl, Alert, ActivityIndicator, Modal,
-  TextInput, ActionSheetIOS, Platform, ScrollView, Linking, Animated, Keyboard, LayoutAnimation, UIManager, PanResponder,
+  TextInput, ActionSheetIOS, Platform, ScrollView, Linking, Animated, LayoutAnimation, UIManager, PanResponder,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import * as Clipboard from 'expo-clipboard';
-import Markdown from 'react-native-markdown-display';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as LocalAuthentication from 'expo-local-authentication';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { loadBBTalks, loadMoreBBTalks, updateBBTalkAsync, togglePinAsync, createBBTalkAsync, optimisticDelete, undoDelete } from '../store/slices/bbtalkSlice';
 import { loadTags } from '../store/slices/tagSlice';
@@ -21,11 +18,10 @@ import { attachmentApi } from '../services/api/mediaApi';
 import { bbtalkApi } from '../services/api/bbtalkApi';
 import VoiceRecordingOverlay from '../components/VoiceRecordingOverlay';
 import UndoToast from '../components/UndoToast';
-import AudioPlayerButton from '../components/AudioPlayerButton';
-import VideoPlayerButton from '../components/VideoPlayerButton';
 import SkeletonCard from '../components/SkeletonCard';
 import ImageViewer from '../components/ImageViewer';
-import * as Sharing from 'expo-sharing';
+import { usePrivacyMode } from '../hooks/usePrivacyMode';
+import BBTalkCard from '../components/BBTalkCard';
 
 if (Platform.OS === 'android') UIManager.setLayoutAnimationEnabledExperimental?.(true);
 
@@ -70,170 +66,34 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
     wasLoadingRef.current = isLoading;
   }, [isLoading, bbtalks.length]);
 
-  // 防窥倒计时
-  const [privacySeconds, setPrivacySeconds] = useState<number | null>(null);
-  const [showCountdown, setShowCountdown] = useState(true);
-  const [privacyEnabled, setPrivacyEnabled] = useState(true);
-  const [locked, setLockedState] = useState(false);
-  const [allowComposeWhenLocked, setAllowComposeWhenLocked] = useState(true);
-  const lockKeyboardH = useRef(new Animated.Value(0)).current;
-
-  const setLocked = useCallback((val: boolean) => {
-    setLockedState(val);
-    AsyncStorage.setItem('privacy_locked', val ? 'true' : 'false');
-  }, []);
-  const [unlockPassword, setUnlockPassword] = useState('');
-  const [unlocking, setUnlocking] = useState(false);
-  const [biometricAvailable, setBiometricAvailable] = useState(false);
-  const lastActivity = useRef(Date.now());
-  const timeoutMinsRef = useRef(5);
-  const onLockChangeRef = useRef(onLockChange);
-  onLockChangeRef.current = onLockChange;
-
-  const resetPrivacyTimer = useCallback(() => {
-    lastActivity.current = Date.now();
-  }, []);
-
-  // 加载设置 + 每次从设置页回来时刷新
-  const loadPrivacySettings = useCallback(async () => {
-    const t = await AsyncStorage.getItem('privacy_timeout_minutes');
-    if (t) timeoutMinsRef.current = parseInt(t, 10);
-    const cVal = await AsyncStorage.getItem('show_privacy_countdown');
-    setShowCountdown(prev => { const v = cVal !== 'false'; return prev === v ? prev : v; });
-    const e = await AsyncStorage.getItem('privacy_enabled');
-    const enabled = e !== 'false';
-    setPrivacyEnabled(prev => prev === enabled ? prev : enabled);
-    const ac = await AsyncStorage.getItem('privacy_allow_compose');
-    setAllowComposeWhenLocked(prev => { const v = ac !== 'false'; return prev === v ? prev : v; });
-    // 恢复锁定状态 - 仅在防窥明确启用时
-    if (enabled) {
-      const l = await AsyncStorage.getItem('privacy_locked');
-      if (l === 'true') { setLockedState(true); onLockChangeRef.current?.(true); }
-      else { lastActivity.current = Date.now(); }
-    } else {
-      lastActivity.current = Date.now();
-    }
-  }, []);
+  // 防窥模式 Hook
+  const {
+    locked, privacyEnabled, privacySeconds, showCountdown,
+    biometricAvailable, allowComposeWhenLocked,
+    unlockPassword, unlocking, lockKeyboardH,
+    setLocked, setUnlockPassword, resetPrivacyTimer,
+    handleBiometricUnlock, handleUnlock, loadPrivacySettings,
+  } = usePrivacyMode({ onLockChange, showError });
 
   useEffect(() => {
-    loadPrivacySettings();
     AsyncStorage.getItem('search_history').then(v => {
       if (v) try { setSearchHistory(JSON.parse(v)); } catch {}
     });
     AsyncStorage.getItem('show_tag_tabs').then(v => {
       if (v === 'true') setShowTagTabs(true);
     });
-    // 检测生物识别
-    (async () => {
-      try {
-        const hasHw = await LocalAuthentication.hasHardwareAsync();
-        const enrolled = await LocalAuthentication.isEnrolledAsync();
-        setBiometricAvailable(hasHw && enrolled);
-      } catch {}
-    })();
-
-    // 锁屏键盘动画
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const kbShow = Keyboard.addListener(showEvent, (e) => {
-      Animated.spring(lockKeyboardH, { toValue: -e.endCoordinates.height / 2.5, useNativeDriver: true, speed: 20, bounciness: 0 }).start();
-    });
-    const kbHide = Keyboard.addListener(hideEvent, () => {
-      Animated.spring(lockKeyboardH, { toValue: 0, useNativeDriver: true, speed: 20, bounciness: 0 }).start();
-    });
-
-    const isLockedRef = { current: false };
-    const timer = setInterval(async () => {
-      // 已锁定时不再轮询，减少重渲染
-      if (isLockedRef.current) return;
-
-      const t = await AsyncStorage.getItem('privacy_timeout_minutes');
-      if (t) timeoutMinsRef.current = parseInt(t, 10);
-      const e = await AsyncStorage.getItem('privacy_enabled');
-      const enabled = e !== 'false';
-      setPrivacyEnabled(prev => prev === enabled ? prev : enabled);
-
-      const ac = await AsyncStorage.getItem('privacy_allow_compose');
-      const allowVal = ac !== 'false';
-      setAllowComposeWhenLocked(prev => prev === allowVal ? prev : allowVal);
-
-      if (!enabled) { setPrivacySeconds(null); return; }
-
-      const elapsed = (Date.now() - lastActivity.current) / 1000;
-      const remaining = timeoutMinsRef.current * 60 - elapsed;
-      if (remaining <= 0) {
-        setPrivacySeconds(0);
-        setLocked(true);
-        isLockedRef.current = true;
-      } else {
-        setPrivacySeconds(Math.ceil(remaining));
-      }
-    }, 1000);
-
-    return () => { clearInterval(timer); kbShow.remove(); kbHide.remove(); };
   }, []);
 
-  const handleBiometricUnlock = useCallback(async () => {
-    try {
-      const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: '验证身份以解锁',
-        cancelLabel: '使用密码',
-        disableDeviceFallback: true,
-      });
-      if (result.success) {
-        setLocked(false);
-        setUnlockPassword('');
-        lastActivity.current = Date.now();
-      } else if (result.error === 'not_enrolled') {
-        Alert.alert('提示', '设备未设置生物识别，请使用密码解锁');
-        setBiometricAvailable(false);
-      } else if (result.error !== 'user_cancel' && result.error !== 'system_cancel') {
-        // Expo Go 里 Face ID 未配置会走到这里
-        Alert.alert('提示', '生物识别不可用（Expo Go 不支持 Face ID，需要独立构建），请使用密码解锁');
-        setBiometricAvailable(false);
-      }
-    } catch (e: any) {
-      // NSFaceIDUsageDescription 未配置时会抛异常
-      setBiometricAvailable(false);
-      Alert.alert('提示', '生物识别暂不可用，请使用密码解锁');
-    }
-  }, []);
-
-  const handleUnlock = async () => {
-    if (!unlockPassword) return;
-    setUnlocking(true);
-    try {
-      const { login: loginFn, getCurrentUser } = await import('../services/auth');
-      const user = getCurrentUser();
-      if (!user) { Alert.alert('错误', '用户信息丢失'); setUnlocking(false); return; }
-      const result = await loginFn(user.username, unlockPassword);
-      if (result.success) {
-        setLocked(false);
-        setUnlockPassword('');
-        lastActivity.current = Date.now();
-      } else {
-        showError('解锁失败', result.error || '密码错误，请重试');
-        setUnlockPassword('');
-      }
-    } catch (e: any) {
-      showError('解锁失败', e?.message || '网络错误，请重试');
-    } finally {
-      setUnlocking(false);
-    }
-  };
-
-  // 通知父组件锁定状态变化
-  useEffect(() => { onLockChangeRef.current?.(locked); }, [locked]);
-
-  // 从其他页面回来时重置防窥计时器
+  // 从其他页面回来时重置防窥计时器并刷新设置
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
-      lastActivity.current = Date.now();
+      resetPrivacyTimer();
+      loadPrivacySettings();
       // Reload tag tabs setting
       AsyncStorage.getItem('show_tag_tabs').then(v => setShowTagTabs(v === 'true'));
     });
     return unsubscribe;
-  }, [navigation]);
+  }, [navigation, resetPrivacyTimer, loadPrivacySettings]);
 
   useEffect(() => { dispatch(loadBBTalks({})); dispatch(loadTags()); }, [dispatch]);
   useEffect(() => {
@@ -372,19 +232,6 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
     ]);
   };
 
-  const formatTime = (dateStr: string) => {
-    const d = new Date(dateStr);
-    const diff = Date.now() - d.getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return '刚刚';
-    if (mins < 60) return `${mins}分钟前`;
-    const hours = Math.floor(diff / 3600000);
-    if (hours < 24) return `${hours}小时前`;
-    const days = Math.floor(diff / 86400000);
-    if (days < 7) return `${days}天前`;
-    return d.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' });
-  };
-
   const saveSearchHistory = useCallback((term: string) => {
     if (!term.trim()) return;
     setSearchHistory(prev => {
@@ -402,117 +249,6 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
   const filteredBBTalks = searchText
     ? bbtalks.filter(b => b.content.toLowerCase().includes(searchText.toLowerCase()))
     : bbtalks;
-
-  // 3. 附件卡片渲染（非图片）
-  const renderFileAttachment = (att: Attachment) => {
-    if (att.type === 'audio') {
-      return <AudioPlayerButton key={att.uid} attachment={att} />;
-    }
-    if (att.type === 'video') {
-      return <VideoPlayerButton key={att.uid} attachment={att} />;
-    }
-    const iconColor = '#6B7280';
-    return (
-      <TouchableOpacity key={att.uid} style={[styles.fileCard, { backgroundColor: c.borderLight, borderColor: c.border }]} activeOpacity={0.7}
-        onPress={() => Linking.openURL(att.url).catch(() => Alert.alert('提示', '无法打开此文件'))}>
-        <View style={[styles.fileIconWrap, { backgroundColor: iconColor + '18' }]}>
-          <Ionicons name="document-outline" size={20} color={iconColor} />
-        </View>
-        <View style={styles.fileInfo}>
-          <Text style={[styles.fileCardName, { color: c.text }]} numberOfLines={1}>{att.originalFilename || att.filename || '附件'}</Text>
-          <Text style={[styles.fileCardMeta, { color: c.textTertiary }]}>文件{att.fileSize ? ` · ${(att.fileSize / 1024).toFixed(0)}KB` : ''}</Text>
-        </View>
-        <Ionicons name="open-outline" size={16} color={c.textTertiary} />
-      </TouchableOpacity>
-    );
-  };
-
-  const renderItem = ({ item }: { item: BBTalk }) => {
-    const isMobile = item.context?.source?.platform === 'mobile';
-    const loc = item.context?.location as { latitude: number; longitude: number } | undefined;
-    const images = item.attachments.filter(a => a.type === 'image');
-    const files = item.attachments.filter(a => a.type !== 'image');
-
-    return (
-      <View style={[styles.card, { backgroundColor: c.cardBg }]}>
-        <TouchableOpacity style={styles.moreBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          onPress={() => showMenu(item)}>
-          <Ionicons name="ellipsis-horizontal" size={18} color={c.textTertiary} />
-        </TouchableOpacity>
-
-        {/* 点击内容区进入编辑 */}
-        <TouchableOpacity activeOpacity={0.8} onPress={() => navigation.navigate('Compose', { editItem: item })}>
-          {item.isPinned && (
-            <View style={styles.pinBadge}>
-              <Ionicons name="pin" size={12} color="#F59E0B" />
-              <Text style={styles.pinText}>置顶</Text>
-            </View>
-          )}
-
-          <Markdown style={{
-            body: { fontSize: 15, lineHeight: 24, color: c.text },
-            heading1: { fontSize: 22, fontWeight: '700', color: c.text, marginVertical: 8 },
-            heading2: { fontSize: 19, fontWeight: '700', color: c.text, marginVertical: 6 },
-            heading3: { fontSize: 17, fontWeight: '600', color: c.text, marginVertical: 4 },
-            strong: { fontWeight: '700' },
-            em: { fontStyle: 'italic' },
-            blockquote: { borderLeftWidth: 3, borderLeftColor: c.border, paddingLeft: 12, marginVertical: 6, backgroundColor: c.borderLight, borderRadius: 4, padding: 8 },
-            code_inline: { backgroundColor: c.borderLight, color: '#DC2626', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4, fontSize: 14 },
-            fence: { backgroundColor: c.borderLight, padding: 12, borderRadius: 8, marginVertical: 6, fontSize: 13 },
-            code_block: { backgroundColor: c.borderLight, padding: 12, borderRadius: 8, marginVertical: 6, fontSize: 13 },
-            link: { color: c.primary, textDecorationLine: 'underline' },
-            list_item: { marginVertical: 2 },
-            paragraph: { marginVertical: 2 },
-          }}>{item.content}</Markdown>
-
-          {item.tags.length > 0 && (
-            <View style={styles.tagRow}>
-              {item.tags.map(tag => (
-                <View key={tag.id} style={[styles.tag, { backgroundColor: tag.color || '#3B82F6' }]}>
-                  <Text style={styles.tagText}>{tag.name}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-        </TouchableOpacity>
-
-        {/* 图片 */}
-        {images.length > 0 && (
-          <View style={styles.imageRow}>
-            {images.map(att => (
-              <TouchableOpacity key={att.uid} onPress={() => setPreviewImage(att.url)}>
-                <Image source={att.url} style={styles.thumbnail} contentFit="cover" cachePolicy="disk" />
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-
-        {/* 非图片附件 */}
-        {files.length > 0 && (
-          <View style={styles.fileRow}>{files.map(renderFileAttachment)}</View>
-        )}
-
-        {/* 底部信息 - 4. 去掉点分隔 */}
-        <View style={styles.footer}>
-          <View style={styles.footerLeft}>
-            <Text style={[styles.time, { color: c.textTertiary }]}>{formatTime(item.createdAt)}</Text>
-            <Ionicons name={isMobile ? 'phone-portrait-outline' : 'laptop-outline'} size={12} color={c.borderLight} />
-            {loc && (
-              <TouchableOpacity onPress={() => showLocation(loc)} style={{ padding: 2 }}>
-                <Ionicons name="location-outline" size={13} color="#10B981" />
-              </TouchableOpacity>
-            )}
-          </View>
-          <TouchableOpacity onPress={() => toggleVisibility(item)} style={styles.visBtn}>
-            <Ionicons
-              name={item.visibility === 'public' ? 'globe-outline' : 'lock-closed-outline'}
-              size={15} color={item.visibility === 'public' ? c.primary : c.textTertiary}
-            />
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  };
 
   const handleVoiceFinish = useCallback(async (result: { text: string; audioUri: string | null; audioDuration: number }) => {
     setVoiceRecording(false);
@@ -697,7 +433,18 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
 
       <Animated.View style={{ flex: 1, transform: [{ translateX: showTagTabs ? listSlideAnim : 0 }] }}
         {...(showTagTabs ? listPanResponder.panHandlers : {})}>
-        <FlatList data={filteredBBTalks} keyExtractor={item => item.id} renderItem={renderItem}
+        <FlatList data={filteredBBTalks} keyExtractor={item => item.id}
+          renderItem={({ item }) => (
+            <BBTalkCard
+              item={item}
+              onMenu={showMenu}
+              onEdit={(item) => navigation.navigate('Compose', { editItem: item })}
+              onToggleVisibility={toggleVisibility}
+              onImagePreview={setPreviewImage}
+              onLocationPress={showLocation}
+              theme={theme}
+            />
+          )}
           onScrollBeginDrag={resetPrivacyTimer}
           ListEmptyComponent={bbtalks.length === 0 && isLoading ? (
           <View>
@@ -870,40 +617,6 @@ const styles = StyleSheet.create({
     borderRadius: 10, paddingHorizontal: 10, marginHorizontal: 8, height: 38,
   },
   searchInput: { flex: 1, fontSize: 15, paddingVertical: 0, paddingHorizontal: 0, lineHeight: 20, includeFontPadding: false },
-  card: {
-    borderRadius: 16, padding: 16, marginTop: 12,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
-  },
-  moreBtn: { position: 'absolute', top: 14, right: 14, zIndex: 10, padding: 2 },
-  pinBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 3,
-    marginBottom: 6, alignSelf: 'flex-start',
-  },
-  pinText: { fontSize: 11, color: '#F59E0B', fontWeight: '600' },
-  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12 },
-  tag: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
-  tagText: { color: '#fff', fontSize: 12, fontWeight: '500' },
-  imageRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
-  thumbnail: { width: 100, height: 100, borderRadius: 10, backgroundColor: '#F3F4F6' },
-  // 附件卡片
-  fileRow: { marginTop: 12, gap: 8 },
-  fileCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: '#F9FAFB', borderRadius: 10, padding: 10,
-    borderWidth: 1, borderColor: '#F3F4F6',
-  },
-  fileIconWrap: { width: 36, height: 36, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
-  fileInfo: { flex: 1 },
-  fileCardName: { fontSize: 13, color: '#374151', fontWeight: '500' },
-  fileCardMeta: { fontSize: 11, color: '#9CA3AF', marginTop: 1 },
-  // 底部
-  footer: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    marginTop: 12,
-  },
-  footerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  time: { fontSize: 12 },
-  visBtn: { padding: 4 },
   emptyCard: { borderRadius: 16, padding: 40, marginTop: 40, alignItems: 'center', gap: 10 },
   emptyTitle: { fontSize: 17, fontWeight: '600', marginTop: 8 },
   emptyHint: { fontSize: 13, textAlign: 'center', lineHeight: 20 },
