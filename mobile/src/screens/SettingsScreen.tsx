@@ -120,7 +120,7 @@ export default function SettingsScreen({ onLogout }: Props) {
           </View>
         </View>
 
-        <Text style={[styles.version, { color: c.textTertiary }]}>ChewyBBTalk v1.0.0</Text>
+        <Text style={[styles.version, { color: c.textTertiary }]}>ChewyBBTalk v1.1.0</Text>
       </ScrollView>
 
       <View style={[styles.logoutBar, { paddingBottom: insets.bottom + 12, backgroundColor: c.surfaceSecondary }]}>
