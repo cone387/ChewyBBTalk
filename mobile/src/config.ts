@@ -12,7 +12,7 @@ import Constants from 'expo-constants';
 
 const STORAGE_KEY = 'bbtalk_api_base_url';
 
-const LAN_IP = '192.168.0.83';
+const LAN_IP = '192.168.31.217';
 
 // 从 app.json extra 或 EAS Build env 读取生产地址
 const PRODUCTION_API_URL =

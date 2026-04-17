@@ -142,11 +142,14 @@ export async function login(
   username: string,
   password: string
 ): Promise<{ success: boolean; error?: string }> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
   try {
     const response = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/auth/token/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password }),
+      signal: controller.signal,
     });
 
     if (response.ok) {
@@ -158,8 +161,13 @@ export async function login(
 
     const err = await response.json().catch(() => ({}));
     return { success: false, error: err.error || '登录失败' };
-  } catch {
-    return { success: false, error: '网络错误，请稍后重试' };
+  } catch (e: any) {
+    if (e.name === 'AbortError') {
+      return { success: false, error: '连接超时，请检查服务地址是否正确' };
+    }
+    return { success: false, error: '网络错误，请检查网络连接或服务地址' };
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
@@ -169,11 +177,14 @@ export async function register(data: {
   email?: string;
   display_name?: string;
 }): Promise<{ success: boolean; error?: string }> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
   try {
     const response = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/auth/register/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
+      signal: controller.signal,
     });
 
     if (response.ok) {
@@ -184,8 +195,13 @@ export async function register(data: {
 
     const err = await response.json().catch(() => ({}));
     return { success: false, error: err.error || '注册失败' };
-  } catch {
-    return { success: false, error: '网络错误，请稍后重试' };
+  } catch (e: any) {
+    if (e.name === 'AbortError') {
+      return { success: false, error: '连接超时，请检查服务地址是否正确' };
+    }
+    return { success: false, error: '网络错误，请检查网络连接或服务地址' };
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 

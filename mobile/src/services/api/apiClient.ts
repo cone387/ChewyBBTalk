@@ -22,14 +22,24 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
     let response: Response;
     try {
       response = await fetch(`${this.getBaseUrl()}${endpoint}`, {
         ...options,
         headers,
+        signal: controller.signal,
       });
-    } catch (error) {
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error('请求超时，请检查网络连接');
+      }
       throw new Error('网络连接失败，请检查网络设置');
+    } finally {
+      clearTimeout(timeoutId);
     }
 
     // 401 -> 尝试刷新 token
