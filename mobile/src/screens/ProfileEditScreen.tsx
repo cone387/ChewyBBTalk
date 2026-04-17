@@ -51,12 +51,13 @@ export default function ProfileEditScreen() {
     }
     setSaving(true);
     try {
-      const updated = await userApi.updateProfile({
+      const data: Record<string, string> = {
         display_name: displayName.trim(),
-        bio: bio.trim(),
-        email: email.trim(),
-        ...(avatarUrl ? { avatar: avatarUrl } : {}),
-      });
+      };
+      if (bio.trim()) data.bio = bio.trim();
+      if (email.trim()) data.email = email.trim();
+      if (avatarUrl) data.avatar = avatarUrl;
+      const updated = await userApi.updateProfile(data);
       await updateCachedUser(updated);
       Alert.alert('成功', '个人信息已更新', [
         { text: '好的', onPress: () => navigation.goBack() },

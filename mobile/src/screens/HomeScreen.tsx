@@ -350,8 +350,8 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
           onSelectTag={handleSelectTag} onResetAnim={tagSwipe.resetSlideAnim} scrollRef={tagSwipe.tagScrollRef as any} theme={theme} />
       )}
 
-      <Animated.View style={{ flex: 1, transform: [{ translateX: showTagTabs ? tagSwipe.listSlideAnim : 0 }] }}
-        {...(showTagTabs ? tagSwipe.panResponder.panHandlers : {})}>
+      <Animated.View style={{ flex: 1, transform: [{ translateX: showTagTabs && tags.length > 0 ? tagSwipe.listSlideAnim : 0 }] }}
+        {...(showTagTabs && tags.length > 0 ? tagSwipe.panResponder.panHandlers : {})}>
         <FlatList data={filteredBBTalks} keyExtractor={item => item.id}
           renderItem={renderItem}
           ListHeaderComponent={listHeaderComponent}

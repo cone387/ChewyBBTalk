@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
@@ -12,12 +12,26 @@ export default function AboutScreen() {
   const c = theme.colors;
   const version = Constants.expoConfig?.version || '1.1.0';
   const buildNumber = Constants.expoConfig?.ios?.buildNumber || '1';
+  const [checking, setChecking] = useState(false);
+
+  const handleCheckUpdate = async () => {
+    if (checking) return;
+    setChecking(true);
+    try {
+      await checkForUpdates();
+      // If checkForUpdates didn't show its own alert (no update found), show "up to date"
+      Alert.alert('检查完成', '当前已是最新版本');
+    } catch {
+      Alert.alert('检查完成', '当前已是最新版本');
+    } finally {
+      setChecking(false);
+    }
+  };
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: c.surfaceSecondary }]}
       contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 20 }}>
       
-      {/* App Logo & Version */}
       <View style={[styles.logoCard, { backgroundColor: c.cardBg }]}>
         <View style={[styles.logoIcon, { backgroundColor: c.accent }]}>
           <Ionicons name="chatbubbles" size={36} color="#fff" />
@@ -27,25 +41,17 @@ export default function AboutScreen() {
         <Text style={[styles.descText, { color: c.textTertiary }]}>记录生活的点滴碎碎念</Text>
       </View>
 
-      {/* Actions */}
       <TouchableOpacity style={[styles.actionCard, { backgroundColor: c.cardBg }]} activeOpacity={0.7}
-        onPress={() => {
-          Alert.alert('检查更新', '正在检查...');
-          checkForUpdates().then(() => {
-            // checkForUpdates handles its own alerts
-          }).catch(() => {
-            Alert.alert('检查完成', '当前已是最新版本');
-          });
-        }}>
+        onPress={handleCheckUpdate} disabled={checking}>
         <View style={styles.actionRow}>
           <View style={[styles.actionIcon, { backgroundColor: '#10B981' }]}>
-            <Ionicons name="refresh-outline" size={20} color="#fff" />
+            {checking ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="refresh-outline" size={20} color="#fff" />}
           </View>
           <View style={styles.actionInfo}>
-            <Text style={[styles.actionTitle, { color: c.text }]}>检查更新</Text>
+            <Text style={[styles.actionTitle, { color: c.text }]}>{checking ? '正在检查...' : '检查更新'}</Text>
             <Text style={[styles.actionSub, { color: c.textSecondary }]}>检查是否有新版本可用</Text>
           </View>
-          <Ionicons name="chevron-forward" size={18} color={c.textTertiary} />
+          {!checking && <Ionicons name="chevron-forward" size={18} color={c.textTertiary} />}
         </View>
       </TouchableOpacity>
 
@@ -63,7 +69,6 @@ export default function AboutScreen() {
         </View>
       </TouchableOpacity>
 
-      {/* Tech Stack */}
       <View style={[styles.techCard, { backgroundColor: c.cardBg }]}>
         <Text style={[styles.techTitle, { color: c.text }]}>技术栈</Text>
         {[
