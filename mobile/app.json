@@ -33,6 +33,9 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "extra": {
+      "apiBaseUrl": "https://bbtalk.cone387.top"
+    },
     "plugins": [
       "expo-secure-store",
       [

@@ -1,16 +1,22 @@
 /**
  * API 配置 - 支持自定义服务地址（self-hosted）
- * 用户可在登录页配置后端地址，持久化到 AsyncStorage
+ *
+ * 优先级：
+ * 1. 用户在登录页手动设置的地址（AsyncStorage 持久化）
+ * 2. app.json extra.apiBaseUrl（通过 expo-constants 读取）
+ * 3. 开发环境本地地址（__DEV__ 模式）
  */
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 
 const STORAGE_KEY = 'bbtalk_api_base_url';
 
 const LAN_IP = '192.168.0.83';
 
-// 生产环境 API 地址（HTTPS）
-const PRODUCTION_API_URL = 'https://api.chewy.example.com';
+// 从 app.json extra 或 EAS Build env 读取生产地址
+const PRODUCTION_API_URL =
+  Constants.expoConfig?.extra?.apiBaseUrl || 'https://bbtalk.cone387.top';
 
 const DEFAULT_API_URL = Platform.select({
   android: __DEV__ ? `http://10.0.2.2:8020` : PRODUCTION_API_URL,
