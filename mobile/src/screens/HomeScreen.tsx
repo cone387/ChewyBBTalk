@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
   RefreshControl, Alert, ActivityIndicator, Modal,
-  Platform, Animated, LayoutAnimation, UIManager, Linking,
+  Platform, Animated, LayoutAnimation, UIManager, Linking, BackHandler,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { loadBBTalks, loadMoreBBTalks } from '../store/slices/bbtalkSlice';
+import { loadBBTalks, loadMoreBBTalks, togglePinAsync, setBBTalksFromCache } from '../store/slices/bbtalkSlice';
 import { loadTags } from '../store/slices/tagSlice';
 import type { BBTalk } from '../types';
 import { useTheme } from '../theme/ThemeContext';
@@ -18,13 +18,19 @@ import VoiceRecordingOverlay from '../components/VoiceRecordingOverlay';
 import UndoToast from '../components/UndoToast';
 import SkeletonCard from '../components/SkeletonCard';
 import ImageViewer from '../components/ImageViewer';
-import BBTalkCard from '../components/BBTalkCard';
+import SwipeableBBTalkCard from '../components/SwipeableBBTalkCard';
 import PrivacyLockOverlay from '../components/PrivacyLockOverlay';
 import SearchBar, { SearchInput } from '../components/SearchBar';
 import TagTabs from '../components/TagTabs';
+import BatchToolbar from '../components/BatchToolbar';
+import TagPickerModal from '../components/TagPickerModal';
+import VisibilityPickerModal from '../components/VisibilityPickerModal';
+import OfflineBanner from '../components/OfflineBanner';
 import { usePrivacyMode } from '../hooks/usePrivacyMode';
 import { useTagSwipe } from '../hooks/useTagSwipe';
 import { useBBTalkActions } from '../hooks/useBBTalkActions';
+import { useBatchMode } from '../hooks/useBatchMode';
+import { useOfflineCache } from '../hooks/useOfflineCache';
 import { logError } from '../utils/errorHandler';
 
 if (Platform.OS === 'android') UIManager.setLayoutAnimationEnabledExperimental?.(true);
@@ -62,14 +68,95 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
 
   const privacy = usePrivacyMode({ onLockChange, showError });
 
+  const { isOffline, lastSyncTime, initCache, loadCachedData, syncToCache } = useOfflineCache();
+
+  // Helper to guard write operations when offline
+  const guardOfflineWrite = useCallback((): boolean => {
+    if (isOffline) {
+      Alert.alert('离线模式', '当前处于离线模式，该操作需要网络连接');
+      return true; // blocked
+    }
+    return false; // allowed
+  }, [isOffline]);
+
   const onNavigateCompose = useCallback((item?: BBTalk) => {
+    if (guardOfflineWrite()) return;
     navigation.navigate('Compose', item ? { editItem: item } : undefined);
-  }, [navigation]);
+  }, [navigation, guardOfflineWrite]);
 
   const actions = useBBTalkActions({ showError, onNavigateCompose });
 
+  // Wrap delete action with offline guard
+  const handleDeleteGuarded = useCallback((item: BBTalk) => {
+    if (guardOfflineWrite()) return;
+    actions.handleDelete(item);
+  }, [actions.handleDelete, guardOfflineWrite]);
+
+  const openSwipeRef = useRef<(() => void) | null>(null);
+
+  const onTogglePin = useCallback((item: BBTalk) => {
+    if (guardOfflineWrite()) return;
+    dispatch(togglePinAsync(item.id));
+  }, [dispatch, guardOfflineWrite]);
+
   const handleSelectTag = useCallback((tagId: string | null) => { onSelectTag?.(tagId); }, [onSelectTag]);
   const tagSwipe = useTagSwipe({ tags, selectedTag, showTagTabs, onSelectTag });
+
+  // --- Batch Mode ---
+
+  const onRefreshRef = useRef<() => void>(() => {});
+  const batch = useBatchMode({ showError, onComplete: () => onRefreshRef.current() });
+  const [tagPickerVisible, setTagPickerVisible] = useState(false);
+  const [visibilityPickerVisible, setVisibilityPickerVisible] = useState(false);
+
+  const handleLongPress = useCallback((item: BBTalk) => {
+    if (!batch.batchMode) {
+      batch.enterBatchMode(item.id);
+    }
+  }, [batch.batchMode, batch.enterBatchMode]);
+
+  const handleBatchDelete = useCallback(() => {
+    if (guardOfflineWrite()) return;
+    const ids = Array.from(batch.selectedIds);
+    if (ids.length === 0) return;
+    batch.batchDelete(ids);
+  }, [batch.selectedIds, batch.batchDelete, guardOfflineWrite]);
+
+  const handleBatchChangeTags = useCallback(() => {
+    if (guardOfflineWrite()) return;
+    if (batch.selectedIds.size === 0) return;
+    setTagPickerVisible(true);
+  }, [batch.selectedIds, guardOfflineWrite]);
+
+  const handleBatchChangeVisibility = useCallback(() => {
+    if (guardOfflineWrite()) return;
+    if (batch.selectedIds.size === 0) return;
+    setVisibilityPickerVisible(true);
+  }, [batch.selectedIds, guardOfflineWrite]);
+
+  const handleTagPickerConfirm = useCallback((selectedTagNames: string[]) => {
+    setTagPickerVisible(false);
+    const ids = Array.from(batch.selectedIds);
+    if (ids.length === 0 || selectedTagNames.length === 0) return;
+    batch.batchUpdateTags(ids, selectedTagNames);
+  }, [batch.selectedIds, batch.batchUpdateTags]);
+
+  const handleVisibilityPickerConfirm = useCallback((visibility: 'public' | 'private' | 'friends') => {
+    setVisibilityPickerVisible(false);
+    const ids = Array.from(batch.selectedIds);
+    if (ids.length === 0) return;
+    batch.batchUpdateVisibility(ids, visibility);
+  }, [batch.selectedIds, batch.batchUpdateVisibility]);
+
+  // Android BackHandler: exit batch mode on back press
+  useEffect(() => {
+    if (!batch.batchMode) return;
+    const handler = BackHandler.addEventListener('hardwareBackPress', () => {
+      batch.exitBatchMode();
+      return true;
+    });
+    return () => handler.remove();
+  }, [batch.batchMode, batch.exitBatchMode]);
 
   // 骨架屏 → 实际内容的平滑过渡
   useEffect(() => {
@@ -93,6 +180,34 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
   }, [navigation, privacy.resetPrivacyTimer, privacy.loadPrivacySettings]);
 
   useEffect(() => { dispatch(loadBBTalks({})); dispatch(loadTags()); }, [dispatch]);
+
+  // --- Offline Cache: init + load cached data on mount ---
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        await initCache();
+        const cached = await loadCachedData();
+        if (mounted && cached.length > 0) {
+          dispatch(setBBTalksFromCache(cached));
+        }
+      } catch (e) {
+        logError(e, 'HomeScreen offline cache init');
+      }
+    })();
+    return () => { mounted = false; };
+  }, [initCache, loadCachedData, dispatch]);
+
+  // --- Offline Cache: sync to cache after successful API load ---
+  const prevBBTalksRef = useRef<BBTalk[]>([]);
+  useEffect(() => {
+    // Only sync when bbtalks changed and we're not loading (i.e., API just returned)
+    // Also skip if offline (no new data to cache) or if bbtalks is empty
+    if (!isLoading && bbtalks.length > 0 && !isOffline && bbtalks !== prevBBTalksRef.current) {
+      prevBBTalksRef.current = bbtalks;
+      syncToCache(bbtalks).catch(e => logError(e, 'HomeScreen syncToCache'));
+    }
+  }, [bbtalks, isLoading, isOffline, syncToCache]);
   useEffect(() => {
     if (tags.length === 0 && !selectedDate) return;
     LayoutAnimation.configureNext(LayoutAnimation.create(200, 'easeInEaseOut', 'opacity'));
@@ -101,20 +216,23 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
   }, [selectedTag, selectedDate]);
 
   const onRefresh = useCallback(async () => {
+    if (isOffline) return; // Disabled when offline
     setRefreshing(true);
     const tagNames = selectedTag ? [tags.find(t => t.id === selectedTag)?.name].filter(Boolean) as string[] : [];
     await dispatch(loadBBTalks({ tags: tagNames, date: selectedDate || undefined }));
     dispatch(loadTags()); setRefreshing(false);
-  }, [dispatch, selectedTag, selectedDate, tags]);
+  }, [dispatch, selectedTag, selectedDate, tags, isOffline]);
+  onRefreshRef.current = onRefresh;
 
   const onEndReached = useCallback(() => {
+    if (isOffline) return; // Disabled when offline
     if (loadingMoreRef.current || !hasMore || isLoading) return;
     loadingMoreRef.current = true; setLoadingMore(true);
     const tagNames = selectedTag ? [tags.find(t => t.id === selectedTag)?.name].filter(Boolean) as string[] : [];
     dispatch(loadMoreBBTalks({ tags: tagNames, date: selectedDate || undefined })).finally(() => {
       loadingMoreRef.current = false; setLoadingMore(false);
     });
-  }, [dispatch, hasMore, isLoading, selectedTag, selectedDate, tags]);
+  }, [dispatch, hasMore, isLoading, selectedTag, selectedDate, tags, isOffline]);
 
   const showLocation = useCallback((loc: { latitude: number; longitude: number }) => {
     Alert.alert('定位信息', `纬度: ${loc.latitude.toFixed(6)}\n经度: ${loc.longitude.toFixed(6)}`, [
@@ -142,6 +260,10 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
     ? bbtalks.filter(b => b.content.toLowerCase().includes(searchText.toLowerCase()))
     : bbtalks;
 
+  const handleBatchSelectAll = useCallback(() => {
+    batch.selectAll(filteredBBTalks.map(b => b.id));
+  }, [batch.selectAll, filteredBBTalks]);
+
   const selectedTagName = selectedTag ? tags.find(t => t.id === selectedTag)?.name : null;
   const filterLabel = selectedDate ? selectedDate : selectedTagName || null;
 
@@ -150,40 +272,74 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
     await actions.handleVoiceFinish(result);
   }, [actions.handleVoiceFinish]);
 
+  // --- Offline Banner as ListHeaderComponent ---
+  const listHeaderComponent = useCallback(() => (
+    <OfflineBanner isOffline={isOffline} lastSyncTime={lastSyncTime} theme={theme} />
+  ), [isOffline, lastSyncTime, theme]);
+
   const renderItem = useCallback(({ item }: { item: BBTalk }) => (
-    <BBTalkCard item={item} onMenu={actions.showMenu} onEdit={onNavigateCompose}
-      onToggleVisibility={actions.toggleVisibility} onImagePreview={setPreviewImage} onLocationPress={showLocation} theme={theme} />
-  ), [actions.showMenu, onNavigateCompose, actions.toggleVisibility, showLocation, theme]);
+    <SwipeableBBTalkCard
+      item={item}
+      onDelete={handleDeleteGuarded}
+      onTogglePin={onTogglePin}
+      onMenu={actions.showMenu}
+      onEdit={onNavigateCompose}
+      onToggleVisibility={actions.toggleVisibility}
+      onImagePreview={setPreviewImage}
+      onLocationPress={showLocation}
+      onLongPress={handleLongPress}
+      batchMode={batch.batchMode}
+      selected={batch.selectedIds.has(item.id)}
+      onSelect={batch.toggleSelect}
+      openSwipeRef={openSwipeRef}
+      theme={theme}
+    />
+  ), [handleDeleteGuarded, onTogglePin, actions.showMenu, onNavigateCompose, actions.toggleVisibility, showLocation, handleLongPress, batch.batchMode, batch.selectedIds, batch.toggleSelect, theme]);
 
   // --- Render ---
 
   return (
     <View style={[styles.container, { backgroundColor: c.background }]} onTouchStart={privacy.resetPrivacyTimer}>
-      <View style={[styles.header, { paddingTop: insets.top + 8, backgroundColor: c.headerBg, borderBottomColor: c.border }]}>
-        <TouchableOpacity onPress={onOpenDrawer} style={styles.headerBtn}>
-          <Ionicons name="menu-outline" size={26} color={c.text} />
-        </TouchableOpacity>
-        {searchVisible ? (
-          <SearchInput searchText={searchText} onSearchTextChange={setSearchText} onSubmit={saveSearchHistory} theme={theme} />
-        ) : (
-          <View style={styles.headerCenter}>
-            <Text style={[styles.headerTitle, { color: c.text }]}>碎碎念</Text>
-            {filterLabel != null && !showTagTabs && (
-              <View style={[styles.filterBadge, { backgroundColor: c.primary + '18' }]}>
-                <Text style={[styles.filterBadgeText, { color: c.primary }]} numberOfLines={1}>{filterLabel}</Text>
-              </View>
-            )}
-            {selectedDate && (
-              <View style={[styles.filterBadge, { backgroundColor: c.primary + '18' }]}>
-                <Text style={[styles.filterBadgeText, { color: c.primary }]} numberOfLines={1}>{selectedDate}</Text>
-              </View>
-            )}
-          </View>
-        )}
-        <TouchableOpacity onPress={() => { setSearchVisible(!searchVisible); if (searchVisible) { saveSearchHistory(searchText); setSearchText(''); } }} style={styles.headerBtn}>
-          <Ionicons name={searchVisible ? 'close' : 'search-outline'} size={22} color={c.text} />
-        </TouchableOpacity>
-      </View>
+      {batch.batchMode ? (
+        <BatchToolbar
+          selectedCount={batch.selectedIds.size}
+          totalCount={filteredBBTalks.length}
+          isExecuting={batch.isExecuting}
+          progress={batch.progress}
+          onSelectAll={handleBatchSelectAll}
+          onDelete={handleBatchDelete}
+          onChangeTags={handleBatchChangeTags}
+          onChangeVisibility={handleBatchChangeVisibility}
+          onClose={batch.exitBatchMode}
+          theme={theme}
+        />
+      ) : (
+        <View style={[styles.header, { paddingTop: insets.top + 8, backgroundColor: c.headerBg, borderBottomColor: c.border }]}>
+          <TouchableOpacity onPress={onOpenDrawer} style={styles.headerBtn}>
+            <Ionicons name="menu-outline" size={26} color={c.text} />
+          </TouchableOpacity>
+          {searchVisible ? (
+            <SearchInput searchText={searchText} onSearchTextChange={setSearchText} onSubmit={saveSearchHistory} theme={theme} />
+          ) : (
+            <View style={styles.headerCenter}>
+              <Text style={[styles.headerTitle, { color: c.text }]}>碎碎念</Text>
+              {filterLabel != null && !showTagTabs && (
+                <View style={[styles.filterBadge, { backgroundColor: c.primary + '18' }]}>
+                  <Text style={[styles.filterBadgeText, { color: c.primary }]} numberOfLines={1}>{filterLabel}</Text>
+                </View>
+              )}
+              {selectedDate && (
+                <View style={[styles.filterBadge, { backgroundColor: c.primary + '18' }]}>
+                  <Text style={[styles.filterBadgeText, { color: c.primary }]} numberOfLines={1}>{selectedDate}</Text>
+                </View>
+              )}
+            </View>
+          )}
+          <TouchableOpacity onPress={() => { setSearchVisible(!searchVisible); if (searchVisible) { saveSearchHistory(searchText); setSearchText(''); } }} style={styles.headerBtn}>
+            <Ionicons name={searchVisible ? 'close' : 'search-outline'} size={22} color={c.text} />
+          </TouchableOpacity>
+        </View>
+      )}
 
       <SearchBar visible={searchVisible} searchText={searchText} searchHistory={searchHistory}
         onSearchTextChange={setSearchText} onSubmit={saveSearchHistory} onClearHistory={clearSearchHistory}
@@ -198,6 +354,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
         {...(showTagTabs ? tagSwipe.panResponder.panHandlers : {})}>
         <FlatList data={filteredBBTalks} keyExtractor={item => item.id}
           renderItem={renderItem}
+          ListHeaderComponent={listHeaderComponent}
           onScrollBeginDrag={privacy.resetPrivacyTimer}
           ListEmptyComponent={bbtalks.length === 0 && isLoading ? (
             <View>{[0, 1, 2, 3].map(i => <SkeletonCard key={i} />)}</View>
@@ -215,7 +372,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
             </View>
           ) : null}
           ListFooterComponent={loadingMore ? <ActivityIndicator style={{ paddingVertical: 16 }} /> : !hasMore && filteredBBTalks.length > 0 ? <Text style={[styles.noMore, { color: c.textTertiary }]}>没有更多了</Text> : null}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.primary} colors={[c.primary]} progressBackgroundColor={c.surface} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} enabled={!isOffline} tintColor={c.primary} colors={[c.primary]} progressBackgroundColor={c.surface} />}
           onEndReached={onEndReached} onEndReachedThreshold={0.3}
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 80 }} />
       </Animated.View>
@@ -230,10 +387,12 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
         </TouchableOpacity>
       )}
 
-      <TouchableOpacity style={[styles.fab, { bottom: insets.bottom + 24, backgroundColor: c.primary, shadowColor: c.fabShadow }]}
-        onPress={() => navigation.navigate('Compose')} onLongPress={() => setVoiceRecording(true)} delayLongPress={300} activeOpacity={0.85}>
-        <Ionicons name="add" size={28} color="#fff" />
-      </TouchableOpacity>
+      {!batch.batchMode && (
+        <TouchableOpacity style={[styles.fab, { bottom: insets.bottom + 24, backgroundColor: c.primary, shadowColor: c.fabShadow }]}
+          onPress={() => { if (guardOfflineWrite()) return; navigation.navigate('Compose'); }} onLongPress={() => { if (guardOfflineWrite()) return; setVoiceRecording(true); }} delayLongPress={300} activeOpacity={0.85}>
+          <Ionicons name="add" size={28} color="#fff" />
+        </TouchableOpacity>
+      )}
 
       <Modal visible={!!previewImage} transparent animationType="fade" onRequestClose={() => setPreviewImage(null)}>
         <View style={styles.previewOverlay}>
@@ -251,7 +410,21 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
         onVoiceRecord={() => setVoiceRecording(true)} bottomInset={insets.bottom} theme={theme} />
 
       <UndoToast visible={!!actions.pendingDelete} onUndo={actions.handleUndo} onDismiss={actions.handleDismiss} />
-      <VoiceRecordingOverlay visible={voiceRecording} onFinish={handleVoiceFinishAndClose} onCancel={() => setVoiceRecording(false)} />
+      <VoiceRecordingOverlay visible={voiceRecording && !batch.batchMode} onFinish={handleVoiceFinishAndClose} onCancel={() => setVoiceRecording(false)} />
+
+      <TagPickerModal
+        visible={tagPickerVisible}
+        tags={tags}
+        onConfirm={handleTagPickerConfirm}
+        onClose={() => setTagPickerVisible(false)}
+        theme={theme}
+      />
+      <VisibilityPickerModal
+        visible={visibilityPickerVisible}
+        onConfirm={handleVisibilityPickerConfirm}
+        onClose={() => setVisibilityPickerVisible(false)}
+        theme={theme}
+      />
     </View>
   );
 }

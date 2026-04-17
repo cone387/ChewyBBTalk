@@ -7,6 +7,7 @@ import { updateBBTalkAsync, togglePinAsync, createBBTalkAsync, optimisticDelete,
 import { bbtalkApi } from '../services/api/bbtalkApi';
 import { attachmentApi } from '../services/api/mediaApi';
 import { logError } from '../utils/errorHandler';
+import { shareBBTalk as shareService } from '../services/shareService';
 
 interface UseBBTalkActionsOptions {
   showError: (title: string, msg: string) => void;
@@ -17,29 +18,20 @@ export function useBBTalkActions({ showError, onNavigateCompose }: UseBBTalkActi
   const dispatch = useAppDispatch();
   const { bbtalks } = useAppSelector(s => s.bbtalk);
   const [pendingDelete, setPendingDelete] = useState<{ bbtalk: BBTalk; index: number } | null>(null);
+  const [isSharing, setIsSharing] = useState(false);
   const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const shareBBTalk = async (item: BBTalk) => {
-    let text = item.content;
-    if (item.tags.length > 0) text += '\n\n' + item.tags.map(t => `#${t.name}`).join(' ');
+  const shareBBTalk = useCallback(async (item: BBTalk) => {
+    if (isSharing) return;
+    setIsSharing(true);
     try {
-      if (Platform.OS === 'web') {
-        if (navigator.share) await navigator.share({ text });
-        else { await Clipboard.setStringAsync(text); Alert.alert('已复制', '内容已复制到剪贴板'); }
-      } else {
-        const { Share } = require('react-native');
-        const result = await Share.share({ message: text });
-        if (result.action === Share.dismissedAction) {
-          Alert.alert('分享', '已取消分享，是否复制到剪贴板？', [
-            { text: '取消' }, { text: '复制', onPress: () => Clipboard.setStringAsync(text) },
-          ]);
-        }
-      }
-    } catch {
-      await Clipboard.setStringAsync(text);
-      Alert.alert('已复制', '内容已复制到剪贴板，可粘贴到微信等应用');
+      await shareService(item);
+    } catch (e) {
+      logError(e, 'shareBBTalk');
+    } finally {
+      setIsSharing(false);
     }
-  };
+  }, [isSharing]);
 
   const handleDelete = useCallback((item: BBTalk) => {
     const index = bbtalks.findIndex(b => b.id === item.id);
@@ -83,7 +75,7 @@ export function useBBTalkActions({ showError, onNavigateCompose }: UseBBTalkActi
         { text: '取消', style: 'cancel' },
       ]);
     }
-  }, [dispatch, handleDelete, onNavigateCompose]);
+  }, [dispatch, handleDelete, onNavigateCompose, shareBBTalk]);
 
   const toggleVisibility = useCallback((item: BBTalk) => {
     const newVis = item.visibility === 'public' ? 'private' : 'public';
@@ -120,6 +112,7 @@ export function useBBTalkActions({ showError, onNavigateCompose }: UseBBTalkActi
 
   return {
     pendingDelete,
+    isSharing,
     handleDelete,
     handleUndo,
     handleDismiss,

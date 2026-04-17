@@ -63,7 +63,8 @@
       "@react-native-voice/voice",
       "expo-audio",
       "expo-video",
-      "expo-updates"
+      "expo-updates",
+      "expo-sqlite"
     ]
   }
 }

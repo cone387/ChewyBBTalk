@@ -110,6 +110,14 @@ const bbtalkSlice = createSlice({
   initialState,
   reducers: {
     clearError: (state) => { state.error = null; },
+    setBBTalksFromCache: (state, action: PayloadAction<BBTalk[]>) => {
+      // Only populate from cache if store is empty (avoid overwriting fresh API data)
+      if (state.bbtalks.length === 0) {
+        state.bbtalks = action.payload;
+        state.totalCount = action.payload.length;
+        state.hasMore = false; // Cache doesn't have pagination info
+      }
+    },
     optimisticDelete: (state, action: PayloadAction<string>) => {
       state.bbtalks = state.bbtalks.filter(b => b.id !== action.payload);
       state.totalCount -= 1;
@@ -168,5 +176,5 @@ const bbtalkSlice = createSlice({
   },
 });
 
-export const { clearError, optimisticDelete, undoDelete } = bbtalkSlice.actions;
+export const { clearError, setBBTalksFromCache, optimisticDelete, undoDelete } = bbtalkSlice.actions;
 export default bbtalkSlice.reducer;

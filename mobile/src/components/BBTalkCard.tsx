@@ -7,6 +7,7 @@ import { Image } from 'expo-image';
 import Markdown from 'react-native-markdown-display';
 import type { BBTalk, Attachment } from '../types';
 import type { Theme } from '../theme/ThemeContext';
+import { getMarkdownStyles } from '../utils/markdownStyles';
 import AudioPlayerButton from './AudioPlayerButton';
 import VideoPlayerButton from './VideoPlayerButton';
 
@@ -138,29 +139,7 @@ const BBTalkCard = React.memo(function BBTalkCard({
           </View>
         )}
 
-        <Markdown
-          style={{
-            body: { fontSize: 15, lineHeight: 24, color: c.text },
-            heading1: { fontSize: 22, fontWeight: '700', color: c.text, marginVertical: 8 },
-            heading2: { fontSize: 19, fontWeight: '700', color: c.text, marginVertical: 6 },
-            heading3: { fontSize: 17, fontWeight: '600', color: c.text, marginVertical: 4 },
-            strong: { fontWeight: '700' },
-            em: { fontStyle: 'italic' },
-            blockquote: {
-              borderLeftWidth: 3, borderLeftColor: c.border, paddingLeft: 12,
-              marginVertical: 6, backgroundColor: c.borderLight, borderRadius: 4, padding: 8,
-            },
-            code_inline: {
-              backgroundColor: c.borderLight, color: '#DC2626',
-              paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4, fontSize: 14,
-            },
-            fence: { backgroundColor: c.borderLight, padding: 12, borderRadius: 8, marginVertical: 6, fontSize: 13 },
-            code_block: { backgroundColor: c.borderLight, padding: 12, borderRadius: 8, marginVertical: 6, fontSize: 13 },
-            link: { color: c.primary, textDecorationLine: 'underline' },
-            list_item: { marginVertical: 2 },
-            paragraph: { marginVertical: 2 },
-          }}
-        >
+        <Markdown style={getMarkdownStyles(c)}>
           {item.content}
         </Markdown>
 

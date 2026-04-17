@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getAccessToken } from '../services/auth';
 import { getApiBaseUrl } from '../config';
 import { useTheme } from '../theme/ThemeContext';
+import { clearCache } from '../services/offlineCacheService';
 
 // blob -> base64
 function blobToBase64(blob: Blob): Promise<string> {
@@ -63,6 +64,7 @@ export default function DataManagementScreen() {
   const c = theme.colors;
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [clearing, setClearing] = useState(false);
 
   const handleExport = async (format: 'json' | 'zip') => {
     setExporting(true);
@@ -131,6 +133,27 @@ export default function DataManagementScreen() {
     finally { setImporting(false); }
   };
 
+  const handleClearCache = () => {
+    Alert.alert('清除离线缓存', '确定要清除所有离线缓存数据吗？', [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '确定',
+        style: 'destructive',
+        onPress: async () => {
+          setClearing(true);
+          try {
+            await clearCache();
+            Alert.alert('清除成功', '离线缓存已清除');
+          } catch (e: any) {
+            Alert.alert('清除失败', e.message);
+          } finally {
+            setClearing(false);
+          }
+        },
+      },
+    ]);
+  };
+
   return (
     <ScrollView style={[styles.container, { backgroundColor: c.surfaceSecondary }]} contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 20 }}>
       <View style={[styles.card, { backgroundColor: c.cardBg }]}>
@@ -156,6 +179,18 @@ export default function DataManagementScreen() {
         <View style={styles.cardBody}>
           <TouchableOpacity style={[styles.exportBtn, { borderColor: '#EA580C' }]} onPress={handleImport} disabled={importing}>
             {importing ? <ActivityIndicator size="small" color="#EA580C" /> : <><Ionicons name="push-outline" size={18} color="#EA580C" /><Text style={[styles.exportBtnText, { color: '#EA580C' }]}>选择文件导入</Text></>}
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <View style={[styles.card, { backgroundColor: c.cardBg }]}>
+        <View style={[styles.cardHeader, { backgroundColor: c.borderLight }]}>
+          <View style={[styles.headerIcon, { backgroundColor: '#DC2626' }]}><Ionicons name="trash-outline" size={20} color="#fff" /></View>
+          <View><Text style={[styles.headerTitle, { color: c.text }]}>离线缓存</Text><Text style={[styles.headerSub, { color: c.textSecondary }]}>清除本地缓存的碎碎念数据</Text></View>
+        </View>
+        <View style={styles.cardBody}>
+          <TouchableOpacity style={[styles.exportBtn, { borderColor: '#DC2626' }]} onPress={handleClearCache} disabled={clearing}>
+            {clearing ? <ActivityIndicator size="small" color="#DC2626" /> : <><Ionicons name="trash-bin-outline" size={18} color="#DC2626" /><Text style={[styles.exportBtnText, { color: '#DC2626' }]}>清除离线缓存</Text></>}
           </TouchableOpacity>
         </View>
       </View>

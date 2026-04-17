@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import Markdown from 'react-native-markdown-display';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Location from 'expo-location';
@@ -16,6 +17,8 @@ import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { createBBTalkAsync, updateBBTalkAsync } from '../store/slices/bbtalkSlice';
 import { loadTags } from '../store/slices/tagSlice';
 import { attachmentApi } from '../services/api/mediaApi';
+import { getMarkdownStyles } from '../utils/markdownStyles';
+import { useTheme } from '../theme/ThemeContext';
 import type { Attachment, BBTalk } from '../types';
 import VoiceRecordingOverlay from '../components/VoiceRecordingOverlay';
 
@@ -28,6 +31,7 @@ export default function ComposeScreen() {
   const { tags: existingTags } = useAppSelector(s => s.tag);
   const inputRef = useRef<TextInput>(null);
   const insets = useSafeAreaInsets();
+  const { theme } = useTheme();
 
   const editItem: BBTalk | undefined = route.params?.editItem;
   const isEditing = !!editItem;
@@ -45,6 +49,7 @@ export default function ComposeScreen() {
   const [showQuickTags, setShowQuickTags] = useState(false);
   const [keyboardH, setKeyboardH] = useState(0);
   const [voiceRecording, setVoiceRecording] = useState(false);
+  const [editMode, setEditMode] = useState<'edit' | 'preview'>('edit');
   const publishedRef = useRef(false);
 
   // 判断是否有未保存修改
@@ -210,23 +215,57 @@ export default function ComposeScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}><Text style={styles.cancelText}>取消</Text></TouchableOpacity>
-        <Text style={styles.headerTitle}>{isEditing ? '编辑' : '发碎碎念'}</Text>
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle}>{isEditing ? '编辑' : '发碎碎念'}</Text>
+          <TouchableOpacity
+            style={styles.modeToggleBtn}
+            onPress={() => {
+              if (editMode === 'edit') {
+                Keyboard.dismiss();
+              }
+              setEditMode(m => m === 'edit' ? 'preview' : 'edit');
+            }}
+            accessibilityLabel={editMode === 'edit' ? '切换到预览模式' : '切换到编辑模式'}
+          >
+            <Ionicons
+              name={editMode === 'edit' ? 'eye-outline' : 'create-outline'}
+              size={20}
+              color={theme.colors.primary}
+            />
+          </TouchableOpacity>
+        </View>
         <TouchableOpacity style={[styles.publishBtn, !canSubmit && { opacity: 0.4 }]} onPress={handleSubmit} disabled={!canSubmit}>
           {submitting ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.publishText}>{isEditing ? '更新' : '发布'}</Text>}
         </TouchableOpacity>
       </View>
 
-      {/* 编辑区 - TextInput 自己滚动，填满可用空间 */}
-      <View style={styles.editorArea}>
-        <TextInput ref={inputRef} style={styles.textInput}
-          placeholder="你要BB什么？支持 Markdown，输入 # 添加标签" placeholderTextColor="#C4C4C4"
-          value={content} onChangeText={setContent} multiline textAlignVertical="top" autoFocus={!isEditing}
-          onSelectionChange={(e) => setCursorPos(e.nativeEvent.selection.start)}
-          scrollEnabled={true} />
-      </View>
+      {/* 编辑区 / 预览区 */}
+      {editMode === 'edit' ? (
+        <View style={styles.editorArea}>
+          <TextInput ref={inputRef} style={styles.textInput}
+            placeholder="你要BB什么？支持 Markdown，输入 # 添加标签" placeholderTextColor="#C4C4C4"
+            value={content} onChangeText={setContent} multiline textAlignVertical="top" autoFocus={!isEditing}
+            onSelectionChange={(e) => setCursorPos(e.nativeEvent.selection.start)}
+            scrollEnabled={true} />
+        </View>
+      ) : (
+        <ScrollView style={styles.previewArea} contentContainerStyle={styles.previewContent}>
+          {content.trim().length > 0 ? (
+            <Markdown style={getMarkdownStyles(theme.colors)}>
+              {content}
+            </Markdown>
+          ) : (
+            <Text style={[styles.previewPlaceholder, { color: theme.colors.textTertiary }]}>
+              暂无内容可预览
+            </Text>
+          )}
+        </ScrollView>
+      )}
 
-      {/* 附件 + 标签 + 字数 - 紧贴工具栏上方 */}
-      <View style={styles.bottomInfo}>
+      {/* 附件 + 标签 + 字数 + 工具栏 - 仅编辑模式显示 */}
+      {editMode === 'edit' && (
+        <>
+        <View style={styles.bottomInfo}>
         {/* 附件预览 */}
         {attachments.length > 0 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always"
@@ -316,6 +355,8 @@ export default function ComposeScreen() {
           </ScrollView>
         </View>
       </View>
+        </>
+      )}
 
       <VoiceRecordingOverlay
         visible={voiceRecording}
@@ -335,11 +376,16 @@ const styles = StyleSheet.create({
   },
   cancelText: { fontSize: 16, color: '#6B7280' },
   headerTitle: { fontSize: 17, fontWeight: '600', color: '#111827' },
+  headerCenter: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  modeToggleBtn: { padding: 4 },
   publishBtn: { backgroundColor: '#2563EB', borderRadius: 20, paddingHorizontal: 18, paddingVertical: 8 },
   publishText: { color: '#fff', fontSize: 15, fontWeight: '600' },
   scroll: { flex: 1, backgroundColor: '#fff' },
   editorArea: { flex: 1, backgroundColor: '#fff' },
   textInput: { flex: 1, fontSize: 17, lineHeight: 28, color: '#1F2937', paddingHorizontal: 20, paddingTop: 16 },
+  previewArea: { flex: 1, backgroundColor: '#fff' },
+  previewContent: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20 },
+  previewPlaceholder: { fontSize: 16, fontStyle: 'italic', textAlign: 'center', marginTop: 60 },
   bottomInfo: { backgroundColor: '#fff' },
   tagsRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
   attachmentItem: { position: 'relative' },
