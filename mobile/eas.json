@@ -1,14 +1,12 @@
 {
   "cli": {
-    "version": ">= 15.0.0"
+    "version": ">= 15.0.0",
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal",
-      "env": {
-        "API_BASE_URL": ""
-      }
+      "distribution": "internal"
     },
     "preview": {
       "distribution": "internal",
@@ -26,9 +24,9 @@
   "submit": {
     "production": {
       "ios": {
-        "appleId": "developer@example.com",
-        "ascAppId": "APP_ID",
-        "appleTeamId": "TEAM_ID"
+        "appleId": "1183008540@qq.com",
+        "ascAppId": "6762428762",
+        "appleTeamId": "3GB4JPZU5X"
       }
     }
   }

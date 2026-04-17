@@ -19,7 +19,8 @@
       "infoPlist": {
         "NSFaceIDUsageDescription": "使用 Face ID 解锁防窥模式",
         "NSMicrophoneUsageDescription": "长按新建按钮进行语音录入",
-        "NSSpeechRecognitionUsageDescription": "将语音转换为文字"
+        "NSSpeechRecognitionUsageDescription": "将语音转换为文字",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -28,13 +29,22 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "extra": {
-      "apiBaseUrl": "https://bbtalk.cone387.top"
+      "apiBaseUrl": "https://bbtalk.cone387.top",
+      "eas": {
+        "projectId": "9a378f38-7d33-409f-bb33-85669347a13c"
+      }
     },
     "plugins": [
       "expo-secure-store",
