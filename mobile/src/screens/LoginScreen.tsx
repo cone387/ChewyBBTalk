@@ -70,16 +70,11 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
     setNewLabel(''); setNewUrl(''); setShowAddServer(false);
   };
 
-  const removeServer = (url: string) => {
+  const removeServer = async (url: string) => {
     if (url === DEFAULT_URL) return;
-    Alert.alert('删除服务', '确定删除此服务地址？', [
-      { text: '取消', style: 'cancel' },
-      { text: '删除', style: 'destructive', onPress: async () => {
-        const list = servers.filter(s => s.url !== url);
-        await saveServers(list);
-        if (selectedServer === url) await selectServer(DEFAULT_URL);
-      }},
-    ]);
+    const list = servers.filter(s => s.url !== url);
+    await saveServers(list);
+    if (selectedServer === url) await selectServer(DEFAULT_URL);
   };
 
   const handleSubmit = async () => {
@@ -182,12 +177,17 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
 
             {servers.map(s => (
               <TouchableOpacity key={s.url} style={[styles.serverItem, selectedServer === s.url && [styles.serverItemActive, { backgroundColor: c.primaryLight }]]}
-                onPress={() => selectServer(s.url)} onLongPress={() => removeServer(s.url)}>
+                onPress={() => selectServer(s.url)}>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.serverItemLabel, { color: c.text }, selectedServer === s.url && { color: c.primary, fontWeight: '600' }]}>{s.label}</Text>
                   <Text style={[styles.serverItemUrl, { color: c.textTertiary }]} numberOfLines={1}>{s.url}</Text>
                 </View>
                 {selectedServer === s.url && <Ionicons name="checkmark-circle" size={20} color={c.primary} />}
+                {s.url !== DEFAULT_URL && (
+                  <TouchableOpacity onPress={() => removeServer(s.url)} style={{ padding: 6 }} hitSlop={8}>
+                    <Ionicons name="close-circle" size={20} color={c.textTertiary} />
+                  </TouchableOpacity>
+                )}
               </TouchableOpacity>
             ))}
 
@@ -213,7 +213,7 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
               </TouchableOpacity>
             )}
 
-            <Text style={[styles.modalHint, { color: c.textTertiary }]}>长按可删除自定义服务</Text>
+            <Text style={[styles.modalHint, { color: c.textTertiary }]}>点击叉号可删除自定义服务</Text>
           </View>
         </TouchableOpacity>
       </Modal>

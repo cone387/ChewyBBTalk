@@ -22,6 +22,7 @@ import ThemeSettingsScreen from './src/screens/ThemeSettingsScreen';
 import AudioPlayScreen from './src/screens/AudioPlayScreen';
 import CacheManagementScreen from './src/screens/CacheManagementScreen';
 import TagManagementScreen from './src/screens/TagManagementScreen';
+import AboutScreen from './src/screens/AboutScreen';
 import DrawerContent from './src/screens/DrawerContent';
 
 const Stack = createNativeStackNavigator();
@@ -165,6 +166,8 @@ function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
             options={{ title: '缓存管理', ...headerOptions }} />
           <Stack.Screen name="TagManagement" component={TagManagementScreen}
             options={{ title: '标签管理', ...headerOptions }} />
+          <Stack.Screen name="About" component={AboutScreen}
+            options={{ title: '关于', ...headerOptions }} />
         </Stack.Navigator>
       ) : (
         <Stack.Navigator>

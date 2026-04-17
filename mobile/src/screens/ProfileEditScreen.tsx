@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { getCurrentUser, updateCachedUser } from '../services/auth';
 import { userApi } from '../services/api/userApi';
+import { attachmentApi } from '../services/api/mediaApi';
 import { useTheme } from '../theme/ThemeContext';
 
 export default function ProfileEditScreen() {
@@ -18,6 +21,28 @@ export default function ProfileEditScreen() {
   const [bio, setBio] = useState(currentUser?.bio || '');
   const [email, setEmail] = useState(currentUser?.email || '');
   const [saving, setSaving] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(currentUser?.avatar || null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  const pickAvatar = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (result.canceled || !result.assets.length) return;
+    setUploadingAvatar(true);
+    try {
+      const asset = result.assets[0];
+      const att = await attachmentApi.upload(asset.uri, asset.fileName || `avatar_${Date.now()}.jpg`, asset.mimeType || 'image/jpeg');
+      setAvatarUrl(att.url);
+    } catch (e: any) {
+      Alert.alert('上传失败', e.message);
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!displayName.trim()) {
@@ -30,6 +55,7 @@ export default function ProfileEditScreen() {
         display_name: displayName.trim(),
         bio: bio.trim(),
         email: email.trim(),
+        ...(avatarUrl ? { avatar: avatarUrl } : {}),
       });
       await updateCachedUser(updated);
       Alert.alert('成功', '个人信息已更新', [
@@ -49,11 +75,24 @@ export default function ProfileEditScreen() {
       <View style={[styles.content, { paddingBottom: insets.bottom + 20 }]}>
         {/* Avatar */}
         <View style={styles.avatarSection}>
-          <View style={[styles.avatar, { backgroundColor: c.avatarBg }]}>
-            <Text style={styles.avatarText}>
-              {(displayName || currentUser.username).charAt(0).toUpperCase()}
-            </Text>
-          </View>
+          <TouchableOpacity onPress={pickAvatar} activeOpacity={0.7} disabled={uploadingAvatar}>
+            {avatarUrl ? (
+              <Image source={avatarUrl} style={styles.avatar} contentFit="cover" />
+            ) : (
+              <View style={[styles.avatar, { backgroundColor: c.avatarBg }]}>
+                <Text style={styles.avatarText}>
+                  {(displayName || currentUser.username).charAt(0).toUpperCase()}
+                </Text>
+              </View>
+            )}
+            <View style={[styles.avatarBadge, { backgroundColor: c.primary }]}>
+              {uploadingAvatar ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Ionicons name="camera" size={14} color="#fff" />
+              )}
+            </View>
+          </TouchableOpacity>
           <Text style={[styles.username, { color: c.textSecondary }]}>@{currentUser.username}</Text>
         </View>
 
@@ -115,6 +154,13 @@ const styles = StyleSheet.create({
   avatar: {
     width: 72, height: 72, borderRadius: 36,
     justifyContent: 'center', alignItems: 'center',
+    overflow: 'hidden',
+  },
+  avatarBadge: {
+    position: 'absolute', bottom: 0, right: 0,
+    width: 28, height: 28, borderRadius: 14,
+    justifyContent: 'center', alignItems: 'center',
+    borderWidth: 2, borderColor: '#fff',
   },
   avatarText: { color: '#fff', fontSize: 28, fontWeight: '700' },
   username: { fontSize: 14, marginTop: 8 },

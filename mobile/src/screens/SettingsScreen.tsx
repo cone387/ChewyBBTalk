@@ -17,6 +17,7 @@ const MENU_ITEMS = [
   { key: 'data', title: '数据管理', subtitle: '导入导出数据，跨服务器迁移', icon: 'swap-horizontal' as const, bgColor: '#EA580C' },
   { key: 'cache', title: '缓存管理', subtitle: '查看和清理已下载的媒体文件', icon: 'folder-open' as const, bgColor: '#0EA5E9' },
   { key: 'privacy-policy', title: '隐私政策', subtitle: '查看数据收集与使用说明', icon: 'shield-checkmark' as const, bgColor: '#0EA5E9' },
+  { key: 'about', title: '关于', subtitle: '版本信息、检查更新', icon: 'information-circle' as const, bgColor: '#6366F1' },
 ];
 
 export default function SettingsScreen({ onLogout }: Props) {
@@ -49,6 +50,7 @@ export default function SettingsScreen({ onLogout }: Props) {
       storage: 'StorageSettings',
       data: 'DataManagement',
       cache: 'CacheManagement',
+      about: 'About',
     };
     navigation.navigate(routes[key]);
   };
