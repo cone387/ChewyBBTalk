@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { login, register } from '../services/auth';
 import { getApiBaseUrl, setApiBaseUrl, DEFAULT_URL } from '../config';
+import { useTheme } from '../theme/ThemeContext';
 
 const SERVERS_KEY = 'bbtalk_servers';
 
@@ -16,6 +17,9 @@ interface ServerItem { label: string; url: string; }
 interface Props { onLoginSuccess: () => void; }
 
 export default function LoginScreen({ onLoginSuccess }: Props) {
+  const { theme } = useTheme();
+  const c = theme.colors;
+
   const [isLogin, setIsLogin] = useState(true);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -94,122 +98,122 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
   const currentLabel = servers.find(s => s.url === selectedServer)?.label || '默认服务';
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <KeyboardAvoidingView style={[styles.container, { backgroundColor: c.surfaceSecondary }]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: c.cardBg, borderColor: c.borderLight }]}>
           {/* Logo */}
           <View style={styles.logoWrap}>
-            <View style={styles.logo}><Ionicons name="chatbubbles" size={32} color="#fff" /></View>
-            <Text style={styles.title}>{isLogin ? '欢迎回来' : '创建账户'}</Text>
-            <Text style={styles.subtitle}>{isLogin ? '登录您的 ChewyBBTalk 账户' : '开始您的碎碎念之旅'}</Text>
+            <View style={[styles.logo, { backgroundColor: c.accent }]}><Ionicons name="chatbubbles" size={32} color="#fff" /></View>
+            <Text style={[styles.title, { color: c.text }]}>{isLogin ? '欢迎回来' : '创建账户'}</Text>
+            <Text style={[styles.subtitle, { color: c.textSecondary }]}>{isLogin ? '登录您的 ChewyBBTalk 账户' : '开始您的碎碎念之旅'}</Text>
           </View>
 
           {/* 服务器选择下拉 */}
-          <Text style={styles.label}>服务地址</Text>
-          <TouchableOpacity style={styles.serverSelector} onPress={() => setShowServerPicker(true)} activeOpacity={0.7}>
-            <Ionicons name="server-outline" size={16} color="#9CA3AF" />
-            <Text style={styles.serverText} numberOfLines={1}>{currentLabel}</Text>
-            <Ionicons name="chevron-down" size={16} color="#9CA3AF" />
+          <Text style={[styles.label, { color: c.text }]}>服务地址</Text>
+          <TouchableOpacity style={[styles.serverSelector, { borderColor: c.border, backgroundColor: c.borderLight }]} onPress={() => setShowServerPicker(true)} activeOpacity={0.7}>
+            <Ionicons name="server-outline" size={16} color={c.textTertiary} />
+            <Text style={[styles.serverText, { color: c.text }]} numberOfLines={1}>{currentLabel}</Text>
+            <Ionicons name="chevron-down" size={16} color={c.textTertiary} />
           </TouchableOpacity>
 
           {/* 用户名 */}
-          <Text style={styles.label}>用户名</Text>
-          <View style={styles.inputWrap}>
-            <Ionicons name="person-outline" size={18} color="#9CA3AF" />
-            <TextInput style={styles.input} placeholder="请输入用户名" placeholderTextColor="#C4C4C4"
+          <Text style={[styles.label, { color: c.text }]}>用户名</Text>
+          <View style={[styles.inputWrap, { borderColor: c.border, backgroundColor: c.surface }]}>
+            <Ionicons name="person-outline" size={18} color={c.textTertiary} />
+            <TextInput style={[styles.input, { color: c.text }]} placeholder="请输入用户名" placeholderTextColor={c.textTertiary}
               value={username} onChangeText={setUsername} autoCapitalize="none" editable={!loading} />
           </View>
 
           {/* 密码 */}
-          <Text style={styles.label}>密码</Text>
-          <View style={styles.inputWrap}>
-            <Ionicons name="lock-closed-outline" size={18} color="#9CA3AF" />
-            <TextInput style={styles.input} placeholder="请输入密码" placeholderTextColor="#C4C4C4"
+          <Text style={[styles.label, { color: c.text }]}>密码</Text>
+          <View style={[styles.inputWrap, { borderColor: c.border, backgroundColor: c.surface }]}>
+            <Ionicons name="lock-closed-outline" size={18} color={c.textTertiary} />
+            <TextInput style={[styles.input, { color: c.text }]} placeholder="请输入密码" placeholderTextColor={c.textTertiary}
               value={password} onChangeText={setPassword} secureTextEntry={!showPassword} editable={!loading} />
             <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={{ padding: 4 }}>
-              <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={18} color="#9CA3AF" />
+              <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={18} color={c.textTertiary} />
             </TouchableOpacity>
           </View>
 
           {!isLogin && (
             <>
-              <Text style={styles.label}>邮箱 <Text style={styles.optional}>(可选)</Text></Text>
-              <View style={styles.inputWrap}>
-                <Ionicons name="mail-outline" size={18} color="#9CA3AF" />
-                <TextInput style={styles.input} placeholder="请输入邮箱" placeholderTextColor="#C4C4C4"
+              <Text style={[styles.label, { color: c.text }]}>邮箱 <Text style={[styles.optional, { color: c.textTertiary }]}>(可选)</Text></Text>
+              <View style={[styles.inputWrap, { borderColor: c.border, backgroundColor: c.surface }]}>
+                <Ionicons name="mail-outline" size={18} color={c.textTertiary} />
+                <TextInput style={[styles.input, { color: c.text }]} placeholder="请输入邮箱" placeholderTextColor={c.textTertiary}
                   value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" editable={!loading} />
               </View>
-              <Text style={styles.label}>显示名称 <Text style={styles.optional}>(可选)</Text></Text>
-              <View style={styles.inputWrap}>
-                <Ionicons name="happy-outline" size={18} color="#9CA3AF" />
-                <TextInput style={styles.input} placeholder="请输入显示名称" placeholderTextColor="#C4C4C4"
+              <Text style={[styles.label, { color: c.text }]}>显示名称 <Text style={[styles.optional, { color: c.textTertiary }]}>(可选)</Text></Text>
+              <View style={[styles.inputWrap, { borderColor: c.border, backgroundColor: c.surface }]}>
+                <Ionicons name="happy-outline" size={18} color={c.textTertiary} />
+                <TextInput style={[styles.input, { color: c.text }]} placeholder="请输入显示名称" placeholderTextColor={c.textTertiary}
                   value={displayName} onChangeText={setDisplayName} editable={!loading} />
               </View>
             </>
           )}
 
-          <TouchableOpacity style={[styles.submitBtn, loading && { opacity: 0.6 }]} onPress={handleSubmit} disabled={loading} activeOpacity={0.8}>
+          <TouchableOpacity style={[styles.submitBtn, { backgroundColor: c.primary }, loading && { opacity: 0.6 }]} onPress={handleSubmit} disabled={loading} activeOpacity={0.8}>
             {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>{isLogin ? '登录  →' : '注册  →'}</Text>}
           </TouchableOpacity>
 
           {!isLogin && (
-            <Text style={styles.privacyText}>
+            <Text style={[styles.privacyText, { color: c.textTertiary }]}>
               注册即表示同意{' '}
-              <Text style={styles.privacyLink} onPress={() => Linking.openURL(`${getApiBaseUrl()}/privacy-policy/`)}>
+              <Text style={[styles.privacyLink, { color: c.primary }]} onPress={() => Linking.openURL(`${getApiBaseUrl()}/privacy-policy/`)}>
                 隐私政策
               </Text>
             </Text>
           )}
 
-          <View style={styles.divider}><View style={styles.dividerLine} /><Text style={styles.dividerText}>{isLogin ? '新用户？' : '已有账户？'}</Text><View style={styles.dividerLine} /></View>
+          <View style={styles.divider}><View style={[styles.dividerLine, { backgroundColor: c.border }]} /><Text style={[styles.dividerText, { color: c.textTertiary }]}>{isLogin ? '新用户？' : '已有账户？'}</Text><View style={[styles.dividerLine, { backgroundColor: c.border }]} /></View>
 
-          <TouchableOpacity style={styles.switchBtn} onPress={() => setIsLogin(!isLogin)} disabled={loading} activeOpacity={0.7}>
-            <Text style={styles.switchText}>{isLogin ? '创建新账户' : '登录已有账户'}</Text>
+          <TouchableOpacity style={[styles.switchBtn, { borderColor: c.border }]} onPress={() => setIsLogin(!isLogin)} disabled={loading} activeOpacity={0.7}>
+            <Text style={[styles.switchText, { color: c.text }]}>{isLogin ? '创建新账户' : '登录已有账户'}</Text>
           </TouchableOpacity>
         </View>
-        <Text style={styles.footer}>ChewyBBTalk - 记录生活的点滴</Text>
+        <Text style={[styles.footer, { color: c.textTertiary }]}>ChewyBBTalk - 记录生活的点滴</Text>
       </ScrollView>
 
       {/* 服务器选择弹窗 */}
       <Modal visible={showServerPicker} transparent animationType="fade" onRequestClose={() => setShowServerPicker(false)}>
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => { setShowServerPicker(false); setShowAddServer(false); }}>
-          <View style={styles.modalSheet} onStartShouldSetResponder={() => true}>
-            <Text style={styles.modalTitle}>选择服务</Text>
+        <TouchableOpacity style={[styles.modalOverlay, { backgroundColor: c.overlay }]} activeOpacity={1} onPress={() => { setShowServerPicker(false); setShowAddServer(false); }}>
+          <View style={[styles.modalSheet, { backgroundColor: c.surface }]} onStartShouldSetResponder={() => true}>
+            <Text style={[styles.modalTitle, { color: c.text }]}>选择服务</Text>
 
             {servers.map(s => (
-              <TouchableOpacity key={s.url} style={[styles.serverItem, selectedServer === s.url && styles.serverItemActive]}
+              <TouchableOpacity key={s.url} style={[styles.serverItem, selectedServer === s.url && [styles.serverItemActive, { backgroundColor: c.primaryLight }]]}
                 onPress={() => selectServer(s.url)} onLongPress={() => removeServer(s.url)}>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.serverItemLabel, selectedServer === s.url && { color: '#2563EB', fontWeight: '600' }]}>{s.label}</Text>
-                  <Text style={styles.serverItemUrl} numberOfLines={1}>{s.url}</Text>
+                  <Text style={[styles.serverItemLabel, { color: c.text }, selectedServer === s.url && { color: c.primary, fontWeight: '600' }]}>{s.label}</Text>
+                  <Text style={[styles.serverItemUrl, { color: c.textTertiary }]} numberOfLines={1}>{s.url}</Text>
                 </View>
-                {selectedServer === s.url && <Ionicons name="checkmark-circle" size={20} color="#2563EB" />}
+                {selectedServer === s.url && <Ionicons name="checkmark-circle" size={20} color={c.primary} />}
               </TouchableOpacity>
             ))}
 
             {showAddServer ? (
               <View style={styles.addServerForm}>
-                <TextInput style={styles.addInput} placeholder="名称（可选）" placeholderTextColor="#C4C4C4"
+                <TextInput style={[styles.addInput, { borderColor: c.border, color: c.text }]} placeholder="名称（可选）" placeholderTextColor={c.textTertiary}
                   value={newLabel} onChangeText={setNewLabel} />
-                <TextInput style={styles.addInput} placeholder="https://your-server.com" placeholderTextColor="#C4C4C4"
+                <TextInput style={[styles.addInput, { borderColor: c.border, color: c.text }]} placeholder="https://your-server.com" placeholderTextColor={c.textTertiary}
                   value={newUrl} onChangeText={setNewUrl} autoCapitalize="none" keyboardType="url" />
                 <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <TouchableOpacity style={[styles.addBtn, { flex: 1, backgroundColor: '#F3F4F6' }]} onPress={() => setShowAddServer(false)}>
-                    <Text style={{ color: '#6B7280', fontWeight: '500' }}>取消</Text>
+                  <TouchableOpacity style={[styles.addBtn, { flex: 1, backgroundColor: c.borderLight }]} onPress={() => setShowAddServer(false)}>
+                    <Text style={{ color: c.textSecondary, fontWeight: '500' }}>取消</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.addBtn, { flex: 1 }]} onPress={addServer}>
+                  <TouchableOpacity style={[styles.addBtn, { flex: 1, backgroundColor: c.accent }]} onPress={addServer}>
                     <Text style={{ color: '#fff', fontWeight: '600' }}>添加</Text>
                   </TouchableOpacity>
                 </View>
               </View>
             ) : (
               <TouchableOpacity style={styles.addServerBtn} onPress={() => setShowAddServer(true)}>
-                <Ionicons name="add-circle-outline" size={18} color="#7C3AED" />
-                <Text style={styles.addServerText}>添加服务地址</Text>
+                <Ionicons name="add-circle-outline" size={18} color={c.accent} />
+                <Text style={[styles.addServerText, { color: c.accent }]}>添加服务地址</Text>
               </TouchableOpacity>
             )}
 
-            <Text style={styles.modalHint}>长按可删除自定义服务</Text>
+            <Text style={[styles.modalHint, { color: c.textTertiary }]}>长按可删除自定义服务</Text>
           </View>
         </TouchableOpacity>
       </Modal>
@@ -219,70 +223,69 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
 
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#EEF2FF' },
+  container: { flex: 1 },
   scrollContent: { flexGrow: 1, justifyContent: 'center', padding: 20 },
   card: {
-    backgroundColor: '#fff', borderRadius: 20, padding: 28,
+    borderRadius: 20, padding: 28,
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 16,
-    elevation: 5, borderWidth: 1, borderColor: '#F3F4F6',
+    elevation: 5, borderWidth: 1,
   },
   logoWrap: { alignItems: 'center', marginBottom: 24 },
   logo: {
-    width: 64, height: 64, borderRadius: 16, backgroundColor: '#7C3AED',
+    width: 64, height: 64, borderRadius: 16,
     justifyContent: 'center', alignItems: 'center', marginBottom: 16,
   },
-  title: { fontSize: 24, fontWeight: '700', color: '#111827' },
-  subtitle: { fontSize: 14, color: '#6B7280', marginTop: 6 },
-  label: { fontSize: 14, fontWeight: '500', color: '#374151', marginBottom: 6, marginTop: 14 },
-  optional: { color: '#9CA3AF', fontWeight: '400' },
+  title: { fontSize: 24, fontWeight: '700' },
+  subtitle: { fontSize: 14, marginTop: 6 },
+  label: { fontSize: 14, fontWeight: '500', marginBottom: 6, marginTop: 14 },
+  optional: { fontWeight: '400' },
   // 服务器选择
   serverSelector: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12,
-    paddingHorizontal: 14, height: 48, backgroundColor: '#FAFAFA',
+    borderWidth: 1, borderRadius: 12,
+    paddingHorizontal: 14, height: 48,
   },
-  serverText: { flex: 1, fontSize: 15, color: '#374151' },
+  serverText: { flex: 1, fontSize: 15 },
   // 输入框 - 固定高度 + gap 对齐
   inputWrap: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12,
-    paddingHorizontal: 14, height: 48, backgroundColor: '#fff',
+    borderWidth: 1, borderRadius: 12,
+    paddingHorizontal: 14, height: 48,
   },
-  input: { flex: 1, fontSize: 16, color: '#111827', paddingVertical: 0, includeFontPadding: false, lineHeight: 20 },
+  input: { flex: 1, fontSize: 16, paddingVertical: 0, includeFontPadding: false, lineHeight: 20 },
   submitBtn: {
     marginTop: 20, borderRadius: 12, height: 50, justifyContent: 'center', alignItems: 'center',
-    backgroundColor: '#2563EB',
   },
   submitText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 18 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: '#E5E7EB' },
-  dividerText: { marginHorizontal: 12, fontSize: 13, color: '#9CA3AF' },
-  switchBtn: { borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, height: 48, justifyContent: 'center', alignItems: 'center' },
-  switchText: { color: '#374151', fontSize: 15, fontWeight: '500' },
-  footer: { textAlign: 'center', color: '#C4C4C4', fontSize: 12, marginTop: 20 },
-  privacyText: { textAlign: 'center', fontSize: 12, color: '#9CA3AF', marginTop: 12 },
-  privacyLink: { color: '#2563EB', textDecorationLine: 'underline' },
+  dividerLine: { flex: 1, height: 1 },
+  dividerText: { marginHorizontal: 12, fontSize: 13 },
+  switchBtn: { borderWidth: 1, borderRadius: 12, height: 48, justifyContent: 'center', alignItems: 'center' },
+  switchText: { fontSize: 15, fontWeight: '500' },
+  footer: { textAlign: 'center', fontSize: 12, marginTop: 20 },
+  privacyText: { textAlign: 'center', fontSize: 12, marginTop: 12 },
+  privacyLink: { textDecorationLine: 'underline' },
   // 服务器选择弹窗
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', padding: 24 },
-  modalSheet: { backgroundColor: '#fff', borderRadius: 20, padding: 20 },
-  modalTitle: { fontSize: 17, fontWeight: '600', color: '#111827', marginBottom: 14 },
+  modalOverlay: { flex: 1, justifyContent: 'center', padding: 24 },
+  modalSheet: { borderRadius: 20, padding: 20 },
+  modalTitle: { fontSize: 17, fontWeight: '600', marginBottom: 14 },
   serverItem: {
     flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 12,
     borderRadius: 10, marginBottom: 4,
   },
-  serverItemActive: { backgroundColor: '#EFF6FF' },
-  serverItemLabel: { fontSize: 15, color: '#374151' },
-  serverItemUrl: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
+  serverItemActive: {},
+  serverItemLabel: { fontSize: 15 },
+  serverItemUrl: { fontSize: 12, marginTop: 2 },
   addServerBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'center',
     paddingVertical: 14, marginTop: 4,
   },
-  addServerText: { fontSize: 14, color: '#7C3AED', fontWeight: '500' },
+  addServerText: { fontSize: 14, fontWeight: '500' },
   addServerForm: { marginTop: 8, gap: 8 },
   addInput: {
-    borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10,
-    paddingHorizontal: 12, height: 42, fontSize: 14, color: '#111827',
+    borderWidth: 1, borderRadius: 10,
+    paddingHorizontal: 12, height: 42, fontSize: 14,
   },
-  addBtn: { backgroundColor: '#7C3AED', borderRadius: 10, height: 40, justifyContent: 'center', alignItems: 'center' },
-  modalHint: { textAlign: 'center', fontSize: 11, color: '#D1D5DB', marginTop: 12 },
+  addBtn: { borderRadius: 10, height: 40, justifyContent: 'center', alignItems: 'center' },
+  modalHint: { textAlign: 'center', fontSize: 11, marginTop: 12 },
 });

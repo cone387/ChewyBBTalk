@@ -46,7 +46,7 @@ export default function SkeletonCard() {
   );
 
   return (
-    <View style={[styles.card, { backgroundColor: c.cardBg }]}>
+    <View style={[styles.card, { backgroundColor: c.cardBg }]} accessible={false} accessibilityElementsHidden={true}>
       {/* 文字行占位 — 模拟 3-4 行 Markdown 内容 */}
       <Shimmer width="90%" height={14} />
       <Shimmer width="100%" height={14} style={{ marginTop: 10 }} />

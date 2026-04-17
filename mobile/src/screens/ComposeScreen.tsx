@@ -32,6 +32,7 @@ export default function ComposeScreen() {
   const inputRef = useRef<TextInput>(null);
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
+  const c = theme.colors;
 
   const editItem: BBTalk | undefined = route.params?.editItem;
   const isEditing = !!editItem;
@@ -211,12 +212,12 @@ export default function ComposeScreen() {
   const bottomPad = keyboardH > 0 ? 0 : (insets.bottom || 12);
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: c.background }]}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}><Text style={styles.cancelText}>取消</Text></TouchableOpacity>
+      <View style={[styles.header, { backgroundColor: c.headerBg, borderBottomColor: c.border }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()}><Text style={[styles.cancelText, { color: c.textSecondary }]}>取消</Text></TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>{isEditing ? '编辑' : '发碎碎念'}</Text>
+          <Text style={[styles.headerTitle, { color: c.text }]}>{isEditing ? '编辑' : '发碎碎念'}</Text>
           <TouchableOpacity
             style={styles.modeToggleBtn}
             onPress={() => {
@@ -234,22 +235,22 @@ export default function ComposeScreen() {
             />
           </TouchableOpacity>
         </View>
-        <TouchableOpacity style={[styles.publishBtn, !canSubmit && { opacity: 0.4 }]} onPress={handleSubmit} disabled={!canSubmit}>
+        <TouchableOpacity style={[styles.publishBtn, { backgroundColor: c.primary }, !canSubmit && { opacity: 0.4 }]} onPress={handleSubmit} disabled={!canSubmit}>
           {submitting ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.publishText}>{isEditing ? '更新' : '发布'}</Text>}
         </TouchableOpacity>
       </View>
 
       {/* 编辑区 / 预览区 */}
       {editMode === 'edit' ? (
-        <View style={styles.editorArea}>
-          <TextInput ref={inputRef} style={styles.textInput}
-            placeholder="你要BB什么？支持 Markdown，输入 # 添加标签" placeholderTextColor="#C4C4C4"
+        <View style={[styles.editorArea, { backgroundColor: c.surface }]}>
+          <TextInput ref={inputRef} style={[styles.textInput, { color: c.text }]}
+            placeholder="你要BB什么？支持 Markdown，输入 # 添加标签" placeholderTextColor={c.textTertiary}
             value={content} onChangeText={setContent} multiline textAlignVertical="top" autoFocus={!isEditing}
             onSelectionChange={(e) => setCursorPos(e.nativeEvent.selection.start)}
             scrollEnabled={true} />
         </View>
       ) : (
-        <ScrollView style={styles.previewArea} contentContainerStyle={styles.previewContent}>
+        <ScrollView style={[styles.previewArea, { backgroundColor: c.surface }]} contentContainerStyle={styles.previewContent}>
           {content.trim().length > 0 ? (
             <Markdown style={getMarkdownStyles(theme.colors)}>
               {content}
@@ -265,15 +266,15 @@ export default function ComposeScreen() {
       {/* 附件 + 标签 + 字数 + 工具栏 - 仅编辑模式显示 */}
       {editMode === 'edit' && (
         <>
-        <View style={styles.bottomInfo}>
+        <View style={[styles.bottomInfo, { backgroundColor: c.surface }]}>
         {/* 附件预览 */}
         {attachments.length > 0 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always"
             contentContainerStyle={{ paddingHorizontal: 12, gap: 8, paddingVertical: 6 }}>
             {attachments.map(att => (
               <View key={att.uid} style={styles.attachmentItem}>
-                {att.type === 'image' ? <Image source={att.url} style={styles.attachmentImage} contentFit="cover" /> : (
-                  <View style={styles.filePlaceholder}><Ionicons name={att.type === 'video' ? 'videocam' : 'document'} size={20} color="#9CA3AF" /><Text style={styles.fileName} numberOfLines={1}>{att.originalFilename || '附件'}</Text></View>
+                {att.type === 'image' ? <Image source={att.url} style={[styles.attachmentImage, { backgroundColor: c.borderLight }]} contentFit="cover" /> : (
+                  <View style={[styles.filePlaceholder, { backgroundColor: c.borderLight, borderColor: c.border }]}><Ionicons name={att.type === 'video' ? 'videocam' : 'document'} size={20} color={c.textTertiary} /><Text style={[styles.fileName, { color: c.textTertiary }]} numberOfLines={1}>{att.originalFilename || '附件'}</Text></View>
                 )}
                 <TouchableOpacity style={styles.removeBtn} onPress={() => setAttachments(p => p.filter(a => a.uid !== att.uid))}><Ionicons name="close" size={12} color="#fff" /></TouchableOpacity>
               </View>
@@ -286,31 +287,31 @@ export default function ComposeScreen() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always"
           style={{ flex: 1 }} contentContainerStyle={{ paddingLeft: 12, gap: 6 }}>
           {currentTags.map(tag => (
-            <View key={tag} style={styles.parsedTag}>
-              <Ionicons name="pricetag" size={11} color="#2563EB" />
-              <Text style={styles.parsedTagText}>{tag}</Text>
+            <View key={tag} style={[styles.parsedTag, { backgroundColor: c.primaryLight }]}>
+              <Ionicons name="pricetag" size={11} color={c.primary} />
+              <Text style={[styles.parsedTagText, { color: c.primary }]}>{tag}</Text>
               <TouchableOpacity onPress={() => {
                 // 从内容中删除 #tag 
                 setContent(prev => prev.replace(new RegExp(`(^|\\s)#${tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s`, 'g'), '$1'));
               }} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}>
-                <Ionicons name="close-circle" size={14} color="#93C5FD" />
+                <Ionicons name="close-circle" size={14} color={c.primary + '80'} />
               </TouchableOpacity>
             </View>
           ))}
         </ScrollView>
         <View style={styles.charCountWrap}>
-          {uploading && <ActivityIndicator size="small" color="#6B7280" />}
-          <Text style={styles.charCount}>{cleanContent(content).length}</Text>
+          {uploading && <ActivityIndicator size="small" color={c.textSecondary} />}
+          <Text style={[styles.charCount, { color: c.textTertiary }]}>{cleanContent(content).length}</Text>
         </View>
         </View>
       </View>
 
       {/* 工具栏 */}
-      <View style={[styles.toolbarWrap, { paddingBottom: bottomPad, marginBottom: keyboardH }]}>
+      <View style={[styles.toolbarWrap, { backgroundColor: c.surfaceSecondary, borderTopColor: c.border, paddingBottom: bottomPad, marginBottom: keyboardH }]}>
         {showQuickTags && existingTags.length > 0 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always" style={styles.quickTagBar} contentContainerStyle={{ paddingHorizontal: 12, gap: 8 }}>
             {existingTags.filter(t => !currentTags.includes(t.name)).slice(0, 15).map(tag => (
-              <TouchableOpacity key={tag.id} style={styles.quickTagChip} onPress={() => insertTag(tag.name)}><Text style={styles.quickTagText}>#{tag.name}</Text></TouchableOpacity>
+              <TouchableOpacity key={tag.id} style={[styles.quickTagChip, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => insertTag(tag.name)}><Text style={[styles.quickTagText, { color: c.textSecondary }]}>#{tag.name}</Text></TouchableOpacity>
             ))}
           </ScrollView>
         )}
@@ -321,10 +322,10 @@ export default function ComposeScreen() {
         <View style={styles.toolbarInner}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always"
             contentContainerStyle={styles.toolbarRow}>
-            <TouchableOpacity style={styles.toolBtn} onPress={() => pickMedia('images')}><Ionicons name="image-outline" size={21} color="#6B7280" /></TouchableOpacity>
-            <TouchableOpacity style={styles.toolBtn} onPress={() => pickMedia('videos')}><Ionicons name="videocam-outline" size={21} color="#6B7280" /></TouchableOpacity>
-            <TouchableOpacity style={styles.toolBtn} onPress={pickFile}><Ionicons name="attach-outline" size={21} color="#6B7280" /></TouchableOpacity>
-            <TouchableOpacity style={styles.toolBtn} onPress={() => setVoiceRecording(true)}><Ionicons name="mic-outline" size={21} color="#6B7280" /></TouchableOpacity>
+            <TouchableOpacity style={styles.toolBtn} onPress={() => pickMedia('images')}><Ionicons name="image-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
+            <TouchableOpacity style={styles.toolBtn} onPress={() => pickMedia('videos')}><Ionicons name="videocam-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
+            <TouchableOpacity style={styles.toolBtn} onPress={pickFile}><Ionicons name="attach-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
+            <TouchableOpacity style={styles.toolBtn} onPress={() => setVoiceRecording(true)}><Ionicons name="mic-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
             <TouchableOpacity style={styles.toolBtn} onPress={() => {
               if (showQuickTags) {
                 // 第二次点击：隐藏快速标签
@@ -341,17 +342,17 @@ export default function ComposeScreen() {
                 setShowQuickTags(true);
               }
               setTimeout(() => inputRef.current?.focus(), 30);
-            }}><Ionicons name="pricetag-outline" size={19} color={showQuickTags ? '#2563EB' : '#6B7280'} /></TouchableOpacity>
-            <TouchableOpacity style={styles.toolBtn} onPress={getLocation}><Ionicons name="location-outline" size={19} color={location ? '#10B981' : '#6B7280'} /></TouchableOpacity>
-            <TouchableOpacity style={styles.toolBtn} onPress={() => setVisibility(v => v === 'private' ? 'public' : 'private')}><Ionicons name={visibility === 'private' ? 'lock-closed-outline' : 'globe-outline'} size={19} color={visibility === 'public' ? '#2563EB' : '#6B7280'} /></TouchableOpacity>
-            <View style={styles.toolDivider} />
-            <TouchableOpacity style={styles.mdBtn} onPress={() => mdInsert('bold')}><Text style={styles.mdBold}>B</Text></TouchableOpacity>
-            <TouchableOpacity style={styles.mdBtn} onPress={() => mdInsert('italic')}><Text style={styles.mdItalic}>I</Text></TouchableOpacity>
-            <TouchableOpacity style={styles.mdBtn} onPress={() => mdInsert('heading')}><Text style={styles.mdBtnText}>H</Text></TouchableOpacity>
-            <TouchableOpacity style={styles.mdBtn} onPress={() => mdInsert('list')}><Ionicons name="list" size={15} color="#6B7280" /></TouchableOpacity>
-            <TouchableOpacity style={styles.mdBtn} onPress={() => mdInsert('quote')}><Ionicons name="chatbox-outline" size={15} color="#6B7280" /></TouchableOpacity>
-            <TouchableOpacity style={styles.mdBtn} onPress={() => mdInsert('code')}><Ionicons name="code-slash" size={15} color="#6B7280" /></TouchableOpacity>
-            <TouchableOpacity style={styles.mdBtn} onPress={() => mdInsert('link')}><Ionicons name="link-outline" size={15} color="#6B7280" /></TouchableOpacity>
+            }}><Ionicons name="pricetag-outline" size={19} color={showQuickTags ? c.primary : c.textSecondary} /></TouchableOpacity>
+            <TouchableOpacity style={styles.toolBtn} onPress={getLocation}><Ionicons name="location-outline" size={19} color={location ? '#10B981' : c.textSecondary} /></TouchableOpacity>
+            <TouchableOpacity style={styles.toolBtn} onPress={() => setVisibility(v => v === 'private' ? 'public' : 'private')}><Ionicons name={visibility === 'private' ? 'lock-closed-outline' : 'globe-outline'} size={19} color={visibility === 'public' ? c.primary : c.textSecondary} /></TouchableOpacity>
+            <View style={[styles.toolDivider, { backgroundColor: c.border }]} />
+            <TouchableOpacity style={[styles.mdBtn, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => mdInsert('bold')}><Text style={[styles.mdBold, { color: c.text }]}>B</Text></TouchableOpacity>
+            <TouchableOpacity style={[styles.mdBtn, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => mdInsert('italic')}><Text style={[styles.mdItalic, { color: c.text }]}>I</Text></TouchableOpacity>
+            <TouchableOpacity style={[styles.mdBtn, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => mdInsert('heading')}><Text style={[styles.mdBtnText, { color: c.textSecondary }]}>H</Text></TouchableOpacity>
+            <TouchableOpacity style={[styles.mdBtn, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => mdInsert('list')}><Ionicons name="list" size={15} color={c.textSecondary} /></TouchableOpacity>
+            <TouchableOpacity style={[styles.mdBtn, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => mdInsert('quote')}><Ionicons name="chatbox-outline" size={15} color={c.textSecondary} /></TouchableOpacity>
+            <TouchableOpacity style={[styles.mdBtn, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => mdInsert('code')}><Ionicons name="code-slash" size={15} color={c.textSecondary} /></TouchableOpacity>
+            <TouchableOpacity style={[styles.mdBtn, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => mdInsert('link')}><Ionicons name="link-outline" size={15} color={c.textSecondary} /></TouchableOpacity>
           </ScrollView>
         </View>
       </View>
@@ -369,46 +370,46 @@ export default function ComposeScreen() {
 
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FAFAFA' },
+  container: { flex: 1 },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: '#F3F4F6', backgroundColor: '#fff',
+    paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 0.5,
   },
-  cancelText: { fontSize: 16, color: '#6B7280' },
-  headerTitle: { fontSize: 17, fontWeight: '600', color: '#111827' },
+  cancelText: { fontSize: 16 },
+  headerTitle: { fontSize: 17, fontWeight: '600' },
   headerCenter: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   modeToggleBtn: { padding: 4 },
-  publishBtn: { backgroundColor: '#2563EB', borderRadius: 20, paddingHorizontal: 18, paddingVertical: 8 },
+  publishBtn: { borderRadius: 20, paddingHorizontal: 18, paddingVertical: 8 },
   publishText: { color: '#fff', fontSize: 15, fontWeight: '600' },
-  scroll: { flex: 1, backgroundColor: '#fff' },
-  editorArea: { flex: 1, backgroundColor: '#fff' },
-  textInput: { flex: 1, fontSize: 17, lineHeight: 28, color: '#1F2937', paddingHorizontal: 20, paddingTop: 16 },
-  previewArea: { flex: 1, backgroundColor: '#fff' },
+  scroll: { flex: 1 },
+  editorArea: { flex: 1 },
+  textInput: { flex: 1, fontSize: 17, lineHeight: 28, paddingHorizontal: 20, paddingTop: 16 },
+  previewArea: { flex: 1 },
   previewContent: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20 },
   previewPlaceholder: { fontSize: 16, fontStyle: 'italic', textAlign: 'center', marginTop: 60 },
-  bottomInfo: { backgroundColor: '#fff' },
+  bottomInfo: { },
   tagsRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
   attachmentItem: { position: 'relative' },
-  attachmentImage: { width: 60, height: 60, borderRadius: 8, backgroundColor: '#F3F4F6' },
-  filePlaceholder: { width: 60, height: 60, borderRadius: 8, backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB', justifyContent: 'center', alignItems: 'center', padding: 2 },
-  fileName: { fontSize: 8, color: '#9CA3AF', marginTop: 1, textAlign: 'center' },
+  attachmentImage: { width: 60, height: 60, borderRadius: 8 },
+  filePlaceholder: { width: 60, height: 60, borderRadius: 8, borderWidth: 1, justifyContent: 'center', alignItems: 'center', padding: 2 },
+  fileName: { fontSize: 8, marginTop: 1, textAlign: 'center' },
   removeBtn: { position: 'absolute', top: -4, right: -4, width: 18, height: 18, borderRadius: 9, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
-  parsedTag: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#EFF6FF', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5 },
-  parsedTagText: { color: '#2563EB', fontSize: 13, fontWeight: '500' },
+  parsedTag: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5 },
+  parsedTagText: { fontSize: 13, fontWeight: '500' },
   charCountWrap: { paddingHorizontal: 12 },
-  charCount: { fontSize: 12, color: '#D1D5DB' },
-  toolbarWrap: { backgroundColor: '#FAFAFA', borderTopWidth: 0.5, borderTopColor: '#E5E7EB' },
+  charCount: { fontSize: 12 },
+  toolbarWrap: { borderTopWidth: 0.5 },
   toolbarInner: { flexDirection: 'row', alignItems: 'center' },
   quickTagBar: { paddingVertical: 6 },
-  quickTagChip: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 5 },
-  quickTagText: { fontSize: 13, color: '#6B7280' },
+  quickTagChip: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 5 },
+  quickTagText: { fontSize: 13 },
   locationBar: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 4 },
   locationText: { flex: 1, fontSize: 12, color: '#059669' },
   toolbarRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 8, gap: 4 },
   toolBtn: { padding: 7 },
-  toolDivider: { width: 1, height: 20, backgroundColor: '#E5E7EB', marginHorizontal: 4 },
-  mdBtn: { width: 30, height: 28, borderRadius: 6, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB' },
-  mdBold: { fontSize: 13, fontWeight: '800', color: '#374151' },
-  mdItalic: { fontSize: 13, fontWeight: '600', fontStyle: 'italic', color: '#374151' },
-  mdBtnText: { fontSize: 12, fontWeight: '700', color: '#6B7280' },
+  toolDivider: { width: 1, height: 20, marginHorizontal: 4 },
+  mdBtn: { width: 30, height: 28, borderRadius: 6, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
+  mdBold: { fontSize: 13, fontWeight: '800' },
+  mdItalic: { fontSize: 13, fontWeight: '600', fontStyle: 'italic' },
+  mdBtnText: { fontSize: 12, fontWeight: '700' },
 });

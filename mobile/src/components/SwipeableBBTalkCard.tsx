@@ -235,6 +235,8 @@ const SwipeableBBTalkCard = React.memo(function SwipeableBBTalkCard({
               style={styles.checkboxContainer}
               onPress={handleBatchSelect}
               activeOpacity={0.7}
+              accessibilityLabel={selected ? '取消选中' : '选中'}
+              accessibilityRole="checkbox"
             >
               <View
                 style={[

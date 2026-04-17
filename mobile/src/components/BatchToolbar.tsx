@@ -150,7 +150,7 @@ export default React.memo(BatchToolbar);
 const styles = StyleSheet.create({
   container: {
     borderBottomWidth: 0.5,
-    paddingBottom: 8,
+    paddingBottom: 12,
   },
   topRow: {
     flexDirection: 'row',

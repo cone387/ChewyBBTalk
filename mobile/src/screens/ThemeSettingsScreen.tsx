@@ -23,7 +23,7 @@ export default function ThemeSettingsScreen() {
               activeOpacity={0.7}
             >
               <View style={styles.row}>
-                <View style={styles.preview}>
+                <View style={[styles.preview, { borderColor: c.border }]}>
                   <View style={[styles.previewBar, { backgroundColor: t.colors.headerBg, borderColor: t.colors.border }]} />
                   <View style={[styles.previewBody, { backgroundColor: t.colors.background }]}>
                     <View style={[styles.previewCard, { backgroundColor: t.colors.cardBg }]} />
@@ -54,7 +54,7 @@ const styles = StyleSheet.create({
   hint: { fontSize: 13, marginBottom: 12 },
   card: { borderRadius: 16, padding: 14, marginBottom: 10 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  preview: { width: 60, height: 80, borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: '#E5E7EB' },
+  preview: { width: 60, height: 80, borderRadius: 8, overflow: 'hidden', borderWidth: 1 },
   previewBar: { height: 14, borderBottomWidth: 0.5 },
   previewBody: { flex: 1, padding: 4, justifyContent: 'space-between' },
   previewCard: { height: 20, borderRadius: 3, marginBottom: 2 },

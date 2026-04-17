@@ -315,7 +315,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
         />
       ) : (
         <View style={[styles.header, { paddingTop: insets.top + 8, backgroundColor: c.headerBg, borderBottomColor: c.border }]}>
-          <TouchableOpacity onPress={onOpenDrawer} style={styles.headerBtn}>
+          <TouchableOpacity onPress={onOpenDrawer} style={styles.headerBtn} accessibilityLabel="打开菜单">
             <Ionicons name="menu-outline" size={26} color={c.text} />
           </TouchableOpacity>
           {searchVisible ? (
@@ -335,7 +335,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
               )}
             </View>
           )}
-          <TouchableOpacity onPress={() => { setSearchVisible(!searchVisible); if (searchVisible) { saveSearchHistory(searchText); setSearchText(''); } }} style={styles.headerBtn}>
+          <TouchableOpacity onPress={() => { setSearchVisible(!searchVisible); if (searchVisible) { saveSearchHistory(searchText); setSearchText(''); } }} style={styles.headerBtn} accessibilityLabel={searchVisible ? '关闭搜索' : '搜索'}>
             <Ionicons name={searchVisible ? 'close' : 'search-outline'} size={22} color={c.text} />
           </TouchableOpacity>
         </View>
@@ -389,7 +389,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
 
       {!batch.batchMode && (
         <TouchableOpacity style={[styles.fab, { bottom: insets.bottom + 24, backgroundColor: c.primary, shadowColor: c.fabShadow }]}
-          onPress={() => { if (guardOfflineWrite()) return; navigation.navigate('Compose'); }} onLongPress={() => { if (guardOfflineWrite()) return; setVoiceRecording(true); }} delayLongPress={300} activeOpacity={0.85}>
+          onPress={() => { if (guardOfflineWrite()) return; navigation.navigate('Compose'); }} onLongPress={() => { if (guardOfflineWrite()) return; setVoiceRecording(true); }} delayLongPress={300} activeOpacity={0.85} accessibilityLabel="新建碎碎念">
           <Ionicons name="add" size={28} color="#fff" />
         </TouchableOpacity>
       )}

@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
   tagTabsContent: { paddingHorizontal: 12 },
   tagTab: {
     alignItems: 'center',
-    paddingHorizontal: 14, paddingTop: 10, paddingBottom: 8,
+    paddingHorizontal: 14, paddingVertical: 12,
   },
   tagTabActive: {},
   tagTabText: { fontSize: 14 },

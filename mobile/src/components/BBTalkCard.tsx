@@ -43,7 +43,7 @@ function renderFileAttachment(att: Attachment, colors: any): React.JSX.Element {
   if (att.type === 'video') {
     return <VideoPlayerButton key={att.uid} attachment={att} />;
   }
-  const iconColor = '#6B7280';
+  const iconColor = colors.textSecondary;
   return (
     <TouchableOpacity
       key={att.uid}
@@ -126,6 +126,7 @@ const BBTalkCard = React.memo(function BBTalkCard({
         style={styles.moreBtn}
         hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         onPress={() => onMenu(item)}
+        accessibilityLabel="更多操作"
       >
         <Ionicons name="ellipsis-horizontal" size={18} color={c.textTertiary} />
       </TouchableOpacity>
@@ -159,7 +160,7 @@ const BBTalkCard = React.memo(function BBTalkCard({
         <View style={styles.imageRow}>
           {images.map(att => (
             <TouchableOpacity key={att.uid} onPress={() => onImagePreview(att.url)}>
-              <Image source={att.url} style={styles.thumbnail} contentFit="cover" cachePolicy="disk" />
+              <Image source={att.url} style={[styles.thumbnail, { backgroundColor: c.borderLight }]} contentFit="cover" cachePolicy="disk" />
             </TouchableOpacity>
           ))}
         </View>
@@ -185,7 +186,7 @@ const BBTalkCard = React.memo(function BBTalkCard({
             </TouchableOpacity>
           )}
         </View>
-        <TouchableOpacity onPress={() => onToggleVisibility(item)} style={styles.visBtn}>
+        <TouchableOpacity onPress={() => onToggleVisibility(item)} style={styles.visBtn} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }} accessibilityLabel={item.visibility === 'public' ? '切换为私密' : '切换为公开'}>
           <Ionicons
             name={item.visibility === 'public' ? 'globe-outline' : 'lock-closed-outline'}
             size={15}
@@ -205,7 +206,7 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
   },
-  moreBtn: { position: 'absolute', top: 14, right: 14, zIndex: 10, padding: 2 },
+  moreBtn: { position: 'absolute', top: 14, right: 14, zIndex: 10, padding: 6 },
   pinBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 3,
     marginBottom: 6, alignSelf: 'flex-start',
@@ -215,22 +216,22 @@ const styles = StyleSheet.create({
   tag: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
   tagText: { color: '#fff', fontSize: 12, fontWeight: '500' },
   imageRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
-  thumbnail: { width: 100, height: 100, borderRadius: 10, backgroundColor: '#F3F4F6' },
+  thumbnail: { width: 100, height: 100, borderRadius: 10 },
   fileRow: { marginTop: 12, gap: 8 },
   fileCard: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: '#F9FAFB', borderRadius: 10, padding: 10,
-    borderWidth: 1, borderColor: '#F3F4F6',
+    borderRadius: 10, padding: 10,
+    borderWidth: 1,
   },
   fileIconWrap: { width: 36, height: 36, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
   fileInfo: { flex: 1 },
-  fileCardName: { fontSize: 13, color: '#374151', fontWeight: '500' },
-  fileCardMeta: { fontSize: 11, color: '#9CA3AF', marginTop: 1 },
+  fileCardName: { fontSize: 13, fontWeight: '500' },
+  fileCardMeta: { fontSize: 11, marginTop: 1 },
   footer: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     marginTop: 12,
   },
   footerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   time: { fontSize: 12 },
-  visBtn: { padding: 4 },
+  visBtn: { padding: 10 },
 });
