@@ -325,7 +325,7 @@ export default function ComposeScreen() {
             <TouchableOpacity style={styles.toolBtn} onPress={() => pickMedia('images')}><Ionicons name="image-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
             <TouchableOpacity style={styles.toolBtn} onPress={() => pickMedia('videos')}><Ionicons name="videocam-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
             <TouchableOpacity style={styles.toolBtn} onPress={pickFile}><Ionicons name="attach-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
-            <TouchableOpacity style={styles.toolBtn} onPress={() => setVoiceRecording(true)}><Ionicons name="mic-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
+            <TouchableOpacity style={styles.toolBtn} onPress={() => { Keyboard.dismiss(); setVoiceRecording(true); }}><Ionicons name="mic-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
             <TouchableOpacity style={styles.toolBtn} onPress={() => {
               if (showQuickTags) {
                 // 第二次点击：隐藏快速标签

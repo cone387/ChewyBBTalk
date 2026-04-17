@@ -61,25 +61,27 @@ export default function AudioPlayerButton({ attachment }: Props) {
   const [localUri, setLocalUri] = useState<string | null>(Platform.OS === 'web' ? attachment.url : null);
   const [downloading, setDownloading] = useState(false);
 
-  const handlePress = async () => {
-    if (localUri) return; // Already downloaded, PlayerCard handles it
-    setDownloading(true);
-    try {
-      const ext = (attachment.filename || 'm4a').split('.').pop();
-      const dest = FileSystem.cacheDirectory + `audio_${attachment.uid}.${ext}`;
-      const result = await FileSystem.downloadAsync(attachment.url, dest);
-      setLocalUri(result.uri);
-    } catch {
-      setLocalUri(attachment.url); // Fallback to direct URL
-    } finally {
-      setDownloading(false);
-    }
-  };
-
-  // Auto-download on native
+  // Auto-download on native (check cache first)
   useEffect(() => {
     if (Platform.OS !== 'web' && !localUri) {
-      handlePress();
+      (async () => {
+        try {
+          const ext = (attachment.filename || 'm4a').split('.').pop();
+          const dest = FileSystem.cacheDirectory + `audio_${attachment.uid}.${ext}`;
+          const info = await FileSystem.getInfoAsync(dest);
+          if (info.exists) {
+            setLocalUri(dest);
+          } else {
+            setDownloading(true);
+            const result = await FileSystem.downloadAsync(attachment.url, dest);
+            setLocalUri(result.uri);
+          }
+        } catch {
+          setLocalUri(attachment.url);
+        } finally {
+          setDownloading(false);
+        }
+      })();
     }
   }, []);
 
@@ -88,7 +90,17 @@ export default function AudioPlayerButton({ attachment }: Props) {
   }
 
   return (
-    <TouchableOpacity style={[styles.card, { backgroundColor: c.borderLight, borderColor: c.border }]} activeOpacity={0.7} onPress={handlePress}>
+    <TouchableOpacity style={[styles.card, { backgroundColor: c.borderLight, borderColor: c.border }]} activeOpacity={0.7} onPress={() => {
+      if (!downloading) {
+        setDownloading(true);
+        const ext = (attachment.filename || 'm4a').split('.').pop();
+        const dest = FileSystem.cacheDirectory + `audio_${attachment.uid}.${ext}`;
+        FileSystem.downloadAsync(attachment.url, dest)
+          .then(r => setLocalUri(r.uri))
+          .catch(() => setLocalUri(attachment.url))
+          .finally(() => setDownloading(false));
+      }
+    }}>
       <View style={[styles.iconWrap, { backgroundColor: c.primary + '18' }]}>
         {downloading ? <ActivityIndicator size="small" color={c.primary} /> : <Ionicons name="play" size={20} color={c.primary} />}
       </View>
