@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
@@ -212,9 +213,13 @@ export default React.memo(function DrawerContent({ selectedTag, selectedDate, on
       {currentUser && (
         <View style={[styles.userSection, { paddingBottom: insets.bottom + 12, borderTopColor: c.borderLight }]}>
           <View style={styles.userRow}>
-            <View style={[styles.avatar, { backgroundColor: c.avatarBg }]}>
-              <Text style={styles.avatarText}>{(currentUser.display_name || currentUser.username).charAt(0).toUpperCase()}</Text>
-            </View>
+            {currentUser.avatar ? (
+              <Image source={currentUser.avatar} style={styles.avatar} contentFit="cover" />
+            ) : (
+              <View style={[styles.avatar, { backgroundColor: c.avatarBg }]}>
+                <Text style={styles.avatarText}>{(currentUser.display_name || currentUser.username).charAt(0).toUpperCase()}</Text>
+              </View>
+            )}
             <View style={{ flex: 1 }}>
               <Text style={[styles.userName, { color: c.text }]}>{currentUser.display_name || currentUser.username}</Text>
               <Text style={[styles.userSub, { color: c.textSecondary }]}>@{currentUser.username}</Text>
@@ -262,7 +267,7 @@ const styles = StyleSheet.create({
   itemCount: { fontSize: 12 },
   userSection: { padding: 16, borderTopWidth: 0.5 },
   userRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  avatar: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
+  avatar: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
   avatarText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   userName: { fontSize: 14, fontWeight: '600' },
   userSub: { fontSize: 12 },

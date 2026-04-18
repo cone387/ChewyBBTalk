@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView, Switch, Linking, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { getCurrentUser, logout } from '../services/auth';
@@ -146,11 +147,15 @@ export default function SettingsScreen({ onLogout }: Props) {
             onPress={() => navigation.navigate('ProfileEdit')}
           >
             <View style={styles.userRow}>
-              <View style={[styles.avatar, { backgroundColor: c.avatarBg }]}>
-                <Text style={styles.avatarText}>
-                  {(currentUser.display_name || currentUser.username).charAt(0).toUpperCase()}
-                </Text>
-              </View>
+              {currentUser.avatar ? (
+                <Image source={currentUser.avatar} style={styles.avatar} contentFit="cover" />
+              ) : (
+                <View style={[styles.avatar, { backgroundColor: c.avatarBg }]}>
+                  <Text style={styles.avatarText}>
+                    {(currentUser.display_name || currentUser.username).charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
               <View style={styles.userInfo}>
                 <Text style={[styles.userName, { color: c.text }]}>
                   {currentUser.display_name || currentUser.username}
@@ -193,7 +198,7 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   },
   userRow: { flexDirection: 'row', alignItems: 'center' },
-  avatar: { width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginRight: 14 },
+  avatar: { width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginRight: 14, overflow: 'hidden' },
   avatarText: { color: '#fff', fontSize: 20, fontWeight: '700' },
   userInfo: { flex: 1 },
   userName: { fontSize: 17, fontWeight: '600' },
