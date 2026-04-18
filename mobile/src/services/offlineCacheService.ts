@@ -1,23 +1,21 @@
 /**
- * 离线缓存服务模块
+ * 离线缓存服务模块（原生端）
  * 使用 expo-sqlite 实现 BBTalk 数据本地持久化
  * - 初始化 SQLite 数据库和表结构
  * - 全量替换写入 BBTalk 缓存
  * - 读取缓存并反序列化（损坏数据跳过）
  * - 清除缓存
  * - 读写最后同步时间戳
+ *
+ * Web 端使用 offlineCacheService.web.ts 的空实现（Metro 自动解析）
  */
 import * as SQLite from 'expo-sqlite';
-import { Platform } from 'react-native';
 import type { BBTalk } from '../types';
 import { logError } from '../utils/errorHandler';
 
 const DB_NAME = 'bbtalk_cache.db';
 
 let db: SQLite.SQLiteDatabase | null = null;
-
-/** Web 平台不支持 expo-sqlite（需要 SharedArrayBuffer），直接跳过 */
-const isWeb = Platform.OS === 'web';
 
 /**
  * 获取数据库实例（懒初始化）
@@ -34,7 +32,6 @@ function getDB(): SQLite.SQLiteDatabase {
  * 创建 bbtalks 表和 meta 表（如果不存在）
  */
 export async function initCacheDB(): Promise<void> {
-  if (isWeb) return;
   try {
     const database = getDB();
     database.execSync(
@@ -61,7 +58,6 @@ export async function initCacheDB(): Promise<void> {
  * 使用事务批量写入，先清空再插入
  */
 export async function cacheBBTalks(bbtalks: BBTalk[]): Promise<void> {
-  if (isWeb) return;
   try {
     const database = getDB();
     const now = new Date().toISOString();
@@ -86,7 +82,6 @@ export async function cacheBBTalks(bbtalks: BBTalk[]): Promise<void> {
  * 损坏数据跳过并 logError
  */
 export async function getCachedBBTalks(): Promise<BBTalk[]> {
-  if (isWeb) return [];
   try {
     const database = getDB();
     const rows = database.getAllSync<{ id: string; data: string; synced_at: string }>(
@@ -114,7 +109,6 @@ export async function getCachedBBTalks(): Promise<BBTalk[]> {
  * 清除所有缓存数据（bbtalks 表和 meta 表）
  */
 export async function clearCache(): Promise<void> {
-  if (isWeb) return;
   try {
     const database = getDB();
     database.withTransactionSync(() => {
@@ -132,7 +126,6 @@ export async function clearCache(): Promise<void> {
  * 从 meta 表中读取 last_sync_time
  */
 export async function getLastSyncTime(): Promise<string | null> {
-  if (isWeb) return null;
   try {
     const database = getDB();
     const row = database.getFirstSync<{ value: string }>(
@@ -151,7 +144,6 @@ export async function getLastSyncTime(): Promise<string | null> {
  * 写入 meta 表中的 last_sync_time
  */
 export async function setLastSyncTime(timestamp: string): Promise<void> {
-  if (isWeb) return;
   try {
     const database = getDB();
     database.runSync(
