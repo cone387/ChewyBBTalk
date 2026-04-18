@@ -1,15 +1,14 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView, TextInput, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getCurrentUser, logout } from '../services/auth';
+import { logout } from '../services/auth';
 import { userApi } from '../services/api/userApi';
 import { useTheme } from '../theme/ThemeContext';
 
 interface Props { onLogout: () => void; }
 
 export default function AccountSecurityScreen({ onLogout }: Props) {
-  const currentUser = getCurrentUser();
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const c = theme.colors;
@@ -18,33 +17,47 @@ export default function AccountSecurityScreen({ onLogout }: Props) {
   const [deleting, setDeleting] = useState(false);
 
   const handleDeleteAccount = () => {
+    if (Platform.OS === 'web') {
+      // Web 端 Alert.alert 回调不可靠，直接用 confirm
+      if (window.confirm('确定要永久删除您的账号吗？此操作不可撤销，您的所有数据（碎碎念、标签、附件等）将被永久删除。')) {
+        setShowDeleteConfirm(true);
+      }
+      return;
+    }
     Alert.alert(
       '删除账号',
       '确定要永久删除您的账号吗？此操作不可撤销，您的所有数据（碎碎念、标签、附件等）将被永久删除。',
       [
         { text: '取消', style: 'cancel' },
-        {
-          text: '继续删除',
-          style: 'destructive',
-          onPress: () => setShowDeleteConfirm(true),
-        },
+        { text: '继续删除', style: 'destructive', onPress: () => setShowDeleteConfirm(true) },
       ]
     );
   };
 
+  const doLogoutAndRedirect = async () => {
+    await logout();
+    onLogout();
+  };
+
   const confirmDeleteAccount = async () => {
     if (!deletePassword.trim()) {
-      Alert.alert('提示', '请输入密码以确认删除');
+      Platform.OS === 'web' ? window.alert('请输入密码以确认删除') : Alert.alert('提示', '请输入密码以确认删除');
       return;
     }
     setDeleting(true);
     try {
       await userApi.deleteAccount(deletePassword);
-      Alert.alert('账号已删除', '您的账号和所有数据已被永久删除。', [
-        { text: '确定', onPress: async () => { await logout(); onLogout(); } },
-      ]);
+      if (Platform.OS === 'web') {
+        window.alert('您的账号和所有数据已被永久删除。');
+        await doLogoutAndRedirect();
+      } else {
+        Alert.alert('账号已删除', '您的账号和所有数据已被永久删除。', [
+          { text: '确定', onPress: doLogoutAndRedirect },
+        ]);
+      }
     } catch (e: any) {
-      Alert.alert('删除失败', e.message || '请检查密码是否正确');
+      const msg = e.message || '请检查密码是否正确';
+      Platform.OS === 'web' ? window.alert('删除失败: ' + msg) : Alert.alert('删除失败', msg);
     } finally {
       setDeleting(false);
       setDeletePassword('');
@@ -55,22 +68,6 @@ export default function AccountSecurityScreen({ onLogout }: Props) {
   return (
     <View style={[styles.container, { backgroundColor: c.surfaceSecondary }]}>
       <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}>
-        {/* 账号信息 */}
-        {currentUser && (
-          <View style={[styles.card, { backgroundColor: c.cardBg }]}>
-            <View style={styles.infoRow}>
-              <Text style={[styles.infoLabel, { color: c.textSecondary }]}>用户名</Text>
-              <Text style={[styles.infoValue, { color: c.text }]}>{currentUser.username}</Text>
-            </View>
-            {currentUser.email ? (
-              <View style={[styles.infoRow, styles.infoRowBorder, { borderTopColor: c.border }]}>
-                <Text style={[styles.infoLabel, { color: c.textSecondary }]}>邮箱</Text>
-                <Text style={[styles.infoValue, { color: c.text }]}>{currentUser.email}</Text>
-              </View>
-            ) : null}
-          </View>
-        )}
-
         {/* 删除账号区域 */}
         <Text style={[styles.sectionTitle, { color: c.danger }]}>危险操作</Text>
         <View style={[styles.dangerCard, { backgroundColor: c.cardBg, borderColor: c.danger + '30' }]}>
@@ -137,15 +134,7 @@ export default function AccountSecurityScreen({ onLogout }: Props) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: { padding: 16, paddingTop: 12 },
-  card: {
-    borderRadius: 16, padding: 18, marginBottom: 10,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
-  },
-  infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 },
-  infoRowBorder: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 8, paddingTop: 14 },
-  infoLabel: { fontSize: 14 },
-  infoValue: { fontSize: 15, fontWeight: '500' },
-  sectionTitle: { fontSize: 14, fontWeight: '600', marginTop: 24, marginBottom: 10, marginLeft: 4 },
+  sectionTitle: { fontSize: 14, fontWeight: '600', marginTop: 8, marginBottom: 10, marginLeft: 4 },
   dangerCard: {
     borderRadius: 16, borderWidth: 1, padding: 18,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,

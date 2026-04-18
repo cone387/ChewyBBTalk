@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView, Switch, Linking } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView, Switch, Linking, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -10,16 +10,60 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface Props { onLogout: () => void; }
 
-const MENU_ITEMS = [
-  { key: 'account', title: '账号与安全', subtitle: '账号信息、删除账号', icon: 'person-circle' as const, bgColor: '#EF4444' },
-  { key: 'theme', title: '主题设置', subtitle: '切换多种主题风格', icon: 'color-palette' as const, bgColor: '#8B5CF6' },
-  { key: 'privacy', title: '防窥设置', subtitle: '超时时长、倒计时显示', icon: 'lock-closed' as const, bgColor: '#7C3AED' },
-  { key: 'storage', title: '存储设置', subtitle: '服务器存储、S3 云存储配置', icon: 'server' as const, bgColor: '#059669' },
-  { key: 'data', title: '数据管理', subtitle: '导入导出数据，跨服务器迁移', icon: 'swap-horizontal' as const, bgColor: '#EA580C' },
-  { key: 'cache', title: '缓存管理', subtitle: '查看和清理已下载的媒体文件', icon: 'folder-open' as const, bgColor: '#0EA5E9' },
-  { key: 'privacy-policy', title: '隐私政策', subtitle: '查看数据收集与使用说明', icon: 'shield-checkmark' as const, bgColor: '#0EA5E9' },
-  { key: 'about', title: '关于', subtitle: '版本信息、检查更新', icon: 'information-circle' as const, bgColor: '#6366F1' },
+type MenuItem =
+  | { key: string; title: string; subtitle: string; icon: keyof typeof Ionicons.glyphMap; bgColor: string; type?: 'nav' }
+  | { key: string; title: string; subtitle: string; icon: keyof typeof Ionicons.glyphMap; bgColor: string; type: 'switch' };
+
+interface MenuSection {
+  title: string;
+  items: MenuItem[];
+}
+
+const SECTIONS: MenuSection[] = [
+  {
+    title: '账号',
+    items: [
+      { key: 'account', title: '账号与安全', subtitle: '账号信息、删除账号', icon: 'person-circle', bgColor: '#EF4444' },
+    ],
+  },
+  {
+    title: '个性化',
+    items: [
+      { key: 'theme', title: '主题设置', subtitle: '切换多种主题风格', icon: 'color-palette', bgColor: '#8B5CF6' },
+      { key: 'tagTabs', title: '首页标签栏', subtitle: '在首页顶部显示标签快捷切换', icon: 'pricetags', bgColor: '#6366F1', type: 'switch' },
+    ],
+  },
+  {
+    title: '隐私与安全',
+    items: [
+      { key: 'privacy', title: '防窥设置', subtitle: '超时时长、倒计时显示', icon: 'lock-closed', bgColor: '#7C3AED' },
+    ],
+  },
+  {
+    title: '数据与存储',
+    items: [
+      { key: 'storage', title: '存储设置', subtitle: '服务器存储、S3 云存储配置', icon: 'server', bgColor: '#059669' },
+      { key: 'data', title: '数据管理', subtitle: '导入导出数据，跨服务器迁移', icon: 'swap-horizontal', bgColor: '#EA580C' },
+      { key: 'cache', title: '缓存管理', subtitle: '查看和清理已下载的媒体文件', icon: 'folder-open', bgColor: '#0EA5E9' },
+    ],
+  },
+  {
+    title: '其他',
+    items: [
+      { key: 'about', title: '关于', subtitle: '版本信息、检查更新', icon: 'information-circle', bgColor: '#6366F1' },
+    ],
+  },
 ];
+
+const ROUTES: Record<string, string> = {
+  account: 'AccountSecurity',
+  theme: 'ThemeSettings',
+  privacy: 'PrivacySettings',
+  storage: 'StorageSettings',
+  data: 'DataManagement',
+  cache: 'CacheManagement',
+  about: 'About',
+};
 
 export default function SettingsScreen({ onLogout }: Props) {
   const currentUser = getCurrentUser();
@@ -34,6 +78,12 @@ export default function SettingsScreen({ onLogout }: Props) {
   }, []);
 
   const handleLogout = () => {
+    if (Platform.OS === 'web') {
+      if (window.confirm('确定要退出登录吗？')) {
+        logout().then(() => onLogout());
+      }
+      return;
+    }
     Alert.alert('确认退出', '确定要退出登录吗？', [
       { text: '取消', style: 'cancel' },
       { text: '退出', style: 'destructive', onPress: async () => { await logout(); onLogout(); } },
@@ -45,22 +95,50 @@ export default function SettingsScreen({ onLogout }: Props) {
       Linking.openURL(`${getApiBaseUrl()}/privacy-policy/`);
       return;
     }
-    const routes: Record<string, string> = {
-      account: 'AccountSecurity',
-      theme: 'ThemeSettings',
-      privacy: 'PrivacySettings',
-      storage: 'StorageSettings',
-      data: 'DataManagement',
-      cache: 'CacheManagement',
-      about: 'About',
-    };
-    navigation.navigate(routes[key]);
+    const route = ROUTES[key];
+    if (route) navigation.navigate(route);
+  };
+
+  const renderItem = (item: MenuItem, isLast: boolean) => {
+    const isSwitch = item.type === 'switch';
+
+    const content = (
+      <View style={[styles.menuRow, !isLast && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border }]}>
+        <View style={[styles.menuIcon, { backgroundColor: item.bgColor }]}>
+          <Ionicons name={item.icon as any} size={20} color="#fff" />
+        </View>
+        <View style={styles.menuInfo}>
+          <Text style={[styles.menuTitle, { color: c.text }]}>{item.title}</Text>
+          <Text style={[styles.menuSubtitle, { color: c.textSecondary }]}>{item.subtitle}</Text>
+        </View>
+        {isSwitch ? (
+          <Switch
+            value={showTagTabs}
+            onValueChange={(v) => { setShowTagTabs(v); AsyncStorage.setItem('show_tag_tabs', v ? 'true' : 'false'); }}
+            trackColor={{ false: c.border, true: c.primary }}
+            thumbColor="#fff"
+          />
+        ) : (
+          <Ionicons name="chevron-forward" size={18} color={c.textTertiary} />
+        )}
+      </View>
+    );
+
+    if (isSwitch) {
+      return <View key={item.key}>{content}</View>;
+    }
+
+    return (
+      <TouchableOpacity key={item.key} activeOpacity={0.6} onPress={() => handleMenuPress(item.key)}>
+        {content}
+      </TouchableOpacity>
+    );
   };
 
   return (
     <View style={[styles.container, { backgroundColor: c.surfaceSecondary }]}>
       <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 80 }]}>
-        {/* 用户信息卡 - 点击进入编辑页 */}
+        {/* 用户信息卡 */}
         {currentUser && (
           <TouchableOpacity
             style={[styles.userCard, { backgroundColor: c.cardBg }]}
@@ -86,43 +164,15 @@ export default function SettingsScreen({ onLogout }: Props) {
           </TouchableOpacity>
         )}
 
-        {/* 设置菜单 */}
-        {MENU_ITEMS.map(item => (
-          <TouchableOpacity
-            key={item.key}
-            style={[styles.menuCard, { backgroundColor: c.cardBg }]}
-            activeOpacity={0.7}
-            onPress={() => handleMenuPress(item.key)}
-          >
-            <View style={styles.menuRow}>
-              <View style={[styles.menuIcon, { backgroundColor: item.bgColor }]}>
-                <Ionicons name={item.icon} size={22} color="#fff" />
-              </View>
-              <View style={styles.menuInfo}>
-                <Text style={[styles.menuTitle, { color: c.text }]}>{item.title}</Text>
-                <Text style={[styles.menuSubtitle, { color: c.textSecondary }]}>{item.subtitle}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={c.textTertiary} />
+        {/* 分组菜单 */}
+        {SECTIONS.map(section => (
+          <View key={section.title} style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: c.textSecondary }]}>{section.title}</Text>
+            <View style={[styles.sectionCard, { backgroundColor: c.cardBg }]}>
+              {section.items.map((item, idx) => renderItem(item, idx === section.items.length - 1))}
             </View>
-          </TouchableOpacity>
-        ))}
-
-        {/* 显示设置 */}
-        <View style={[styles.menuCard, { backgroundColor: c.cardBg }]}>
-          <View style={styles.menuRow}>
-            <View style={[styles.menuIcon, { backgroundColor: '#6366F1' }]}>
-              <Ionicons name="pricetags" size={22} color="#fff" />
-            </View>
-            <View style={styles.menuInfo}>
-              <Text style={[styles.menuTitle, { color: c.text }]}>首页标签栏</Text>
-              <Text style={[styles.menuSubtitle, { color: c.textSecondary }]}>在首页顶部显示标签快捷切换</Text>
-            </View>
-            <Switch value={showTagTabs} onValueChange={(v) => {
-              setShowTagTabs(v);
-              AsyncStorage.setItem('show_tag_tabs', v ? 'true' : 'false');
-            }} trackColor={{ false: c.border, true: c.primary }} thumbColor="#fff" />
           </View>
-        </View>
+        ))}
       </ScrollView>
 
       <View style={[styles.logoutBar, { paddingBottom: insets.bottom + 12, backgroundColor: c.surfaceSecondary }]}>
@@ -139,7 +189,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: { padding: 16, paddingTop: 12 },
   userCard: {
-    borderRadius: 16, padding: 18, marginBottom: 10,
+    borderRadius: 16, padding: 18, marginBottom: 6,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   },
   userRow: { flexDirection: 'row', alignItems: 'center' },
@@ -148,15 +198,17 @@ const styles = StyleSheet.create({
   userInfo: { flex: 1 },
   userName: { fontSize: 17, fontWeight: '600' },
   userEmail: { fontSize: 13, marginTop: 2 },
-  menuCard: {
-    borderRadius: 16, padding: 18, marginBottom: 10,
+  section: { marginTop: 18 },
+  sectionTitle: { fontSize: 13, fontWeight: '500', marginBottom: 6, marginLeft: 4 },
+  sectionCard: {
+    borderRadius: 16, overflow: 'hidden',
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   },
-  menuRow: { flexDirection: 'row', alignItems: 'center' },
-  menuIcon: { width: 48, height: 48, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginRight: 14 },
+  menuRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 },
+  menuIcon: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
   menuInfo: { flex: 1 },
-  menuTitle: { fontSize: 16, fontWeight: '600' },
-  menuSubtitle: { fontSize: 13, marginTop: 3 },
+  menuTitle: { fontSize: 15, fontWeight: '600' },
+  menuSubtitle: { fontSize: 12, marginTop: 2 },
   logoutBar: { paddingHorizontal: 16, paddingTop: 8 },
   logoutBtn: {
     flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6,

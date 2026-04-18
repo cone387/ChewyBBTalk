@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
 import { checkForUpdates } from '../utils/versionChecker';
+import { getApiBaseUrl } from '../config';
 import Constants from 'expo-constants';
 
 export default function AboutScreen() {
@@ -19,7 +20,6 @@ export default function AboutScreen() {
     setChecking(true);
     try {
       await checkForUpdates();
-      // If checkForUpdates didn't show its own alert (no update found), show "up to date"
       Alert.alert('检查完成', '当前已是最新版本');
     } catch {
       Alert.alert('检查完成', '当前已是最新版本');
@@ -56,6 +56,20 @@ export default function AboutScreen() {
       </TouchableOpacity>
 
       <TouchableOpacity style={[styles.actionCard, { backgroundColor: c.cardBg }]} activeOpacity={0.7}
+        onPress={() => Linking.openURL(`${getApiBaseUrl()}/privacy-policy/`)}>
+        <View style={styles.actionRow}>
+          <View style={[styles.actionIcon, { backgroundColor: '#0EA5E9' }]}>
+            <Ionicons name="shield-checkmark" size={20} color="#fff" />
+          </View>
+          <View style={styles.actionInfo}>
+            <Text style={[styles.actionTitle, { color: c.text }]}>隐私政策</Text>
+            <Text style={[styles.actionSub, { color: c.textSecondary }]}>查看数据收集与使用说明</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={c.textTertiary} />
+        </View>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={[styles.actionCard, { backgroundColor: c.cardBg }]} activeOpacity={0.7}
         onPress={() => Linking.openURL('https://github.com/cone387/ChewyBBTalk')}>
         <View style={styles.actionRow}>
           <View style={[styles.actionIcon, { backgroundColor: '#1F2937' }]}>
@@ -68,21 +82,6 @@ export default function AboutScreen() {
           <Ionicons name="chevron-forward" size={18} color={c.textTertiary} />
         </View>
       </TouchableOpacity>
-
-      <View style={[styles.techCard, { backgroundColor: c.cardBg }]}>
-        <Text style={[styles.techTitle, { color: c.text }]}>技术栈</Text>
-        {[
-          { label: 'Expo SDK', value: '54' },
-          { label: 'React Native', value: '0.81' },
-          { label: 'TypeScript', value: '5.9' },
-          { label: 'Redux Toolkit', value: '2.x' },
-        ].map(item => (
-          <View key={item.label} style={[styles.techRow, { borderBottomColor: c.borderLight }]}>
-            <Text style={[styles.techLabel, { color: c.textSecondary }]}>{item.label}</Text>
-            <Text style={[styles.techValue, { color: c.text }]}>{item.value}</Text>
-          </View>
-        ))}
-      </View>
 
       <Text style={[styles.copyright, { color: c.textTertiary }]}>
         © 2024-2026 ChewyBBTalk{'\n'}Made with ❤️
@@ -110,13 +109,5 @@ const styles = StyleSheet.create({
   actionInfo: { flex: 1 },
   actionTitle: { fontSize: 15, fontWeight: '600' },
   actionSub: { fontSize: 12, marginTop: 2 },
-  techCard: {
-    borderRadius: 16, padding: 16, marginBottom: 12,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
-  },
-  techTitle: { fontSize: 15, fontWeight: '600', marginBottom: 8 },
-  techRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 0.5 },
-  techLabel: { fontSize: 14 },
-  techValue: { fontSize: 14, fontWeight: '500' },
   copyright: { textAlign: 'center', fontSize: 12, marginTop: 20, lineHeight: 20 },
 });

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
@@ -35,7 +35,16 @@ export default function ProfileEditScreen() {
     setUploadingAvatar(true);
     try {
       const asset = result.assets[0];
-      const att = await attachmentApi.upload(asset.uri, asset.fileName || `avatar_${Date.now()}.jpg`, asset.mimeType || 'image/jpeg');
+      let att;
+      if (Platform.OS === 'web') {
+        // Web: uri is a blob URL, need to convert to File object
+        const resp = await fetch(asset.uri);
+        const blob = await resp.blob();
+        const file = new File([blob], asset.fileName || `avatar_${Date.now()}.jpg`, { type: asset.mimeType || 'image/jpeg' });
+        att = await attachmentApi.uploadFile(file);
+      } else {
+        att = await attachmentApi.upload(asset.uri, asset.fileName || `avatar_${Date.now()}.jpg`, asset.mimeType || 'image/jpeg');
+      }
       setAvatarUrl(att.url);
     } catch (e: any) {
       Alert.alert('上传失败', e.message);
