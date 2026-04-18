@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ActivityIndicator, View, Animated, Dimensions, TouchableOpacity, StyleSheet, PanResponder } from 'react-native';
+import { ActivityIndicator, View, Animated, Dimensions, TouchableOpacity, StyleSheet, PanResponder, Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -9,6 +9,13 @@ import { initAuth } from './src/services/auth';
 import { loadApiBaseUrl } from './src/config';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 import { checkForUpdates } from './src/utils/versionChecker';
+
+// Web: 去掉 input/textarea 聚焦时的浏览器默认 outline 边框
+if (Platform.OS === 'web') {
+  const style = document.createElement('style');
+  style.textContent = `input:focus,textarea:focus,select:focus,[contenteditable]:focus{outline:none!important;}`;
+  document.head.appendChild(style);
+}
 
 import LoginScreen from './src/screens/LoginScreen';
 import HomeScreen from './src/screens/HomeScreen';
