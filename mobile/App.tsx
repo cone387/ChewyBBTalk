@@ -23,6 +23,7 @@ import AudioPlayScreen from './src/screens/AudioPlayScreen';
 import CacheManagementScreen from './src/screens/CacheManagementScreen';
 import TagManagementScreen from './src/screens/TagManagementScreen';
 import AboutScreen from './src/screens/AboutScreen';
+import AccountSecurityScreen from './src/screens/AccountSecurityScreen';
 import DrawerContent from './src/screens/DrawerContent';
 
 const Stack = createNativeStackNavigator();
@@ -149,6 +150,9 @@ function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
             options={{ headerShown: false, presentation: 'modal', animation: 'slide_from_bottom', gestureEnabled: true }} />
           <Stack.Screen name="Settings" options={{ title: '设置', ...headerOptions }}>
             {() => <SettingsScreen onLogout={onLogout} />}
+          </Stack.Screen>
+          <Stack.Screen name="AccountSecurity" options={{ title: '账号与安全', ...headerOptions }}>
+            {() => <AccountSecurityScreen onLogout={onLogout} />}
           </Stack.Screen>
           <Stack.Screen name="ProfileEdit" component={ProfileEditScreen}
             options={{ title: '编辑个人信息', ...headerOptions }} />

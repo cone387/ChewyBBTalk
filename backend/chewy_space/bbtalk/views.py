@@ -246,6 +246,44 @@ def get_current_user(request):
     return Response(serializer.data)
 
 
+@extend_schema(
+    tags=['User'],
+    request={
+        'application/json': {
+            'type': 'object',
+            'properties': {
+                'password': {'type': 'string', 'description': '当前密码（用于身份验证）'},
+            },
+            'required': ['password']
+        }
+    },
+    responses={
+        200: {'description': '账号已删除'},
+        400: {'description': '密码错误或请求无效'},
+    }
+)
+@api_view(['POST'])
+@permission_classes_decorator([permissions.IsAuthenticated])
+def delete_account(request):
+    """删除当前用户账号及所有关联数据"""
+    password = request.data.get('password', '')
+
+    if not password:
+        return Response({'error': '请输入密码以确认删除'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # 验证密码
+    user = authenticate_with_password(request.user.username, password)
+    if not user:
+        return Response({'error': '密码错误，请重新输入'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        # 删除用户（关联数据通过 CASCADE 自动删除）
+        user.delete()
+        return Response({'message': '账号已成功删除'})
+    except Exception as e:
+        return Response({'error': f'删除失败: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 class BBTalkFilter(django_filters.FilterSet):
     create_time__date = django_filters.DateFilter(field_name='create_time', lookup_expr='date')
 

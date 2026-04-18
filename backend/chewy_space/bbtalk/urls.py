@@ -9,7 +9,8 @@ from .views import (
     update_storage_settings, delete_storage_settings, activate_storage_settings,
     deactivate_all_storage, test_storage_connection, test_storage_connection_by_id,
     export_data, import_data, validate_import,
-    storage_migration_preview, storage_migration_execute
+    storage_migration_preview, storage_migration_execute,
+    delete_account,
 )
 
 router = DefaultRouter()
@@ -28,6 +29,7 @@ urlpatterns = [
     path('auth/register/', register_view, name='register'),  # 注册（返回 JWT Token）
     # 用户接口
     path('user/me/', get_current_user, name='user_me'),
+    path('user/delete-account/', delete_account, name='delete_account'),
     # 存储设置接口
     path('settings/storage/', list_storage_settings, name='storage_settings_list'),
     path('settings/storage/active/', get_storage_settings, name='storage_settings_get_active'),

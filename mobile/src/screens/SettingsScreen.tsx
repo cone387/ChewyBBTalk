@@ -11,6 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 interface Props { onLogout: () => void; }
 
 const MENU_ITEMS = [
+  { key: 'account', title: '账号与安全', subtitle: '账号信息、删除账号', icon: 'person-circle' as const, bgColor: '#EF4444' },
   { key: 'theme', title: '主题设置', subtitle: '切换多种主题风格', icon: 'color-palette' as const, bgColor: '#8B5CF6' },
   { key: 'privacy', title: '防窥设置', subtitle: '超时时长、倒计时显示', icon: 'lock-closed' as const, bgColor: '#7C3AED' },
   { key: 'storage', title: '存储设置', subtitle: '服务器存储、S3 云存储配置', icon: 'server' as const, bgColor: '#059669' },
@@ -45,6 +46,7 @@ export default function SettingsScreen({ onLogout }: Props) {
       return;
     }
     const routes: Record<string, string> = {
+      account: 'AccountSecurity',
       theme: 'ThemeSettings',
       privacy: 'PrivacySettings',
       storage: 'StorageSettings',
@@ -121,8 +123,6 @@ export default function SettingsScreen({ onLogout }: Props) {
             }} trackColor={{ false: c.border, true: c.primary }} thumbColor="#fff" />
           </View>
         </View>
-
-        <Text style={[styles.version, { color: c.textTertiary }]}>ChewyBBTalk v1.1.0</Text>
       </ScrollView>
 
       <View style={[styles.logoutBar, { paddingBottom: insets.bottom + 12, backgroundColor: c.surfaceSecondary }]}>
@@ -157,7 +157,6 @@ const styles = StyleSheet.create({
   menuInfo: { flex: 1 },
   menuTitle: { fontSize: 16, fontWeight: '600' },
   menuSubtitle: { fontSize: 13, marginTop: 3 },
-  version: { textAlign: 'center', fontSize: 12, marginTop: 20 },
   logoutBar: { paddingHorizontal: 16, paddingTop: 8 },
   logoutBtn: {
     flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6,
