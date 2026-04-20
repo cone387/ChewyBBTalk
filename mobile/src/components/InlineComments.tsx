@@ -75,7 +75,7 @@ export default function InlineComments({ bbtalkId, commentCount, newComment, the
   const hasMore = comments.length > MAX_COLLAPSED;
 
   return (
-    <View style={[styles.container, { borderTopColor: c.border }]}>
+    <View style={[styles.container, { backgroundColor: c.border + '30', borderTopColor: c.border }]}>
       {loading && !loaded ? (
         <ActivityIndicator size="small" color={c.textTertiary} style={{ paddingVertical: 8 }} />
       ) : (
@@ -88,11 +88,11 @@ export default function InlineComments({ bbtalkId, commentCount, newComment, the
               onLongPress={() => handleDelete(comment)}
               delayLongPress={500}
             >
-              <Text style={[styles.commentText, { color: c.text }]} numberOfLines={expanded ? undefined : 2}>
-                <Text style={[styles.commentAuthor, { color: c.primary }]}>
+              <Text style={[styles.commentText, { color: c.textSecondary }]} numberOfLines={expanded ? undefined : 2}>
+                <Text style={[styles.commentAuthor, { color: c.accent || c.primary }]}>
                   {comment.userDisplayName || comment.userUsername}
                 </Text>
-                {'：'}
+                {' · '}
                 {comment.content}
               </Text>
               <Text style={[styles.commentTime, { color: c.textTertiary }]}>{formatTime(comment.createdAt)}</Text>
@@ -112,7 +112,7 @@ export default function InlineComments({ bbtalkId, commentCount, newComment, the
 }
 
 const styles = StyleSheet.create({
-  container: { marginTop: 10, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth },
+  container: { marginTop: 10, paddingTop: 10, paddingHorizontal: 12, paddingBottom: 8, borderRadius: 12, borderTopWidth: 0 },
   commentRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', paddingVertical: 3, gap: 8 },
   commentText: { flex: 1, fontSize: 13, lineHeight: 18 },
   commentAuthor: { fontWeight: '600' },
