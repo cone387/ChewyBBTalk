@@ -5,8 +5,8 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django_filters.rest_framework import DjangoFilterBackend
 import django_filters
 from django.http import HttpResponse
-from .models import BBTalk, Tag, generate_tag_color, User, UserStorageSettings
-from .serializers import BBTalkSerializer, TagSerializer, UserSerializer, UserStorageSettingsSerializer
+from .models import BBTalk, Tag, generate_tag_color, User, UserStorageSettings, Comment
+from .serializers import BBTalkSerializer, TagSerializer, UserSerializer, UserStorageSettingsSerializer, CommentSerializer
 from .authentication import authenticate_with_password, create_user_with_password
 from .data_export import DataExporter
 from .data_import import DataImporter, validate_import_file, ImportError
@@ -286,10 +286,12 @@ def delete_account(request):
 
 class BBTalkFilter(django_filters.FilterSet):
     create_time__date = django_filters.DateFilter(field_name='create_time', lookup_expr='date')
+    create_time__gte = django_filters.DateTimeFilter(field_name='create_time', lookup_expr='gte')
+    create_time__lte = django_filters.DateTimeFilter(field_name='create_time', lookup_expr='lte')
 
     class Meta:
         model = BBTalk
-        fields = ['tags__name', 'visibility', 'create_time__date']
+        fields = ['tags__name', 'visibility', 'create_time__date', 'create_time__gte', 'create_time__lte']
 
 
 class BBTalkViewSet(viewsets.ModelViewSet):
@@ -313,6 +315,8 @@ class BBTalkViewSet(viewsets.ModelViewSet):
             user=user
         ).prefetch_related(
             'tags'  # 预加载标签
+        ).annotate(
+            comment_count=Count('comments')
         ).order_by('-is_pinned', '-update_time')
 
     @action(detail=True, methods=['post'], url_path='pin')
@@ -343,6 +347,28 @@ class BBTalkViewSet(viewsets.ModelViewSet):
             {'date': item['date'].isoformat(), 'count': item['count']}
             for item in counts
         ])
+
+    @action(detail=True, methods=['get', 'post'], url_path='comments')
+    def comments(self, request, uid=None):
+        """获取或创建碎碎念的评论"""
+        bbtalk = self.get_object()
+        if request.method == 'GET':
+            comments = bbtalk.comments.select_related('user').all()
+            serializer = CommentSerializer(comments, many=True)
+            return Response(serializer.data)
+        else:
+            serializer = CommentSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            serializer.save(user=request.user, bbtalk=bbtalk)
+            return Response(CommentSerializer(serializer.instance).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['delete'], url_path='comments/(?P<comment_uid>[^/.]+)')
+    def delete_comment(self, request, uid=None, comment_uid=None):
+        """删除评论"""
+        bbtalk = self.get_object()
+        comment = get_object_or_404(bbtalk.comments, uid=comment_uid, user=request.user)
+        comment.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class TagViewSet(viewsets.ModelViewSet):

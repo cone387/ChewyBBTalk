@@ -24,6 +24,7 @@ export interface BBTalk {
   attachments: Attachment[];
   context?: Record<string, any>;
   isPinned?: boolean;
+  commentCount?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -66,4 +67,15 @@ export interface StorageSettings {
   is_s3_configured: boolean;
   create_time: string;
   update_time: string;
+}
+
+export interface Comment {
+  uid: string;
+  user: number;
+  userDisplayName: string;
+  userAvatar: string;
+  userUsername: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
 }

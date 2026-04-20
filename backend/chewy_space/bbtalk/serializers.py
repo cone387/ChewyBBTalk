@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from rest_framework.request import Request
-from .models import BBTalk, Tag, generate_tag_color, User, UserStorageSettings
+from .models import BBTalk, Tag, generate_tag_color, User, UserStorageSettings, Comment
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -25,6 +25,7 @@ class BBTalkSerializer(serializers.ModelSerializer):
     tags = TagSerializer(many=True, read_only=True)
     # attachments 字段用于存储附件元信息列表
     attachments = serializers.JSONField(required=False, default=list)
+    comment_count = serializers.IntegerField(read_only=True, default=0)
 
     post_tags = serializers.CharField(write_only=True, allow_null=True, allow_blank=True,
                                       help_text='标签, 按逗号分隔, 例如: 标签1,标签2,标签3',
@@ -67,7 +68,7 @@ class BBTalkSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = BBTalk
-        fields = ('uid', 'user', 'post_tags', 'content', 'visibility', 'context', 'tags', 'attachments', 'is_pinned', 'create_time', 'update_time')
+        fields = ('uid', 'user', 'post_tags', 'content', 'visibility', 'context', 'tags', 'attachments', 'is_pinned', 'comment_count', 'create_time', 'update_time')
         read_only_fields = ('uid', 'user', 'create_time', 'update_time')
 
 
@@ -122,3 +123,13 @@ class UserStorageSettingsSerializer(serializers.ModelSerializer):
             validated_data.pop('s3_secret_access_key', None)
         return super().update(instance, validated_data)
 
+
+class CommentSerializer(serializers.ModelSerializer):
+    user_display_name = serializers.CharField(source='user.display_name', read_only=True)
+    user_avatar = serializers.URLField(source='user.avatar', read_only=True)
+    user_username = serializers.CharField(source='user.username', read_only=True)
+    
+    class Meta:
+        model = Comment
+        fields = ('uid', 'user', 'user_display_name', 'user_avatar', 'user_username', 'bbtalk', 'content', 'create_time', 'update_time')
+        read_only_fields = ('uid', 'user', 'user_display_name', 'user_avatar', 'user_username', 'bbtalk', 'create_time', 'update_time')

@@ -75,7 +75,7 @@ export default defineConfig({
         ]
       },
       devOptions: {
-        enabled: true // 开发环境也启用PWA
+        enabled: false
       }
     })
   ],

@@ -372,6 +372,30 @@ class BBTalk(BaseModel):
         ]
 
 
+class Comment(BaseModel):
+    uid = models.CharField(max_length=22, unique=True, verbose_name="uid", default=generate_uid, editable=False)
+    bbtalk = models.ForeignKey(
+        BBTalk,
+        on_delete=models.CASCADE,
+        related_name='comments',
+        db_constraint=False,
+        verbose_name="碎碎念"
+    )
+    content = models.TextField(verbose_name="评论内容")
+    
+    class Meta:
+        ordering = ['create_time']
+        verbose_name = verbose_name_plural = "评论"
+        db_table = "cb_comments"
+        indexes = [
+            models.Index(fields=['bbtalk', 'create_time'], name='comment_bbtalk_time_idx'),
+            models.Index(fields=['user', '-create_time'], name='comment_user_time_idx'),
+        ]
+    
+    def __str__(self):
+        return self.content[:30]
+
+
 class Attachment(AttachmentBase):
     """
     自定义附件模型

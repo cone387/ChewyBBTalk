@@ -16,7 +16,7 @@ export interface SwipeableBBTalkCardProps {
   onMenu: (item: BBTalk) => void;
   onEdit: (item: BBTalk) => void;
   onToggleVisibility: (item: BBTalk) => void;
-  onImagePreview: (url: string) => void;
+  onImagePreview: (images: string[], index: number) => void;
   onLocationPress: (loc: { latitude: number; longitude: number }) => void;
   onLongPress?: (item: BBTalk) => void;
   batchMode: boolean;

@@ -16,7 +16,7 @@ export interface BBTalkCardProps {
   onMenu: (item: BBTalk) => void;
   onEdit: (item: BBTalk) => void;
   onToggleVisibility: (item: BBTalk) => void;
-  onImagePreview: (url: string) => void;
+  onImagePreview: (images: string[], index: number) => void;
   onLocationPress: (loc: { latitude: number; longitude: number }) => void;
   theme: Theme;
 }
@@ -74,6 +74,7 @@ export function arePropsEqual(prev: BBTalkCardProps, next: BBTalkCardProps): boo
   if (prev.item.content !== next.item.content) return false;
   if (prev.item.updatedAt !== next.item.updatedAt) return false;
   if (prev.item.isPinned !== next.item.isPinned) return false;
+  if (prev.item.commentCount !== next.item.commentCount) return false;
   if (prev.item.visibility !== next.item.visibility) return false;
 
   // Tags array
@@ -158,8 +159,8 @@ const BBTalkCard = React.memo(function BBTalkCard({
       {/* Image thumbnails */}
       {images.length > 0 && (
         <View style={styles.imageRow}>
-          {images.map(att => (
-            <TouchableOpacity key={att.uid} onPress={() => onImagePreview(att.url)}>
+          {images.map((att, idx) => (
+            <TouchableOpacity key={att.uid} onPress={() => onImagePreview(images.map(i => i.url), idx)}>
               <Image source={att.url} style={[styles.thumbnail, { backgroundColor: c.borderLight }]} contentFit="cover" cachePolicy="disk" />
             </TouchableOpacity>
           ))}
@@ -184,6 +185,12 @@ const BBTalkCard = React.memo(function BBTalkCard({
             <TouchableOpacity onPress={() => onLocationPress(loc)} style={{ padding: 2 }}>
               <Ionicons name="location-outline" size={13} color="#10B981" />
             </TouchableOpacity>
+          )}
+          {(item.commentCount ?? 0) > 0 && (
+            <View style={styles.commentBadge}>
+              <Ionicons name="chatbubble-outline" size={12} color={c.textTertiary} />
+              <Text style={[styles.commentCount, { color: c.textTertiary }]}>{item.commentCount}</Text>
+            </View>
           )}
         </View>
         <TouchableOpacity onPress={() => onToggleVisibility(item)} style={styles.visBtn} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }} accessibilityLabel={item.visibility === 'public' ? '切换为私密' : '切换为公开'}>
@@ -233,5 +240,7 @@ const styles = StyleSheet.create({
   },
   footerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   time: { fontSize: 12 },
+  commentBadge: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  commentCount: { fontSize: 11 },
   visBtn: { padding: 10 },
 });

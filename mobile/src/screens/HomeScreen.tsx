@@ -60,6 +60,8 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
   const [searchText, setSearchText] = useState('');
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [previewImages, setPreviewImages] = useState<string[]>([]);
+  const [previewIndex, setPreviewIndex] = useState(0);
   const [voiceRecording, setVoiceRecording] = useState(false);
   const [showTagTabs, setShowTagTabs] = useState(false);
   const wasLoadingRef = useRef(false);
@@ -253,12 +255,21 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
       AsyncStorage.setItem('search_history', JSON.stringify(next));
       return next;
     });
-  }, []);
+    // Trigger server-side search
+    const tagNames = selectedTag ? [tags.find(t => t.id === selectedTag)?.name].filter(Boolean) as string[] : [];
+    dispatch(loadBBTalks({ search: term, tags: tagNames, date: selectedDate || undefined }));
+  }, [dispatch, selectedTag, selectedDate, tags]);
   const clearSearchHistory = useCallback(() => { setSearchHistory([]); AsyncStorage.removeItem('search_history'); }, []);
 
-  const filteredBBTalks = searchText
-    ? bbtalks.filter(b => b.content.toLowerCase().includes(searchText.toLowerCase()))
-    : bbtalks;
+  const filteredBBTalks = bbtalks;
+
+  const handleImagePreview = useCallback((images: string[], index: number) => {
+    setPreviewImages(images);
+    setPreviewIndex(index);
+    setPreviewImage(images[index]);
+  }, []);
+    batch.selectAll(filteredBBTalks.map(b => b.id));
+  }, [batch.selectAll, filteredBBTalks]);
 
   const handleBatchSelectAll = useCallback(() => {
     batch.selectAll(filteredBBTalks.map(b => b.id));
@@ -285,7 +296,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
       onMenu={actions.showMenu}
       onEdit={onNavigateCompose}
       onToggleVisibility={actions.toggleVisibility}
-      onImagePreview={setPreviewImage}
+      onImagePreview={handleImagePreview}
       onLocationPress={showLocation}
       onLongPress={handleLongPress}
       batchMode={batch.batchMode}
@@ -294,7 +305,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
       openSwipeRef={openSwipeRef}
       theme={theme}
     />
-  ), [handleDeleteGuarded, onTogglePin, actions.showMenu, onNavigateCompose, actions.toggleVisibility, showLocation, handleLongPress, batch.batchMode, batch.selectedIds, batch.toggleSelect, theme]);
+  ), [handleDeleteGuarded, onTogglePin, actions.showMenu, onNavigateCompose, actions.toggleVisibility, handleImagePreview, showLocation, handleLongPress, batch.batchMode, batch.selectedIds, batch.toggleSelect, theme]);
 
   // --- Render ---
 
@@ -335,7 +346,16 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
               )}
             </View>
           )}
-          <TouchableOpacity onPress={() => { setSearchVisible(!searchVisible); if (searchVisible) { saveSearchHistory(searchText); setSearchText(''); } }} style={styles.headerBtn} accessibilityLabel={searchVisible ? '关闭搜索' : '搜索'}>
+          <TouchableOpacity onPress={() => {
+            if (searchVisible) {
+              if (searchText.trim()) saveSearchHistory(searchText);
+              setSearchText('');
+              // Reload without search filter
+              const tagNames = selectedTag ? [tags.find(t => t.id === selectedTag)?.name].filter(Boolean) as string[] : [];
+              dispatch(loadBBTalks({ tags: tagNames, date: selectedDate || undefined }));
+            }
+            setSearchVisible(!searchVisible);
+          }} style={styles.headerBtn} accessibilityLabel={searchVisible ? '关闭搜索' : '搜索'}>
             <Ionicons name={searchVisible ? 'close' : 'search-outline'} size={22} color={c.text} />
           </TouchableOpacity>
         </View>
@@ -399,7 +419,22 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
           <TouchableOpacity style={styles.previewClose} onPress={() => setPreviewImage(null)}>
             <Ionicons name="close" size={28} color="#fff" />
           </TouchableOpacity>
+          {previewImages.length > 1 && (
+            <View style={styles.previewCounter}>
+              <Text style={styles.previewCounterText}>{previewIndex + 1} / {previewImages.length}</Text>
+            </View>
+          )}
           {previewImage && <ImageViewer imageUrl={previewImage} onClose={() => setPreviewImage(null)} />}
+          {previewImages.length > 1 && previewIndex > 0 && (
+            <TouchableOpacity style={[styles.previewNav, styles.previewNavLeft]} onPress={() => { const i = previewIndex - 1; setPreviewIndex(i); setPreviewImage(previewImages[i]); }}>
+              <Ionicons name="chevron-back" size={32} color="#fff" />
+            </TouchableOpacity>
+          )}
+          {previewImages.length > 1 && previewIndex < previewImages.length - 1 && (
+            <TouchableOpacity style={[styles.previewNav, styles.previewNavRight]} onPress={() => { const i = previewIndex + 1; setPreviewIndex(i); setPreviewImage(previewImages[i]); }}>
+              <Ionicons name="chevron-forward" size={32} color="#fff" />
+            </TouchableOpacity>
+          )}
         </View>
       </Modal>
 
@@ -456,4 +491,9 @@ const styles = StyleSheet.create({
   countdownText: { color: '#fff', fontSize: 12, fontWeight: '600' },
   previewOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)' },
   previewClose: { position: 'absolute', top: 50, right: 20, zIndex: 10, padding: 8 },
+  previewCounter: { position: 'absolute', top: 56, left: 0, right: 0, zIndex: 10, alignItems: 'center' },
+  previewCounterText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  previewNav: { position: 'absolute', top: '45%', zIndex: 10, padding: 12, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 24 },
+  previewNavLeft: { left: 12 },
+  previewNavRight: { right: 12 },
 });
