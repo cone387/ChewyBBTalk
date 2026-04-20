@@ -1,5 +1,5 @@
 import { apiClient } from './apiClient';
-import type { BBTalk, PaginatedResponse, Attachment } from '../../types';
+import type { BBTalk, PaginatedResponse, Attachment, Comment } from '../../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
@@ -46,6 +46,8 @@ function transformBBTalk(data: any): BBTalk {
     })),
     attachments: (data.attachments || []).map(transformAttachment),
     context: data.context || {},
+    isPinned: data.is_pinned || false,
+    commentCount: data.comment_count || 0,
     createdAt: data.create_time,
     updatedAt: data.update_time,
   };
@@ -179,6 +181,38 @@ export const bbtalkApi = {
 
     const data = await response.json();
     return transformBBTalk(data);
+  },
+
+  async getComments(bbtalkUid: string): Promise<Comment[]> {
+    const data = await apiClient.get<any[]>(`/api/v1/bbtalk/${bbtalkUid}/comments/`);
+    return data.map((c: any) => ({
+      uid: c.uid,
+      user: c.user,
+      userDisplayName: c.user_display_name || '',
+      userAvatar: c.user_avatar || '',
+      userUsername: c.user_username || '',
+      content: c.content,
+      createdAt: c.create_time,
+      updatedAt: c.update_time,
+    }));
+  },
+
+  async createComment(bbtalkUid: string, content: string): Promise<Comment> {
+    const data = await apiClient.post<any>(`/api/v1/bbtalk/${bbtalkUid}/comments/`, { content });
+    return {
+      uid: data.uid,
+      user: data.user,
+      userDisplayName: data.user_display_name || '',
+      userAvatar: data.user_avatar || '',
+      userUsername: data.user_username || '',
+      content: data.content,
+      createdAt: data.create_time,
+      updatedAt: data.update_time,
+    };
+  },
+
+  async deleteComment(bbtalkUid: string, commentUid: string): Promise<void> {
+    await apiClient.delete(`/api/v1/bbtalk/${bbtalkUid}/comments/${commentUid}/`);
   },
 };
 

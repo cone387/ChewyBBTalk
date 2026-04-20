@@ -23,6 +23,19 @@ export interface BBTalk {
   tags: Tag[];
   attachments: Attachment[];
   context?: Record<string, any>;
+  isPinned?: boolean;
+  commentCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Comment {
+  uid: string;
+  user: number;
+  userDisplayName: string;
+  userAvatar: string;
+  userUsername: string;
+  content: string;
   createdAt: string;
   updatedAt: string;
 }
