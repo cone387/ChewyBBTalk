@@ -25,11 +25,154 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { Tag, Attachment } from '../types'
+import type { Tag, Attachment, Comment } from '../types'
 import MarkdownRenderer from '../components/MarkdownRenderer'
 import UndoToast from '../components/UndoToast'
 import SkeletonCard from '../components/SkeletonCard'
 import { bbtalkApi } from '../services/api'
+
+// 内联评论按钮组件
+function InlineCommentButton({ bbtalkId, commentCount: initialCount, inputVisible, onToggleInput }: { bbtalkId: string; commentCount: number; inputVisible: boolean; onToggleInput: () => void }) {
+  const [comments, setComments] = useState<Comment[]>([])
+  const [loaded, setLoaded] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [expanded, setExpanded] = useState(true)
+  const [newComment, setNewComment] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [localCount, setLocalCount] = useState(initialCount)
+
+  // 有评论时自动加载
+  useEffect(() => {
+    if (initialCount > 0 && !loaded && !loading) {
+      setLoading(true)
+      bbtalkApi.getComments(bbtalkId).then(data => {
+        setComments(data)
+        setLoaded(true)
+      }).catch(() => {}).finally(() => setLoading(false))
+    }
+  }, [bbtalkId, initialCount])
+
+  const handleSubmit = async () => {
+    const text = newComment.trim()
+    if (!text || submitting) return
+    setSubmitting(true)
+    try {
+      const comment = await bbtalkApi.createComment(bbtalkId, text)
+      setComments(prev => [...prev, comment])
+      setNewComment('')
+      onToggleInput()
+      setLocalCount(prev => prev + 1)
+      setLoaded(true)
+      setExpanded(true)
+    } catch (e: any) {
+      alert('发送失败: ' + (e.message || '请稍后重试'))
+    } finally { setSubmitting(false) }
+  }
+
+  const handleDelete = async (comment: Comment) => {
+    if (!confirm('确定要删除这条评论吗？')) return
+    try {
+      await bbtalkApi.deleteComment(bbtalkId, comment.uid)
+      setComments(prev => prev.filter(c => c.uid !== comment.uid))
+      setLocalCount(prev => Math.max(0, prev - 1))
+    } catch (e: any) { alert('删除失败: ' + e.message) }
+  }
+
+  const formatTime = (dateStr: string) => {
+    const d = new Date(dateStr)
+    const diff = Date.now() - d.getTime()
+    const mins = Math.floor(diff / 60000)
+    if (mins < 1) return '刚刚'
+    if (mins < 60) return `${mins}分钟前`
+    const hours = Math.floor(diff / 3600000)
+    if (hours < 24) return `${hours}小时前`
+    const days = Math.floor(diff / 86400000)
+    if (days < 7) return `${days}天前`
+    return d.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })
+  }
+
+  return (
+    <div>
+      {/* 评论列表 - 浅灰背景 */}
+      {expanded && comments.length > 0 && (
+        <div className="mt-3 bg-gray-50 rounded-xl px-4 py-3 space-y-2.5">
+          {comments.map(comment => (
+            <div key={comment.uid} className="flex items-start justify-between gap-2 group/comment text-sm">
+              <p className="flex-1 text-gray-600 leading-relaxed">
+                <span className="font-medium text-indigo-600">{comment.userDisplayName || comment.userUsername}</span>
+                <span className="text-gray-300 mx-1">·</span>
+                {comment.content}
+              </p>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-xs text-gray-400">{formatTime(comment.createdAt)}</span>
+                <button onClick={() => handleDelete(comment)} className="text-gray-300 hover:text-red-500 opacity-0 group-hover/comment:opacity-100 transition-opacity text-xs">✕</button>
+              </div>
+            </div>
+          ))}
+          {comments.length > 3 && (
+            <button onClick={() => setExpanded(false)} className="text-xs text-gray-400 hover:text-gray-600">
+              收起
+            </button>
+          )}
+        </div>
+      )}
+
+      {!expanded && comments.length > 0 && (
+        <button onClick={() => setExpanded(true)} className="mt-2 text-xs text-indigo-500 hover:text-indigo-600">
+          查看 {comments.length} 条评论
+        </button>
+      )}
+
+      {/* 评论输入框 */}
+      {inputVisible && (
+        <div className="mt-3 flex gap-2">
+          <input
+            type="text"
+            value={newComment}
+            onChange={e => setNewComment(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit() }
+              if (e.key === 'Escape') { onToggleInput(); setNewComment('') }
+            }}
+            placeholder="写一条评论... (Enter 发送, Esc 取消)"
+            className="flex-1 px-4 py-2 text-sm border border-gray-200 rounded-full focus:outline-none focus:border-indigo-400 bg-gray-50 placeholder-gray-400"
+            disabled={submitting}
+            autoFocus
+          />
+          <button
+            onClick={handleSubmit}
+            disabled={!newComment.trim() || submitting}
+            className="px-4 py-2 text-sm text-white bg-indigo-500 rounded-full hover:bg-indigo-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            {submitting ? '...' : '发送'}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// 卡片评论区包装组件 - 渲染评论按钮（footer右侧）和评论内容（footer下方）
+function CardCommentSection({ bbtalkId, commentCount }: { bbtalkId: string; commentCount: number }) {
+  const [inputVisible, setInputVisible] = useState(false)
+  return (
+    <>
+      {/* 评论按钮 - 直接返回，由父级放到 footer 右侧 */}
+      <button
+        onClick={() => setInputVisible(!inputVisible)}
+        className="text-gray-400 hover:text-indigo-500 flex items-center gap-1 transition-colors text-sm"
+        title="评论"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+        </svg>
+        {commentCount > 0 && <span>{commentCount}</span>}
+      </button>
+      {/* 评论列表和输入框 */}
+      <InlineCommentButton bbtalkId={bbtalkId} commentCount={commentCount} inputVisible={inputVisible} onToggleInput={() => setInputVisible(false)} />
+    </>
+  )
+}
 
 // Props 接口
 interface BBTalkPageProps {
@@ -114,6 +257,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
   const [showBackToTop, setShowBackToTop] = useState(false)
   const [showMobileMenu, setShowMobileMenu] = useState(false) // 移动端菜单
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
+  const [activeCommentId, setActiveCommentId] = useState<string | null>(null)
   const [editingBBTalk, setEditingBBTalk] = useState<typeof bbtalks[0] | null>(null)
   const [searchKeyword, setSearchKeyword] = useState('')
   const [selectedTags, setSelectedTags] = useState<string[]>([])
@@ -255,7 +399,8 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
       }
       
       // 滚动超过400px显示回到顶部按钮
-      setShowBackToTop(currentScrollY > 400)
+      const shouldShow = currentScrollY > 400
+      setShowBackToTop(prev => prev !== shouldShow ? shouldShow : prev)
       
       // 滚动到底部时加载更多
       if (scrollHeight - currentScrollY - clientHeight < 100 && hasMore && !isLoading && !isLoadingMore) {
@@ -1000,7 +1145,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                         </span>
                         
                         {/* 来源 - 根据设备类型使用不同图标 */}
-                        <span className="flex items-center gap-1 text-gray-500 relative group/device cursor-help">
+                        <span className="flex items-center gap-1 text-gray-500 relative group/device cursor-help" title={isMobile ? '手机' : source}>
                           {isMobile ? (
                             // 移动设备图标
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1012,13 +1157,11 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                             </svg>
                           )}
-                          {isMobile ? '手机' : source}
-                          {/* Hover提示框 - 显示在右上方 */}
+                          {/* Hover提示框 */}
                           <div className="absolute bottom-full left-0 mb-2 hidden group-hover/device:block z-10 whitespace-nowrap">
                             <div className="bg-gray-900 text-white px-3 py-2 rounded-lg shadow-lg text-sm">
-                              <div className="font-medium">发布设备</div>
-                              <div className="text-xs mt-1">
-                                {isMobile ? '移动设备 (手机)' : `桌面设备 (${source})`}
+                              <div className="text-xs">
+                                {isMobile ? '手机' : source}
                               </div>
                               {/* 小三角 */}
                               <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
@@ -1061,7 +1204,22 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                           )}
                         </span>
                           </div>
+
+                          {/* 评论按钮 - footer 右侧 */}
+                          <button
+                            onClick={() => setActiveCommentId(activeCommentId === bbtalk.id ? null : bbtalk.id)}
+                            className="text-gray-400 hover:text-indigo-500 flex items-center gap-1 transition-colors text-sm"
+                            title="评论"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                            {(bbtalk as any).commentCount > 0 && <span>{(bbtalk as any).commentCount}</span>}
+                          </button>
                         </div>
+
+                        {/* 评论列表和输入框 */}
+                        <InlineCommentButton bbtalkId={bbtalk.id} commentCount={(bbtalk as any).commentCount ?? 0} inputVisible={activeCommentId === bbtalk.id} onToggleInput={() => setActiveCommentId(null)} />
                       </div>
                     )}
                   </div>
