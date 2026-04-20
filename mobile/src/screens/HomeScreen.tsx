@@ -81,6 +81,10 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
     return false; // allowed
   }, [isOffline]);
 
+  const onNavigateDetail = useCallback((item: BBTalk) => {
+    navigation.navigate('BBTalkDetail', { item });
+  }, [navigation]);
+
   const onNavigateCompose = useCallback((item?: BBTalk) => {
     if (guardOfflineWrite()) return;
     navigation.navigate('Compose', item ? { editItem: item } : undefined);
@@ -292,7 +296,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
       onDelete={handleDeleteGuarded}
       onTogglePin={onTogglePin}
       onMenu={actions.showMenu}
-      onEdit={onNavigateCompose}
+      onEdit={onNavigateDetail}
       onToggleVisibility={actions.toggleVisibility}
       onImagePreview={handleImagePreview}
       onLocationPress={showLocation}
@@ -303,7 +307,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
       openSwipeRef={openSwipeRef}
       theme={theme}
     />
-  ), [handleDeleteGuarded, onTogglePin, actions.showMenu, onNavigateCompose, actions.toggleVisibility, handleImagePreview, showLocation, handleLongPress, batch.batchMode, batch.selectedIds, batch.toggleSelect, theme]);
+  ), [handleDeleteGuarded, onTogglePin, actions.showMenu, onNavigateDetail, actions.toggleVisibility, handleImagePreview, showLocation, handleLongPress, batch.batchMode, batch.selectedIds, batch.toggleSelect, theme]);
 
   // --- Render ---
 
