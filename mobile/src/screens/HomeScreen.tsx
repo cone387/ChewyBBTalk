@@ -12,7 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { loadBBTalks, loadMoreBBTalks, togglePinAsync, setBBTalksFromCache } from '../store/slices/bbtalkSlice';
 import { loadTags } from '../store/slices/tagSlice';
-import type { BBTalk } from '../types';
+import type { BBTalk, Comment } from '../types';
 import { useTheme } from '../theme/ThemeContext';
 import VoiceRecordingOverlay from '../components/VoiceRecordingOverlay';
 import UndoToast from '../components/UndoToast';
@@ -26,6 +26,7 @@ import BatchToolbar from '../components/BatchToolbar';
 import TagPickerModal from '../components/TagPickerModal';
 import VisibilityPickerModal from '../components/VisibilityPickerModal';
 import OfflineBanner from '../components/OfflineBanner';
+import CommentInputModal from '../components/CommentInputModal';
 import { usePrivacyMode } from '../hooks/usePrivacyMode';
 import { useTagSwipe } from '../hooks/useTagSwipe';
 import { useBBTalkActions } from '../hooks/useBBTalkActions';
@@ -64,6 +65,8 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
   const [previewIndex, setPreviewIndex] = useState(0);
   const [voiceRecording, setVoiceRecording] = useState(false);
   const [showTagTabs, setShowTagTabs] = useState(false);
+  const [commentTargetId, setCommentTargetId] = useState<string | null>(null);
+  const [lastAddedComment, setLastAddedComment] = useState<{ bbtalkId: string; comment: Comment } | null>(null);
   const wasLoadingRef = useRef(false);
 
   // --- Hooks ---
@@ -80,10 +83,6 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
     }
     return false; // allowed
   }, [isOffline]);
-
-  const onNavigateDetail = useCallback((item: BBTalk) => {
-    navigation.navigate('BBTalkDetail', { item });
-  }, [navigation]);
 
   const onNavigateCompose = useCallback((item?: BBTalk) => {
     if (guardOfflineWrite()) return;
@@ -106,6 +105,17 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
   }, [dispatch, guardOfflineWrite]);
 
   const handleSelectTag = useCallback((tagId: string | null) => { onSelectTag?.(tagId); }, [onSelectTag]);
+
+  const handleComment = useCallback((item: BBTalk) => {
+    if (guardOfflineWrite()) return;
+    setCommentTargetId(item.id);
+  }, [guardOfflineWrite]);
+
+  const handleCommentAdded = useCallback((comment: Comment) => {
+    if (commentTargetId) {
+      setLastAddedComment({ bbtalkId: commentTargetId, comment });
+    }
+  }, [commentTargetId]);
   const tagSwipe = useTagSwipe({ tags, selectedTag, showTagTabs, onSelectTag });
 
   // --- Batch Mode ---
@@ -296,10 +306,12 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
       onDelete={handleDeleteGuarded}
       onTogglePin={onTogglePin}
       onMenu={actions.showMenu}
-      onEdit={onNavigateDetail}
+      onEdit={onNavigateCompose}
       onToggleVisibility={actions.toggleVisibility}
       onImagePreview={handleImagePreview}
       onLocationPress={showLocation}
+      onComment={handleComment}
+      newComment={lastAddedComment?.bbtalkId === item.id ? lastAddedComment.comment : null}
       onLongPress={handleLongPress}
       batchMode={batch.batchMode}
       selected={batch.selectedIds.has(item.id)}
@@ -307,7 +319,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
       openSwipeRef={openSwipeRef}
       theme={theme}
     />
-  ), [handleDeleteGuarded, onTogglePin, actions.showMenu, onNavigateDetail, actions.toggleVisibility, handleImagePreview, showLocation, handleLongPress, batch.batchMode, batch.selectedIds, batch.toggleSelect, theme]);
+  ), [handleDeleteGuarded, onTogglePin, actions.showMenu, onNavigateCompose, actions.toggleVisibility, handleImagePreview, showLocation, handleComment, lastAddedComment, handleLongPress, batch.batchMode, batch.selectedIds, batch.toggleSelect, theme]);
 
   // --- Render ---
 
@@ -460,6 +472,13 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
         visible={visibilityPickerVisible}
         onConfirm={handleVisibilityPickerConfirm}
         onClose={() => setVisibilityPickerVisible(false)}
+        theme={theme}
+      />
+      <CommentInputModal
+        visible={!!commentTargetId}
+        bbtalkId={commentTargetId || ''}
+        onClose={() => setCommentTargetId(null)}
+        onCommentAdded={handleCommentAdded}
         theme={theme}
       />
     </View>

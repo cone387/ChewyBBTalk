@@ -31,7 +31,6 @@ import CacheManagementScreen from './src/screens/CacheManagementScreen';
 import TagManagementScreen from './src/screens/TagManagementScreen';
 import AboutScreen from './src/screens/AboutScreen';
 import AccountSecurityScreen from './src/screens/AccountSecurityScreen';
-import BBTalkDetailScreen from './src/screens/BBTalkDetailScreen';
 import DrawerContent from './src/screens/DrawerContent';
 
 const Stack = createNativeStackNavigator();
@@ -164,8 +163,6 @@ function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
           </Stack.Screen>
           <Stack.Screen name="ProfileEdit" component={ProfileEditScreen}
             options={{ title: '编辑个人信息', ...headerOptions }} />
-          <Stack.Screen name="BBTalkDetail" component={BBTalkDetailScreen}
-            options={{ title: '详情', ...headerOptions }} />
           <Stack.Screen name="ThemeSettings" component={ThemeSettingsScreen}
             options={{ title: '主题设置', ...headerOptions }} />
           <Stack.Screen name="PrivacySettings" component={PrivacySettingsScreen}

@@ -5,11 +5,12 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import Markdown from 'react-native-markdown-display';
-import type { BBTalk, Attachment } from '../types';
+import type { BBTalk, Attachment, Comment } from '../types';
 import type { Theme } from '../theme/ThemeContext';
 import { getMarkdownStyles } from '../utils/markdownStyles';
 import AudioPlayerButton from './AudioPlayerButton';
 import VideoPlayerButton from './VideoPlayerButton';
+import InlineComments from './InlineComments';
 
 export interface BBTalkCardProps {
   item: BBTalk;
@@ -18,6 +19,9 @@ export interface BBTalkCardProps {
   onToggleVisibility: (item: BBTalk) => void;
   onImagePreview: (images: string[], index: number) => void;
   onLocationPress: (loc: { latitude: number; longitude: number }) => void;
+  onComment: (item: BBTalk) => void;
+  /** Newly added comment to append to inline list */
+  newComment?: Comment | null;
   theme: Theme;
 }
 
@@ -99,6 +103,8 @@ export function arePropsEqual(prev: BBTalkCardProps, next: BBTalkCardProps): boo
   if (prev.onToggleVisibility !== next.onToggleVisibility) return false;
   if (prev.onImagePreview !== next.onImagePreview) return false;
   if (prev.onLocationPress !== next.onLocationPress) return false;
+  if (prev.onComment !== next.onComment) return false;
+  if (prev.newComment !== next.newComment) return false;
 
   // Theme reference
   if (prev.theme !== next.theme) return false;
@@ -113,6 +119,8 @@ const BBTalkCard = React.memo(function BBTalkCard({
   onToggleVisibility,
   onImagePreview,
   onLocationPress,
+  onComment,
+  newComment,
   theme,
 }: BBTalkCardProps) {
   const c = theme.colors;
@@ -186,21 +194,28 @@ const BBTalkCard = React.memo(function BBTalkCard({
               <Ionicons name="location-outline" size={13} color="#10B981" />
             </TouchableOpacity>
           )}
-          {(item.commentCount ?? 0) > 0 && (
-            <View style={styles.commentBadge}>
-              <Ionicons name="chatbubble-outline" size={12} color={c.textTertiary} />
-              <Text style={[styles.commentCount, { color: c.textTertiary }]}>{item.commentCount}</Text>
-            </View>
-          )}
         </View>
-        <TouchableOpacity onPress={() => onToggleVisibility(item)} style={styles.visBtn} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }} accessibilityLabel={item.visibility === 'public' ? '切换为私密' : '切换为公开'}>
-          <Ionicons
-            name={item.visibility === 'public' ? 'globe-outline' : 'lock-closed-outline'}
-            size={15}
-            color={item.visibility === 'public' ? c.primary : c.textTertiary}
-          />
-        </TouchableOpacity>
+        <View style={styles.footerRight}>
+          <TouchableOpacity onPress={() => onComment(item)} style={styles.commentBtn} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }} accessibilityLabel="评论">
+            <Ionicons name="chatbubble-outline" size={15} color={c.textTertiary} />
+            {(item.commentCount ?? 0) > 0 && (
+              <Text style={[styles.commentBtnCount, { color: c.textTertiary }]}>{item.commentCount}</Text>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => onToggleVisibility(item)} style={styles.visBtn} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }} accessibilityLabel={item.visibility === 'public' ? '切换为私密' : '切换为公开'}>
+            <Ionicons
+              name={item.visibility === 'public' ? 'globe-outline' : 'lock-closed-outline'}
+              size={15}
+              color={item.visibility === 'public' ? c.primary : c.textTertiary}
+            />
+          </TouchableOpacity>
+        </View>
       </View>
+
+      {/* Inline comments */}
+      {((item.commentCount ?? 0) > 0 || newComment) && (
+        <InlineComments bbtalkId={item.id} commentCount={item.commentCount ?? 0} newComment={newComment} theme={theme} />
+      )}
     </View>
   );
 }, arePropsEqual);
@@ -239,8 +254,9 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   footerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  footerRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   time: { fontSize: 12 },
-  commentBadge: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  commentCount: { fontSize: 11 },
+  commentBtn: { flexDirection: 'row', alignItems: 'center', gap: 3, padding: 10 },
+  commentBtnCount: { fontSize: 12 },
   visBtn: { padding: 10 },
 });

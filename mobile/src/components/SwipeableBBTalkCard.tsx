@@ -6,7 +6,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import BBTalkCard from './BBTalkCard';
-import type { BBTalk } from '../types';
+import type { BBTalk, Comment } from '../types';
 import type { Theme } from '../theme/ThemeContext';
 
 export interface SwipeableBBTalkCardProps {
@@ -18,6 +18,8 @@ export interface SwipeableBBTalkCardProps {
   onToggleVisibility: (item: BBTalk) => void;
   onImagePreview: (images: string[], index: number) => void;
   onLocationPress: (loc: { latitude: number; longitude: number }) => void;
+  onComment: (item: BBTalk) => void;
+  newComment?: Comment | null;
   onLongPress?: (item: BBTalk) => void;
   batchMode: boolean;
   selected: boolean;
@@ -38,6 +40,8 @@ const SwipeableBBTalkCard = React.memo(function SwipeableBBTalkCard({
   onToggleVisibility,
   onImagePreview,
   onLocationPress,
+  onComment,
+  newComment,
   onLongPress,
   batchMode,
   selected,
@@ -94,6 +98,8 @@ const SwipeableBBTalkCard = React.memo(function SwipeableBBTalkCard({
             onToggleVisibility={onToggleVisibility}
             onImagePreview={onImagePreview}
             onLocationPress={onLocationPress}
+            onComment={onComment}
+            newComment={newComment}
             theme={theme}
           />
         </View>
