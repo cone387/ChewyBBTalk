@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { loadBBTalks, loadMoreBBTalks, togglePinAsync, setBBTalksFromCache } from '../store/slices/bbtalkSlice';
+import { loadBBTalks, loadMoreBBTalks, togglePinAsync, setBBTalksFromCache, incrementCommentCount } from '../store/slices/bbtalkSlice';
 import { loadTags } from '../store/slices/tagSlice';
 import type { BBTalk, Comment } from '../types';
 import { useTheme } from '../theme/ThemeContext';
@@ -114,8 +114,9 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
   const handleCommentAdded = useCallback((comment: Comment) => {
     if (commentTargetId) {
       setLastAddedComment({ bbtalkId: commentTargetId, comment });
+      dispatch(incrementCommentCount(commentTargetId));
     }
-  }, [commentTargetId]);
+  }, [commentTargetId, dispatch]);
   const tagSwipe = useTagSwipe({ tags, selectedTag, showTagTabs, onSelectTag });
 
   // --- Batch Mode ---

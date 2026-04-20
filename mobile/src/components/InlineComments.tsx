@@ -2,6 +2,8 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { bbtalkApi } from '../services/api/bbtalkApi';
 import { formatTime } from './BBTalkCard';
+import { useAppDispatch } from '../store/hooks';
+import { decrementCommentCount } from '../store/slices/bbtalkSlice';
 import type { Comment } from '../types';
 import type { Theme } from '../theme/ThemeContext';
 
@@ -17,6 +19,7 @@ interface Props {
 
 export default function InlineComments({ bbtalkId, commentCount, newComment, theme }: Props) {
   const c = theme.colors;
+  const dispatch = useAppDispatch();
   const [comments, setComments] = useState<Comment[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -57,6 +60,7 @@ export default function InlineComments({ bbtalkId, commentCount, newComment, the
           try {
             await bbtalkApi.deleteComment(bbtalkId, comment.uid);
             setComments(prev => prev.filter(c => c.uid !== comment.uid));
+            dispatch(decrementCommentCount(bbtalkId));
           } catch (e: any) {
             Alert.alert('删除失败', e.message);
           }

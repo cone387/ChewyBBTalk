@@ -126,6 +126,14 @@ const bbtalkSlice = createSlice({
       state.bbtalks.splice(action.payload.index, 0, action.payload.bbtalk);
       state.totalCount += 1;
     },
+    incrementCommentCount: (state, action: PayloadAction<string>) => {
+      const item = state.bbtalks.find(b => b.id === action.payload);
+      if (item) item.commentCount = (item.commentCount ?? 0) + 1;
+    },
+    decrementCommentCount: (state, action: PayloadAction<string>) => {
+      const item = state.bbtalks.find(b => b.id === action.payload);
+      if (item && (item.commentCount ?? 0) > 0) item.commentCount = (item.commentCount ?? 0) - 1;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -176,5 +184,5 @@ const bbtalkSlice = createSlice({
   },
 });
 
-export const { clearError, setBBTalksFromCache, optimisticDelete, undoDelete } = bbtalkSlice.actions;
+export const { clearError, setBBTalksFromCache, optimisticDelete, undoDelete, incrementCommentCount, decrementCommentCount } = bbtalkSlice.actions;
 export default bbtalkSlice.reducer;
