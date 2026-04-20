@@ -268,8 +268,6 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
     setPreviewIndex(index);
     setPreviewImage(images[index]);
   }, []);
-    batch.selectAll(filteredBBTalks.map(b => b.id));
-  }, [batch.selectAll, filteredBBTalks]);
 
   const handleBatchSelectAll = useCallback(() => {
     batch.selectAll(filteredBBTalks.map(b => b.id));
