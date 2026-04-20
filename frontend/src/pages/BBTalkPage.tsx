@@ -39,7 +39,6 @@ function InlineCommentButton({ bbtalkId, commentCount: initialCount, inputVisibl
   const [expanded, setExpanded] = useState(true)
   const [newComment, setNewComment] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [localCount, setLocalCount] = useState(initialCount)
 
   // 有评论时自动加载
   useEffect(() => {
@@ -61,7 +60,6 @@ function InlineCommentButton({ bbtalkId, commentCount: initialCount, inputVisibl
       setComments(prev => [...prev, comment])
       setNewComment('')
       onToggleInput()
-      setLocalCount(prev => prev + 1)
       setLoaded(true)
       setExpanded(true)
     } catch (e: any) {
@@ -74,7 +72,6 @@ function InlineCommentButton({ bbtalkId, commentCount: initialCount, inputVisibl
     try {
       await bbtalkApi.deleteComment(bbtalkId, comment.uid)
       setComments(prev => prev.filter(c => c.uid !== comment.uid))
-      setLocalCount(prev => Math.max(0, prev - 1))
     } catch (e: any) { alert('删除失败: ' + e.message) }
   }
 
@@ -149,28 +146,6 @@ function InlineCommentButton({ bbtalkId, commentCount: initialCount, inputVisibl
         </div>
       )}
     </div>
-  )
-}
-
-// 卡片评论区包装组件 - 渲染评论按钮（footer右侧）和评论内容（footer下方）
-function CardCommentSection({ bbtalkId, commentCount }: { bbtalkId: string; commentCount: number }) {
-  const [inputVisible, setInputVisible] = useState(false)
-  return (
-    <>
-      {/* 评论按钮 - 直接返回，由父级放到 footer 右侧 */}
-      <button
-        onClick={() => setInputVisible(!inputVisible)}
-        className="text-gray-400 hover:text-indigo-500 flex items-center gap-1 transition-colors text-sm"
-        title="评论"
-      >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-        </svg>
-        {commentCount > 0 && <span>{commentCount}</span>}
-      </button>
-      {/* 评论列表和输入框 */}
-      <InlineCommentButton bbtalkId={bbtalkId} commentCount={commentCount} inputVisible={inputVisible} onToggleInput={() => setInputVisible(false)} />
-    </>
   )
 }
 

@@ -5,7 +5,6 @@ import MarkdownRenderer from './MarkdownRenderer';
 
 interface BBTalkItemProps {
   bbtalk: BBTalk;
-  onUpdate: (id: string, updated: Partial<BBTalk>) => void;
   onDelete: (id: string) => void;
 }
 
@@ -22,7 +21,7 @@ function formatTime(dateStr: string): string {
   return d.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' });
 }
 
-export default function BBTalkItem({ bbtalk, onDelete, onUpdate }: BBTalkItemProps) {
+export default function BBTalkItem({ bbtalk, onDelete }: BBTalkItemProps) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
