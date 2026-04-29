@@ -3,6 +3,138 @@ from django.views.decorators.http import require_GET
 
 
 @require_GET
+def support_view(request):
+    """
+    返回支持页面 HTML。
+    - 方法: GET
+    - 权限: AllowAny (无需认证)
+    - 返回: Content-Type: text/html, HTTP 200
+    """
+    html = """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Support - ChewyBBTalk</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                         "Helvetica Neue", Arial, "Noto Sans SC", sans-serif;
+            line-height: 1.8; color: #1a1a1a; background-color: #f9fafb; padding: 20px;
+        }
+        .container {
+            max-width: 720px; margin: 0 auto; background-color: #ffffff;
+            border-radius: 12px; padding: 32px 24px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        }
+        h1 { font-size: 1.75rem; font-weight: 700; text-align: center; margin-bottom: 8px; color: #111827; }
+        .app-name { text-align: center; font-size: 0.95rem; color: #6b7280; margin-bottom: 24px; }
+        h2 {
+            font-size: 1.25rem; font-weight: 600; color: #111827;
+            margin-top: 28px; margin-bottom: 12px; padding-bottom: 6px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        h3 { font-size: 1.05rem; font-weight: 600; color: #374151; margin-top: 20px; margin-bottom: 8px; }
+        p { margin-bottom: 12px; color: #374151; font-size: 0.95rem; }
+        ul { margin-bottom: 12px; padding-left: 20px; }
+        li { margin-bottom: 6px; color: #374151; font-size: 0.95rem; }
+        a { color: #2563EB; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .contact-card {
+            background: #EFF6FF; border-radius: 10px; padding: 20px; margin: 20px 0;
+            border: 1px solid #BFDBFE;
+        }
+        .contact-card h3 { color: #1E40AF; margin-top: 0; }
+        .faq-item { margin-bottom: 18px; }
+        .faq-q { font-weight: 600; color: #111827; margin-bottom: 4px; }
+        .faq-a { color: #4b5563; }
+        .delete-section {
+            background: #FEF2F2; border-radius: 10px; padding: 20px; margin: 20px 0;
+            border: 1px solid #FECACA;
+        }
+        .delete-section h3 { color: #DC2626; margin-top: 0; }
+        .footer {
+            margin-top: 36px; padding-top: 16px; border-top: 1px solid #e5e7eb;
+            text-align: center; font-size: 0.85rem; color: #9ca3af;
+        }
+        @media (max-width: 640px) {
+            body { padding: 12px; }
+            .container { padding: 24px 16px; border-radius: 8px; }
+            h1 { font-size: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Support</h1>
+        <p class="app-name">ChewyBBTalk - Your Personal Micro-Blog</p>
+
+        <div class="contact-card">
+            <h3>📧 Contact Us</h3>
+            <p>If you need help or have any questions, please reach out to us:</p>
+            <ul>
+                <li>Email: <a href="mailto:cone@cone387.top">cone@cone387.top</a></li>
+                <li>GitHub Issues: <a href="https://github.com/cone387/ChewyBBTalk/issues" target="_blank">Submit a bug report or feature request</a></li>
+            </ul>
+            <p>We typically respond within 1-2 business days.</p>
+        </div>
+
+        <h2>Frequently Asked Questions</h2>
+
+        <div class="faq-item">
+            <p class="faq-q">Q: How do I create an account?</p>
+            <p class="faq-a">A: Open the app, tap "Register" on the login screen, enter your username, email, and password to create a new account.</p>
+        </div>
+
+        <div class="faq-item">
+            <p class="faq-q">Q: How do I reset my password?</p>
+            <p class="faq-a">A: Please contact us via email at <a href="mailto:cone@cone387.top">cone@cone387.top</a> and we will assist you with password reset.</p>
+        </div>
+
+        <div class="faq-item">
+            <p class="faq-q">Q: How do I export my data?</p>
+            <p class="faq-a">A: Go to Settings → Data Management → Export Data. You can export all your posts, tags, and attachments.</p>
+        </div>
+
+        <div class="faq-item">
+            <p class="faq-q">Q: Can I use my own server?</p>
+            <p class="faq-a">A: Yes! ChewyBBTalk supports self-hosting. You can configure your own server address on the login screen. See our <a href="https://github.com/cone387/ChewyBBTalk" target="_blank">GitHub repository</a> for deployment instructions.</p>
+        </div>
+
+        <div class="faq-item">
+            <p class="faq-q">Q: Is my data secure?</p>
+            <p class="faq-a">A: Yes. All data is transmitted via HTTPS encryption. You can also configure your own S3-compatible storage to have full control over your data.</p>
+        </div>
+
+        <div class="delete-section">
+            <h3>🗑️ Account Deletion</h3>
+            <p>You can permanently delete your account and all associated data directly within the app:</p>
+            <ol style="padding-left: 20px; margin-bottom: 12px;">
+                <li style="margin-bottom: 6px; color: #374151;">Open the app and sign in</li>
+                <li style="margin-bottom: 6px; color: #374151;">Go to <strong>Settings</strong> (gear icon)</li>
+                <li style="margin-bottom: 6px; color: #374151;">Tap <strong>"Account & Security"</strong> or the <strong>"Delete Account"</strong> button at the bottom</li>
+                <li style="margin-bottom: 6px; color: #374151;">In the Danger Zone section, tap <strong>"Delete Account"</strong></li>
+                <li style="margin-bottom: 6px; color: #374151;">Confirm by entering your password and tap <strong>"Confirm Delete"</strong></li>
+            </ol>
+            <p><strong>Warning:</strong> This action is irreversible. All your data including posts, tags, and attachments will be permanently deleted. We recommend exporting your data before deletion.</p>
+            <p>If you are unable to delete your account through the app, please contact us at <a href="mailto:cone@cone387.top">cone@cone387.top</a> and we will process your request within 2 business days.</p>
+        </div>
+
+        <h2>About ChewyBBTalk</h2>
+        <p>ChewyBBTalk is a personal micro-blogging app for capturing your daily thoughts, ideas, and moments. It supports text, images, audio, and video attachments, with features like tags, privacy lock, and data export.</p>
+        <p>For more information, visit our <a href="https://github.com/cone387/ChewyBBTalk" target="_blank">GitHub repository</a>.</p>
+
+        <div class="footer">
+            <p>&copy; 2024-2026 ChewyBBTalk. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>"""
+    return HttpResponse(html, content_type="text/html")
+
+
+@require_GET
 def privacy_policy_view(request):
     """
     返回隐私政策 HTML 页面。

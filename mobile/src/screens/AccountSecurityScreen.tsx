@@ -69,14 +69,17 @@ export default function AccountSecurityScreen({ onLogout }: Props) {
     <View style={[styles.container, { backgroundColor: c.surfaceSecondary }]}>
       <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}>
         {/* 删除账号区域 */}
-        <Text style={[styles.sectionTitle, { color: c.danger }]}>危险操作</Text>
+        <Text style={[styles.sectionTitle, { color: c.danger }]}>危险操作 / Danger Zone</Text>
         <View style={[styles.dangerCard, { backgroundColor: c.cardBg, borderColor: c.danger + '30' }]}>
           <View style={styles.dangerHeader}>
             <Ionicons name="warning-outline" size={20} color={c.danger} />
-            <Text style={[styles.dangerHeaderText, { color: c.danger }]}>删除账号</Text>
+            <Text style={[styles.dangerHeaderText, { color: c.danger }]}>删除账号 / Delete Account</Text>
           </View>
           <Text style={[styles.dangerDesc, { color: c.textSecondary }]}>
             删除账号后，您的所有数据将被永久清除且无法恢复，包括碎碎念、标签、附件文件等。建议在删除前先通过「数据管理」导出您的数据。
+          </Text>
+          <Text style={[styles.dangerDesc, { color: c.textSecondary, fontStyle: 'italic' }]}>
+            Once your account is deleted, all your data will be permanently erased and cannot be recovered, including posts, tags, and attachments. We recommend exporting your data via "Data Management" before deletion.
           </Text>
 
           {!showDeleteConfirm ? (
@@ -86,12 +89,12 @@ export default function AccountSecurityScreen({ onLogout }: Props) {
               activeOpacity={0.7}
             >
               <Ionicons name="trash-outline" size={18} color={c.danger} />
-              <Text style={[styles.deleteBtnText, { color: c.danger }]}>删除账号</Text>
+              <Text style={[styles.deleteBtnText, { color: c.danger }]}>删除账号 / Delete Account</Text>
             </TouchableOpacity>
           ) : (
             <View style={styles.confirmArea}>
               <Text style={[styles.confirmHint, { color: c.textSecondary }]}>
-                请输入您的登录密码以确认删除：
+                请输入您的登录密码以确认删除：{'\n'}Enter your password to confirm deletion:
               </Text>
               <TextInput
                 style={[styles.passwordInput, { backgroundColor: c.surfaceSecondary, color: c.text, borderColor: c.danger + '50' }]}
@@ -119,7 +122,7 @@ export default function AccountSecurityScreen({ onLogout }: Props) {
                   {deleting ? (
                     <ActivityIndicator size="small" color="#fff" />
                   ) : (
-                    <Text style={[styles.confirmBtnText, { color: '#fff' }]}>确认删除</Text>
+                    <Text style={[styles.confirmBtnText, { color: '#fff' }]}>确认删除 / Confirm</Text>
                   )}
                 </TouchableOpacity>
               </View>
