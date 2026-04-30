@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Alert, TextInput,
-  ScrollView, ActivityIndicator, LayoutAnimation, UIManager, Platform,
+  ScrollView, LayoutAnimation, UIManager, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,6 +9,8 @@ import { useTheme } from '../theme/ThemeContext';
 import { tagApi } from '../services/api/tagApi';
 import { useAppDispatch } from '../store/hooks';
 import { loadTags } from '../store/slices/tagSlice';
+import EmptyState from '../components/EmptyState';
+import LoadingPlaceholder from '../components/LoadingPlaceholder';
 import type { Tag } from '../types';
 
 if (Platform.OS === 'android') UIManager.setLayoutAnimationEnabledExperimental?.(true);
@@ -86,7 +88,7 @@ export default function TagManagementScreen() {
   };
 
   if (loading) {
-    return <View style={[styles.container, { backgroundColor: c.surfaceSecondary }]}><View style={styles.center}><ActivityIndicator size="large" color={c.primary} /></View></View>;
+    return <View style={[styles.container, { backgroundColor: c.surfaceSecondary }]}><LoadingPlaceholder /></View>;
   }
 
   return (
@@ -95,11 +97,12 @@ export default function TagManagementScreen() {
       keyboardShouldPersistTaps="handled">
 
       {tags.length === 0 && (
-        <View style={[styles.emptyCard, { backgroundColor: c.cardBg }]}>
-          <Ionicons name="pricetags-outline" size={40} color={c.textTertiary} />
-          <Text style={[styles.emptyText, { color: c.textSecondary }]}>暂无标签</Text>
-          <Text style={[styles.emptyHint, { color: c.textTertiary }]}>在碎碎念中输入 #标签名 自动创建</Text>
-        </View>
+        <EmptyState
+          icon="pricetags-outline"
+          iconColor={c.textTertiary}
+          title="暂无标签"
+          hint="在碎碎念中输入 #标签名 自动创建"
+        />
       )}
 
       {tags.map((tag, index) => (
@@ -159,12 +162,8 @@ export default function TagManagementScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  emptyCard: { borderRadius: 16, padding: 40, alignItems: 'center', gap: 8 },
-  emptyText: { fontSize: 16, fontWeight: '600' },
-  emptyHint: { fontSize: 13 },
   tagCard: {
-    borderRadius: 12, padding: 12, marginBottom: 8,
+    borderRadius: 16, padding: 12, marginBottom: 8,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
   },
   tagRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },

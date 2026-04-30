@@ -15,7 +15,7 @@
     "ios": {
       "bundleIdentifier": "com.chewy.bbtalk",
       "buildNumber": "1",
-      "supportsTablet": true,
+      "supportsTablet": false,
       "infoPlist": {
         "NSFaceIDUsageDescription": "使用 Face ID 解锁防窥模式",
         "NSMicrophoneUsageDescription": "长按新建按钮进行语音录入",

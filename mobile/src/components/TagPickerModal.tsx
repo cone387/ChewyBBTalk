@@ -10,6 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import type { Theme } from '../theme/ThemeContext';
 import type { Tag } from '../types';
+import EmptyState from './EmptyState';
 
 export interface TagPickerModalProps {
   visible: boolean;
@@ -79,13 +80,13 @@ function TagPickerModal({ visible, tags, onConfirm, onClose, theme }: TagPickerM
   }, [selected, c, toggleTag]);
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <TouchableOpacity style={[styles.overlay, { backgroundColor: c.overlay }]} activeOpacity={1} onPress={onClose}>
         <View style={[styles.sheet, { backgroundColor: c.surface }]} onStartShouldSetResponder={() => true}>
           <Text style={[styles.title, { color: c.text }]}>选择标签</Text>
 
           {tags.length === 0 ? (
-            <Text style={[styles.emptyText, { color: c.textTertiary }]}>暂无可用标签</Text>
+            <EmptyState icon="pricetags-outline" title="暂无可用标签" />
           ) : (
             <FlatList
               data={tags}
@@ -167,11 +168,6 @@ const styles = StyleSheet.create({
   tagName: {
     fontSize: 15,
     fontWeight: '500',
-  },
-  emptyText: {
-    textAlign: 'center',
-    fontSize: 14,
-    paddingVertical: 24,
   },
   footer: {
     flexDirection: 'row',

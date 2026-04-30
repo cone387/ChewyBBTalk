@@ -19,6 +19,7 @@ import UndoToast from '../components/UndoToast';
 import SkeletonCard from '../components/SkeletonCard';
 import ImageViewer from '../components/ImageViewer';
 import SwipeableBBTalkCard from '../components/SwipeableBBTalkCard';
+import EmptyState from '../components/EmptyState';
 import PrivacyLockOverlay from '../components/PrivacyLockOverlay';
 import SearchBar, { SearchInput } from '../components/SearchBar';
 import TagTabs from '../components/TagTabs';
@@ -394,17 +395,20 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
           ListEmptyComponent={bbtalks.length === 0 && isLoading ? (
             <View>{[0, 1, 2, 3].map(i => <SkeletonCard key={i} />)}</View>
           ) : !isLoading ? (
-            <View style={[styles.emptyCard, { backgroundColor: c.cardBg }]}>
-              {searchText || selectedTag || selectedDate ? (
-                <><Ionicons name="search-outline" size={40} color={c.textTertiary} />
-                  <Text style={[styles.emptyTitle, { color: c.textSecondary }]}>没有找到匹配的碎碎念</Text>
-                  <Text style={[styles.emptyHint, { color: c.textTertiary }]}>试试其他关键词或筛选条件</Text></>
-              ) : (
-                <><Ionicons name="chatbubble-ellipses-outline" size={48} color={c.primary} />
-                  <Text style={[styles.emptyTitle, { color: c.text }]}>写下你的第一条碎碎念</Text>
-                  <Text style={[styles.emptyHint, { color: c.textTertiary }]}>点击右下角 + 按钮开始记录{'\n'}长按可以语音输入</Text></>
-              )}
-            </View>
+            searchText || selectedTag || selectedDate ? (
+              <EmptyState
+                icon="search-outline"
+                iconColor={c.textTertiary}
+                title="没有找到匹配的碎碎念"
+                hint="试试其他关键词或筛选条件"
+              />
+            ) : (
+              <EmptyState
+                icon="chatbubble-ellipses-outline"
+                title="写下你的第一条碎碎念"
+                hint={'点击右下角 + 按钮开始记录\n长按可以语音输入'}
+              />
+            )
           ) : null}
           ListFooterComponent={loadingMore ? <ActivityIndicator style={{ paddingVertical: 16 }} /> : !hasMore && filteredBBTalks.length > 0 ? <Text style={[styles.noMore, { color: c.textTertiary }]}>没有更多了</Text> : null}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} enabled={!isOffline} tintColor={c.primary} colors={[c.primary]} progressBackgroundColor={c.surface} />}
@@ -497,9 +501,6 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: '700' },
   filterBadge: { marginLeft: 8, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, maxWidth: 140 },
   filterBadgeText: { fontSize: 12, fontWeight: '600' },
-  emptyCard: { borderRadius: 16, padding: 40, marginTop: 40, alignItems: 'center', gap: 10 },
-  emptyTitle: { fontSize: 17, fontWeight: '600', marginTop: 8 },
-  emptyHint: { fontSize: 13, textAlign: 'center', lineHeight: 20 },
   noMore: { textAlign: 'center', fontSize: 13, paddingVertical: 16 },
   fab: {
     position: 'absolute', right: 20, width: 56, height: 56, borderRadius: 28,

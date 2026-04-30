@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiClient } from '../services/api/apiClient';
 import type { StorageSettings } from '../types';
 import { useTheme } from '../theme/ThemeContext';
+import LoadingPlaceholder from '../components/LoadingPlaceholder';
 
 export default function StorageSettingsScreen() {
   const insets = useSafeAreaInsets();
@@ -62,7 +63,7 @@ export default function StorageSettingsScreen() {
     } catch (e: any) { Alert.alert('失败', e.message); }
   };
 
-  if (loading) return <View style={styles.center}><ActivityIndicator size="large" color={c.primary} /></View>;
+  if (loading) return <View style={[styles.container, { backgroundColor: c.surfaceSecondary }]}><LoadingPlaceholder /></View>;
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: c.surfaceSecondary }]} contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 20 }}>
@@ -135,12 +136,20 @@ export default function StorageSettingsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  statusCard: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 12, padding: 14, marginBottom: 12 },
+  statusCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 16, padding: 14, marginBottom: 12,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
+  },
   statusText: { fontSize: 14, fontWeight: '500' },
-  optionCard: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 12, padding: 14, marginBottom: 12 },
+  optionCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 16, padding: 14, marginBottom: 12,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
+  },
   optionText: { flex: 1, fontSize: 15 },
-  configCard: { borderRadius: 12, padding: 14, marginBottom: 10, borderWidth: 1 },
+  configCard: {
+    borderRadius: 16, padding: 14, marginBottom: 10, borderWidth: 1,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
+  },
   configHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   configName: { fontSize: 15, fontWeight: '600' },
   activeBadge: { backgroundColor: '#ECFDF5', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2 },
@@ -149,10 +158,13 @@ const styles = StyleSheet.create({
   configActions: { flexDirection: 'row', gap: 12, marginTop: 10 },
   actionBtn: { paddingVertical: 4 },
   actionBtnText: { fontSize: 13, fontWeight: '500' },
-  addForm: { borderRadius: 12, padding: 16, marginTop: 4 },
+  addForm: {
+    borderRadius: 16, padding: 16, marginTop: 4,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
+  },
   addTitle: { fontSize: 15, fontWeight: '600', marginBottom: 12 },
   fieldLabel: { fontSize: 12, fontWeight: '500', marginBottom: 4, marginTop: 8 },
-  fieldInput: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, height: 40, fontSize: 14 },
+  fieldInput: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 10, height: 40, fontSize: 14 },
   formBtn: { borderRadius: 10, height: 40, justifyContent: 'center', alignItems: 'center' },
   addBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 16 },
   addBtnText: { fontSize: 14, fontWeight: '500' },

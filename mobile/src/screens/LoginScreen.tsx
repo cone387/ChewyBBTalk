@@ -170,7 +170,7 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
       </ScrollView>
 
       {/* 服务器选择弹窗 */}
-      <Modal visible={showServerPicker} transparent animationType="fade" onRequestClose={() => setShowServerPicker(false)}>
+      <Modal visible={showServerPicker} transparent animationType="slide" onRequestClose={() => setShowServerPicker(false)}>
         <TouchableOpacity style={[styles.modalOverlay, { backgroundColor: c.overlay }]} activeOpacity={1} onPress={() => { setShowServerPicker(false); setShowAddServer(false); }}>
           <View style={[styles.modalSheet, { backgroundColor: c.surface }]} onStartShouldSetResponder={() => true}>
             <Text style={[styles.modalTitle, { color: c.text }]}>选择服务</Text>
