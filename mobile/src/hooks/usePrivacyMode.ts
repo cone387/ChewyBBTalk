@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Animated, Keyboard, Platform } from 'react-native';
+import { Animated, AppState, Keyboard, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
 
@@ -55,10 +55,16 @@ export function usePrivacyMode(options: UsePrivacyModeOptions): UsePrivacyModeRe
   const setLocked = useCallback((val: boolean) => {
     setLockedState(val);
     AsyncStorage.setItem('privacy_locked', val ? 'true' : 'false');
+    if (!val) {
+      // 解锁时重置最后活跃时间
+      lastActivity.current = Date.now();
+      AsyncStorage.setItem('privacy_last_active', String(lastActivity.current));
+    }
   }, []);
 
   const resetPrivacyTimer = useCallback(() => {
     lastActivity.current = Date.now();
+    AsyncStorage.setItem('privacy_last_active', String(lastActivity.current));
   }, []);
 
   const loadPrivacySettings = useCallback(async () => {
@@ -74,8 +80,23 @@ export function usePrivacyMode(options: UsePrivacyModeOptions): UsePrivacyModeRe
     // 恢复锁定状态 - 仅在防窥明确启用时
     if (enabled) {
       const l = await AsyncStorage.getItem('privacy_locked');
-      if (l === 'true') { setLockedState(true); onLockChangeRef.current?.(true); }
-      else { lastActivity.current = Date.now(); }
+      if (l === 'true') {
+        setLockedState(true); onLockChangeRef.current?.(true);
+      } else {
+        // 检查 app 被 kill 前最后活跃时间，若超时则立即锁定
+        const saved = await AsyncStorage.getItem('privacy_last_active');
+        if (saved) {
+          const elapsed = (Date.now() - Number(saved)) / 1000;
+          if (elapsed >= timeoutMinsRef.current * 60) {
+            setLockedState(true); onLockChangeRef.current?.(true);
+            AsyncStorage.setItem('privacy_locked', 'true');
+          } else {
+            lastActivity.current = Date.now() - elapsed * 1000;
+          }
+        } else {
+          lastActivity.current = Date.now();
+        }
+      }
     } else {
       lastActivity.current = Date.now();
     }
@@ -182,7 +203,33 @@ export function usePrivacyMode(options: UsePrivacyModeOptions): UsePrivacyModeRe
       }
     }, 1000);
 
-    return () => { clearInterval(timer); kbShow.remove(); kbHide.remove(); };
+    // AppState 监听：进入后台时保存时间戳，回到前台时检查是否超时
+    const appStateSubscription = AppState.addEventListener('change', async (nextState) => {
+      if (nextState === 'background' || nextState === 'inactive') {
+        // 进入后台，保存最后活跃时间
+        await AsyncStorage.setItem('privacy_last_active', String(Date.now()));
+      } else if (nextState === 'active') {
+        // 回到前台，检查是否需要锁定
+        if (isLockedRef.current) return;
+        const e2 = await AsyncStorage.getItem('privacy_enabled');
+        if (e2 === 'false') return;
+        const saved = await AsyncStorage.getItem('privacy_last_active');
+        if (saved) {
+          const elapsed = (Date.now() - Number(saved)) / 1000;
+          const t2 = await AsyncStorage.getItem('privacy_timeout_minutes');
+          const mins = t2 ? parseInt(t2, 10) : timeoutMinsRef.current;
+          if (elapsed >= mins * 60) {
+            setLocked(true);
+            isLockedRef.current = true;
+          } else {
+            // 将已经过去的时间反映到计时器中
+            lastActivity.current = Date.now() - elapsed * 1000;
+          }
+        }
+      }
+    });
+
+    return () => { clearInterval(timer); kbShow.remove(); kbHide.remove(); appStateSubscription.remove(); };
   }, []);
 
   // 通知父组件锁定状态变化
