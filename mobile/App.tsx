@@ -32,6 +32,7 @@ import TagManagementScreen from './src/screens/TagManagementScreen';
 import AboutScreen from './src/screens/AboutScreen';
 import AccountSecurityScreen from './src/screens/AccountSecurityScreen';
 import DrawerContent from './src/screens/DrawerContent';
+import LandingScreen from './src/screens/LandingScreen';
 
 const Stack = createNativeStackNavigator();
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -146,8 +147,32 @@ function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
     headerBackTitle: '返回',
   };
 
+  // Web 端启用 URL 路由：/ → Landing（公开），/login → Login，/app → Home
+  const linking = Platform.OS === 'web' ? {
+    prefixes: [typeof window !== 'undefined' ? window.location.origin : ''],
+    config: {
+      screens: {
+        Landing: '',
+        Login: 'login',
+        Home: 'app',
+        Compose: 'compose',
+        Settings: 'settings',
+        AccountSecurity: 'settings/account',
+        ProfileEdit: 'settings/profile',
+        ThemeSettings: 'settings/theme',
+        PrivacySettings: 'settings/privacy',
+        StorageSettings: 'settings/storage',
+        DataManagement: 'settings/data',
+        AudioPlay: 'audio',
+        CacheManagement: 'settings/cache',
+        TagManagement: 'settings/tags',
+        About: 'about',
+      },
+    },
+  } as any : undefined;
+
   return (
-    <NavigationContainer>
+    <NavigationContainer linking={linking}>
       {isAuthenticated ? (
         <Stack.Navigator>
           <Stack.Screen name="Home" options={{ headerShown: false }}>
@@ -181,7 +206,12 @@ function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
             options={{ title: '关于', ...headerOptions }} />
         </Stack.Navigator>
       ) : (
-        <Stack.Navigator>
+        <Stack.Navigator initialRouteName={Platform.OS === 'web' ? 'Landing' : 'Login'}>
+          {Platform.OS === 'web' && (
+            <Stack.Screen name="Landing" options={{ headerShown: false, title: 'BBTalk · 你的私人碎碎念空间' }}>
+              {(props) => <LandingScreen {...props} />}
+            </Stack.Screen>
+          )}
           <Stack.Screen name="Login" options={{ headerShown: false }}>
             {() => <LoginScreen onLoginSuccess={onLoginSuccess} />}
           </Stack.Screen>
