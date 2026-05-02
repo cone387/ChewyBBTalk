@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView, TextInput, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { logout } from '../services/auth';
 import { userApi } from '../services/api/userApi';
 import { useTheme } from '../theme/ThemeContext';
+import { xAlert, xConfirm } from '../utils/crossAlert';
 
 interface Props { onLogout: () => void; }
 
@@ -17,20 +18,12 @@ export default function AccountSecurityScreen({ onLogout }: Props) {
   const [deleting, setDeleting] = useState(false);
 
   const handleDeleteAccount = () => {
-    if (Platform.OS === 'web') {
-      // Web 端 Alert.alert 回调不可靠，直接用 confirm
-      if (window.confirm('确定要永久删除您的账号吗？此操作不可撤销，您的所有数据（碎碎念、标签、附件等）将被永久删除。')) {
-        setShowDeleteConfirm(true);
-      }
-      return;
-    }
-    Alert.alert(
+    xConfirm(
       '删除账号',
       '确定要永久删除您的账号吗？此操作不可撤销，您的所有数据（碎碎念、标签、附件等）将被永久删除。',
-      [
-        { text: '取消', style: 'cancel' },
-        { text: '继续删除', style: 'destructive', onPress: () => setShowDeleteConfirm(true) },
-      ]
+      () => setShowDeleteConfirm(true),
+      undefined,
+      { confirmText: '继续删除', destructive: true },
     );
   };
 
@@ -41,23 +34,17 @@ export default function AccountSecurityScreen({ onLogout }: Props) {
 
   const confirmDeleteAccount = async () => {
     if (!deletePassword.trim()) {
-      Platform.OS === 'web' ? window.alert('请输入密码以确认删除') : Alert.alert('提示', '请输入密码以确认删除');
+      xAlert('提示', '请输入密码以确认删除');
       return;
     }
     setDeleting(true);
     try {
       await userApi.deleteAccount(deletePassword);
-      if (Platform.OS === 'web') {
-        window.alert('您的账号和所有数据已被永久删除。');
-        await doLogoutAndRedirect();
-      } else {
-        Alert.alert('账号已删除', '您的账号和所有数据已被永久删除。', [
-          { text: '确定', onPress: doLogoutAndRedirect },
-        ]);
-      }
+      xAlert('账号已删除', '您的账号和所有数据已被永久删除。');
+      await doLogoutAndRedirect();
     } catch (e: any) {
       const msg = e.message || '请检查密码是否正确';
-      Platform.OS === 'web' ? window.alert('删除失败: ' + msg) : Alert.alert('删除失败', msg);
+      xAlert('删除失败', msg);
     } finally {
       setDeleting(false);
       setDeletePassword('');

@@ -1,11 +1,10 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
-  RefreshControl, Alert, ActivityIndicator, Modal,
+  RefreshControl, ActivityIndicator, Modal,
   Platform, Animated, LayoutAnimation, UIManager, Linking, BackHandler,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Clipboard from 'expo-clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -34,6 +33,7 @@ import { useBBTalkActions } from '../hooks/useBBTalkActions';
 import { useBatchMode } from '../hooks/useBatchMode';
 import { useOfflineCache } from '../hooks/useOfflineCache';
 import { logError } from '../utils/errorHandler';
+import { xAlert, xConfirm } from '../utils/crossAlert';
 
 if (Platform.OS === 'android') UIManager.setLayoutAnimationEnabledExperimental?.(true);
 
@@ -47,10 +47,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
   const c = theme.colors;
 
   const showError = useCallback((title: string, msg: string) => {
-    Alert.alert(title, msg, [
-      { text: '复制', onPress: () => Clipboard.setStringAsync(`${title}: ${msg}`) },
-      { text: '关闭' },
-    ]);
+    xAlert(title, msg);
   }, []);
 
   const { bbtalks, isLoading, hasMore } = useAppSelector(s => s.bbtalk);
@@ -79,7 +76,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
   // Helper to guard write operations when offline
   const guardOfflineWrite = useCallback((): boolean => {
     if (isOffline) {
-      Alert.alert('离线模式', '当前处于离线模式，该操作需要网络连接');
+      xAlert('离线模式', '当前处于离线模式，该操作需要网络连接');
       return true; // blocked
     }
     return false; // allowed
@@ -253,13 +250,10 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
   }, [dispatch, hasMore, isLoading, selectedTag, selectedDate, tags, isOffline]);
 
   const showLocation = useCallback((loc: { latitude: number; longitude: number }) => {
-    Alert.alert('定位信息', `纬度: ${loc.latitude.toFixed(6)}\n经度: ${loc.longitude.toFixed(6)}`, [
-      { text: '在地图中打开', onPress: () => {
-        const url = Platform.select({ ios: `maps:?q=${loc.latitude},${loc.longitude}`, default: `geo:${loc.latitude},${loc.longitude}` });
-        Linking.openURL(url!).catch((e) => { logError(e, 'open map URL'); });
-      }},
-      { text: '关闭' },
-    ]);
+    xConfirm('定位信息', `纬度: ${loc.latitude.toFixed(6)}\n经度: ${loc.longitude.toFixed(6)}`, () => {
+      const url = Platform.select({ ios: `maps:?q=${loc.latitude},${loc.longitude}`, default: `geo:${loc.latitude},${loc.longitude}` });
+      Linking.openURL(url!).catch((e) => { logError(e, 'open map URL'); });
+    }, undefined, { confirmText: '在地图中打开', cancelText: '关闭' });
   }, []);
 
   // --- Search ---

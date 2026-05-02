@@ -1,10 +1,11 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
+import { xAlert, xConfirm } from '../utils/crossAlert';
 
 interface CacheInfo {
   total: number;
@@ -75,9 +76,7 @@ export default function CacheManagementScreen() {
   };
 
   const clearCache = () => {
-    Alert.alert('清理缓存', '将删除所有已下载的音频、视频缓存，不会影响服务器上的数据。', [
-      { text: '取消', style: 'cancel' },
-      { text: '清理', style: 'destructive', onPress: async () => {
+    xConfirm('清理缓存', '将删除所有已下载的音频、视频缓存，不会影响服务器上的数据。', async () => {
         setClearing(true);
         try {
           const cacheDir = FileSystem.cacheDirectory;
@@ -90,14 +89,13 @@ export default function CacheManagementScreen() {
             }
           }
           await loadCache();
-          Alert.alert('完成', '缓存已清理');
+          xAlert('完成', '缓存已清理');
         } catch (e: any) {
-          Alert.alert('清理失败', e.message);
+          xAlert('清理失败', e.message);
         } finally {
           setClearing(false);
         }
-      }},
-    ]);
+    }, undefined, { confirmText: '清理', destructive: true });
   };
 
   const categories = cacheInfo ? [

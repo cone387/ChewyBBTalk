@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
@@ -9,6 +9,7 @@ import { getCurrentUser, updateCachedUser } from '../services/auth';
 import { userApi } from '../services/api/userApi';
 import { attachmentApi } from '../services/api/mediaApi';
 import { useTheme } from '../theme/ThemeContext';
+import { xAlert } from '../utils/crossAlert';
 
 export default function ProfileEditScreen() {
   const currentUser = getCurrentUser();
@@ -47,7 +48,7 @@ export default function ProfileEditScreen() {
       }
       setAvatarUrl(att.url);
     } catch (e: any) {
-      Alert.alert('上传失败', e.message);
+      xAlert('上传失败', e.message);
     } finally {
       setUploadingAvatar(false);
     }
@@ -55,7 +56,7 @@ export default function ProfileEditScreen() {
 
   const handleSave = async () => {
     if (!displayName.trim()) {
-      Alert.alert('提示', '显示名称不能为空');
+      xAlert('提示', '显示名称不能为空');
       return;
     }
     setSaving(true);
@@ -68,11 +69,10 @@ export default function ProfileEditScreen() {
       if (avatarUrl) data.avatar = avatarUrl;
       const updated = await userApi.updateProfile(data);
       await updateCachedUser(updated);
-      Alert.alert('成功', '个人信息已更新', [
-        { text: '好的', onPress: () => navigation.goBack() },
-      ]);
+      xAlert('成功', '个人信息已更新');
+      navigation.goBack();
     } catch (e: any) {
-      Alert.alert('保存失败', e.message || '请稍后重试');
+      xAlert('保存失败', e.message || '请稍后重试');
     } finally {
       setSaving(false);
     }

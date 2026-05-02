@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, Alert, ActivityIndicator,
+  ScrollView, ActivityIndicator,
   Platform, Keyboard, Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,6 +21,7 @@ import { getMarkdownStyles } from '../utils/markdownStyles';
 import { useTheme } from '../theme/ThemeContext';
 import type { Attachment, BBTalk } from '../types';
 import VoiceRecordingOverlay from '../components/VoiceRecordingOverlay';
+import { xAlert, xConfirm } from '../utils/crossAlert';
 
 const SCREEN_H = Dimensions.get('window').height;
 
@@ -96,12 +97,7 @@ export default function ComposeScreen() {
 
       // 有未保存修改，拦截返回并显示确认对话框
       e.preventDefault();
-      Alert.alert('放弃编辑？', '你有未保存的内容，确定要放弃吗？', [
-        { text: '继续编辑', style: 'cancel' },
-        {
-          text: '放弃',
-          style: 'destructive',
-          onPress: () => {
+      xConfirm('放弃编辑？', '你有未保存的内容，确定要放弃吗？', () => {
             // 新建模式下放弃时保存草稿
             if (!isEditing) {
               if (content.trim()) {
@@ -111,9 +107,7 @@ export default function ComposeScreen() {
               }
             }
             navigation.dispatch(e.data.action);
-          },
-        },
-      ]);
+      }, undefined, { confirmText: '放弃', cancelText: '继续编辑', destructive: true });
     });
     return unsubscribe;
   }, [navigation, hasUnsavedChanges, content, isEditing]);
@@ -126,18 +120,18 @@ export default function ComposeScreen() {
     const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: type === 'images' ? ['images'] : ['videos'], allowsMultipleSelection: true, quality: 0.8 });
     if (r.canceled || !r.assets.length) return; setUploading(true);
     try { for (const a of r.assets) { const att = await attachmentApi.upload(a.uri, a.fileName || `m${Date.now()}.jpg`, a.mimeType || 'image/jpeg'); setAttachments(p => [...p, att]); } }
-    catch (e: any) { Alert.alert('上传失败', e.message); } finally { setUploading(false); }
+    catch (e: any) { xAlert('上传失败', e.message); } finally { setUploading(false); }
   };
   const pickFile = async () => {
     try { const r = await DocumentPicker.getDocumentAsync({ multiple: true }); if (r.canceled || !r.assets?.length) return; setUploading(true);
       for (const a of r.assets) { const att = await attachmentApi.upload(a.uri, a.name, a.mimeType || 'application/octet-stream'); setAttachments(p => [...p, att]); }
-    } catch (e: any) { Alert.alert('上传失败', e.message); } finally { setUploading(false); }
+    } catch (e: any) { xAlert('上传失败', e.message); } finally { setUploading(false); }
   };
   const getLocation = async () => {
     if (location) { setLocation(null); return; }
-    try { const { status } = await Location.requestForegroundPermissionsAsync(); if (status !== 'granted') { Alert.alert('提示', '需要定位权限'); return; }
+    try { const { status } = await Location.requestForegroundPermissionsAsync(); if (status !== 'granted') { xAlert('提示', '需要定位权限'); return; }
       const l = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }); setLocation({ latitude: l.coords.latitude, longitude: l.coords.longitude });
-    } catch { Alert.alert('定位失败', '请稍后重试'); }
+    } catch { xAlert('定位失败', '请稍后重试'); }
   };
 
   const insertText = (s: string) => {
@@ -187,7 +181,7 @@ export default function ComposeScreen() {
         }
         setAttachments(prev => [...prev, att]);
       } catch (e: any) {
-        Alert.alert('上传失败', e.message || '音频上传失败');
+        xAlert('上传失败', e.message || '音频上传失败');
       } finally {
         setUploading(false);
       }
@@ -195,14 +189,14 @@ export default function ComposeScreen() {
   };
 
   const handleSubmit = async () => {
-    const cleaned = cleanContent(content); if (!cleaned) { Alert.alert('提示', '请输入内容'); return; }
+    const cleaned = cleanContent(content); if (!cleaned) { xAlert('提示', '请输入内容'); return; }
     Keyboard.dismiss(); setSubmitting(true);
     try {
       const ctx: Record<string, any> = { source: { client: 'ChewyBBTalk Mobile', version: '1.0', platform: 'mobile' } }; if (location) ctx.location = location;
       if (isEditing && editItem) await dispatch(updateBBTalkAsync({ id: editItem.id, data: { content: cleaned, tags: currentTags.map(n => ({ id: '', name: n, color: '', sortOrder: 0, bbtalkCount: 0 })), visibility, attachments } })).unwrap();
       else await dispatch(createBBTalkAsync({ content: cleaned, tags: currentTags, visibility, attachments, context: ctx })).unwrap();
       dispatch(loadTags()); await AsyncStorage.removeItem('compose_draft'); publishedRef.current = true; navigation.goBack();
-    } catch (e: any) { Alert.alert('失败', e.message || '请重试'); } finally { setSubmitting(false); }
+    } catch (e: any) { xAlert('失败', e.message || '请重试'); } finally { setSubmitting(false); }
   };
 
   const canSubmit = cleanContent(content).length > 0 && !submitting && !uploading;

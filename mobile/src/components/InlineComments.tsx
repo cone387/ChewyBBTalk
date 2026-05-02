@@ -1,11 +1,12 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { bbtalkApi } from '../services/api/bbtalkApi';
 import { formatTime } from './BBTalkCard';
 import { useAppDispatch } from '../store/hooks';
 import { decrementCommentCount } from '../store/slices/bbtalkSlice';
 import type { Comment } from '../types';
 import type { Theme } from '../theme/ThemeContext';
+import { xAlert, xConfirm } from '../utils/crossAlert';
 
 const MAX_COLLAPSED = 3;
 
@@ -53,20 +54,15 @@ export default function InlineComments({ bbtalkId, commentCount, newComment, the
   }, [newComment]);
 
   const handleDelete = (comment: Comment) => {
-    Alert.alert('删除评论', '确定要删除这条评论吗？', [
-      { text: '取消', style: 'cancel' },
-      {
-        text: '删除', style: 'destructive', onPress: async () => {
+    xConfirm('删除评论', '确定要删除这条评论吗？', async () => {
           try {
             await bbtalkApi.deleteComment(bbtalkId, comment.uid);
             setComments(prev => prev.filter(c => c.uid !== comment.uid));
             dispatch(decrementCommentCount(bbtalkId));
           } catch (e: any) {
-            Alert.alert('删除失败', e.message);
+            xAlert('删除失败', e.message);
           }
-        },
-      },
-    ]);
+    }, undefined, { confirmText: '删除', destructive: true });
   };
 
   if (comments.length === 0 && !loading) return null;

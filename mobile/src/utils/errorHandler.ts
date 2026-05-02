@@ -1,5 +1,5 @@
-import { Alert, Platform } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
+import { xConfirm } from './crossAlert';
 
 /** 错误类型枚举 */
 export enum ErrorType {
@@ -70,10 +70,7 @@ export function showError(error: unknown): void {
   try {
     const classified = classifyError(error);
     console.warn(`[ErrorHandler] ${classified.type}: ${classified.message}`, error);
-    Alert.alert(classified.title, classified.message, [
-      { text: '复制', onPress: () => Clipboard.setStringAsync(`${classified.title}: ${classified.message}`) },
-      { text: '关闭' },
-    ]);
+    xConfirm(classified.title, classified.message, () => Clipboard.setStringAsync(`${classified.title}: ${classified.message}`), undefined, { confirmText: '复制', cancelText: '关闭' });
   } catch (e) {
     console.warn('[ErrorHandler] 错误处理失败:', e);
   }
@@ -82,10 +79,7 @@ export function showError(error: unknown): void {
 /** 显示错误弹窗（自定义标题和消息） */
 export function showErrorMessage(title: string, message: string): void {
   try {
-    Alert.alert(title, message, [
-      { text: '复制', onPress: () => Clipboard.setStringAsync(`${title}: ${message}`) },
-      { text: '关闭' },
-    ]);
+    xConfirm(title, message, () => Clipboard.setStringAsync(`${title}: ${message}`), undefined, { confirmText: '复制', cancelText: '关闭' });
   } catch (e) {
     console.warn('[ErrorHandler] 错误处理失败:', e);
   }

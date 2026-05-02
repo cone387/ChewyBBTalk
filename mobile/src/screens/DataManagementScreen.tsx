@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Paths, File as FSFile, Directory } from 'expo-file-system/next';
 import { writeAsStringAsync } from 'expo-file-system/legacy';
@@ -10,6 +10,7 @@ import { getAccessToken } from '../services/auth';
 import { getApiBaseUrl } from '../config';
 import { useTheme } from '../theme/ThemeContext';
 import { clearCache } from '../services/offlineCacheService';
+import { xAlert, xConfirm } from '../utils/crossAlert';
 
 // blob -> base64
 function blobToBase64(blob: Blob): Promise<string> {
@@ -73,14 +74,14 @@ export default function DataManagementScreen() {
       const res = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/data/export/?export_format=${format}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) { Alert.alert('导出失败', `服务器返回 ${res.status}`); return; }
+      if (!res.ok) { xAlert('导出失败', `服务器返回 ${res.status}`); return; }
       const blob = await res.blob();
       const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
       const ext = format === 'zip' ? 'zip' : 'json';
       const mime = format === 'zip' ? 'application/zip' : 'application/json';
       await saveAndShare(blob, `bbtalk_export_${ts}.${ext}`, mime);
-      Alert.alert('导出成功', '文件已准备好');
-    } catch (e: any) { Alert.alert('导出失败', e.message); }
+      xAlert('导出成功', '文件已准备好');
+    } catch (e: any) { xAlert('导出失败', e.message); }
     finally { setExporting(false); }
   };
 
@@ -121,37 +122,30 @@ export default function DataManagementScreen() {
       }
       if (data.success) {
         const s = data.stats;
-        Alert.alert('导入完成', [
+        xAlert('导入完成', [
           `标签: 新增 ${s.tags_created}，跳过 ${s.tags_skipped}，共 ${s.tags_created + s.tags_skipped}`,
           `BBTalk: 新增 ${s.bbtalks_created}，跳过 ${s.bbtalks_skipped}，共 ${s.bbtalks_created + s.bbtalks_skipped}`,
           s.errors?.length ? `错误: ${s.errors.length} 条` : '',
         ].filter(Boolean).join('\n'));
       } else {
-        Alert.alert('导入失败', data.error || '未知错误');
+        xAlert('导入失败', data.error || '未知错误');
       }
-    } catch (e: any) { Alert.alert('导入失败', e.message); }
+    } catch (e: any) { xAlert('导入失败', e.message); }
     finally { setImporting(false); }
   };
 
   const handleClearCache = () => {
-    Alert.alert('清除离线缓存', '确定要清除所有离线缓存数据吗？', [
-      { text: '取消', style: 'cancel' },
-      {
-        text: '确定',
-        style: 'destructive',
-        onPress: async () => {
+    xConfirm('清除离线缓存', '确定要清除所有离线缓存数据吗？', async () => {
           setClearing(true);
           try {
             await clearCache();
-            Alert.alert('清除成功', '离线缓存已清除');
+            xAlert('清除成功', '离线缓存已清除');
           } catch (e: any) {
-            Alert.alert('清除失败', e.message);
+            xAlert('清除失败', e.message);
           } finally {
             setClearing(false);
           }
-        },
-      },
-    ]);
+    }, undefined, { confirmText: '确定', destructive: true });
   };
 
   return (

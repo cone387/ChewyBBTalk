@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
-  StyleSheet, KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
+  StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator,
   ScrollView, Modal, FlatList, Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,6 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { login, register } from '../services/auth';
 import { getApiBaseUrl, setApiBaseUrl, DEFAULT_URL } from '../config';
 import { useTheme } from '../theme/ThemeContext';
+import { xAlert } from '../utils/crossAlert';
 
 const SERVERS_KEY = 'bbtalk_servers';
 
@@ -60,10 +61,10 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
   };
 
   const addServer = async () => {
-    if (!newUrl.trim()) { Alert.alert('提示', '请输入服务地址'); return; }
+    if (!newUrl.trim()) { xAlert('提示', '请输入服务地址'); return; }
     const url = newUrl.trim().replace(/\/+$/, '');
     const label = newLabel.trim() || url;
-    if (servers.find(s => s.url === url)) { Alert.alert('提示', '该地址已存在'); return; }
+    if (servers.find(s => s.url === url)) { xAlert('提示', '该地址已存在'); return; }
     const list = [...servers, { label, url }];
     await saveServers(list);
     await selectServer(url);
@@ -78,15 +79,15 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
   };
 
   const handleSubmit = async () => {
-    if (!username || !password) { Alert.alert('提示', '请输入用户名和密码'); return; }
+    if (!username || !password) { xAlert('提示', '请输入用户名和密码'); return; }
     setLoading(true);
     try {
       const result = isLogin
         ? await login(username, password)
         : await register({ username, password, email: email || undefined, display_name: displayName || undefined });
       if (result.success) onLoginSuccess();
-      else Alert.alert(isLogin ? '登录失败' : '注册失败', result.error || '请重试');
-    } catch { Alert.alert('错误', '网络错误，请稍后重试'); }
+      else xAlert(isLogin ? '登录失败' : '注册失败', result.error || '请重试');
+    } catch { xAlert('错误', '网络错误，请稍后重试'); }
     finally { setLoading(false); }
   };
 

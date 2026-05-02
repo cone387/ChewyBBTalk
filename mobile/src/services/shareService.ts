@@ -5,12 +5,13 @@
  * - 图片下载到本地缓存
  * - 平台判断 + 系统分享面板 + 剪贴板降级
  */
-import { Alert, Platform, Share } from 'react-native';
+import { Platform, Share } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import type { BBTalk } from '../types';
 import { logError } from '../utils/errorHandler';
+import { xAlert, xConfirm } from '../utils/crossAlert';
 
 /**
  * 组装 BBTalk 的分享文本
@@ -51,7 +52,7 @@ export async function downloadImages(urls: string[]): Promise<string[]> {
  */
 export async function copyToClipboard(text: string): Promise<void> {
   await Clipboard.setStringAsync(text);
-  Alert.alert('已复制', '内容已复制到剪贴板');
+  xAlert('已复制', '内容已复制到剪贴板');
 }
 
 /**
@@ -139,10 +140,7 @@ async function shareOnNative(text: string, imageUrls: string[]): Promise<void> {
     const result = await Share.share({ message: text });
     if (result.action === Share.dismissedAction) {
       // 用户取消分享，提供复制选项
-      Alert.alert('分享', '已取消分享，是否复制到剪贴板？', [
-        { text: '取消' },
-        { text: '复制', onPress: () => copyToClipboard(text) },
-      ]);
+      xConfirm('分享', '已取消分享，是否复制到剪贴板？', () => copyToClipboard(text), undefined, { confirmText: '复制' });
     }
   } catch (e) {
     logError(e, 'RN Share');

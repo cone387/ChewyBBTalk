@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, TextInput, TouchableOpacity, StyleSheet,
-  Modal, KeyboardAvoidingView, Platform, ActivityIndicator, Alert,
+  Modal, KeyboardAvoidingView, Platform, ActivityIndicator,
   NativeSyntheticEvent, TextInputKeyPressEventData,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { bbtalkApi } from '../services/api/bbtalkApi';
+import { xAlert } from '../utils/crossAlert';
 import type { Comment } from '../types';
 import type { Theme } from '../theme/ThemeContext';
 
@@ -45,11 +46,7 @@ export default function CommentInputModal({ visible, bbtalkId, onClose, onCommen
       setText('');
       onClose();
     } catch (e: any) {
-      if (isWeb) {
-        window.alert('发送失败: ' + (e.message || '请稍后重试'));
-      } else {
-        Alert.alert('发送失败', e.message || '请稍后重试');
-      }
+      xAlert('发送失败', e.message || '请稍后重试');
     } finally {
       setSubmitting(false);
     }

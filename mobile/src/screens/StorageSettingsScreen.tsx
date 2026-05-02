@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput, ActivityIndicator, Switch } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Switch } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiClient } from '../services/api/apiClient';
 import type { StorageSettings } from '../types';
 import { useTheme } from '../theme/ThemeContext';
 import LoadingPlaceholder from '../components/LoadingPlaceholder';
+import { xAlert, xConfirm } from '../utils/crossAlert';
 
 export default function StorageSettingsScreen() {
   const insets = useSafeAreaInsets();
@@ -28,39 +29,36 @@ export default function StorageSettingsScreen() {
   const activate = async (id: number) => {
     try {
       await apiClient.post(`/api/v1/bbtalk/settings/storage/${id}/activate/`);
-      Alert.alert('成功', '已激活'); load();
-    } catch (e: any) { Alert.alert('失败', e.message); }
+      xAlert('成功', '已激活'); load();
+    } catch (e: any) { xAlert('失败', e.message); }
   };
 
   const deactivateAll = async () => {
     try {
       await apiClient.post('/api/v1/bbtalk/settings/storage/deactivate-all/');
-      Alert.alert('成功', '已切换为服务器存储'); load();
-    } catch (e: any) { Alert.alert('失败', e.message); }
+      xAlert('成功', '已切换为服务器存储'); load();
+    } catch (e: any) { xAlert('失败', e.message); }
   };
 
   const testConnection = async (id: number) => {
     try {
       const res = await apiClient.post<{ success: boolean; message: string }>(`/api/v1/bbtalk/settings/storage/${id}/test/`);
-      Alert.alert(res.success ? '连接成功' : '连接失败', res.message);
-    } catch (e: any) { Alert.alert('测试失败', e.message); }
+      xAlert(res.success ? '连接成功' : '连接失败', res.message);
+    } catch (e: any) { xAlert('测试失败', e.message); }
   };
 
   const deleteConfig = (id: number) => {
-    Alert.alert('确认删除', '确定删除此存储配置？', [
-      { text: '取消', style: 'cancel' },
-      { text: '删除', style: 'destructive', onPress: async () => {
-        try { await apiClient.delete(`/api/v1/bbtalk/settings/storage/${id}/delete/`); load(); } catch (e: any) { Alert.alert('失败', e.message); }
-      }},
-    ]);
+    xConfirm('确认删除', '确定删除此存储配置？', async () => {
+      try { await apiClient.delete(`/api/v1/bbtalk/settings/storage/${id}/delete/`); load(); } catch (e: any) { xAlert('失败', e.message); }
+    }, undefined, { confirmText: '删除', destructive: true });
   };
 
   const createConfig = async () => {
-    if (!form.name || !form.s3_bucket_name) { Alert.alert('提示', '请填写名称和存储桶'); return; }
+    if (!form.name || !form.s3_bucket_name) { xAlert('提示', '请填写名称和存储桶'); return; }
     try {
       await apiClient.post('/api/v1/bbtalk/settings/storage/create/', { ...form, storage_type: 's3' });
-      Alert.alert('成功', '配置已创建'); setShowAdd(false); setForm({ name: '', s3_access_key_id: '', s3_secret_access_key: '', s3_bucket_name: '', s3_region_name: 'us-east-1', s3_endpoint_url: '' }); load();
-    } catch (e: any) { Alert.alert('失败', e.message); }
+      xAlert('成功', '配置已创建'); setShowAdd(false); setForm({ name: '', s3_access_key_id: '', s3_secret_access_key: '', s3_bucket_name: '', s3_region_name: 'us-east-1', s3_endpoint_url: '' }); load();
+    } catch (e: any) { xAlert('失败', e.message); }
   };
 
   if (loading) return <View style={[styles.container, { backgroundColor: c.surfaceSecondary }]}><LoadingPlaceholder /></View>;

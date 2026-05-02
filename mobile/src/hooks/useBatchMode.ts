@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
-import { Alert } from 'react-native';
 import { bbtalkApi } from '../services/api/bbtalkApi';
+import { xConfirm } from '../utils/crossAlert';
 import { useAppDispatch } from '../store/hooks';
 import { optimisticDelete } from '../store/slices/bbtalkSlice';
 import { logError } from '../utils/errorHandler';
@@ -61,15 +61,10 @@ export function useBatchMode({ showError, onComplete }: UseBatchModeOptions): Us
 
   const batchDelete = useCallback(async (ids: string[]) => {
     return new Promise<void>((resolve) => {
-      Alert.alert(
+      xConfirm(
         '批量删除',
         `确定删除选中的 ${ids.length} 条碎碎念？此操作不可撤销。`,
-        [
-          { text: '取消', style: 'cancel', onPress: () => resolve() },
-          {
-            text: '删除',
-            style: 'destructive',
-            onPress: async () => {
+        async () => {
               setIsExecuting(true);
               setProgress({ done: 0, total: ids.length });
               let failed = 0;
@@ -97,9 +92,7 @@ export function useBatchMode({ showError, onComplete }: UseBatchModeOptions): Us
               exitBatchMode();
               onComplete();
               resolve();
-            },
-          },
-        ],
+        }, () => resolve(), { confirmText: '删除', destructive: true },
       );
     });
   }, [dispatch, showError, onComplete, exitBatchMode]);

@@ -1,6 +1,7 @@
-import { Alert, Linking, Platform } from 'react-native';
+import { Linking, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
+import { xConfirm } from './crossAlert';
 
 const VERSION_CHECK_COOLDOWN_KEY = 'version_check_cooldown_timestamp';
 const COOLDOWN_HOURS = 24;
@@ -46,13 +47,12 @@ async function checkOTAUpdate(): Promise<boolean> {
     const update = await Updates.checkForUpdateAsync();
     if (update.isAvailable) {
       await Updates.fetchUpdateAsync();
-      Alert.alert(
+      xConfirm(
         '更新已就绪',
         '新版本已下载完成，重启应用即可生效。',
-        [
-          { text: '稍后', style: 'cancel' },
-          { text: '立即重启', onPress: () => Updates.reloadAsync() },
-        ]
+        () => Updates.reloadAsync(),
+        undefined,
+        { confirmText: '立即重启', cancelText: '稍后' },
       );
       return true;
     }
@@ -104,13 +104,12 @@ export async function checkForUpdates(): Promise<void> {
     const storeResult = await checkStoreUpdate();
     if (storeResult.hasUpdate && storeResult.version && storeResult.url) {
       const url = storeResult.url;
-      Alert.alert(
+      xConfirm(
         '发现新版本',
         `v${storeResult.version} 已发布，建议更新以获得最佳体验。`,
-        [
-          { text: '稍后提醒', style: 'cancel', onPress: () => setCooldown() },
-          { text: '前往更新', onPress: () => Linking.openURL(url).catch(() => {}) },
-        ]
+        () => Linking.openURL(url).catch(() => {}),
+        () => setCooldown(),
+        { confirmText: '前往更新', cancelText: '稍后提醒' },
       );
     }
   } catch (e) {

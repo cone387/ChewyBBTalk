@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, Alert, TextInput,
+  View, Text, TouchableOpacity, StyleSheet, TextInput,
   ScrollView, LayoutAnimation, UIManager, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
+import { xAlert, xConfirm, xActionSheet } from '../utils/crossAlert';
 import { tagApi } from '../services/api/tagApi';
 import { useAppDispatch } from '../store/hooks';
 import { loadTags } from '../store/slices/tagSlice';
@@ -47,32 +48,27 @@ export default function TagManagementScreen() {
     try {
       await tagApi.updateTag(editingId, { name: editName.trim(), color: editColor });
       cancelEdit(); await load(true); dispatch(loadTags());
-    } catch (e: any) { Alert.alert('保存失败', e.message); }
+    } catch (e: any) { xAlert('保存失败', e.message); }
   };
 
   const deleteTag = (tag: Tag) => {
-    Alert.alert(
-      '删除标签',
-      `确定删除「${tag.name}」？（关联 ${tag.bbtalkCount || 0} 条碎碎念）`,
-      [
-        { text: '取消', style: 'cancel' },
-        { text: '仅删除标签', onPress: async () => {
-          try { await tagApi.deleteTag(tag.id, false); await load(true); dispatch(loadTags()); }
-          catch (e: any) { Alert.alert('删除失败', e.message); }
-        }},
-        ...(tag.bbtalkCount && tag.bbtalkCount > 0 ? [{
-          text: '同时删除碎碎念', style: 'destructive' as const, onPress: async () => {
-            Alert.alert('二次确认', `将永久删除「${tag.name}」及其关联的碎碎念，不可恢复！`, [
-              { text: '取消', style: 'cancel' },
-              { text: '确认删除', style: 'destructive', onPress: async () => {
-                try { await tagApi.deleteTag(tag.id, true); await load(true); dispatch(loadTags()); }
-                catch (e: any) { Alert.alert('删除失败', e.message); }
-              }},
-            ]);
-          },
-        }] : []),
-      ]
-    );
+    const options: { text: string; action: () => void; destructive?: boolean }[] = [
+      { text: '仅删除标签', action: async () => {
+        try { await tagApi.deleteTag(tag.id, false); await load(true); dispatch(loadTags()); }
+        catch (e: any) { xAlert('删除失败', e.message); }
+      }},
+    ];
+    if (tag.bbtalkCount && tag.bbtalkCount > 0) {
+      options.push({ text: '同时删除碎碎念', destructive: true, action: () => {
+        xConfirm('二次确认', `将永久删除「${tag.name}」及其关联的碎碎念，不可恢复！`, async () => {
+          try { await tagApi.deleteTag(tag.id, true); await load(true); dispatch(loadTags()); }
+          catch (e: any) { xAlert('删除失败', e.message); }
+        }, undefined, { confirmText: '确认删除', destructive: true });
+      }});
+    }
+    xActionSheet(`删除「${tag.name}」？（关联 ${tag.bbtalkCount || 0} 条碎碎念）`, options, (index) => {
+      options[index].action();
+    });
   };
 
   const moveTag = async (index: number, direction: 'up' | 'down') => {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView, Switch, Linking, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Switch, Linking, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,6 +8,7 @@ import { getCurrentUser, logout } from '../services/auth';
 import { useTheme } from '../theme/ThemeContext';
 import { getApiBaseUrl } from '../config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { xConfirm } from '../utils/crossAlert';
 
 interface Props { onLogout: () => void; }
 
@@ -79,16 +80,9 @@ export default function SettingsScreen({ onLogout }: Props) {
   }, []);
 
   const handleLogout = () => {
-    if (Platform.OS === 'web') {
-      if (window.confirm('确定要退出登录吗？')) {
-        logout().then(() => onLogout());
-      }
-      return;
-    }
-    Alert.alert('确认退出', '确定要退出登录吗？', [
-      { text: '取消', style: 'cancel' },
-      { text: '退出', style: 'destructive', onPress: async () => { await logout(); onLogout(); } },
-    ]);
+    xConfirm('确认退出', '确定要退出登录吗？', async () => {
+      await logout(); onLogout();
+    }, undefined, { confirmText: '退出', destructive: true });
   };
 
   const handleMenuPress = (key: string) => {

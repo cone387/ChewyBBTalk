@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, Animated, Alert, TouchableOpacity,
+  View, Text, StyleSheet, Animated, TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -11,6 +11,7 @@ import {
   useAudioRecorderState,
 } from 'expo-audio';
 import { useTheme } from '../theme/ThemeContext';
+import { xAlert } from '../utils/crossAlert';
 
 // Lazy-load Voice to avoid crash in Expo Go
 let Voice: any = null;
@@ -88,7 +89,7 @@ export default function VoiceRecordingOverlay({ visible, onFinish, onCancel }: P
 
       const status = await AudioModule.requestRecordingPermissionsAsync();
       if (!status.granted) {
-        Alert.alert('权限不足', '需要麦克风权限才能录音');
+        xAlert('权限不足', '需要麦克风权限才能录音');
         onCancel();
         return;
       }
@@ -104,7 +105,7 @@ export default function VoiceRecordingOverlay({ visible, onFinish, onCancel }: P
       }
     } catch (e: any) {
       console.error('Failed to start recording:', e);
-      Alert.alert('录音失败', e.message || '无法启动录音');
+      xAlert('录音失败', e.message || '无法启动录音');
       onCancel();
     }
   };

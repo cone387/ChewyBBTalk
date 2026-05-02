@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
+import { xAlert } from '../utils/crossAlert';
 import { checkForUpdates } from '../utils/versionChecker';
 import { getApiBaseUrl } from '../config';
 import Constants from 'expo-constants';
@@ -20,9 +21,9 @@ export default function AboutScreen() {
     setChecking(true);
     try {
       await checkForUpdates();
-      Alert.alert('检查完成', '当前已是最新版本');
+      xAlert('检查完成', '当前已是最新版本');
     } catch {
-      Alert.alert('检查完成', '当前已是最新版本');
+      xAlert('检查完成', '当前已是最新版本');
     } finally {
       setChecking(false);
     }

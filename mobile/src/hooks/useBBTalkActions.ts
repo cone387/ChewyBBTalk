@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { Alert, ActionSheetIOS, Platform } from 'react-native';
+import { Platform } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import type { BBTalk, Attachment } from '../types';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
@@ -8,6 +8,7 @@ import { bbtalkApi } from '../services/api/bbtalkApi';
 import { attachmentApi } from '../services/api/mediaApi';
 import { logError } from '../utils/errorHandler';
 import { shareBBTalk as shareService } from '../services/shareService';
+import { xActionSheet, xConfirm } from '../utils/crossAlert';
 
 interface UseBBTalkActionsOptions {
   showError: (title: string, msg: string) => void;
@@ -54,35 +55,26 @@ export function useBBTalkActions({ showError, onNavigateCompose }: UseBBTalkActi
 
   const showMenu = useCallback((item: BBTalk) => {
     const pinLabel = item.isPinned ? '取消置顶' : '置顶';
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        { options: ['编辑', pinLabel, '分享', '复制', '删除', '取消'], destructiveButtonIndex: 4, cancelButtonIndex: 5 },
-        (idx) => {
-          if (idx === 0) onNavigateCompose(item);
-          if (idx === 1) dispatch(togglePinAsync(item.id));
-          if (idx === 2) shareBBTalk(item);
-          if (idx === 3) Clipboard.setStringAsync(item.content);
-          if (idx === 4) handleDelete(item);
-        }
-      );
-    } else {
-      Alert.alert('操作', '', [
-        { text: '编辑', onPress: () => onNavigateCompose(item) },
-        { text: pinLabel, onPress: () => dispatch(togglePinAsync(item.id)) },
-        { text: '分享', onPress: () => shareBBTalk(item) },
-        { text: '复制', onPress: () => Clipboard.setStringAsync(item.content) },
-        { text: '删除', style: 'destructive', onPress: () => handleDelete(item) },
-        { text: '取消', style: 'cancel' },
-      ]);
-    }
+    xActionSheet('操作', [
+      { text: '编辑' },
+      { text: pinLabel },
+      { text: '分享' },
+      { text: '复制' },
+      { text: '删除', destructive: true },
+    ], (idx) => {
+      if (idx === 0) onNavigateCompose(item);
+      if (idx === 1) dispatch(togglePinAsync(item.id));
+      if (idx === 2) shareBBTalk(item);
+      if (idx === 3) Clipboard.setStringAsync(item.content);
+      if (idx === 4) handleDelete(item);
+    });
   }, [dispatch, handleDelete, onNavigateCompose, shareBBTalk]);
 
   const toggleVisibility = useCallback((item: BBTalk) => {
     const newVis = item.visibility === 'public' ? 'private' : 'public';
-    Alert.alert('切换可见性', `确定设为${newVis === 'public' ? '公开' : '私密'}？`, [
-      { text: '取消', style: 'cancel' },
-      { text: '确定', onPress: () => dispatch(updateBBTalkAsync({ id: item.id, data: { visibility: newVis } as any })) },
-    ]);
+    xConfirm('切换可见性', `确定设为${newVis === 'public' ? '公开' : '私密'}？`, () => {
+      dispatch(updateBBTalkAsync({ id: item.id, data: { visibility: newVis } as any }));
+    });
   }, [dispatch]);
 
   const handleVoiceFinish = useCallback(async (result: { text: string; audioUri: string | null; audioDuration: number }) => {

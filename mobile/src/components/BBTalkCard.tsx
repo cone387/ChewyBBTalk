@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, Linking, Alert,
+  View, Text, TouchableOpacity, StyleSheet, Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -11,6 +11,7 @@ import { getMarkdownStyles } from '../utils/markdownStyles';
 import AudioPlayerButton from './AudioPlayerButton';
 import VideoPlayerButton from './VideoPlayerButton';
 import InlineComments from './InlineComments';
+import { xAlert } from '../utils/crossAlert';
 
 export interface BBTalkCardProps {
   item: BBTalk;
@@ -53,7 +54,7 @@ function renderFileAttachment(att: Attachment, colors: any): React.JSX.Element {
       key={att.uid}
       style={[styles.fileCard, { backgroundColor: colors.borderLight, borderColor: colors.border }]}
       activeOpacity={0.7}
-      onPress={() => Linking.openURL(att.url).catch(() => Alert.alert('提示', '无法打开此文件'))}
+      onPress={() => Linking.openURL(att.url).catch(() => xAlert('提示', '无法打开此文件'))}
     >
       <View style={[styles.fileIconWrap, { backgroundColor: iconColor + '18' }]}>
         <Ionicons name="document-outline" size={20} color={iconColor} />
