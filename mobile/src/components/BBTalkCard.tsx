@@ -124,7 +124,6 @@ const BBTalkCard = React.memo(function BBTalkCard({
   theme,
 }: BBTalkCardProps) {
   const c = theme.colors;
-  const isMobile = item.context?.source?.platform === 'mobile';
   const loc = item.context?.location as { latitude: number; longitude: number } | undefined;
   const images = item.attachments.filter(a => a.type === 'image');
   const files = item.attachments.filter(a => a.type !== 'image');
@@ -152,17 +151,18 @@ const BBTalkCard = React.memo(function BBTalkCard({
         <Markdown style={getMarkdownStyles(c)}>
           {item.content}
         </Markdown>
-
-        {item.tags.length > 0 && (
-          <View style={styles.tagRow}>
-            {item.tags.map(tag => (
-              <View key={tag.id} style={[styles.tag, { backgroundColor: tag.color || '#3B82F6' }]}>
-                <Text style={styles.tagText}>{tag.name}</Text>
-              </View>
-            ))}
-          </View>
-        )}
       </TouchableOpacity>
+
+      {/* Tags row */}
+      {item.tags.length > 0 && (
+        <View style={styles.tagRow}>
+          {item.tags.map(tag => (
+            <View key={tag.id} style={[styles.tag, { backgroundColor: tag.color || '#3B82F6' }]}>
+              <Text style={styles.tagText}>{tag.name}</Text>
+            </View>
+          ))}
+        </View>
+      )}
 
       {/* Image thumbnails */}
       {images.length > 0 && (
@@ -180,33 +180,28 @@ const BBTalkCard = React.memo(function BBTalkCard({
         <View style={styles.fileRow}>{files.map(f => renderFileAttachment(f, c))}</View>
       )}
 
-      {/* Footer: time, device icon, location, visibility toggle */}
+      {/* Footer: tag pill + time | location, comment, visibility */}
       <View style={styles.footer}>
         <View style={styles.footerLeft}>
           <Text style={[styles.time, { color: c.textTertiary }]}>{formatTime(item.createdAt)}</Text>
-          <Ionicons
-            name={isMobile ? 'phone-portrait-outline' : 'laptop-outline'}
-            size={12}
-            color={c.borderLight}
-          />
-          {loc && (
-            <TouchableOpacity onPress={() => onLocationPress(loc)} style={{ padding: 2 }}>
-              <Ionicons name="location-outline" size={13} color="#10B981" />
-            </TouchableOpacity>
-          )}
         </View>
         <View style={styles.footerRight}>
+          {loc && (
+            <TouchableOpacity onPress={() => onLocationPress(loc)} style={styles.footerIcon} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
+              <Ionicons name="location-outline" size={16} color={c.textTertiary} />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity onPress={() => onComment(item)} style={styles.commentBtn} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }} accessibilityLabel="评论">
-            <Ionicons name="chatbubble-outline" size={15} color={c.textTertiary} />
+            <Ionicons name="chatbubble-outline" size={16} color={c.textTertiary} />
             {(item.commentCount ?? 0) > 0 && (
               <Text style={[styles.commentBtnCount, { color: c.textTertiary }]}>{item.commentCount}</Text>
             )}
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => onToggleVisibility(item)} style={styles.visBtn} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }} accessibilityLabel={item.visibility === 'public' ? '切换为私密' : '切换为公开'}>
+          <TouchableOpacity onPress={() => onToggleVisibility(item)} style={styles.footerIcon} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }} accessibilityLabel={item.visibility === 'public' ? '切换为私密' : '切换为公开'}>
             <Ionicons
               name={item.visibility === 'public' ? 'globe-outline' : 'lock-closed-outline'}
-              size={15}
-              color={item.visibility === 'public' ? c.primary : c.textTertiary}
+              size={16}
+              color={item.visibility === 'public' ? c.textTertiary : c.textTertiary}
             />
           </TouchableOpacity>
         </View>
@@ -224,9 +219,9 @@ export default BBTalkCard;
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 16, padding: 16, marginTop: 12,
+    borderRadius: 16, padding: 16, marginTop: 16,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
+    shadowOpacity: 0.03, shadowRadius: 10, elevation: 2,
   },
   moreBtn: { position: 'absolute', top: 14, right: 14, zIndex: 10, padding: 6 },
   pinBadge: {
@@ -235,7 +230,7 @@ const styles = StyleSheet.create({
   },
   pinText: { fontSize: 11, color: '#F59E0B', fontWeight: '600' },
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12 },
-  tag: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  tag: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 12 },
   tagText: { color: '#fff', fontSize: 12, fontWeight: '500' },
   imageRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
   thumbnail: { width: 100, height: 100, borderRadius: 10 },
@@ -251,12 +246,12 @@ const styles = StyleSheet.create({
   fileCardMeta: { fontSize: 11, marginTop: 1 },
   footer: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    marginTop: 12,
+    marginTop: 14,
   },
   footerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  footerRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  footerRight: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  footerIcon: { padding: 8 },
   time: { fontSize: 12 },
-  commentBtn: { flexDirection: 'row', alignItems: 'center', gap: 3, padding: 10 },
+  commentBtn: { flexDirection: 'row', alignItems: 'center', gap: 3, padding: 8 },
   commentBtnCount: { fontSize: 12 },
-  visBtn: { padding: 10 },
 });

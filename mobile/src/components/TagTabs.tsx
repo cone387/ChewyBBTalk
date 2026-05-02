@@ -35,40 +35,42 @@ function TagTabs({
         contentContainerStyle={styles.tagTabsContent}
       >
         <TouchableOpacity
-          style={[styles.tagTab, !selectedTag && !selectedDate && styles.tagTabActive]}
+          style={[
+            styles.tagTab,
+            !selectedTag && !selectedDate && { backgroundColor: c.primary, borderRadius: 20 },
+          ]}
           onPress={() => { onSelectTag(null); onResetAnim(); }}
         >
           <Text
             style={[
               styles.tagTabText,
-              { color: !selectedTag && !selectedDate ? c.text : c.textTertiary },
+              { color: !selectedTag && !selectedDate ? '#fff' : c.textSecondary },
               !selectedTag && !selectedDate && styles.tagTabTextActive,
             ]}
           >
             全部
           </Text>
-          {!selectedTag && !selectedDate && (
-            <View style={[styles.tagTabIndicator, { backgroundColor: c.primary }]} />
-          )}
         </TouchableOpacity>
         {tags.map(tag => {
           const active = selectedTag === tag.id;
           return (
             <TouchableOpacity
               key={tag.id}
-              style={[styles.tagTab, active && styles.tagTabActive]}
+              style={[
+                styles.tagTab,
+                active && { backgroundColor: c.primary, borderRadius: 20 },
+              ]}
               onPress={() => { onSelectTag(active ? null : tag.id); onResetAnim(); }}
             >
               <Text
                 style={[
                   styles.tagTabText,
-                  { color: active ? c.text : c.textTertiary },
+                  { color: active ? '#fff' : c.textSecondary },
                   active && styles.tagTabTextActive,
                 ]}
               >
                 {tag.name}
               </Text>
-              {active && <View style={[styles.tagTabIndicator, { backgroundColor: c.primary }]} />}
             </TouchableOpacity>
           );
         })}
@@ -81,13 +83,11 @@ export default React.memo(TagTabs);
 
 const styles = StyleSheet.create({
   tagTabsWrap: {},
-  tagTabsContent: { paddingHorizontal: 12 },
+  tagTabsContent: { paddingHorizontal: 12, alignItems: 'center' },
   tagTab: {
-    alignItems: 'center',
-    paddingHorizontal: 14, paddingVertical: 12,
+    alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 16, paddingVertical: 8, marginHorizontal: 2,
   },
-  tagTabActive: {},
-  tagTabText: { fontSize: 14 },
-  tagTabTextActive: { fontWeight: '700' },
-  tagTabIndicator: { width: 18, height: 3, borderRadius: 1.5, marginTop: 4 },
+  tagTabText: { fontSize: 15 },
+  tagTabTextActive: { fontWeight: '600' },
 });

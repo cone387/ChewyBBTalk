@@ -341,26 +341,14 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
           theme={theme}
         />
       ) : (
-        <View style={[styles.header, { paddingTop: insets.top + 8, backgroundColor: c.headerBg, borderBottomColor: c.border }]}>
+        <View style={[styles.header, { paddingTop: insets.top + 8, backgroundColor: c.background }]}>
           <TouchableOpacity onPress={onOpenDrawer} style={styles.headerBtn} accessibilityLabel="打开菜单">
             <Ionicons name="menu-outline" size={26} color={c.text} />
           </TouchableOpacity>
           {searchVisible ? (
             <SearchInput searchText={searchText} onSearchTextChange={setSearchText} onSubmit={saveSearchHistory} theme={theme} />
           ) : (
-            <View style={styles.headerCenter}>
-              <Text style={[styles.headerTitle, { color: c.text }]}>碎碎念</Text>
-              {filterLabel != null && !showTagTabs && (
-                <View style={[styles.filterBadge, { backgroundColor: c.primary + '18' }]}>
-                  <Text style={[styles.filterBadgeText, { color: c.primary }]} numberOfLines={1}>{filterLabel}</Text>
-                </View>
-              )}
-              {selectedDate && (
-                <View style={[styles.filterBadge, { backgroundColor: c.primary + '18' }]}>
-                  <Text style={[styles.filterBadgeText, { color: c.primary }]} numberOfLines={1}>{selectedDate}</Text>
-                </View>
-              )}
-            </View>
+            <View style={styles.headerCenter} />
           )}
           <TouchableOpacity onPress={() => {
             if (searchVisible) {
@@ -427,7 +415,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
       )}
 
       {!batch.batchMode && (
-        <TouchableOpacity style={[styles.fab, { bottom: insets.bottom + 24, backgroundColor: c.primary, shadowColor: c.fabShadow }]}
+        <TouchableOpacity style={[styles.fab, { bottom: insets.bottom + 24, backgroundColor: c.primary, shadowColor: '#000' }]}
           onPress={() => { if (guardOfflineWrite()) return; navigation.navigate('Compose'); }} onLongPress={() => { if (guardOfflineWrite()) return; setVoiceRecording(true); }} delayLongPress={300} activeOpacity={0.85} accessibilityLabel="新建碎碎念">
           <Ionicons name="add" size={28} color="#fff" />
         </TouchableOpacity>
@@ -494,7 +482,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 0.5,
+    paddingHorizontal: 16, paddingBottom: 12,
   },
   headerBtn: { padding: 4, width: 34, alignItems: 'center' },
   headerCenter: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
@@ -505,7 +493,7 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute', right: 20, width: 56, height: 56, borderRadius: 28,
     justifyContent: 'center', alignItems: 'center',
-    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 8, elevation: 6,
+    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 6,
   },
   countdownBadge: {
     position: 'absolute', right: 22, flexDirection: 'row', alignItems: 'center', gap: 4,

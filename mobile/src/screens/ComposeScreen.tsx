@@ -245,7 +245,7 @@ export default function ComposeScreen() {
         <View style={[styles.editorArea, { backgroundColor: c.surface }]}>
           <TextInput ref={inputRef} style={[styles.textInput, { color: c.text }]}
             placeholder="你要BB什么？支持 Markdown，输入 # 添加标签" placeholderTextColor={c.textTertiary}
-            value={content} onChangeText={setContent} multiline textAlignVertical="top" autoFocus={!isEditing}
+            value={content} onChangeText={setContent} multiline textAlignVertical="top" autoFocus
             onSelectionChange={(e) => setCursorPos(e.nativeEvent.selection.start)}
             scrollEnabled={true} />
         </View>

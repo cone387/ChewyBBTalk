@@ -13,13 +13,10 @@ export function getMarkdownStyles(colors: ThemeColors): Record<string, any> {
     strong: { fontWeight: '700' },
     em: { fontStyle: 'italic' },
     blockquote: {
-      borderLeftWidth: 3,
-      borderLeftColor: colors.border,
-      paddingLeft: 12,
+      backgroundColor: '#F3F4F6',
+      borderRadius: 8,
+      padding: 12,
       marginVertical: 6,
-      backgroundColor: colors.borderLight,
-      borderRadius: 4,
-      padding: 8,
     },
     code_inline: {
       backgroundColor: colors.borderLight,
