@@ -245,16 +245,18 @@ const LANDING_HTML = `
 </section>
 
 <!-- Privacy -->
-<section id="privacy" class="py-20 md:py-28 text-white relative overflow-hidden" style="background:linear-gradient(135deg,#0B0B0E 0%,#1C1C2E 100%);">
-  <div class="absolute inset-0 grid-bg opacity-40"></div>
+<section id="privacy" class="py-20 md:py-28 relative overflow-hidden border-y border-black/5" style="background:#FFFFFF;">
+  <div class="absolute inset-0 grid-bg opacity-60"></div>
+  <div class="blob" style="width:260px;height:260px;background:#A5B4FC;top:-40px;left:-40px;opacity:.35;"></div>
+  <div class="blob" style="width:220px;height:220px;background:#FBCFE8;top:60px;right:-40px;opacity:.25;"></div>
   <div class="max-w-6xl mx-auto px-6 grid md:grid-cols-2 gap-12 items-center relative">
     <div>
       <span class="text-xs font-semibold uppercase tracking-widest" style="color:#0A84FF;">PRIVACY FIRST</span>
-      <h2 class="mt-3 text-3xl md:text-5xl font-bold leading-[1.1] tracking-tight">
+      <h2 class="mt-3 text-3xl md:text-5xl font-bold leading-[1.1] tracking-tight" style="color:#1C1C1E;">
         你的数据，<br/>
         <span style="background:linear-gradient(135deg,#0A84FF,#BF5AF2);-webkit-background-clip:text;background-clip:text;color:transparent;">只属于你自己。</span>
       </h2>
-      <p class="mt-6 leading-relaxed max-w-lg" style="color:rgba(255,255,255,0.7);">
+      <p class="mt-6 leading-relaxed max-w-lg" style="color:rgba(28,28,30,0.7);">
         我们不收集任何用户数据，不内嵌追踪 SDK，不投放广告。
         所有数据都存储在你选择的地方 —— 你的手机、你的服务器、你的 S3 桶。
       </p>
@@ -265,17 +267,17 @@ const LANDING_HTML = `
           '支持完全离线使用与本地存储',
           '可随时一键导出全部数据，无锁定'].map(t => `
           <li class="flex items-start gap-3">
-            <span class="mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0" style="background:rgba(16,185,129,0.18);">
-              <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <span class="mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0" style="background:rgba(16,185,129,0.14);">
+              <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
             </span>
-            <span style="color:rgba(255,255,255,0.9);">${t}</span>
+            <span style="color:rgba(28,28,30,0.85);">${t}</span>
           </li>
         `).join('')}
       </ul>
     </div>
     <div class="flex justify-center">
       <div class="relative">
-        <div class="blob" style="width:280px;height:280px;background:#5E5CE6;top:-20px;left:-20px;opacity:.5;"></div>
+        <div class="blob" style="width:280px;height:280px;background:#A5B4FC;top:-20px;left:-20px;opacity:.4;"></div>
         <div class="relative w-64 h-64 rounded-full flex items-center justify-center shadow-glow anim-float" style="background:linear-gradient(135deg,#0A84FF,#BF5AF2);">
           <svg class="w-32 h-32" style="color:rgba(255,255,255,0.95);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
