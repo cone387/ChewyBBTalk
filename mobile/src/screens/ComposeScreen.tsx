@@ -20,12 +20,70 @@ import { attachmentApi } from '../services/api/mediaApi';
 import { getMarkdownStyles } from '../utils/markdownStyles';
 import { useTheme } from '../theme/ThemeContext';
 import type { Attachment, BBTalk } from '../types';
-import AudioPlayerButton from '../components/AudioPlayerButton';
-import VideoPlayerButton from '../components/VideoPlayerButton';
 import VoiceRecordingOverlay from '../components/VoiceRecordingOverlay';
 import { xAlert, xConfirm } from '../utils/crossAlert';
 
 const SCREEN_H = Dimensions.get('window').height;
+
+/** 60×60 音频卡片，点击播放/暂停 */
+function CompactAudioCard({ attachment, colors: c }: { attachment: Attachment; colors: any }) {
+  const [playing, setPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    return () => { audioRef.current?.pause?.(); };
+  }, []);
+
+  const toggle = () => {
+    if (!audioRef.current) {
+      const audio = new window.Audio(attachment.url);
+      audio.onended = () => setPlaying(false);
+      audio.onerror = () => setPlaying(false);
+      audioRef.current = audio;
+    }
+    if (playing) { audioRef.current.pause(); setPlaying(false); }
+    else { audioRef.current.play().catch(() => setPlaying(false)); setPlaying(true); }
+  };
+
+  return (
+    <TouchableOpacity
+      style={[compactStyles.card, { backgroundColor: c.borderLight, borderColor: c.border }]}
+      activeOpacity={0.7} onPress={toggle}
+    >
+      <Ionicons name={playing ? 'pause' : 'play'} size={22} color={c.primary} />
+      <Text style={[compactStyles.label, { color: c.textTertiary }]} numberOfLines={1}>录音</Text>
+    </TouchableOpacity>
+  );
+}
+
+/** 60×60 视频卡片，点击打开播放 */
+function CompactVideoCard({ attachment, colors: c }: { attachment: Attachment; colors: any }) {
+  return (
+    <TouchableOpacity
+      style={[compactStyles.card, { backgroundColor: c.borderLight, borderColor: c.border }]}
+      activeOpacity={0.7}
+      onPress={() => {
+        if (Platform.OS === 'web') {
+          window.open(attachment.url, '_blank');
+        } else {
+          const { Linking } = require('react-native');
+          Linking.openURL(attachment.url);
+        }
+      }}
+    >
+      <Ionicons name="videocam" size={22} color={c.primary} />
+      <Text style={[compactStyles.label, { color: c.textTertiary }]} numberOfLines={1}>视频</Text>
+    </TouchableOpacity>
+  );
+}
+
+const compactStyles = StyleSheet.create({
+  card: {
+    width: 60, height: 60, borderRadius: 8, borderWidth: 1,
+    justifyContent: 'center', alignItems: 'center', gap: 2,
+  },
+  label: { fontSize: 9 },
+});
 
 export default function ComposeScreen() {
   const navigation = useNavigation<any>();
@@ -276,55 +334,28 @@ export default function ComposeScreen() {
         <>
         <View style={[styles.bottomInfo, { backgroundColor: c.surface }]}>
         {/* 附件预览 */}
-        {attachments.length > 0 && (() => {
-          const images = attachments.filter(a => a.type === 'image');
-          const audios = attachments.filter(a => a.type === 'audio');
-          const videos = attachments.filter(a => a.type === 'video');
-          const others = attachments.filter(a => a.type !== 'image' && a.type !== 'audio' && a.type !== 'video');
-          return (
-            <View style={{ paddingVertical: 6 }}>
-              {/* 图片 + 其他文件：水平缩略图 */}
-              {(images.length > 0 || others.length > 0) && (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always"
-                  contentContainerStyle={{ paddingHorizontal: 12, gap: 8, paddingBottom: (audios.length > 0 || videos.length > 0) ? 6 : 0 }}>
-                  {images.map(att => (
-                    <View key={att.uid} style={styles.attachmentItem}>
-                      <Image source={att.url} style={[styles.attachmentImage, { backgroundColor: c.borderLight }]} contentFit="cover" />
-                      <TouchableOpacity style={styles.removeBtn} onPress={() => setAttachments(p => p.filter(a => a.uid !== att.uid))}><Ionicons name="close" size={12} color="#fff" /></TouchableOpacity>
-                    </View>
-                  ))}
-                  {others.map(att => (
-                    <View key={att.uid} style={styles.attachmentItem}>
-                      <View style={[styles.filePlaceholder, { backgroundColor: c.borderLight, borderColor: c.border }]}>
-                        <Ionicons name="document" size={20} color={c.textTertiary} />
-                        <Text style={[styles.fileName, { color: c.textTertiary }]} numberOfLines={1}>{att.originalFilename || '附件'}</Text>
-                      </View>
-                      <TouchableOpacity style={styles.removeBtn} onPress={() => setAttachments(p => p.filter(a => a.uid !== att.uid))}><Ionicons name="close" size={12} color="#fff" /></TouchableOpacity>
-                    </View>
-                  ))}
-                </ScrollView>
-              )}
-              {/* 音频：内联播放器 */}
-              {audios.map(att => (
-                <View key={att.uid} style={styles.mediaPlayerWrap}>
-                  <AudioPlayerButton attachment={att} />
-                  <TouchableOpacity style={styles.mediaRemoveBtn} onPress={() => setAttachments(p => p.filter(a => a.uid !== att.uid))}>
-                    <Ionicons name="close-circle" size={20} color="rgba(0,0,0,0.5)" />
-                  </TouchableOpacity>
-                </View>
-              ))}
-              {/* 视频：内联播放器 */}
-              {videos.map(att => (
-                <View key={att.uid} style={styles.mediaPlayerWrap}>
-                  <VideoPlayerButton attachment={att} />
-                  <TouchableOpacity style={styles.mediaRemoveBtn} onPress={() => setAttachments(p => p.filter(a => a.uid !== att.uid))}>
-                    <Ionicons name="close-circle" size={20} color="rgba(255,255,255,0.8)" />
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </View>
-          );
-        })()}
+        {attachments.length > 0 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always"
+            contentContainerStyle={{ paddingHorizontal: 12, gap: 8, paddingVertical: 6 }}>
+            {attachments.map(att => (
+              <View key={att.uid} style={styles.attachmentItem}>
+                {att.type === 'image' ? (
+                  <Image source={att.url} style={[styles.attachmentImage, { backgroundColor: c.borderLight }]} contentFit="cover" />
+                ) : att.type === 'audio' ? (
+                  <CompactAudioCard attachment={att} colors={c} />
+                ) : att.type === 'video' ? (
+                  <CompactVideoCard attachment={att} colors={c} />
+                ) : (
+                  <View style={[styles.filePlaceholder, { backgroundColor: c.borderLight, borderColor: c.border }]}>
+                    <Ionicons name="document" size={20} color={c.textTertiary} />
+                    <Text style={[styles.fileName, { color: c.textTertiary }]} numberOfLines={1}>{att.originalFilename || '附件'}</Text>
+                  </View>
+                )}
+                <TouchableOpacity style={styles.removeBtn} onPress={() => setAttachments(p => p.filter(a => a.uid !== att.uid))}><Ionicons name="close" size={12} color="#fff" /></TouchableOpacity>
+              </View>
+            ))}
+          </ScrollView>
+        )}
 
         {/* 标签 + 字数 */}
         <View style={styles.tagsRow}>
@@ -439,8 +470,6 @@ const styles = StyleSheet.create({
   filePlaceholder: { width: 60, height: 60, borderRadius: 8, borderWidth: 1, justifyContent: 'center', alignItems: 'center', padding: 2 },
   fileName: { fontSize: 8, marginTop: 1, textAlign: 'center' },
   removeBtn: { position: 'absolute', top: -4, right: -4, width: 18, height: 18, borderRadius: 9, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
-  mediaPlayerWrap: { position: 'relative', marginHorizontal: 12, marginTop: 6 },
-  mediaRemoveBtn: { position: 'absolute', top: 4, right: 4, zIndex: 1 },
   parsedTag: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5 },
   parsedTagText: { fontSize: 13, fontWeight: '500' },
   charCountWrap: { paddingHorizontal: 12 },
