@@ -88,12 +88,16 @@ function PrivacyLockOverlay({
           )}
 
           <View style={[styles.inputWrap, { borderColor: c.border, backgroundColor: c.surface }]}>
-            <Ionicons name="key-outline" size={18} color={c.textTertiary} style={{ marginRight: 8 }} />
+            <Ionicons name="key-outline" size={18} color={c.textTertiary} />
             <TextInput
               style={[styles.lockInput, { color: c.text }]}
               placeholder="请输入密码"
               placeholderTextColor={c.textTertiary}
               secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="ascii-capable"
+              textContentType="password"
               value={unlockPassword}
               onChangeText={onUnlockPasswordChange}
               onSubmitEditing={onUnlock}
@@ -170,9 +174,9 @@ const styles = StyleSheet.create({
   inputWrap: {
     flexDirection: 'row', alignItems: 'center',
     width: '100%', borderWidth: 1, borderRadius: 12,
-    paddingHorizontal: 14, height: 48,
+    paddingHorizontal: 14, height: 48, gap: 8,
   },
-  lockInput: { flex: 1, height: '100%', fontSize: 15 },
+  lockInput: { flex: 1, fontSize: 15, paddingVertical: 0 },
   lockBtn: {
     width: '100%', borderRadius: 12, height: 48,
     justifyContent: 'center', alignItems: 'center', marginTop: 14,

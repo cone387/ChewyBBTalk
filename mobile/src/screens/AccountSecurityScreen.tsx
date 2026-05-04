@@ -88,6 +88,10 @@ export default function AccountSecurityScreen({ onLogout }: Props) {
                 placeholder="输入密码"
                 placeholderTextColor={c.textTertiary}
                 secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="ascii-capable"
+                textContentType="password"
                 value={deletePassword}
                 onChangeText={setDeletePassword}
                 editable={!deleting}

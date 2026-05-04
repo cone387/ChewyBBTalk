@@ -125,7 +125,8 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
           <View style={[styles.inputWrap, { borderColor: c.border, backgroundColor: c.surface }]}>
             <Ionicons name="lock-closed-outline" size={18} color={c.textTertiary} />
             <TextInput style={[styles.input, { color: c.text }]} placeholder="请输入密码" placeholderTextColor={c.textTertiary}
-              value={password} onChangeText={setPassword} secureTextEntry={!showPassword} editable={!loading} />
+              value={password} onChangeText={setPassword} secureTextEntry={!showPassword} editable={!loading}
+              autoCapitalize="none" autoCorrect={false} keyboardType="ascii-capable" textContentType="password" />
             <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={{ padding: 4 }}>
               <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={18} color={c.textTertiary} />
             </TouchableOpacity>
