@@ -122,6 +122,18 @@ export default function ComposeScreen() {
     try { for (const a of r.assets) { const att = await attachmentApi.upload(a.uri, a.fileName || `m${Date.now()}.jpg`, a.mimeType || 'image/jpeg'); setAttachments(p => [...p, att]); } }
     catch (e: any) { xAlert('上传失败', e.message); } finally { setUploading(false); }
   };
+  const takePhoto = async () => {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) { xAlert('提示', '需要相机权限才能拍照'); return; }
+    const r = await ImagePicker.launchCameraAsync({ quality: 0.8 });
+    if (r.canceled || !r.assets.length) return;
+    setUploading(true);
+    try {
+      const a = r.assets[0];
+      const att = await attachmentApi.upload(a.uri, a.fileName || `photo_${Date.now()}.jpg`, a.mimeType || 'image/jpeg');
+      setAttachments(p => [...p, att]);
+    } catch (e: any) { xAlert('上传失败', e.message); } finally { setUploading(false); }
+  };
   const pickFile = async () => {
     try { const r = await DocumentPicker.getDocumentAsync({ multiple: true }); if (r.canceled || !r.assets?.length) return; setUploading(true);
       for (const a of r.assets) { const att = await attachmentApi.upload(a.uri, a.name, a.mimeType || 'application/octet-stream'); setAttachments(p => [...p, att]); }
@@ -317,6 +329,7 @@ export default function ComposeScreen() {
           <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always"
             contentContainerStyle={styles.toolbarRow}>
             <TouchableOpacity style={styles.toolBtn} onPress={() => pickMedia('images')}><Ionicons name="image-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
+            <TouchableOpacity style={styles.toolBtn} onPress={takePhoto}><Ionicons name="camera-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
             <TouchableOpacity style={styles.toolBtn} onPress={() => pickMedia('videos')}><Ionicons name="videocam-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
             <TouchableOpacity style={styles.toolBtn} onPress={pickFile}><Ionicons name="attach-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
             <TouchableOpacity style={styles.toolBtn} onPress={() => { Keyboard.dismiss(); setVoiceRecording(true); }}><Ionicons name="mic-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
