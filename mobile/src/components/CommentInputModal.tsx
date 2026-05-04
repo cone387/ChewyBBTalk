@@ -1,8 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, TextInput, TouchableOpacity, StyleSheet,
-  Modal, KeyboardAvoidingView, Platform, ActivityIndicator,
-  NativeSyntheticEvent, TextInputKeyPressEventData,
+  KeyboardAvoidingView, Platform, ActivityIndicator, Animated, Keyboard,
+  NativeSyntheticEvent, TextInputKeyPressEventData, BackHandler,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,15 +28,43 @@ export default function CommentInputModal({ visible, bbtalkId, onClose, onCommen
   const [text, setText] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  // 动画值：蒙层透明度 + 面板滑入
+  const overlayAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(200)).current;
+  const [mounted, setMounted] = useState(false);
+
+  // 打开/关闭动画
   useEffect(() => {
     if (visible) {
-      setTimeout(() => inputRef.current?.focus(), 100);
+      setMounted(true);
+      Animated.parallel([
+        Animated.timing(overlayAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, speed: 20, bounciness: 2 }),
+      ]).start(() => {
+        setTimeout(() => inputRef.current?.focus(), 50);
+      });
     } else {
-      setText('');
+      Animated.parallel([
+        Animated.timing(overlayAnim, { toValue: 0, duration: 150, useNativeDriver: true }),
+        Animated.timing(slideAnim, { toValue: 200, duration: 150, useNativeDriver: true }),
+      ]).start(() => {
+        setMounted(false);
+        setText('');
+      });
     }
   }, [visible]);
 
-  const handleSend = async () => {
+  // Android 返回键关闭
+  useEffect(() => {
+    if (!visible || isWeb) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      onClose();
+      return true;
+    });
+    return () => sub.remove();
+  }, [visible, onClose]);
+
+  const handleSend = useCallback(async () => {
     const content = text.trim();
     if (!content || submitting) return;
     setSubmitting(true);
@@ -50,26 +78,30 @@ export default function CommentInputModal({ visible, bbtalkId, onClose, onCommen
     } finally {
       setSubmitting(false);
     }
-  };
+  }, [text, submitting, bbtalkId, onCommentAdded, onClose]);
 
-  const handleKeyPress = (e: NativeSyntheticEvent<TextInputKeyPressEventData>) => {
-    // Enter to send (without Shift for newline)
+  const handleKeyPress = useCallback((e: NativeSyntheticEvent<TextInputKeyPressEventData>) => {
     if (isWeb && e.nativeEvent.key === 'Enter' && !(e as any).nativeEvent.shiftKey) {
       e.preventDefault();
       handleSend();
     }
-  };
+  }, [handleSend]);
 
-  if (!visible) return null;
+  if (!mounted) return null;
 
-  const inputContent = (
-    <View style={[styles.container, { backgroundColor: c.cardBg, paddingBottom: isWeb ? 12 : insets.bottom + 8 }]}>
-      {!isWeb && <View style={styles.handle} />}
+  const inputBar = (
+    <Animated.View
+      style={[
+        styles.container,
+        { backgroundColor: c.cardBg, paddingBottom: isWeb ? 12 : insets.bottom + 8, transform: [{ translateY: slideAnim }] },
+      ]}
+    >
+      <View style={styles.handle} />
       <View style={styles.inputRow}>
         <TextInput
           ref={inputRef}
           style={[styles.input, { backgroundColor: c.surfaceSecondary, color: c.text }]}
-          placeholder="写一条评论... (Enter 发送)"
+          placeholder="写一条评论..."
           placeholderTextColor={c.textTertiary}
           value={text}
           onChangeText={setText}
@@ -92,51 +124,59 @@ export default function CommentInputModal({ visible, bbtalkId, onClose, onCommen
           )}
         </TouchableOpacity>
       </View>
-    </View>
+    </Animated.View>
   );
 
   if (isWeb) {
-    // Web: use a simple fixed-bottom overlay instead of Modal (which has aria-hidden issues)
     return (
       <View style={styles.webOverlay}>
-        <TouchableOpacity style={styles.webBackdrop} activeOpacity={1} onPress={onClose} />
-        {inputContent}
+        <Animated.View style={[styles.backdrop, { opacity: overlayAnim }]}>
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
+        </Animated.View>
+        {inputBar}
       </View>
     );
   }
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose} />
-      <KeyboardAvoidingView behavior="padding" style={styles.keyboardView}>
-        {inputContent}
+    <View style={styles.nativeOverlay} pointerEvents="box-none">
+      <Animated.View style={[styles.backdrop, { opacity: overlayAnim }]}>
+        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
+      </Animated.View>
+      <KeyboardAvoidingView behavior="padding" style={styles.keyboardView} pointerEvents="box-none">
+        {inputBar}
       </KeyboardAvoidingView>
-    </Modal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  // Native Modal
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)' },
+  // 原生端：绝对定位覆盖层，不使用 Modal
+  nativeOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 999,
+    justifyContent: 'flex-end',
+  },
+  // 半透明蒙层 — 极轻，几乎无感
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.15)',
+  },
   keyboardView: { justifyContent: 'flex-end' },
-  // Web overlay
+  // Web
   webOverlay: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999,
     justifyContent: 'flex-end',
   },
-  webBackdrop: {
-    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-  },
-  // Shared
+  // 输入面板
   container: {
     borderTopLeftRadius: 16, borderTopRightRadius: 16,
-    paddingHorizontal: 16, paddingTop: 10,
-    shadowColor: '#000', shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 10,
+    paddingHorizontal: 16, paddingTop: 8,
+    shadowColor: '#000', shadowOffset: { width: 0, height: -3 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 10,
   },
   handle: {
     width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1D5DB',
-    alignSelf: 'center', marginBottom: 12,
+    alignSelf: 'center', marginBottom: 10,
   },
   inputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
   input: {
