@@ -16,6 +16,8 @@ export function useTagSwipe({ tags, selectedTag, showTagTabs, onSelectTag }: Use
 
   const allTagIds = useMemo(() => [null, ...tags.map(t => t.id)], [tags]);
   const currentTagIdx = selectedTag ? allTagIds.indexOf(selectedTag) : 0;
+  const currentTagIdxRef = useRef(currentTagIdx); currentTagIdxRef.current = currentTagIdx;
+  const allTagIdsRef = useRef(allTagIds); allTagIdsRef.current = allTagIds;
 
   const switchTag = useCallback((direction: 'left' | 'right') => {
     if (!showTagTabs || !onSelectTag || tags.length === 0) return;
@@ -40,7 +42,15 @@ export function useTagSwipe({ tags, selectedTag, showTagTabs, onSelectTag }: Use
       onMoveShouldSetPanResponder: (_, gesture) =>
         showTagTabsRef.current && Math.abs(gesture.dx) > 20 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.5,
       onPanResponderGrant: () => { swipingRef.current = true; },
-      onPanResponderMove: (_, gesture) => { listSlideAnim.setValue(gesture.dx * 0.3); },
+      onPanResponderMove: (_, gesture) => {
+        const idx = currentTagIdxRef.current;
+        const maxIdx = allTagIdsRef.current.length - 1;
+        // 到达边界时施加阻尼：已在最左 tab 还往右滑，或已在最右 tab 还往左滑
+        const atLeftEdge = idx === 0 && gesture.dx > 0;
+        const atRightEdge = idx === maxIdx && gesture.dx < 0;
+        const damping = (atLeftEdge || atRightEdge) ? 0.08 : 0.3;
+        listSlideAnim.setValue(gesture.dx * damping);
+      },
       onPanResponderRelease: (_, gesture) => {
         swipingRef.current = false;
         if (Math.abs(gesture.dx) > 60 || Math.abs(gesture.vx) > 0.5) switchTagRef.current(gesture.dx < 0 ? 'left' : 'right');
