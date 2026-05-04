@@ -49,14 +49,16 @@ export function usePrivacyMode(options: UsePrivacyModeOptions): UsePrivacyModeRe
   const lastActivity = useRef(Date.now());
   const timeoutMinsRef = useRef(5);
   const onLockChangeRef = useRef(options.onLockChange);
+  const isLockedRef = useRef(false);
   onLockChangeRef.current = options.onLockChange;
 
   // --- Callbacks ---
   const setLocked = useCallback((val: boolean) => {
     setLockedState(val);
+    isLockedRef.current = val;
     AsyncStorage.setItem('privacy_locked', val ? 'true' : 'false');
     if (!val) {
-      // 解锁时重置最后活跃时间
+      // 解锁时重置最后活跃时间，恢复倒计时
       lastActivity.current = Date.now();
       AsyncStorage.setItem('privacy_last_active', String(lastActivity.current));
     }
@@ -81,14 +83,14 @@ export function usePrivacyMode(options: UsePrivacyModeOptions): UsePrivacyModeRe
     if (enabled) {
       const l = await AsyncStorage.getItem('privacy_locked');
       if (l === 'true') {
-        setLockedState(true); onLockChangeRef.current?.(true);
+        setLockedState(true); isLockedRef.current = true; onLockChangeRef.current?.(true);
       } else {
         // 检查 app 被 kill 前最后活跃时间，若超时则立即锁定
         const saved = await AsyncStorage.getItem('privacy_last_active');
         if (saved) {
           const elapsed = (Date.now() - Number(saved)) / 1000;
           if (elapsed >= timeoutMinsRef.current * 60) {
-            setLockedState(true); onLockChangeRef.current?.(true);
+            setLockedState(true); isLockedRef.current = true; onLockChangeRef.current?.(true);
             AsyncStorage.setItem('privacy_locked', 'true');
           } else {
             lastActivity.current = Date.now() - elapsed * 1000;
@@ -175,7 +177,6 @@ export function usePrivacyMode(options: UsePrivacyModeOptions): UsePrivacyModeRe
     });
 
     // 1-second interval timer for privacy countdown
-    const isLockedRef = { current: false };
     const timer = setInterval(async () => {
       // 已锁定时不再轮询，减少重渲染
       if (isLockedRef.current) return;
