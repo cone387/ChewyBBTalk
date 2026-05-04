@@ -19,7 +19,14 @@
     <title>ChewyBBTalk</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- 首屏 loading 占位，React 挂载后自动替换 -->
+      <div id="app-loading" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#F9FAFB;gap:16px;">
+        <div style="width:48px;height:48px;border:3px solid #E5E7EB;border-top-color:#3B82F6;border-radius:50%;animation:spin .8s linear infinite;"></div>
+        <div style="color:#9CA3AF;font-size:14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">加载中...</div>
+      </div>
+      <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

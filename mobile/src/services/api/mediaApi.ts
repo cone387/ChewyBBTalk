@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { getAccessToken } from '../auth';
 import { getApiBaseUrl } from '../../config';
 import type { Attachment } from '../../types';
@@ -27,6 +28,15 @@ function transformAttachment(data: any): Attachment {
 
 export const attachmentApi = {
   async upload(uri: string, fileName: string, mimeType: string): Promise<Attachment> {
+    // Web 平台：RN 风格的 { uri, name, type } 对象不被浏览器 FormData 识别，
+    // 会被 toString() 成 "[object Object]"。需要先 fetch 成 Blob 再用 File 包装。
+    if (Platform.OS === 'web') {
+      const resp = await fetch(uri);
+      const blob = await resp.blob();
+      const file = new File([blob], fileName, { type: mimeType || blob.type });
+      return this.uploadFile(file);
+    }
+
     const token = await getAccessToken();
     const formData = new FormData();
 
@@ -47,7 +57,7 @@ export const attachmentApi = {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      throw new Error(error.detail || '上传失败');
+      throw new Error(error.detail || JSON.stringify(error) || '上传失败');
     }
 
     const data = await response.json();
@@ -58,7 +68,7 @@ export const attachmentApi = {
   async uploadFile(file: File): Promise<Attachment> {
     const token = await getAccessToken();
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('file', file, file.name || 'upload');
     formData.append('is_public', 'true');
 
     const response = await fetch(`${getApiBaseUrl()}/api/v1/attachments/files/`, {
@@ -71,7 +81,16 @@ export const attachmentApi = {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      throw new Error(error.detail || '上传失败');
+      // DRF 字段级错误格式: {"file": ["错误信息"]}
+      let message = error.detail;
+      if (!message) {
+        const firstKey = Object.keys(error)[0];
+        if (firstKey) {
+          const val = error[firstKey];
+          message = Array.isArray(val) ? val.join('; ') : String(val);
+        }
+      }
+      throw new Error(message || '上传失败');
     }
 
     const data = await response.json();

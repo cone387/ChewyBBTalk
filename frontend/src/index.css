@@ -51,3 +51,15 @@ body {
     padding-bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px));
   }
 }
+
+/* 移动端滚动优化 - 防止滑动空白和弹性过度 */
+.-webkit-overflow-scrolling-touch {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 防止移动端滚动容器出现空白间隙 */
+@media (max-width: 1023px) {
+  .overscroll-contain {
+    overscroll-behavior: contain;
+  }
+}

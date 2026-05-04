@@ -62,8 +62,17 @@ export const attachmentApi = {
     description?: string;
     is_public?: boolean;
   }): Promise<Attachment> {
+    // 前端预校验：确保 file 是有效的 File/Blob 对象且非空
+    if (!file || typeof file !== 'object' || !('size' in file)) {
+      throw new Error('无效的文件对象');
+    }
+    if (file.size === 0) {
+      throw new Error('文件为空，请重新选择');
+    }
+
     const formData = new FormData();
-    formData.append('file', file);
+    // 显式传入文件名，确保移动端浏览器兼容性
+    formData.append('file', file, file.name || 'upload');
     if (params?.media_type) formData.append('media_type', params.media_type);
     if (params?.description) formData.append('description', params.description);
     // 默认公开，浏览器可以直接通过 <img> 加载，利用 HTTP 缓存
@@ -85,7 +94,27 @@ export const attachmentApi = {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      throw new Error(error.detail || '上传失败');
+      // DRF serializer 验证错误格式: {"file": ["错误信息"]} 或 {"detail": "错误信息"}
+      let message = '上传失败';
+      if (error.detail) {
+        message = error.detail;
+      } else if (error.file) {
+        // serializer field-level 错误
+        message = Array.isArray(error.file) ? error.file.join('; ') : String(error.file);
+      } else if (error.non_field_errors) {
+        message = Array.isArray(error.non_field_errors) ? error.non_field_errors.join('; ') : String(error.non_field_errors);
+      } else {
+        // 尝试提取任意字段的第一个错误
+        const firstKey = Object.keys(error)[0];
+        if (firstKey && error[firstKey]) {
+          const val = error[firstKey];
+          message = Array.isArray(val) ? val.join('; ') : String(val);
+        }
+      }
+      const err = new Error(message);
+      (err as any).status = response.status;
+      (err as any).response = { status: response.status, data: error };
+      throw err;
     }
 
     const data = await response.json();

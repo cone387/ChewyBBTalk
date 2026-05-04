@@ -54,6 +54,7 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
   const tagSelectorRef = useRef<HTMLDivElement>(null)
   const editorContainerRef = useRef<HTMLDivElement>(null)
   const dragCounter = useRef(0) // 用于处理嵌套拖拽元素
+  const isComposingRef = useRef(false) // 标记是否处于 IME 输入法组合状态（iOS 语音输入等）
   
   // 从 Redux 获取已有标签列表
   const { tags: existingTags } = useAppSelector((state) => state.tag)
@@ -152,6 +153,9 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
 
   // 检测 # 输入并显示标签选择器
   useEffect(() => {
+    // IME 组合输入中（如 iOS 语音输入），跳过标签选择器逻辑
+    if (isComposingRef.current) return
+
     const textarea = textareaRef.current
     if (!textarea) return
 
@@ -267,6 +271,9 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
   }, [filteredTags.length, selectedTagIndex])
   
   useEffect(() => {
+    // IME 组合输入中（如 iOS 语音输入），跳过标签解析避免卡顿
+    if (isComposingRef.current) return
+
     // 使用正则表达式匹配 #标签名 格式（标签名后必须跟空格）
     // 注意：这里需要确保 # 前面是空格、开头或换行，避免匹配到词语中间的 #
     const tagRegex = /(?:^|\s)#([^\s#]+)\s/g
@@ -335,9 +342,15 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
       const results = await Promise.all(uploadPromises)
       console.log('所有文件上传完成:', results)
       setUploadedFiles(prev => [...prev, ...results])
-    } catch (error) {
+    } catch (error: any) {
       console.error('上传失败:', error)
-      alert('上传失败，请重试')
+      // 优先使用后端返回的具体错误信息
+      const message = error?.message || (
+        error?.response?.status === 413
+          ? '文件太大，请压缩后重试'
+          : '上传失败，请重试'
+      )
+      setToast({ message, type: 'error' })
     } finally {
       setIsUploading(false)
     }
@@ -640,6 +653,12 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
           onChange={(e) => setContent(e.target.value)}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
+          onCompositionStart={() => { isComposingRef.current = true }}
+          onCompositionEnd={(e) => {
+            isComposingRef.current = false
+            // composition 结束后，手动触发一次内容更新以确保标签解析等逻辑执行
+            setContent((e.target as HTMLTextAreaElement).value)
+          }}
           placeholder="你要BB什么？"
           className="w-full min-h-[56px] max-h-[400px] resize-none border-none outline-none text-gray-800 placeholder-gray-400 text-base leading-relaxed"
           style={{ overflow: 'hidden' }}
