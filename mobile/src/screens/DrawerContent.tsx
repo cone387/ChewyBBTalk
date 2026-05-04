@@ -31,7 +31,7 @@ export default React.memo(function DrawerContent({ selectedTag, selectedDate, on
   const dispatch = useAppDispatch();
   const { tags } = useAppSelector(s => s.tag);
   const { totalCount } = useAppSelector(s => s.bbtalk);
-  const currentUser = getCurrentUser();
+  const [currentUser, setCurrentUser] = useState(getCurrentUser());
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { theme } = useTheme();
@@ -45,6 +45,9 @@ export default React.memo(function DrawerContent({ selectedTag, selectedDate, on
   const [dateCounts, setDateCounts] = useState<Record<string, number>>({});
 
   useEffect(() => { if (tags.length === 0) dispatch(loadTags()); }, []);
+
+  // 每次抽屉打开时刷新用户信息（头像等修改后即时更新）
+  useEffect(() => { setCurrentUser(getCurrentUser()); });
 
   const loadDateCounts = useCallback(async (year: number, month: number) => {
     try {

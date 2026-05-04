@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Switch, Linking, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { getCurrentUser, logout } from '../services/auth';
 import { useTheme } from '../theme/ThemeContext';
 import { getApiBaseUrl } from '../config';
@@ -68,12 +68,17 @@ const ROUTES: Record<string, string> = {
 };
 
 export default function SettingsScreen({ onLogout }: Props) {
-  const currentUser = getCurrentUser();
+  const [currentUser, setCurrentUser] = useState(getCurrentUser());
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { theme } = useTheme();
   const c = theme.colors;
   const [showTagTabs, setShowTagTabs] = useState(false);
+
+  // 页面获得焦点时刷新用户信息（从 ProfileEdit 返回后头像等即时更新）
+  useFocusEffect(useCallback(() => {
+    setCurrentUser(getCurrentUser());
+  }, []));
 
   useEffect(() => {
     AsyncStorage.getItem('show_tag_tabs').then(v => setShowTagTabs(v === 'true'));
