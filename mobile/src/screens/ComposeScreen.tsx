@@ -24,58 +24,44 @@ import { buildImageSource } from '../utils/imageSource';
 import VoiceRecordingOverlay from '../components/VoiceRecordingOverlay';
 import { xAlert, xConfirm } from '../utils/crossAlert';
 
+// expo-audio hook — 在 native 端使用，web 端返回 null
+import { useAudioPlayer, setAudioModeAsync } from 'expo-audio';
+function useNativeAudioPlayer(url: string) {
+  // useAudioPlayer 在所有平台都可调用，但 web 上行为可能不一致
+  // 这里统一调用以满足 hooks 规则，web 端不使用返回值
+  return useAudioPlayer(url);
+}
+
 const SCREEN_H = Dimensions.get('window').height;
 
 /** 60×60 音频卡片，点击播放/暂停 */
 function CompactAudioCard({ attachment, colors: c }: { attachment: Attachment; colors: any }) {
   const [playing, setPlaying] = useState(false);
-  const audioRef = useRef<any>(null);
-  const mountedRef = useRef(true);
+  const audioRef = useRef<any>(null); // Web fallback
+
+  // Native: 使用 expo-audio 的 useAudioPlayer
+  // Web: 用 HTML5 Audio（useAudioPlayer 在 web 上也可用但行为不一致）
+  const nativePlayer = useNativeAudioPlayer(attachment.url);
 
   useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-      if (Platform.OS === 'web') {
-        audioRef.current?.pause?.();
-      } else {
-        // expo-audio player cleanup
-        audioRef.current?.remove?.();
-      }
-    };
+    return () => { audioRef.current?.pause?.(); };
   }, []);
 
   const toggle = async () => {
     if (Platform.OS === 'web') {
-      // Web: HTML5 Audio
       if (!audioRef.current) {
         const audio = new window.Audio(attachment.url);
-        audio.onended = () => { if (mountedRef.current) setPlaying(false); };
-        audio.onerror = () => { if (mountedRef.current) setPlaying(false); };
+        audio.onended = () => setPlaying(false);
+        audio.onerror = () => setPlaying(false);
         audioRef.current = audio;
       }
       if (playing) { audioRef.current.pause(); setPlaying(false); }
       else { audioRef.current.play().catch(() => setPlaying(false)); setPlaying(true); }
-    } else {
-      // Native: expo-audio useAudioPlayer can't be used here (not a hook context at call time)
-      // Use Audio.Sound from expo-av as fallback for imperative playback
+    } else if (nativePlayer) {
       try {
-        const { Audio } = require('expo-av');
-        if (!audioRef.current) {
-          await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-          const { sound } = await Audio.Sound.createAsync(
-            { uri: attachment.url },
-            { shouldPlay: false }
-          );
-          sound.setOnPlaybackStatusUpdate((status: any) => {
-            if (status.didJustFinish && mountedRef.current) {
-              setPlaying(false);
-            }
-          });
-          audioRef.current = sound;
-        }
-        if (playing) { await audioRef.current.pauseAsync(); setPlaying(false); }
-        else { await audioRef.current.playAsync(); setPlaying(true); }
+        await setAudioModeAsync({ playsInSilentMode: true }).catch(() => {});
+        if (playing) { nativePlayer.pause(); setPlaying(false); }
+        else { nativePlayer.play(); setPlaying(true); }
       } catch (e) {
         console.warn('Audio playback error:', e);
         setPlaying(false);
