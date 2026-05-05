@@ -3,9 +3,30 @@ import { getApiBaseUrl } from '../../config';
 import type { BBTalk, PaginatedResponse, Attachment, Comment } from '../../types';
 
 function transformAttachment(data: any): Attachment {
-  let url = data.url || '';
-  if (url && url.startsWith('/')) {
-    url = getApiBaseUrl() + url;
+  const apiBase = getApiBaseUrl();
+  // BBTalk 存储的 attachment JSON 里 url 可能是裸存储路径（如 "2026/05/xxx.jpg"）
+  // 优先用 preview_url/download_url，其次用 uid 构造 preview URL，最后才用 url 字段
+  let url = data.preview_url || data.download_url || '';
+
+  if (url) {
+    // 替换 host 为用户配置的 apiBase（防止后端返回内网/localhost 地址）
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      try {
+        const parsed = new URL(url);
+        const base = new URL(apiBase);
+        parsed.protocol = base.protocol;
+        parsed.host = base.host;
+        url = parsed.toString();
+      } catch {}
+    } else if (url.startsWith('/')) {
+      url = apiBase + url;
+    }
+  } else if (data.uid || data.id) {
+    // 用 uid 构造 preview URL
+    url = `${apiBase}/api/v1/attachments/files/${data.uid || data.id}/preview/`;
+  } else if (data.url && (data.url.startsWith('http') || data.url.startsWith('/'))) {
+    // 兼容旧数据：url 是完整 URL 或相对路径
+    url = data.url.startsWith('/') ? apiBase + data.url : data.url;
   }
   return {
     uid: data.uid || data.id || '',

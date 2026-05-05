@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { loadTags } from '../store/slices/tagSlice';
+import { buildImageSource } from '../utils/imageSource';
 import { getCurrentUser } from '../services/auth';
 import { bbtalkApi } from '../services/api/bbtalkApi';
 import { useTheme } from '../theme/ThemeContext';
@@ -217,7 +218,7 @@ export default React.memo(function DrawerContent({ selectedTag, selectedDate, on
         <View style={[styles.userSection, { paddingBottom: insets.bottom + 12, borderTopColor: c.borderLight }]}>
           <View style={styles.userRow}>
             {currentUser.avatar ? (
-              <Image source={currentUser.avatar} style={styles.avatar} contentFit="cover" />
+              <Image source={buildImageSource(currentUser.avatar)} style={styles.avatar} contentFit="cover" />
             ) : (
               <View style={[styles.avatar, { backgroundColor: c.avatarBg }]}>
                 <Text style={styles.avatarText}>{(currentUser.display_name || currentUser.username).charAt(0).toUpperCase()}</Text>

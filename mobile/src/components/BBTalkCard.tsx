@@ -12,6 +12,8 @@ import AudioPlayerButton from './AudioPlayerButton';
 import VideoPlayerButton from './VideoPlayerButton';
 import InlineComments from './InlineComments';
 import { xAlert } from '../utils/crossAlert';
+import { buildImageSource } from '../utils/imageSource';
+import { formatTime } from '../utils/formatTime';
 
 export interface BBTalkCardProps {
   item: BBTalk;
@@ -27,19 +29,6 @@ export interface BBTalkCardProps {
 }
 
 /** Relative time formatting — e.g. "刚刚", "3分钟前", "2天前" */
-export function formatTime(dateStr: string): string {
-  const d = new Date(dateStr);
-  const diff = Date.now() - d.getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return '刚刚';
-  if (mins < 60) return `${mins}分钟前`;
-  const hours = Math.floor(diff / 3600000);
-  if (hours < 24) return `${hours}小时前`;
-  const days = Math.floor(diff / 86400000);
-  if (days < 7) return `${days}天前`;
-  return d.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' });
-}
-
 /** Render a non-image attachment (audio / video / file card) */
 function renderFileAttachment(att: Attachment, colors: any): React.JSX.Element {
   if (att.type === 'audio') {
@@ -170,7 +159,7 @@ const BBTalkCard = React.memo(function BBTalkCard({
         <View style={styles.imageRow}>
           {images.map((att, idx) => (
             <TouchableOpacity key={att.uid} onPress={() => onImagePreview(images.map(i => i.url), idx)}>
-              <Image source={att.url} style={[styles.thumbnail, { backgroundColor: c.borderLight }]} contentFit="cover" cachePolicy="disk" />
+              <Image source={buildImageSource(att.url)} style={[styles.thumbnail, { backgroundColor: c.borderLight }]} contentFit="cover" cachePolicy="disk" />
             </TouchableOpacity>
           ))}
         </View>

@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { buildImageSource } from '../utils/imageSource';
 import { getCurrentUser, logout } from '../services/auth';
 import { useTheme } from '../theme/ThemeContext';
 import { getApiBaseUrl } from '../config';
@@ -147,7 +148,7 @@ export default function SettingsScreen({ onLogout }: Props) {
           >
             <View style={styles.userRow}>
               {currentUser.avatar ? (
-                <Image source={currentUser.avatar} style={styles.avatar} contentFit="cover" />
+                <Image source={buildImageSource(currentUser.avatar)} style={styles.avatar} contentFit="cover" />
               ) : (
                 <View style={[styles.avatar, { backgroundColor: c.avatarBg }]}>
                   <Text style={styles.avatarText}>

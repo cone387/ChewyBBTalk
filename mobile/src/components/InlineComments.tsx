@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { bbtalkApi } from '../services/api/bbtalkApi';
-import { formatTime } from './BBTalkCard';
+import { formatTime } from '../utils/formatTime';
 import { useAppDispatch } from '../store/hooks';
 import { decrementCommentCount } from '../store/slices/bbtalkSlice';
 import type { Comment } from '../types';

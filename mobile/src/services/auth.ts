@@ -37,11 +37,18 @@ const USER_INFO_KEY = 'bbtalk_user_info';
 let currentUser: User | null = null;
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 let refreshPromise: Promise<boolean> | null = null;
+// 内存中缓存 token，供同步读取（用于图片请求 headers）
+let _cachedAccessToken: string | null = null;
 
 // --- Token 存储 ---
 
 export async function getAccessToken(): Promise<string | null> {
   return storage.getItemAsync(ACCESS_TOKEN_KEY);
+}
+
+/** 同步读取内存中缓存的 token（用于图片 headers 等不能 await 的场景） */
+export function getAccessTokenSync(): string | null {
+  return _cachedAccessToken;
 }
 
 async function getRefreshToken(): Promise<string | null> {
@@ -53,6 +60,7 @@ async function storeAuth(response: LoginResponse): Promise<void> {
   await storage.setItemAsync(REFRESH_TOKEN_KEY, response.refresh);
   await storage.setItemAsync(USER_INFO_KEY, JSON.stringify(response.user));
   currentUser = response.user;
+  _cachedAccessToken = response.access;
   startTokenRefresh(response.access);
 }
 
@@ -61,6 +69,7 @@ async function clearAuth(): Promise<void> {
   await storage.deleteItemAsync(REFRESH_TOKEN_KEY);
   await storage.deleteItemAsync(USER_INFO_KEY);
   currentUser = null;
+  _cachedAccessToken = null;
   if (refreshTimer) {
     clearTimeout(refreshTimer);
     refreshTimer = null;
@@ -106,6 +115,7 @@ async function doRefresh(): Promise<boolean> {
     if (response.ok) {
       const data = await response.json();
       await storage.setItemAsync(ACCESS_TOKEN_KEY, data.access);
+      _cachedAccessToken = data.access;
       if (data.refresh) {
         await storage.setItemAsync(REFRESH_TOKEN_KEY, data.refresh);
       }
@@ -229,6 +239,7 @@ export async function initAuth(): Promise<boolean> {
   try {
     const accessToken = await getAccessToken();
     if (!accessToken) return false;
+    _cachedAccessToken = accessToken; // 启动时填充内存缓存
 
     const payload = parseJwt(accessToken);
     if (payload?.exp) {

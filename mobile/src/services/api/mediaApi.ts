@@ -4,8 +4,30 @@ import { getApiBaseUrl } from '../../config';
 import type { Attachment } from '../../types';
 
 function transformAttachment(data: any): Attachment {
-  let url = data.preview_url || data.url || data.file;
-  if (url && url.startsWith('/')) url = getApiBaseUrl() + url;
+  // file_url 对本地存储返回的是存储路径（非 URL），需要用 preview_url
+  // preview_url 的 host 可能是后端内网地址，需要替换成用户配置的 apiBaseUrl
+  const rawUrl = data.preview_url || data.download_url || data.url || data.file || '';
+  let url = rawUrl;
+
+  if (url) {
+    const apiBase = getApiBaseUrl();
+    if (url.startsWith('/')) {
+      // 相对路径：拼接 apiBase
+      url = apiBase + url;
+    } else if (url.startsWith('http://') || url.startsWith('https://')) {
+      // 绝对 URL：替换 host 为用户配置的 apiBase（防止后端返回内网/localhost 地址）
+      try {
+        const parsed = new URL(url);
+        const base = new URL(apiBase);
+        parsed.protocol = base.protocol;
+        parsed.host = base.host;
+        url = parsed.toString();
+      } catch {}
+    } else {
+      // 裸路径（如 "2026/05/05/xxx.jpg"）：不是可访问 URL，跳过
+      url = '';
+    }
+  }
 
   let type = data.media_type || data.type || 'file';
   const mimeType = data.mime_type || '';

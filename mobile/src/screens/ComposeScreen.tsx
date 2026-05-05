@@ -20,6 +20,7 @@ import { attachmentApi } from '../services/api/mediaApi';
 import { getMarkdownStyles } from '../utils/markdownStyles';
 import { useTheme } from '../theme/ThemeContext';
 import type { Attachment, BBTalk } from '../types';
+import { buildImageSource } from '../utils/imageSource';
 import VoiceRecordingOverlay from '../components/VoiceRecordingOverlay';
 import { xAlert, xConfirm } from '../utils/crossAlert';
 
@@ -28,21 +29,58 @@ const SCREEN_H = Dimensions.get('window').height;
 /** 60×60 音频卡片，点击播放/暂停 */
 function CompactAudioCard({ attachment, colors: c }: { attachment: Attachment; colors: any }) {
   const [playing, setPlaying] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioRef = useRef<any>(null);
+  const mountedRef = useRef(true);
 
   useEffect(() => {
-    return () => { audioRef.current?.pause?.(); };
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (Platform.OS === 'web') {
+        audioRef.current?.pause?.();
+      } else {
+        // expo-audio player cleanup
+        audioRef.current?.remove?.();
+      }
+    };
   }, []);
 
-  const toggle = () => {
-    if (!audioRef.current) {
-      const audio = new window.Audio(attachment.url);
-      audio.onended = () => setPlaying(false);
-      audio.onerror = () => setPlaying(false);
-      audioRef.current = audio;
+  const toggle = async () => {
+    if (Platform.OS === 'web') {
+      // Web: HTML5 Audio
+      if (!audioRef.current) {
+        const audio = new window.Audio(attachment.url);
+        audio.onended = () => { if (mountedRef.current) setPlaying(false); };
+        audio.onerror = () => { if (mountedRef.current) setPlaying(false); };
+        audioRef.current = audio;
+      }
+      if (playing) { audioRef.current.pause(); setPlaying(false); }
+      else { audioRef.current.play().catch(() => setPlaying(false)); setPlaying(true); }
+    } else {
+      // Native: expo-audio useAudioPlayer can't be used here (not a hook context at call time)
+      // Use Audio.Sound from expo-av as fallback for imperative playback
+      try {
+        const { Audio } = require('expo-av');
+        if (!audioRef.current) {
+          await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
+          const { sound } = await Audio.Sound.createAsync(
+            { uri: attachment.url },
+            { shouldPlay: false }
+          );
+          sound.setOnPlaybackStatusUpdate((status: any) => {
+            if (status.didJustFinish && mountedRef.current) {
+              setPlaying(false);
+            }
+          });
+          audioRef.current = sound;
+        }
+        if (playing) { await audioRef.current.pauseAsync(); setPlaying(false); }
+        else { await audioRef.current.playAsync(); setPlaying(true); }
+      } catch (e) {
+        console.warn('Audio playback error:', e);
+        setPlaying(false);
+      }
     }
-    if (playing) { audioRef.current.pause(); setPlaying(false); }
-    else { audioRef.current.play().catch(() => setPlaying(false)); setPlaying(true); }
   };
 
   return (
@@ -340,7 +378,7 @@ export default function ComposeScreen() {
             {attachments.map(att => (
               <View key={att.uid} style={styles.attachmentItem}>
                 {att.type === 'image' ? (
-                  <Image source={att.url} style={[styles.attachmentImage, { backgroundColor: c.borderLight }]} contentFit="cover" />
+                  <Image source={buildImageSource(att.url)} style={[styles.attachmentImage, { backgroundColor: c.borderLight }]} contentFit="cover" />
                 ) : att.type === 'audio' ? (
                   <CompactAudioCard attachment={att} colors={c} />
                 ) : att.type === 'video' ? (

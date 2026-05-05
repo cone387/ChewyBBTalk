@@ -118,18 +118,23 @@ export default function VoiceRecordingOverlay({ visible, onFinish, onCancel }: P
       audioUri = audioRecorder.uri;
     } catch {}
 
-    if (Voice && sttAvailable) { try { await Voice.stop(); } catch {} }
-    await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+    // 不等待 Voice.stop() 完成，避免 iOS 上卡住
+    if (Voice && sttAvailable) {
+      Voice.stop().catch(() => {});
+    }
+    setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
 
     const dur = Math.round(recorderState.durationMillis / 1000);
+    // 立即返回结果，不阻塞 UI
     onFinish({ text: transcriptRef.current, audioUri, audioDuration: dur });
   };
 
   const stopAndCancel = async () => {
     isRecordingRef.current = false;
     try { await audioRecorder.stop(); } catch {}
-    if (Voice && sttAvailable) { try { await Voice.stop(); } catch {} }
-    await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+    // 不等待 Voice.stop()
+    if (Voice && sttAvailable) { Voice.stop().catch(() => {}); }
+    setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
     onCancel();
   };
 

@@ -5,6 +5,7 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import { buildImageSource } from '../utils/imageSource';
 import { getCurrentUser, updateCachedUser } from '../services/auth';
 import { userApi } from '../services/api/userApi';
 import { attachmentApi } from '../services/api/mediaApi';
@@ -87,7 +88,7 @@ export default function ProfileEditScreen() {
         <View style={styles.avatarSection}>
           <TouchableOpacity onPress={pickAvatar} activeOpacity={0.7} disabled={uploadingAvatar}>
             {avatarUrl ? (
-              <Image source={avatarUrl} style={styles.avatar} contentFit="cover" />
+              <Image source={buildImageSource(avatarUrl)} style={styles.avatar} contentFit="cover" />
             ) : (
               <View style={[styles.avatar, { backgroundColor: c.avatarBg }]}>
                 <Text style={styles.avatarText}>
