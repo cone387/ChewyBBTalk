@@ -1,5 +1,33 @@
 # Implementation Plan: ChewyBBTalk Mobile 主屏小组件
 
+## 当前状态（2026-05-08）
+
+**暂停中 — 卡在 prebuild 决策**
+
+已完成：Task 3（Widget_DataSource JS 层）+ Task 4（Redux 自动同步）+ Task 5（Checkpoint，14/14 属性测试、175/175 全绿）。详见 commit `c5731da`。
+
+暂停原因：Task 1 原生脚手架需要执行 `expo prebuild --clean` 生成 `ios/` 与 `android/` 原生工程，再写 WidgetKit Swift + Glance Kotlin 代码。当前项目是纯 Managed Expo（没有 ios/android 目录），一旦 prebuild 就从 Managed 切到 Bare，不可逆：
+
+- `app.json` 的 plugin / icon / splash 等配置需要一部分改写为原生工程文件
+- 每次依赖升级要重新 prebuild 同步
+- CI / EAS Build 的 iOS / Android 原生改动要纳入版本管理
+- Expo Go 再也加载不了 App（必须用 dev build）
+
+**决定**：暂不做。等明确愿意迁到 Bare 工作流、有时间做 dev build 再启动 Task 1 及之后的原生任务。
+
+**已提交的 JS 层是安全的**：
+- 无原生模块时 `isSupported()` 返回 false，`syncWidget` / `clearWidget` 全部 no-op
+- 对 Expo Go / Web / Jest 环境无副作用
+- 现有 App 启动、登录、发布流程完全不受影响
+- 后续启动原生任务时，JS 层已经就绪，只需补原生 Bridge
+
+**捡起来的入口**：
+- 代码：`mobile/src/services/widget/`（完整可用）
+- 属性测试：`mobile/__tests__/services/widget/`
+- 下一步：Task 1 原生脚手架，详见下方任务清单
+
+---
+
 ## 概述
 
 按"原生脚手架 → JS 数据源 → 配置 UI → 双端渲染 → Deep Link → 隐私与性能"的顺序实施。原生部分必须用 dev client 验证（Expo Go 无法加载自定义原生模块）。属性测试集中在 datasource / payload 裁剪逻辑。
