@@ -31,8 +31,18 @@ export interface ShellApi {
   openExternal(url: string): Promise<void>;
 }
 
+export interface ComposeApi {
+  show(): Promise<void>;
+  hide(): Promise<void>;
+  getDraft(): Promise<string>;
+  saveDraft(draft: string): Promise<void>;
+  clearDraft(): Promise<void>;
+  getApiUrl(): Promise<string>;
+}
+
 export interface DesktopApi {
   ball: BallApi;
+  compose: ComposeApi;
   shell: ShellApi;
 }
 

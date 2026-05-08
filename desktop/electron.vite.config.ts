@@ -47,8 +47,8 @@ export default defineConfig({
       rollupOptions: {
         input: {
           ball: resolve(rendererRoot, 'ball/index.html'),
-          // Task 4 之后接入：
-          // compose: resolve(rendererRoot, 'compose/index.html'),
+          compose: resolve(rendererRoot, 'compose/index.html'),
+          // Task 7 之后接入：
           // settings: resolve(rendererRoot, 'settings/index.html'),
           // login: resolve(rendererRoot, 'login/index.html'),
         },

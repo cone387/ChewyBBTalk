@@ -16,6 +16,14 @@ const api: DesktopApi = {
       return () => ipcRenderer.off('ball:overlay-info', listener);
     },
   },
+  compose: {
+    show: () => ipcRenderer.invoke('compose:show'),
+    hide: () => ipcRenderer.invoke('compose:hide'),
+    getDraft: () => ipcRenderer.invoke('compose:get-draft'),
+    saveDraft: (draft: string) => ipcRenderer.invoke('compose:save-draft', draft),
+    clearDraft: () => ipcRenderer.invoke('compose:clear-draft'),
+    getApiUrl: () => ipcRenderer.invoke('compose:get-api-url'),
+  },
   shell: {
     openExternal: (url: string) => ipcRenderer.invoke('shell:open-external', url),
   },

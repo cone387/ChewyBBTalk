@@ -332,8 +332,8 @@ export function Ball() {
         ballEl?.classList.remove('pressed', 'dragging');
 
         if (!wasDragging) {
-          // 点击
-          console.info('[Ball] click (menu TBD)');
+          // 点击 → 打开 Compose
+          window.desktop.compose.show();
           return;
         }
 

@@ -11,6 +11,7 @@
 import { app, BrowserWindow, session } from 'electron';
 import { createBallWindow } from './windows/ballWindow';
 import { registerBallIpc, registerDisplayWatchers } from './ipc/ballIpc';
+import { registerComposeIpc } from './ipc/composeIpc';
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) app.quit();
@@ -49,6 +50,7 @@ function setupCsp() {
 app.whenReady().then(() => {
   setupCsp();
   registerBallIpc();
+  registerComposeIpc();
   registerDisplayWatchers();
   createBallWindow();
 
