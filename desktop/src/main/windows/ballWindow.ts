@@ -1,70 +1,60 @@
 /**
- * Ball 窗口：全局置顶、透明、无边框，承载悬浮球 UI。
+ * Ball 窗口：全屏透明覆盖层。
+ *
+ * 关键设计（跟传统做法不同）：
+ *   - 窗口尺寸 = 所有显示器工作区的包围盒（多屏也能覆盖）
+ *   - 窗口位置 = 包围盒左上角，基本不会动（跨屏是渲染侧 transform 的事）
+ *   - 整窗 setIgnoreMouseEvents(true, forward:true) — 默认点透
+ *   - 鼠标进入 Ball 圆形实体区时，渲染侧通知主进程临时关掉 ignore
+ *
+ * 这样拖动 = 改 CSS transform，完全不调 setPosition，
+ * 就能做到 60fps 丝滑，也不会有"跨屏消失"、"点不到别处"等 Electron 透明窗口的老坑。
  */
 import { BrowserWindow, screen } from 'electron';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import {
-  BALL_WINDOW_SIZE,
-  FIRST_RUN_OFFSET_BOTTOM,
-  FIRST_RUN_OFFSET_RIGHT,
-  MIN_VISIBLE_RATIO,
-} from '../../shared/constants';
-import { getBallState, setBallPosition } from '../store';
-import { isSufficientlyVisible } from '../ball/snap';
-import { animateSetPosition } from '../ball/animate';
 
 let ballWindow: BrowserWindow | null = null;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-function resolveInitialPosition(): { x: number; y: number; displayId: number } {
-  const { position } = getBallState();
+/** 计算所有显示器的 workArea 包围盒（左上角 + 总宽高） */
+export function computeOverlayBounds(): { x: number; y: number; width: number; height: number } {
   const displays = screen.getAllDisplays();
-
-  // 历史位置：若对应 display 仍在，且至少 50% 可见，直接还原
-  if (position) {
-    const display = displays.find((d) => d.id === position.displayId) ?? null;
-    if (display) {
-      const visible = isSufficientlyVisible(
-        position,
-        { width: BALL_WINDOW_SIZE, height: BALL_WINDOW_SIZE },
-        displays.map((d) => d.workArea),
-        MIN_VISIBLE_RATIO,
-      );
-      if (visible) return { x: position.x, y: position.y, displayId: display.id };
-    }
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const d of displays) {
+    const { x, y, width, height } = d.workArea;
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (x + width > maxX) maxX = x + width;
+    if (y + height > maxY) maxY = y + height;
   }
-
-  // 首次启动 / 目标显示器不在：主屏右下角
-  const primary = screen.getPrimaryDisplay();
-  const { workArea } = primary;
-  return {
-    x: workArea.x + workArea.width - BALL_WINDOW_SIZE - FIRST_RUN_OFFSET_RIGHT,
-    y: workArea.y + workArea.height - BALL_WINDOW_SIZE - FIRST_RUN_OFFSET_BOTTOM,
-    displayId: primary.id,
-  };
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
 
 export function createBallWindow(): BrowserWindow {
-  const { x, y, displayId } = resolveInitialPosition();
+  const bounds = computeOverlayBounds();
 
   ballWindow = new BrowserWindow({
-    x,
-    y,
-    width: BALL_WINDOW_SIZE,
-    height: BALL_WINDOW_SIZE,
+    x: bounds.x,
+    y: bounds.y,
+    width: bounds.width,
+    height: bounds.height,
     frame: false,
     transparent: true,
     resizable: false,
-    movable: true,
+    movable: false,
     alwaysOnTop: true,
     skipTaskbar: true,
-    hasShadow: false, // 自己渲染阴影
-    focusable: true,
+    hasShadow: false,
+    focusable: false, // 覆盖层不抢焦点
     backgroundColor: '#00000000',
+    show: false,
     webPreferences: {
-      preload: resolve(__dirname, '../preload/index.js'),
+      preload: resolve(__dirname, '../preload/index.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
@@ -74,17 +64,36 @@ export function createBallWindow(): BrowserWindow {
   ballWindow.setAlwaysOnTop(true, 'screen-saver');
   ballWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: false });
 
-  // Dev / Prod 加载
+  // 默认整窗点透，渲染侧会根据鼠标位置动态开关
+  ballWindow.setIgnoreMouseEvents(true, { forward: true });
+
+  console.log('[Ball] overlay created', bounds);
+
+  ballWindow.once('ready-to-show', () => {
+    ballWindow?.show();
+    if (process.env['ELECTRON_RENDERER_URL']) {
+      ballWindow?.webContents.openDevTools({ mode: 'detach' });
+    }
+  });
+
+  ballWindow.webContents.on('did-fail-load', (_, code, desc, url) => {
+    console.error('[Ball] did-fail-load:', { code, desc, url });
+  });
+  ballWindow.webContents.on('render-process-gone', (_, details) => {
+    console.error('[Ball] render-process-gone:', details);
+  });
+  ballWindow.webContents.on('console-message', (...args: unknown[]) => {
+    // Electron 33+ 签名变化，统一当成 any 处理
+    // 参数：(event, level, message, line, sourceId)
+    const [, level, message] = args as [unknown, number, string, number, string];
+    console.log(`[Ball renderer L${level}] ${message}`);
+  });
+
   if (process.env['ELECTRON_RENDERER_URL']) {
-    // electron-vite 开发模式下，通过 ELECTRON_RENDERER_URL 提供 vite server 根路径
-    // 四个 entry 分别是 /ball/ /compose/ 等，这里只加载 ball
     ballWindow.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/ball/index.html`);
   } else {
     ballWindow.loadFile(resolve(__dirname, '../renderer/ball/index.html'));
   }
-
-  // 记录初始位置（首次启动时 store 里位置为 null）
-  setBallPosition(x, y, displayId);
 
   ballWindow.on('closed', () => {
     ballWindow = null;
@@ -97,8 +106,13 @@ export function getBallWindow(): BrowserWindow | null {
   return ballWindow;
 }
 
-export function animateBallTo(x: number, y: number): void {
-  const win = ballWindow;
-  if (!win || win.isDestroyed()) return;
-  animateSetPosition(win, x, y);
+/**
+ * 显示器热插拔时重新调整 overlay 大小。
+ * 注意窗口位置会跟着包围盒左上角一起变，渲染侧需要把 transform 原点也同步。
+ */
+export function resizeOverlayToDisplays(): { x: number; y: number; width: number; height: number } | null {
+  if (!ballWindow || ballWindow.isDestroyed()) return null;
+  const b = computeOverlayBounds();
+  ballWindow.setBounds({ x: b.x, y: b.y, width: b.width, height: b.height });
+  return b;
 }

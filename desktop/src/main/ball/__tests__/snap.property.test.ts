@@ -10,12 +10,14 @@
 import { describe, expect, it } from 'vitest';
 import fc from 'fast-check';
 import {
+  clampToWorkArea,
   edgeDistances,
   extractAxisCoord,
   findPreferredSnap,
   learnSnapPoint,
   nearestEdge,
   shouldSnap,
+  snapTargetPosition,
   type PreferredSnapPoint,
   type WorkArea,
 } from '../snap';
@@ -204,5 +206,54 @@ describe('extractAxisCoord', () => {
       ),
       { numRuns: 100 },
     );
+  });
+});
+
+// =========================================================================
+// Property: snapTargetPosition + clampToWorkArea 不越界
+// =========================================================================
+describe('snapTargetPosition 不越界（Windows 透明窗口安全网）', () => {
+  it('对任意边和任意 axisCoord，吸边结果都在 workArea 可见区内', () => {
+    fc.assert(
+      fc.property(
+        arbWorkArea,
+        fc.constantFrom<Edge>(...EDGES),
+        fc.integer({ min: -5000, max: 10000 }),
+        (workArea, edge, axisCoord) => {
+          const snap = snapTargetPosition(edge, axisCoord, workArea, BALL_SIZE);
+          expect(snap.x).toBeGreaterThanOrEqual(workArea.x);
+          expect(snap.y).toBeGreaterThanOrEqual(workArea.y);
+          expect(snap.x + BALL_SIZE.width).toBeLessThanOrEqual(workArea.x + workArea.width);
+          expect(snap.y + BALL_SIZE.height).toBeLessThanOrEqual(workArea.y + workArea.height);
+        },
+      ),
+      { numRuns: 200 },
+    );
+  });
+});
+
+describe('clampToWorkArea 拖动保护', () => {
+  it('任意输入位置 → 输出一定在 workArea 内且窗口不越界', () => {
+    fc.assert(
+      fc.property(
+        arbWorkArea,
+        fc.integer({ min: -10000, max: 10000 }),
+        fc.integer({ min: -10000, max: 10000 }),
+        (workArea, x, y) => {
+          const res = clampToWorkArea({ x, y }, BALL_SIZE, workArea);
+          expect(res.x).toBeGreaterThanOrEqual(workArea.x);
+          expect(res.y).toBeGreaterThanOrEqual(workArea.y);
+          expect(res.x + BALL_SIZE.width).toBeLessThanOrEqual(workArea.x + workArea.width);
+          expect(res.y + BALL_SIZE.height).toBeLessThanOrEqual(workArea.y + workArea.height);
+        },
+      ),
+      { numRuns: 200 },
+    );
+  });
+
+  it('已经在 workArea 内的位置不被改变', () => {
+    const workArea = { x: 100, y: 100, width: 1920, height: 1080 };
+    const pos = { x: 500, y: 500 };
+    expect(clampToWorkArea(pos, BALL_SIZE, workArea)).toEqual(pos);
   });
 });

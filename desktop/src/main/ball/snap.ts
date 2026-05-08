@@ -6,7 +6,6 @@
 import {
   type Edge,
   SNAP_EDGE_THRESHOLD_PX,
-  SNAP_HIDDEN_OFFSET_PX,
   SNAP_PREFERRED_MIN_HITS,
   SNAP_PREFERRED_VARIANCE_PX,
 } from '../../shared/constants';
@@ -64,7 +63,8 @@ export function shouldSnap(distances: Record<Edge, number>): boolean {
 
 /**
  * 计算吸边后的目标位置。
- * 吸附后的"隐藏半球"通过让窗口左上角越界 SNAP_HIDDEN_OFFSET_PX 实现。
+ * 首版不让窗口越界（Windows 透明窗口跨屏有 GPU 合成 bug，会整窗消失）。
+ * 吸边后窗口紧贴屏幕边缘，Ball 保持完整可见，通过渲染侧 CSS 降低 opacity 做"可拉出"提示。
  *
  * @param edge         目标边
  * @param axisCoord    另一轴要落到的坐标（用户释放时的原始坐标 or 偏好吸附点）
@@ -81,14 +81,33 @@ export function snapTargetPosition(
   const bottomEdge = workArea.y + workArea.height - size.height;
   switch (edge) {
     case 'left':
-      return { x: workArea.x - SNAP_HIDDEN_OFFSET_PX, y: axisCoord };
+      return { x: workArea.x, y: clamp(axisCoord, workArea.y, bottomEdge) };
     case 'right':
-      return { x: rightEdge + SNAP_HIDDEN_OFFSET_PX, y: axisCoord };
+      return { x: rightEdge, y: clamp(axisCoord, workArea.y, bottomEdge) };
     case 'top':
-      return { x: axisCoord, y: workArea.y - SNAP_HIDDEN_OFFSET_PX };
+      return { x: clamp(axisCoord, workArea.x, rightEdge), y: workArea.y };
     case 'bottom':
-      return { x: axisCoord, y: bottomEdge + SNAP_HIDDEN_OFFSET_PX };
+      return { x: clamp(axisCoord, workArea.x, rightEdge), y: bottomEdge };
   }
+}
+
+function clamp(v: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, v));
+}
+
+/**
+ * 把任意位置 clamp 到 workArea 可见区（窗口始终完整在屏内）。
+ * 用于拖动过程中保护 Ball 不跑丢。
+ */
+export function clampToWorkArea(
+  position: { x: number; y: number },
+  size: { width: number; height: number },
+  workArea: WorkArea,
+): { x: number; y: number } {
+  return {
+    x: clamp(position.x, workArea.x, workArea.x + workArea.width - size.width),
+    y: clamp(position.y, workArea.y, workArea.y + workArea.height - size.height),
+  };
 }
 
 /**

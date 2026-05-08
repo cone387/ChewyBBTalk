@@ -29,7 +29,7 @@ export default defineConfig({
         input: resolve('src/preload/index.ts'),
         output: {
           format: 'cjs',
-          entryFileNames: '[name].js',
+          entryFileNames: '[name].cjs',
         },
       },
     },
