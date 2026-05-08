@@ -1,0 +1,101 @@
+/**
+ * Ball 视觉规范（对齐 design.md）：
+ *   - 56px 圆形，径向渐变 #3B82F6 → #2563EB
+ *   - 外圈高光 + 主投影 + 桌面投影
+ *   - 按下缩放 1.05、拖动 grabbing、释放 spring 回弹
+ *   - 吸边状态可见半球显示 4px 主色竖条
+ *
+ * 窗口本身 80×80（BALL_WINDOW_SIZE 留 12px 冗余给阴影和动画）。
+ */
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  width: 80px;
+  height: 80px;
+  background: transparent;
+  overflow: hidden;
+  font-family: -apple-system, "Segoe UI", "PingFang SC", system-ui, sans-serif;
+  color: white;
+}
+
+/* 允许 Ball 自身接收 mouse 事件 */
+#root {
+  -webkit-app-region: no-drag;
+}
+
+.ball-stage {
+  width: 80px;
+  height: 80px;
+  display: grid;
+  place-items: center;
+  user-select: none;
+}
+
+.ball {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #3B82F6 0%, #2563EB 100%);
+  box-shadow:
+    0 0 0 2px rgba(255, 255, 255, 0.25) inset,
+    0 8px 24px rgba(59, 130, 246, 0.35),
+    0 2px 6px rgba(0, 0, 0, 0.12);
+  display: grid;
+  place-items: center;
+  cursor: grab;
+  transition: transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  will-change: transform;
+}
+
+.ball-plus {
+  width: 24px;
+  height: 24px;
+  stroke: #fff;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  fill: none;
+}
+
+/* 按下（未移动）：微缩放 + 下沉，模拟按键反馈 */
+body.ball-pressed .ball {
+  transform: scale(1.05) translateY(1px);
+  transition: transform 100ms ease-out;
+}
+
+/* 拖动中：缩放保持 + cursor 变化 */
+body.ball-dragging .ball {
+  transform: scale(1.05);
+  cursor: grabbing;
+  transition: none;
+}
+
+/* 吸边状态：在可见半球上显示竖条指示 */
+.ball[data-snapped="right"]::after,
+.ball[data-snapped="left"]::after {
+  content: '';
+  position: absolute;
+  top: 18px;
+  bottom: 18px;
+  width: 4px;
+  background: #3B82F6;
+  border-radius: 2px;
+}
+.ball[data-snapped="right"]::after { left: 6px; }
+.ball[data-snapped="left"]::after  { right: 6px; }
+
+.ball[data-snapped="top"]::after,
+.ball[data-snapped="bottom"]::after {
+  content: '';
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  height: 4px;
+  background: #3B82F6;
+  border-radius: 2px;
+}
+.ball[data-snapped="top"]::after    { bottom: 6px; }
+.ball[data-snapped="bottom"]::after { top: 6px; }
