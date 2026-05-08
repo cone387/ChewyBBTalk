@@ -39,59 +39,57 @@
   - App Group 文件写入后可在 iOS 主 App 内通过 `readWidgetData` 读回
   - 若失败先停下，与用户同步遇到的平台问题
 
-- [ ] 3. Widget_DataSource（JS 侧核心逻辑）
-  - [ ] 3.1 新建 `mobile/src/services/widget/types.ts`
+- [x] 3. Widget_DataSource（JS 侧核心逻辑）
+  - [x] 3.1 新建 `mobile/src/services/widget/types.ts`
     - 定义 `WidgetConfig`、`WidgetItem`、`WidgetPayload` 类型
     - 对齐 design.md 中 JSON 契约
     - _Requirements: 3.2, 3.3_
 
-  - [ ] 3.2 新建 `config.ts`：`loadWidgetConfig` / `saveWidgetConfig`
+  - [x] 3.2 新建 `config.ts`：`loadWidgetConfig` / `saveWidgetConfig`
     - AsyncStorage 键 `bbtalk.widget.config`
     - 无配置时返回 DEFAULT_CONFIG（`recent` + N=5 + 公开）
-    - 计算 `configHash`（SHA1 前 6 位）
+    - 计算 `configHash`（DJB2 前 6 位，避免引入 crypto-js）
     - _Requirements: 2.7_
 
-  - [ ] 3.3 新建 `datasource.ts`：`selectWidgetItems` 与 `toWidgetItem`
+  - [x] 3.3 新建 `datasource.ts`：`selectWidgetItems` 与 `toWidgetItem`
     - 实现四种策略（pinned / recent / tags / manual）
     - 实现 includePrivate 过滤
     - content 截断到 200 字符，tags 裁剪到 3 个
     - _Requirements: 2.2, 3.2, 6.3_
 
-  - [ ] 3.4 新建 `index.ts`：`syncWidget` / `clearWidget`
+  - [x] 3.4 新建 `index.ts`：`syncWidget` / `clearWidget`
     - `syncWidget`：读取 Redux store（从 `store.getState()`），调用 `selectWidgetItems` 组装 payload，调用 Bridge 写入并 reload
     - `clearWidget`：写入空 payload，reason 决定 `locked` / `authenticated` 字段
-    - JSON 过大时执行三级裁剪循环（减 items → 截 content → 去 thumbnail）
+    - JSON 过大时执行三级裁剪循环（去 thumbnail → 截 content → 减 items）
     - _Requirements: 3.1, 3.2, 3.7, 6.1, 7.3_
 
-  - [ ]* 3.5 编写 datasource 属性测试 `__tests__/widget/datasource.property.test.ts`
+  - [x] 3.5 编写 datasource 属性测试 `__tests__/services/widget/datasource.property.test.ts`
     - **Property 1: 配置筛选稳定性** — 随机生成 BBTalk 列表与 config，断言长度与子集关系
     - **Property 2: 可见性过滤** — includePrivate=false 时结果全为 public
     - **Property 4: manual 顺序保持** — manual 策略输出顺序与 manualUids 一致
     - 使用 fast-check，每个 property 至少 100 次迭代
     - **Validates: Requirements 2.2, 2.3, 4.1-4.3, 6.3**
 
-  - [ ]* 3.6 编写 payload 属性测试 `__tests__/widget/payload.property.test.ts`
+  - [x] 3.6 编写 payload 属性测试 `__tests__/services/widget/payload.property.test.ts`
     - **Property 3: payload 裁剪** — `toWidgetItem` 输出 content ≤200、tags ≤3
     - **Validates: Requirements 3.2, 7.3**
 
-- [ ] 4. 接入 Redux 触发点
-  - [ ] 4.1 在关键 bbtalkSlice action 后调用 `syncWidget()`
-    - fetchBBTalks.fulfilled / fetchMore.fulfilled
-    - createBBTalk / updateBBTalk / deleteBBTalk / togglePin
-    - 不阻塞 UI，使用 `void syncWidget().catch(console.warn)`
+- [x] 4. 接入 Redux 触发点
+  - [x] 4.1 通过 `store.subscribe` 监听 bbtalks 数组引用变化
+    - 任何改 bbtalks 数组的 action 都会触发（fetch/fetchMore/create/update/delete/togglePin/optimisticDelete/undoDelete/setBBTalksFromCache 全覆盖）
+    - Debounce 500ms，避免短时间多次写文件
+    - 中心化方案，不需要在每个 slice.fulfilled 里挂 hook
     - _Requirements: 3.1_
 
-  - [ ] 4.2 登录成功 / 登出 / 防窥 lock / unlock 时触发
-    - 登录：`syncWidget()`
+  - [x] 4.2 登录成功 / 登出 / 防窥 lock / unlock 时触发
+    - App.tsx 认证态变化：startWidgetAutoSync / stopWidgetAutoSync
     - 登出：`clearWidget('logout')`
-    - Privacy_Guard lock：`clearWidget('locked')`
-    - unlock：`syncWidget()`
+    - HomeWithDrawer.handleLockChange：lock → clearWidget('locked')，unlock → syncWidget
     - _Requirements: 3.7, 6.1_
 
-- [ ] 5. Checkpoint — 数据管线验证
-  - Ensure all property tests pass
-  - 在 dev client 里观察：发布一条 BBTalk 后，`readWidgetData` 能读到新内容
-  - 若属性测试失败或原生写入未生效，停下与用户同步
+- [x] 5. Checkpoint — 数据管线验证
+  - [x] 所有属性测试通过（14/14）、全项目测试套件 175/175 全绿
+  - [ ] 在 dev client 里观察：发布一条 BBTalk 后，`readWidgetData` 能读到新内容（**留待 Task 2 Checkpoint 原生脚手架接入后验证**）
 
 - [ ] 6. Widget_Config_Screen 配置页
   - [ ] 6.1 新建 `mobile/src/screens/WidgetConfigScreen.tsx`

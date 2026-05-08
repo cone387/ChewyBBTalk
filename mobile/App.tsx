@@ -33,6 +33,13 @@ import AboutScreen from './src/screens/AboutScreen';
 import AccountSecurityScreen from './src/screens/AccountSecurityScreen';
 import DrawerContent from './src/screens/DrawerContent';
 import LandingScreen from './src/screens/LandingScreen';
+import {
+  startWidgetAutoSync,
+  stopWidgetAutoSync,
+  setWidgetAuthState,
+  clearWidget,
+  syncWidget,
+} from './src/services/widget';
 
 const Stack = createNativeStackNavigator();
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -95,6 +102,12 @@ function HomeWithDrawer({ onLogout }: { onLogout: () => void }) {
     setIsLocked(v);
     isLockedRef.current = v;
     if (v && isOpen.current) closeDrawer();
+    setWidgetAuthState({ locked: v });
+    if (v) {
+      void clearWidget('locked');
+    } else {
+      void syncWidget({ authenticated: true, locked: false });
+    }
   }, [closeDrawer]);
 
   const handleSelectTag = useCallback((id: string | null) => {
@@ -225,8 +238,23 @@ export default function App() {
   const [isReady, setIsReady] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   useEffect(() => { (async () => { await loadApiBaseUrl(); setIsAuthenticated(await initAuth()); setIsReady(true); })(); }, []);
+
+  // 小组件自动同步：登录态变化时启停
+  useEffect(() => {
+    if (isAuthenticated) {
+      setWidgetAuthState({ authenticated: true, locked: false });
+      startWidgetAutoSync();
+    } else {
+      stopWidgetAutoSync();
+    }
+    return () => stopWidgetAutoSync();
+  }, [isAuthenticated]);
+
   const handleLoginSuccess = useCallback(() => setIsAuthenticated(true), []);
-  const handleLogout = useCallback(() => setIsAuthenticated(false), []);
+  const handleLogout = useCallback(() => {
+    setIsAuthenticated(false);
+    void clearWidget('logout');
+  }, []);
 
   if (!isReady) return <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F9FAFB' }}><ActivityIndicator size="large" color="#7C3AED" /></View>;
 
