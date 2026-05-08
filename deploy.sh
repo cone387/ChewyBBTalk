@@ -97,6 +97,7 @@ start() {
         log_info "创建并启动新容器..."
         docker run -d \
             --name "$CONTAINER_NAME" \
+            --restart unless-stopped \
             -p "$PORT:$PORT" \
             $ENV_FILE_OPT \
             -v "$(pwd)/data:/app/data" \
