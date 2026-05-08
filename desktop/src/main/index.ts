@@ -12,6 +12,10 @@ import { app, BrowserWindow, session } from 'electron';
 import { createBallWindow } from './windows/ballWindow';
 import { registerBallIpc, registerDisplayWatchers } from './ipc/ballIpc';
 import { registerComposeIpc } from './ipc/composeIpc';
+import { registerAuthIpc } from './ipc/authIpc';
+import { tryRestoreSession } from './auth';
+import { createTray } from './tray';
+import { registerHotkeys, unregisterHotkeys } from './hotkey';
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) app.quit();
@@ -51,14 +55,26 @@ app.whenReady().then(() => {
   setupCsp();
   registerBallIpc();
   registerComposeIpc();
+  registerAuthIpc();
   registerDisplayWatchers();
+  registerHotkeys();
+  createTray();
   createBallWindow();
+
+  // 启动时尝试恢复登录态
+  tryRestoreSession().then((ok) => {
+    console.log('[Auth] session restore:', ok ? 'success' : 'no saved session');
+  });
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createBallWindow();
     }
   });
+});
+
+app.on('will-quit', () => {
+  unregisterHotkeys();
 });
 
 app.on('window-all-closed', () => {

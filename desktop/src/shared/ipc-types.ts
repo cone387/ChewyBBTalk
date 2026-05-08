@@ -40,9 +40,17 @@ export interface ComposeApi {
   getApiUrl(): Promise<string>;
 }
 
+export interface AuthApi {
+  login(username: string, password: string, apiUrl?: string): Promise<{ ok: boolean; error?: string }>;
+  logout(): Promise<void>;
+  getAccessToken(): Promise<string | null>;
+  isLoggedIn(): Promise<boolean>;
+}
+
 export interface DesktopApi {
   ball: BallApi;
   compose: ComposeApi;
+  auth: AuthApi;
   shell: ShellApi;
 }
 

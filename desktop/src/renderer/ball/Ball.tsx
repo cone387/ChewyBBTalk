@@ -7,6 +7,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { OverlayInfo, DisplayInfo } from '../../shared/ipc-types';
+import { BallMenu } from './BallMenu';
 
 const BALL_DIAMETER = 56;
 const DRAG_THRESHOLD_PX = 4;
@@ -90,6 +91,7 @@ export function Ball() {
   const [snapped, setSnapped] = useState<Edge | null>(null);
   const [ready, setReady] = useState(false);
   const [initialPos, setInitialPos] = useState<{ x: number; y: number } | null>(null);
+  const [menuVisible, setMenuVisible] = useState(false);
 
   const ballRef = useRef<HTMLDivElement>(null);
   // Ball 的"实际位置"（包含吸边隐藏），用于持久化与 snap 基准
@@ -332,8 +334,8 @@ export function Ball() {
         ballEl?.classList.remove('pressed', 'dragging');
 
         if (!wasDragging) {
-          // 点击 → 打开 Compose
-          window.desktop.compose.show();
+          // 点击 → 切换菜单
+          setMenuVisible((v) => !v);
           return;
         }
 
@@ -363,25 +365,37 @@ export function Ball() {
 
   const onDoubleClick = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
-    console.info('[Ball] double click (compose TBD)');
+    // 双击直接打开 Compose
+    setMenuVisible(false);
+    window.desktop.compose.show();
   }, []);
 
   return (
     <div className="overlay">
       {ready && overlayInfo && (
-        <div
-          ref={ballRef}
-          className={`ball ${snapped ? 'snapped' : ''}`}
-          onPointerDown={onPointerDown}
-          onDoubleClick={onDoubleClick}
-          role="button"
-          aria-label="ChewyBBTalk"
-        >
-          <svg className="ball-plus" viewBox="0 0 24 24">
-            <line x1="12" y1="6" x2="12" y2="18" />
-            <line x1="6" y1="12" x2="18" y2="12" />
-          </svg>
-        </div>
+        <>
+          <div
+            ref={ballRef}
+            className={`ball ${snapped ? 'snapped' : ''}`}
+            onPointerDown={onPointerDown}
+            onDoubleClick={onDoubleClick}
+            role="button"
+            aria-label="ChewyBBTalk"
+          >
+            <svg className="ball-plus" viewBox="0 0 24 24">
+              <line x1="12" y1="6" x2="12" y2="18" />
+              <line x1="6" y1="12" x2="18" y2="12" />
+            </svg>
+          </div>
+          <BallMenu
+            visible={menuVisible}
+            ballX={visualPosRef.current.x}
+            ballY={visualPosRef.current.y}
+            overlayWidth={overlayInfo.overlay.width}
+            overlayHeight={overlayInfo.overlay.height}
+            onClose={() => setMenuVisible(false)}
+          />
+        </>
       )}
     </div>
   );

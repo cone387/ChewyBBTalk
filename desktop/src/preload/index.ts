@@ -24,6 +24,13 @@ const api: DesktopApi = {
     clearDraft: () => ipcRenderer.invoke('compose:clear-draft'),
     getApiUrl: () => ipcRenderer.invoke('compose:get-api-url'),
   },
+  auth: {
+    login: (username: string, password: string, apiUrl?: string) =>
+      ipcRenderer.invoke('auth:login', username, password, apiUrl),
+    logout: () => ipcRenderer.invoke('auth:logout'),
+    getAccessToken: () => ipcRenderer.invoke('auth:get-access-token'),
+    isLoggedIn: () => ipcRenderer.invoke('auth:is-logged-in'),
+  },
   shell: {
     openExternal: (url: string) => ipcRenderer.invoke('shell:open-external', url),
   },
