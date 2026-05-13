@@ -30,7 +30,9 @@ function PrivacyModeChecker({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // 检查是否处于防窥模式
     const isLocked = localStorage.getItem(PRIVACY_STATE_KEY) === 'true'
-    if (isLocked) {
+    // 避免在 /locked 和 /login 页面重复跳转，防止死循环
+    const currentPath = window.location.pathname
+    if (isLocked && currentPath !== '/locked' && currentPath !== '/login') {
       console.log('[App] 检测到防窥模式，跳转到锁定页面')
       navigate('/locked', { replace: true })
     }
@@ -142,14 +144,11 @@ export default function App({ basename = '/' }: AppProps) {
             {/* 登录页面 */}
             <Route path="/login" element={<LoginPage />} />
             
-            {/* 防窥锁定页面 */}
+            {/* 防窥锁定页面 - 不要求认证状态，因为长时间不活动后 token 可能已过期 */}
+            {/* 用户通过密码解锁时会重新获取 token */}
             <Route 
               path="/locked" 
-              element={
-                isAuthenticated 
-                  ? <PrivacyLockPage /> 
-                  : <Navigate to="/login" replace />
-              } 
+              element={<PrivacyLockPage />} 
             />
             
             {/* 公开页面 - 无需登录 */}
