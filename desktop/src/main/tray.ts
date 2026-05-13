@@ -43,7 +43,7 @@ export function createTray() {
       },
     },
     { type: 'separator' },
-    { label: '退出', click: () => { app.exit(0); } },
+    { label: '退出', click: () => { (app as any)._isQuitting = true; app.quit(); } },
   ]);
 
   tray.setContextMenu(contextMenu);

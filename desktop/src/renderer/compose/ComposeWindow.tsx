@@ -1,12 +1,5 @@
 /**
  * Compose 编辑窗口组件。
- *
- * 功能：
- *   - 三层布局：标题栏 / textarea / 操作栏
- *   - 草稿自动保存（debounce 2s）
- *   - Ctrl/Cmd+Enter 发布
- *   - Esc 隐藏
- *   - 发布成功 Toast + 清空
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -14,10 +7,11 @@ export function ComposeWindow() {
   const [content, setContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
-  const [loggedIn, setLoggedIn] = useState<boolean | null>(null); // null = loading
+  const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
   const [loginForm, setLoginForm] = useState({ username: '', password: '', apiUrl: '' });
   const [loginError, setLoginError] = useState('');
   const [loggingIn, setLoggingIn] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const draftTimerRef = useRef<number | null>(null);
 
@@ -26,78 +20,15 @@ export function ComposeWindow() {
     window.desktop.auth.isLoggedIn().then(setLoggedIn);
   }, []);
 
-  // 启动时加载草稿
+  // 加载草稿 + 聚焦
   useEffect(() => {
-    if (loggedIn) {
-      window.desktop.compose.getDraft().then((draft) => {
-        if (draft) setContent(draft);
-      });
-      setTimeout(() => textareaRef.current?.focus(), 100);
-    }
-  }, [loggedIn]);
+    window.desktop.compose.getDraft().then((draft) => {
+      if (draft) setContent(draft);
+    });
+    setTimeout(() => textareaRef.current?.focus(), 100);
+  }, []);
 
-  const handleLogin = async () => {
-    if (!loginForm.username || !loginForm.password) return;
-    setLoggingIn(true);
-    setLoginError('');
-    const result = await window.desktop.auth.login(
-      loginForm.username,
-      loginForm.password,
-      loginForm.apiUrl || undefined,
-    );
-    setLoggingIn(false);
-    if (result.ok) {
-      setLoggedIn(true);
-    } else {
-      setLoginError(result.error || '登录失败');
-    }
-  };
-
-  // 未登录 → 显示登录表单
-  if (loggedIn === false) {
-    return (
-      <div className="compose-root">
-        <header className="compose-titlebar">
-          <div className="titlebar-spacer" />
-          <button className="close-btn" onClick={() => window.desktop.compose.hide()} aria-label="关闭">×</button>
-        </header>
-        <main className="compose-body login-form">
-          <h3 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 600 }}>登录 ChewyBBTalk</h3>
-          <input
-            className="login-input"
-            placeholder="API 地址（默认 bbtalk.cone387.top）"
-            value={loginForm.apiUrl}
-            onChange={(e) => setLoginForm((f) => ({ ...f, apiUrl: e.target.value }))}
-          />
-          <input
-            className="login-input"
-            placeholder="用户名"
-            value={loginForm.username}
-            onChange={(e) => setLoginForm((f) => ({ ...f, username: e.target.value }))}
-          />
-          <input
-            className="login-input"
-            type="password"
-            placeholder="密码"
-            value={loginForm.password}
-            onChange={(e) => setLoginForm((f) => ({ ...f, password: e.target.value }))}
-            onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-          />
-          {loginError && <div style={{ color: '#EF4444', fontSize: 12, marginTop: 4 }}>{loginError}</div>}
-          <button className="publish-btn" style={{ marginTop: 12, width: '100%', justifyContent: 'center' }} onClick={handleLogin} disabled={loggingIn}>
-            {loggingIn ? '登录中…' : '登录'}
-          </button>
-        </main>
-      </div>
-    );
-  }
-
-  // loading 态
-  if (loggedIn === null) {
-    return <div className="compose-root"><div style={{ flex: 1, display: 'grid', placeItems: 'center', color: '#9CA3AF' }}>加载中…</div></div>;
-  }
-
-  // 草稿自动保存（debounce 2s）
+  // 草稿自动保存
   useEffect(() => {
     if (draftTimerRef.current != null) window.clearTimeout(draftTimerRef.current);
     draftTimerRef.current = window.setTimeout(() => {
@@ -111,29 +42,50 @@ export function ComposeWindow() {
   // 键盘快捷键
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      // Ctrl/Cmd + Enter → 发布
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault();
         publish();
       }
-      // Esc → 隐藏
       if (e.key === 'Escape') {
         e.preventDefault();
-        window.desktop.compose.hide();
+        if (showLogin) setShowLogin(false);
+        else window.desktop.compose.hide();
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, []);
+  });
 
-  const showToast = (kind: 'success' | 'error', text: string) => {
+  const showToastMsg = (kind: 'success' | 'error', text: string) => {
     setToast({ kind, text });
     setTimeout(() => setToast(null), 2000);
+  };
+
+  const handleLogin = async () => {
+    if (!loginForm.username || !loginForm.password) return;
+    setLoggingIn(true);
+    setLoginError('');
+    const result = await window.desktop.auth.login(
+      loginForm.username,
+      loginForm.password,
+      loginForm.apiUrl || undefined,
+    );
+    setLoggingIn(false);
+    if (result.ok) {
+      setLoggedIn(true);
+      setShowLogin(false);
+    } else {
+      setLoginError(result.error || '登录失败');
+    }
   };
 
   const publish = useCallback(async () => {
     const trimmed = content.trim();
     if (!trimmed || submitting) return;
+    if (!loggedIn) {
+      setShowLogin(true);
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -145,10 +97,7 @@ export function ComposeWindow() {
       const response = await fetch(`${apiUrl}/api/v1/bbtalk/`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({
-          content: trimmed,
-          visibility: 'private',
-        }),
+        body: JSON.stringify({ content: trimmed, visibility: 'private' }),
       });
 
       if (!response.ok) {
@@ -156,29 +105,33 @@ export function ComposeWindow() {
         throw new Error(err.detail || err.error || `HTTP ${response.status}`);
       }
 
-      // 成功
-      showToast('success', '已发布');
+      showToastMsg('success', '已发布');
       setContent('');
       await window.desktop.compose.clearDraft();
-      // 1 秒后自动隐藏
       setTimeout(() => window.desktop.compose.hide(), 1000);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : '发布失败';
-      showToast('error', msg);
+      showToastMsg('error', err instanceof Error ? err.message : '发布失败');
     } finally {
       setSubmitting(false);
     }
-  }, [content, submitting]);
+  }, [content, submitting, loggedIn]);
+
+  // Loading 态
+  if (loggedIn === null) {
+    return (
+      <div className="compose-root">
+        <div style={{ flex: 1, display: 'grid', placeItems: 'center', color: '#9CA3AF', fontSize: 13 }}>
+          加载中…
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="compose-root">
       <header className="compose-titlebar">
         <div className="titlebar-spacer" />
-        <button
-          className="close-btn"
-          onClick={() => window.desktop.compose.hide()}
-          aria-label="关闭"
-        >
+        <button className="close-btn" onClick={() => window.desktop.compose.hide()} aria-label="关闭">
           ×
         </button>
       </header>
@@ -195,20 +148,40 @@ export function ComposeWindow() {
       </main>
 
       <footer className="compose-toolbar">
+        <button className="tool-btn" title="可见性">🔒</button>
+        <button className="tool-btn" title="标签">🏷️</button>
+        <button className="tool-btn" title="附件">📎</button>
+        <button className="tool-btn" title="定位">📍</button>
         <div className="toolbar-spacer" />
         <span className="char-count">{content.length}</span>
-        <button
-          className="publish-btn"
-          onClick={publish}
-          disabled={!content.trim() || submitting}
-        >
-          {submitting ? '发布中…' : '发布'}
-          <span className="hint">⌘⏎</span>
-        </button>
+        {loggedIn ? (
+          <button className="publish-btn" onClick={publish} disabled={!content.trim() || submitting}>
+            {submitting ? '…' : '发布'}
+            <span className="hint">⌘⏎</span>
+          </button>
+        ) : (
+          <button className="publish-btn login-btn" onClick={() => setShowLogin(true)}>
+            登录
+          </button>
+        )}
       </footer>
 
-      {toast && (
-        <div className={`toast ${toast.kind}`}>{toast.text}</div>
+      {toast && <div className={`toast ${toast.kind}`}>{toast.text}</div>}
+
+      {showLogin && (
+        <div className="login-overlay">
+          <div className="login-panel">
+            <h3 style={{ margin: '0 0 10px', fontSize: 14, fontWeight: 600 }}>登录</h3>
+            <input className="login-input" placeholder="API 地址（可选）" value={loginForm.apiUrl} onChange={(e) => setLoginForm((f) => ({ ...f, apiUrl: e.target.value }))} />
+            <input className="login-input" placeholder="用户名" value={loginForm.username} onChange={(e) => setLoginForm((f) => ({ ...f, username: e.target.value }))} />
+            <input className="login-input" type="password" placeholder="密码" value={loginForm.password} onChange={(e) => setLoginForm((f) => ({ ...f, password: e.target.value }))} onKeyDown={(e) => e.key === 'Enter' && handleLogin()} />
+            {loginError && <div style={{ color: '#EF4444', fontSize: 11, marginTop: 2 }}>{loginError}</div>}
+            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+              <button className="publish-btn" style={{ flex: 1, justifyContent: 'center' }} onClick={handleLogin} disabled={loggingIn}>{loggingIn ? '…' : '登录'}</button>
+              <button className="publish-btn" style={{ flex: 1, justifyContent: 'center', background: '#E5E7EB', color: '#374151' }} onClick={() => setShowLogin(false)}>取消</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

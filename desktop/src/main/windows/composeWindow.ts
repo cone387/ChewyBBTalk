@@ -1,12 +1,8 @@
 /**
- * Compose 窗口：小巧精致的编辑窗口。
- *
- * - 440×300 起步，无边框 + 圆角 + 阴影
- * - 始终置顶
- * - 关闭 = 隐藏（不销毁，保留 renderer 便于秒开）
- * - macOS vibrancy / Windows acrylic
+ * Compose 窗口：每次打开都重新创建（销毁式），彻底避免 Windows DPI 缩小 bug。
+ * 草稿通过 electron-store 持久化。
  */
-import { BrowserWindow, screen } from 'electron';
+import { BrowserWindow, screen, app } from 'electron';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
@@ -15,30 +11,49 @@ let composeWindow: BrowserWindow | null = null;
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const DEFAULT_WIDTH = 440;
-const DEFAULT_HEIGHT = 300;
+const DEFAULT_HEIGHT = 160;
 
-export function createComposeWindow(): BrowserWindow {
+function createComposeWindow(ballScreenX?: number, ballScreenY?: number): BrowserWindow {
   if (composeWindow && !composeWindow.isDestroyed()) {
-    composeWindow.show();
-    composeWindow.focus();
-    return composeWindow;
+    composeWindow.destroy();
+    composeWindow = null;
   }
 
   const primary = screen.getPrimaryDisplay();
   const wa = primary.workArea;
-  // 居中偏上
-  const x = Math.round(wa.x + (wa.width - DEFAULT_WIDTH) / 2);
-  const y = Math.round(wa.y + (wa.height - DEFAULT_HEIGHT) / 3);
+  let x: number, y: number;
+
+  if (typeof ballScreenX === 'number' && typeof ballScreenY === 'number') {
+    // 智能选角：优先左上，空间不够则其他角
+    x = ballScreenX - DEFAULT_WIDTH - 12;
+    y = ballScreenY - DEFAULT_HEIGHT - 12;
+
+    // 左上不够 → 右上
+    if (x < wa.x) {
+      x = ballScreenX + 68;
+    }
+    // 上面不够 → 下面
+    if (y < wa.y) {
+      y = ballScreenY + 68;
+    }
+    // 右边溢出 → 拉回
+    if (x + DEFAULT_WIDTH > wa.x + wa.width) {
+      x = wa.x + wa.width - DEFAULT_WIDTH - 8;
+    }
+    // 下面溢出 → 拉回
+    if (y + DEFAULT_HEIGHT > wa.y + wa.height) {
+      y = wa.y + wa.height - DEFAULT_HEIGHT - 8;
+    }
+  } else {
+    x = Math.round(wa.x + (wa.width - DEFAULT_WIDTH) / 2);
+    y = Math.round(wa.y + (wa.height - DEFAULT_HEIGHT) / 3);
+  }
 
   composeWindow = new BrowserWindow({
     x,
     y,
     width: DEFAULT_WIDTH,
     height: DEFAULT_HEIGHT,
-    minWidth: DEFAULT_WIDTH,
-    minHeight: 200,
-    maxWidth: DEFAULT_WIDTH,
-    maxHeight: 600,
     frame: false,
     transparent: false,
     resizable: false,
@@ -48,7 +63,6 @@ export function createComposeWindow(): BrowserWindow {
     backgroundColor: '#FFFFFF',
     roundedCorners: true,
     ...(process.platform === 'darwin' ? { vibrancy: 'hud' as const } : {}),
-    ...(process.platform === 'win32' ? { backgroundMaterial: 'acrylic' as const } : {}),
     webPreferences: {
       preload: resolve(__dirname, '../preload/index.cjs'),
       contextIsolation: true,
@@ -62,10 +76,9 @@ export function createComposeWindow(): BrowserWindow {
     composeWindow?.focus();
   });
 
-  // 关闭 = 隐藏
-  composeWindow.on('close', (e) => {
-    e.preventDefault();
-    composeWindow?.hide();
+  // 关闭 = 销毁
+  composeWindow.on('closed', () => {
+    composeWindow = null;
   });
 
   if (process.env['ELECTRON_RENDERER_URL']) {
@@ -77,19 +90,22 @@ export function createComposeWindow(): BrowserWindow {
   return composeWindow;
 }
 
-export function showComposeWindow(): void {
+/** 显示 Compose（每次重新创建） */
+export function showComposeWindow(ballScreenX?: number, ballScreenY?: number): void {
+  createComposeWindow(ballScreenX, ballScreenY);
+}
+
+/** 关闭（销毁）Compose */
+export function hideComposeWindow(): void {
   if (composeWindow && !composeWindow.isDestroyed()) {
-    composeWindow.show();
-    composeWindow.focus();
-  } else {
-    createComposeWindow();
+    composeWindow.destroy();
+    composeWindow = null;
   }
 }
 
-export function hideComposeWindow(): void {
-  if (composeWindow && !composeWindow.isDestroyed()) {
-    composeWindow.hide();
-  }
+/** Compose 是否正在显示 */
+export function isComposeVisible(): boolean {
+  return composeWindow !== null && !composeWindow.isDestroyed() && composeWindow.isVisible();
 }
 
 export function getComposeWindow(): BrowserWindow | null {

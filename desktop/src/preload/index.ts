@@ -17,8 +17,11 @@ const api: DesktopApi = {
     },
   },
   compose: {
-    show: () => ipcRenderer.invoke('compose:show'),
+    show: (ballScreenX?: number, ballScreenY?: number) =>
+      ipcRenderer.invoke('compose:show', ballScreenX, ballScreenY),
     hide: () => ipcRenderer.invoke('compose:hide'),
+    toggle: (ballScreenX?: number, ballScreenY?: number) =>
+      ipcRenderer.invoke('compose:toggle', ballScreenX, ballScreenY),
     getDraft: () => ipcRenderer.invoke('compose:get-draft'),
     saveDraft: (draft: string) => ipcRenderer.invoke('compose:save-draft', draft),
     clearDraft: () => ipcRenderer.invoke('compose:clear-draft'),
@@ -34,6 +37,7 @@ const api: DesktopApi = {
   shell: {
     openExternal: (url: string) => ipcRenderer.invoke('shell:open-external', url),
   },
+  quit: () => ipcRenderer.invoke('app:quit'),
 };
 
 contextBridge.exposeInMainWorld('desktop', api);

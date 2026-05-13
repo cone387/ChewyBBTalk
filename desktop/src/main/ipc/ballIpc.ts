@@ -4,7 +4,7 @@
  * 注意：新架构下拖动完全在渲染侧用 CSS transform 完成，
  * 主进程不再管 setPosition / drag loop / snap animation。
  */
-import { ipcMain, screen, shell } from 'electron';
+import { ipcMain, screen, shell, app } from 'electron';
 import { computeOverlayBounds, getBallWindow, resizeOverlayToDisplays } from '../windows/ballWindow';
 import { getBallState, setBallPosition } from '../store';
 
@@ -57,6 +57,11 @@ export function registerBallIpc() {
 
   ipcMain.handle('shell:open-external', (_, url: string) => {
     return shell.openExternal(url);
+  });
+
+  ipcMain.handle('app:quit', () => {
+    (app as any)._isQuitting = true;
+    app.quit();
   });
 }
 

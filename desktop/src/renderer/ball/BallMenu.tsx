@@ -24,6 +24,7 @@ const items = [
   { id: 'compose', label: '✏️ 新建', action: () => window.desktop.compose.show() },
   { id: 'web', label: '🌐 打开 Web', action: () => window.desktop.shell.openExternal('https://bbtalk.cone387.top') },
   { id: 'settings', label: '⚙️ 设置', action: () => console.info('[Menu] settings TBD') },
+  { id: 'quit', label: '🚪 退出', action: () => (window.desktop as any).quit() },
 ];
 
 export function BallMenu({ visible, ballX, ballY, overlayWidth, overlayHeight, onClose }: BallMenuProps) {

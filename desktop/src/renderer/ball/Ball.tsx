@@ -334,8 +334,12 @@ export function Ball() {
         ballEl?.classList.remove('pressed', 'dragging');
 
         if (!wasDragging) {
-          // 点击 → 切换菜单
-          setMenuVisible((v) => !v);
+          // 左键单击 → toggle Compose 显示/隐藏
+          const info = overlayInfoRef.current;
+          const vp = visualPosRef.current;
+          const screenX = (info?.overlay.x ?? 0) + vp.x + 28;
+          const screenY = (info?.overlay.y ?? 0) + vp.y + 28;
+          window.desktop.compose.toggle(screenX, screenY);
           return;
         }
 
@@ -363,11 +367,9 @@ export function Ball() {
     [applyTransform],
   );
 
-  const onDoubleClick = useCallback((e: React.MouseEvent) => {
+  const onContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
-    // 双击直接打开 Compose
-    setMenuVisible(false);
-    window.desktop.compose.show();
+    setMenuVisible((v) => !v);
   }, []);
 
   return (
@@ -378,7 +380,7 @@ export function Ball() {
             ref={ballRef}
             className={`ball ${snapped ? 'snapped' : ''}`}
             onPointerDown={onPointerDown}
-            onDoubleClick={onDoubleClick}
+            onContextMenu={onContextMenu}
             role="button"
             aria-label="ChewyBBTalk"
           >

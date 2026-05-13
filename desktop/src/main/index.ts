@@ -73,6 +73,10 @@ app.whenReady().then(() => {
   });
 });
 
+app.on('before-quit', () => {
+  (app as any)._isQuitting = true;
+});
+
 app.on('will-quit', () => {
   unregisterHotkeys();
 });

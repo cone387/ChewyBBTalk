@@ -32,8 +32,9 @@ export interface ShellApi {
 }
 
 export interface ComposeApi {
-  show(): Promise<void>;
+  show(ballScreenX?: number, ballScreenY?: number): Promise<void>;
   hide(): Promise<void>;
+  toggle(ballScreenX?: number, ballScreenY?: number): Promise<void>;
   getDraft(): Promise<string>;
   saveDraft(draft: string): Promise<void>;
   clearDraft(): Promise<void>;
