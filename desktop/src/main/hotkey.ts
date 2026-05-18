@@ -3,7 +3,7 @@
  */
 import { globalShortcut } from 'electron';
 import { getBallWindow } from './windows/ballWindow';
-import { showComposeWindow } from './windows/composeWindow';
+import { showComposeWindow, isComposeVisible, hideComposeWindow } from './windows/composeWindow';
 
 export function registerHotkeys() {
   // Ctrl/Cmd + Shift + B → 切换 Ball 显隐
@@ -17,6 +17,15 @@ export function registerHotkeys() {
   // Ctrl/Cmd + Shift + N → 打开 Compose
   globalShortcut.register('CommandOrControl+Shift+N', () => {
     showComposeWindow();
+  });
+
+  // Alt + B → 切换 Compose 编辑框
+  globalShortcut.register('Alt+B', () => {
+    if (isComposeVisible()) {
+      hideComposeWindow();
+    } else {
+      showComposeWindow();
+    }
   });
 }
 

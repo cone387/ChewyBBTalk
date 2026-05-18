@@ -26,6 +26,12 @@ const api: DesktopApi = {
     saveDraft: (draft: string) => ipcRenderer.invoke('compose:save-draft', draft),
     clearDraft: () => ipcRenderer.invoke('compose:clear-draft'),
     getApiUrl: () => ipcRenderer.invoke('compose:get-api-url'),
+    resize: (width: number, height: number) =>
+      ipcRenderer.invoke('compose:resize', width, height),
+    getVisibility: () => ipcRenderer.invoke('compose:get-visibility'),
+    setVisibility: (visibility: 'public' | 'private') =>
+      ipcRenderer.invoke('compose:set-visibility', visibility),
+    openFileDialog: () => ipcRenderer.invoke('compose:open-file-dialog'),
   },
   auth: {
     login: (username: string, password: string, apiUrl?: string) =>
@@ -36,6 +42,14 @@ const api: DesktopApi = {
   },
   shell: {
     openExternal: (url: string) => ipcRenderer.invoke('shell:open-external', url),
+  },
+  login: {
+    show: () => ipcRenderer.invoke('login:show'),
+    hide: () => ipcRenderer.invoke('login:hide'),
+  },
+  settings: {
+    show: () => ipcRenderer.invoke('settings:show'),
+    hide: () => ipcRenderer.invoke('settings:hide'),
   },
   quit: () => ipcRenderer.invoke('app:quit'),
 };

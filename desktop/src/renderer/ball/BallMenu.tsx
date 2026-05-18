@@ -15,16 +15,14 @@ interface BallMenuProps {
   onClose: () => void;
 }
 
-const MENU_WIDTH = 140;
+const MENU_WIDTH = 120;
 const MENU_ITEM_HEIGHT = 36;
 const BALL_SIZE = 56;
 const GAP = 8;
 
 const items = [
-  { id: 'compose', label: '✏️ 新建', action: () => window.desktop.compose.show() },
-  { id: 'web', label: '🌐 打开 Web', action: () => window.desktop.shell.openExternal('https://bbtalk.cone387.top') },
-  { id: 'settings', label: '⚙️ 设置', action: () => console.info('[Menu] settings TBD') },
-  { id: 'quit', label: '🚪 退出', action: () => (window.desktop as any).quit() },
+  { id: 'settings', label: '设置', icon: 'M7 1.5v2M7 10.5v2M1.5 7h2M10.5 7h2M3 3l1.4 1.4M9.6 9.6l1.4 1.4M11 3l-1.4 1.4M4.4 9.6L3 11', action: () => (window.desktop as any).settings.show() },
+  { id: 'quit', label: '退出', icon: 'M5 1H3a2 2 0 00-2 2v8a2 2 0 002 2h2M8 9l3-3-3-3M4 6h7', action: () => (window.desktop as any).quit() },
 ];
 
 export function BallMenu({ visible, ballX, ballY, overlayWidth, overlayHeight, onClose }: BallMenuProps) {
@@ -90,7 +88,11 @@ export function BallMenu({ visible, ballX, ballY, overlayWidth, overlayHeight, o
           className="ball-menu-item"
           onClick={() => handleItemClick(item.action)}
         >
-          {item.label}
+          <svg className="ball-menu-icon" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+            {item.id === 'settings' && <><circle cx="7" cy="7" r="2" /><path d={item.icon} /></>}
+            {item.id === 'quit' && <path d={item.icon} />}
+          </svg>
+          <span>{item.label}</span>
         </button>
       ))}
     </div>

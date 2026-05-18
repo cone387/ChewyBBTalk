@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import json; json.load\\(open\\('d:/codespace/ChewyBBTalk/.claude/settings.json'\\)\\)\")",
+      "Bash(node -e \"try { JSON.parse\\(require\\('fs'\\).readFileSync\\('d:/codespace/ChewyBBTalk/.claude/settings.json', 'utf8'\\)\\); console.log\\('valid'\\) } catch\\(e\\) { console.log\\('error:', e.message\\) }\")",
+      "Bash(node -e \"try { JSON.parse\\(require\\('fs'\\).readFileSync\\('d:/codespace/ChewyBBTalk/.claude/settings.json', 'utf8'\\)\\); console.log\\('JSON valid'\\) } catch\\(e\\) { console.log\\('JSON error:', e.message\\) }\")",
+      "Bash(npx --version)"
+    ]
+  }
+}

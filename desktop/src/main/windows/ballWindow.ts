@@ -71,9 +71,6 @@ export function createBallWindow(): BrowserWindow {
 
   ballWindow.once('ready-to-show', () => {
     ballWindow?.show();
-    if (process.env['ELECTRON_RENDERER_URL']) {
-      ballWindow?.webContents.openDevTools({ mode: 'detach' });
-    }
   });
 
   ballWindow.webContents.on('did-fail-load', (_, code, desc, url) => {

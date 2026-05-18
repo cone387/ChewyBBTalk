@@ -39,6 +39,10 @@ export interface ComposeApi {
   saveDraft(draft: string): Promise<void>;
   clearDraft(): Promise<void>;
   getApiUrl(): Promise<string>;
+  resize(width: number, height: number): Promise<void>;
+  getVisibility(): Promise<'public' | 'private'>;
+  setVisibility(visibility: 'public' | 'private'): Promise<void>;
+  openFileDialog(): Promise<string[]>;
 }
 
 export interface AuthApi {
@@ -53,6 +57,19 @@ export interface DesktopApi {
   compose: ComposeApi;
   auth: AuthApi;
   shell: ShellApi;
+  login: LoginApi;
+  settings: SettingsApi;
+  quit(): Promise<void>;
+}
+
+export interface LoginApi {
+  show(): Promise<void>;
+  hide(): Promise<void>;
+}
+
+export interface SettingsApi {
+  show(): Promise<void>;
+  hide(): Promise<void>;
 }
 
 declare global {

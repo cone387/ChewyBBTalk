@@ -13,7 +13,12 @@
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "package": "electron-vite build && electron-builder --win",
+    "package:win": "electron-vite build && electron-builder --win",
+    "package:mac": "electron-vite build && electron-builder --mac",
+    "package:all": "electron-vite build && electron-builder --mac --win",
+    "publish": "electron-vite build && electron-builder --mac --win --publish always"
   },
   "dependencies": {
     "electron-store": "^10.0.0",

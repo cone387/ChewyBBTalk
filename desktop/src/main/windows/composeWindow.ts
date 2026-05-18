@@ -2,7 +2,7 @@
  * Compose 窗口：每次打开都重新创建（销毁式），彻底避免 Windows DPI 缩小 bug。
  * 草稿通过 electron-store 持久化。
  */
-import { BrowserWindow, screen, app } from 'electron';
+import { BrowserWindow, screen } from 'electron';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
@@ -54,6 +54,8 @@ function createComposeWindow(ballScreenX?: number, ballScreenY?: number): Browse
     y,
     width: DEFAULT_WIDTH,
     height: DEFAULT_HEIGHT,
+    minHeight: 160,
+    maxHeight: 500,
     frame: false,
     transparent: false,
     resizable: false,
@@ -110,4 +112,36 @@ export function isComposeVisible(): boolean {
 
 export function getComposeWindow(): BrowserWindow | null {
   return composeWindow;
+}
+
+/** Smoothly resize the compose window to the target dimensions. */
+export function resizeComposeWindow(width: number, height: number): void {
+  if (!composeWindow || composeWindow.isDestroyed()) return;
+
+  const [currentW, currentH] = composeWindow.getSize();
+  if (currentW === width && currentH === height) return;
+
+  if (process.platform === 'darwin') {
+    // macOS supports animated resize natively
+    composeWindow.setSize(width, height, true);
+  } else {
+    // Windows/Linux: step-based animation over ~150ms
+    const steps = 8;
+    const dw = (width - currentW) / steps;
+    const dh = (height - currentH) / steps;
+    let step = 0;
+    const interval = setInterval(() => {
+      step++;
+      if (step >= steps || !composeWindow || composeWindow.isDestroyed()) {
+        clearInterval(interval);
+        if (composeWindow && !composeWindow.isDestroyed()) {
+          composeWindow.setSize(width, height);
+        }
+        return;
+      }
+      const w = Math.round(currentW + dw * step);
+      const h = Math.round(currentH + dh * step);
+      composeWindow!.setSize(w, h);
+    }, 18);
+  }
 }

@@ -92,6 +92,16 @@ export function Ball() {
   const [ready, setReady] = useState(false);
   const [initialPos, setInitialPos] = useState<{ x: number; y: number } | null>(null);
   const [menuVisible, setMenuVisible] = useState(false);
+  const menuVisibleRef = useRef(false);
+
+  // Keep ref in sync for use in mousemove handler
+  useEffect(() => {
+    menuVisibleRef.current = menuVisible;
+    // When menu opens, ensure ignore is off so menu items are clickable
+    if (menuVisible) {
+      window.desktop.ball.setIgnoreMouseEvents(false);
+    }
+  }, [menuVisible]);
 
   const ballRef = useRef<HTMLDivElement>(null);
   // Ball 的"实际位置"（包含吸边隐藏），用于持久化与 snap 基准
@@ -199,6 +209,8 @@ export function Ball() {
 
     const check = (e: MouseEvent) => {
       if (draggingRef.current || pressedRef.current) return;
+      // When menu is open, keep ignore off so menu items are clickable
+      if (menuVisibleRef.current) return;
 
       // 点透判断基于"视觉位置"（球实际显示的位置）
       const { x: vx, y: vy } = visualPosRef.current;

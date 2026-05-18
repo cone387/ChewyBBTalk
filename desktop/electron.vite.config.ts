@@ -48,9 +48,8 @@ export default defineConfig({
         input: {
           ball: resolve(rendererRoot, 'ball/index.html'),
           compose: resolve(rendererRoot, 'compose/index.html'),
-          // Task 7 之后接入：
-          // settings: resolve(rendererRoot, 'settings/index.html'),
-          // login: resolve(rendererRoot, 'login/index.html'),
+          login: resolve(rendererRoot, 'login/index.html'),
+          settings: resolve(rendererRoot, 'settings/index.html'),
         },
       },
     },

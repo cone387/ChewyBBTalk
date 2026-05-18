@@ -5,5 +5,39 @@
       "Bash(git config *)",
       "Bash(git add *)"
     ]
-  }
+  },
+  "mcpServers": {
+    "chrome-devtools": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "chrome-devtools-mcp@latest"
+      ]
+    },
+  
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@latest"
+      ]
+    },
+    "feishu-mcp": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "feishu-mcp",
+        "--stdio",
+        "--feishu-scope-validation=false"
+      ],
+      "env": {
+        "FEISHU_APP_ID": "cli_a9968d1fce2ad00c",
+        "FEISHU_APP_SECRET": "SWZpe6drW0huLDl12E1IPhK718l3m27J",
+        "FEISHU_AUTH_TYPE": "\u003ctenant/user\u003e"
+      }
+    },
+    "streamable-chrome-mcp": {
+        "type": "streamable-http",
+        "url": "http://127.0.0.1:12306/mcp"
+      }
+    }
 }

@@ -23,7 +23,7 @@ export interface SettingsSchema {
   hotkey: { toggleBall: string; newBBTalk: string };
   compose: {
     draft: string;
-    visibility: 'public' | 'private' | 'friends';
+    visibility: 'public' | 'private';
     lastSize: { width: number; height: number } | null;
     outbox: unknown[];
   };
