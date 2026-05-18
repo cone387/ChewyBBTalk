@@ -9,14 +9,14 @@ const path = require('path');
 // Simple BMP-like raw RGBA → PNG using minimal PNG encoder
 // For a real project, use a proper icon file. This is a placeholder.
 
-const SIZE = 256;
+const SIZE = 512;
 const pixels = Buffer.alloc(SIZE * SIZE * 4);
 
 const cx = SIZE / 2;
 const cy = SIZE / 2;
-const r = 100; // circle radius
-const lineW = 16; // plus sign line width
-const lineLen = 50; // plus sign half-length
+const r = 200; // circle radius
+const lineW = 32; // plus sign line width
+const lineLen = 100; // plus sign half-length
 
 for (let y = 0; y < SIZE; y++) {
   for (let x = 0; x < SIZE; x++) {
