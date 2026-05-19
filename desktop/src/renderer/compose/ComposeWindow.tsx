@@ -8,6 +8,7 @@ import { parseTags, parseAndClean } from './tagParser';
 import { nextVisibility, visibilityLabel, Visibility } from './visibilityCycle';
 import { uploadFiles, removeFileFromList, UploadedFile } from './uploadManager';
 import { addLog } from './logStore';
+import logoUrl from '../../../resources/icon.png';
 
 export function ComposeWindow() {
   // Core state
@@ -264,6 +265,7 @@ export function ComposeWindow() {
   return (
     <div className="compose-root" onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
       <header className="compose-titlebar">
+        <img className="titlebar-logo" src={logoUrl} alt="" width="16" height="16" draggable={false} />
         <div className="titlebar-spacer" />
         <button className="titlebar-btn" onClick={() => window.desktop.settings.show()} title="设置" aria-label="设置">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -288,7 +290,7 @@ export function ComposeWindow() {
           onPaste={handlePaste}
           onCompositionStart={() => { isComposingRef.current = true; }}
           onCompositionEnd={(e) => { isComposingRef.current = false; setContent((e.target as HTMLTextAreaElement).value); }}
-          placeholder="记一下点什么…  Enter 发布，Shift+Enter 换行"
+          placeholder="你要BB什么？"
           spellCheck={false}
           rows={3}
         />

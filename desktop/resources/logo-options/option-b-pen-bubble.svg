@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- 方案B: 蓝色圆底 + 铅笔写入气泡 -->
+  <defs>
+    <linearGradient id="bgB" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#818CF8"/>
+      <stop offset="100%" stop-color="#3B82F6"/>
+    </linearGradient>
+  </defs>
+  <!-- 圆形背景 -->
+  <circle cx="256" cy="256" r="240" fill="url(#bgB)"/>
+  <!-- 气泡（圆角矩形） -->
+  <rect x="140" y="120" width="240" height="200" rx="40" fill="white" opacity="0.93"/>
+  <circle cx="190" cy="340" r="16" fill="white" opacity="0.93"/>
+  <circle cx="160" cy="370" r="10" fill="white" opacity="0.93"/>
+  <!-- 铅笔图标（倾斜） -->
+  <g transform="translate(260, 180) rotate(-45)">
+    <rect x="0" y="0" width="24" height="120" rx="4" fill="#F59E0B"/>
+    <polygon points="6,120 18,120 12,145" fill="#374151"/>
+    <rect x="0" y="0" width="24" height="16" rx="4" fill="#EF4444"/>
+  </g>
+</svg>

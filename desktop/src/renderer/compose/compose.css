@@ -35,6 +35,16 @@ html, body, #root {
 
 .titlebar-spacer { flex: 1; }
 
+.titlebar-logo {
+  -webkit-app-region: no-drag;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  margin-right: 6px;
+  object-fit: cover;
+}
+
 .close-btn {
   -webkit-app-region: no-drag;
   width: 24px;

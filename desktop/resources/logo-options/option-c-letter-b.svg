@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- 方案C: 蓝色圆底 + 白色字母B（气泡化） -->
+  <defs>
+    <linearGradient id="bgC" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#1D4ED8"/>
+    </linearGradient>
+  </defs>
+  <!-- 圆形背景 -->
+  <circle cx="256" cy="256" r="240" fill="url(#bgC)"/>
+  <!-- 字母 B — 粗圆体风格 -->
+  <path d="M180 130 h60 c50 0 80 30 80 70 c0 30 -20 50 -40 55 c30 8 50 35 50 65 c0 45 -35 75 -85 75 h-65 z
+           M220 170 v55 h35 c25 0 40 -12 40 -28 c0 -16 -15 -27 -40 -27 z
+           M220 265 v60 h40 c28 0 45 -13 45 -30 c0 -17 -17 -30 -45 -30 z"
+        fill="white" opacity="0.95"/>
+  <!-- 小气泡点缀 -->
+  <circle cx="370" cy="150" r="20" fill="white" opacity="0.3"/>
+  <circle cx="395" cy="185" r="12" fill="white" opacity="0.2"/>
+</svg>

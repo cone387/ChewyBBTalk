@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- 方案A: 蓝色圆底 + 白色气泡 + 笔触 -->
+  <defs>
+    <linearGradient id="bgA" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#60A5FA"/>
+      <stop offset="100%" stop-color="#2563EB"/>
+    </linearGradient>
+  </defs>
+  <!-- 圆形背景 -->
+  <circle cx="256" cy="256" r="240" fill="url(#bgA)"/>
+  <!-- 气泡主体 -->
+  <rect x="130" y="140" width="252" height="180" rx="32" fill="white" opacity="0.95"/>
+  <!-- 气泡尾巴 -->
+  <polygon points="180,320 200,370 230,320" fill="white" opacity="0.95"/>
+  <!-- 三条横线（文字意象） -->
+  <rect x="170" y="190" width="160" height="12" rx="6" fill="#3B82F6" opacity="0.6"/>
+  <rect x="170" y="222" width="120" height="12" rx="6" fill="#3B82F6" opacity="0.4"/>
+  <rect x="170" y="254" width="140" height="12" rx="6" fill="#3B82F6" opacity="0.3"/>
+</svg>

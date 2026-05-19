@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- 方案D: 极简 — 蓝色圆底 + 白色圆形气泡（像悬浮球本身） -->
+  <defs>
+    <linearGradient id="bgD" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#60A5FA"/>
+      <stop offset="100%" stop-color="#2563EB"/>
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+  <!-- 圆形背景 -->
+  <circle cx="256" cy="256" r="240" fill="url(#bgD)"/>
+  <!-- 内圆（悬浮球意象） -->
+  <circle cx="256" cy="240" r="100" fill="white" opacity="0.95" filter="url(#shadow)"/>
+  <!-- 加号（快速记录） -->
+  <line x1="256" y1="200" x2="256" y2="280" stroke="#3B82F6" stroke-width="16" stroke-linecap="round"/>
+  <line x1="216" y1="240" x2="296" y2="240" stroke="#3B82F6" stroke-width="16" stroke-linecap="round"/>
+  <!-- 小尾巴（气泡感） -->
+  <circle cx="310" cy="330" r="18" fill="white" opacity="0.7"/>
+  <circle cx="340" cy="360" r="10" fill="white" opacity="0.5"/>
+</svg>
