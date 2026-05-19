@@ -85,9 +85,10 @@ export function SearchInput({
         autoFocus
         onSubmitEditing={() => onSubmit(searchText)}
         returnKeyType="search"
+        accessibilityLabel="搜索碎碎念"
       />
       {searchText.length > 0 && (
-        <TouchableOpacity onPress={() => onSearchTextChange('')}>
+        <TouchableOpacity onPress={() => onSearchTextChange('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityRole="button" accessibilityLabel="清除搜索">
           <Ionicons name="close-circle" size={18} color={c.textTertiary} />
         </TouchableOpacity>
       )}

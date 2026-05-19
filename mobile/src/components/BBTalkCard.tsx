@@ -130,7 +130,7 @@ const BBTalkCard = React.memo(function BBTalkCard({
       </TouchableOpacity>
 
       {/* Content area — tap to edit */}
-      <TouchableOpacity activeOpacity={0.8} onPress={() => onEdit(item)}>
+      <TouchableOpacity activeOpacity={0.8} onPress={() => onEdit(item)} accessibilityRole="button" accessibilityLabel={`碎碎念：${item.content.slice(0, 50)}${item.content.length > 50 ? '…' : ''}`}>
         {item.isPinned && (
           <View style={styles.pinBadge}>
             <Ionicons name="pin" size={12} color="#F59E0B" />
@@ -177,17 +177,17 @@ const BBTalkCard = React.memo(function BBTalkCard({
         </View>
         <View style={styles.footerRight}>
           {loc && (
-            <TouchableOpacity onPress={() => onLocationPress(loc)} style={styles.footerIcon} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
+            <TouchableOpacity onPress={() => onLocationPress(loc)} style={styles.footerIcon} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityRole="button" accessibilityLabel="查看位置">
               <Ionicons name="location-outline" size={16} color={c.textTertiary} />
             </TouchableOpacity>
           )}
-          <TouchableOpacity onPress={() => onComment(item)} style={styles.commentBtn} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }} accessibilityLabel="评论">
+          <TouchableOpacity onPress={() => onComment(item)} style={styles.commentBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityRole="button" accessibilityLabel="评论">
             <Ionicons name="chatbubble-outline" size={16} color={c.textTertiary} />
             {(item.commentCount ?? 0) > 0 && (
               <Text style={[styles.commentBtnCount, { color: c.textTertiary }]}>{item.commentCount}</Text>
             )}
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => onToggleVisibility(item)} style={styles.footerIcon} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }} accessibilityLabel={item.visibility === 'public' ? '切换为私密' : '切换为公开'}>
+          <TouchableOpacity onPress={() => onToggleVisibility(item)} style={styles.footerIcon} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityRole="button" accessibilityLabel={item.visibility === 'public' ? '切换为私密' : '切换为公开'}>
             <Ionicons
               name={item.visibility === 'public' ? 'globe-outline' : 'lock-closed-outline'}
               size={16}

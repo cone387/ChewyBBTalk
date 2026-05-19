@@ -40,6 +40,9 @@ function TagTabs({
             !selectedTag && !selectedDate && { backgroundColor: c.primary, borderRadius: 20 },
           ]}
           onPress={() => { onSelectTag(null); onResetAnim(); }}
+          accessibilityRole="tab"
+          accessibilityLabel="全部"
+          accessibilityState={{ selected: !selectedTag && !selectedDate }}
         >
           <Text
             style={[
@@ -61,6 +64,9 @@ function TagTabs({
                 active && { backgroundColor: c.primary, borderRadius: 20 },
               ]}
               onPress={() => { onSelectTag(active ? null : tag.id); onResetAnim(); }}
+              accessibilityRole="tab"
+              accessibilityLabel={tag.name}
+              accessibilityState={{ selected: active }}
             >
               <Text
                 style={[
@@ -83,10 +89,11 @@ export default React.memo(TagTabs);
 
 const styles = StyleSheet.create({
   tagTabsWrap: {},
-  tagTabsContent: { paddingHorizontal: 12, alignItems: 'center' },
+  tagTabsContent: { paddingHorizontal: 12, alignItems: 'center', gap: 4 },
   tagTab: {
     alignItems: 'center', justifyContent: 'center',
     paddingHorizontal: 16, paddingVertical: 8, marginHorizontal: 2,
+    minHeight: 44,
   },
   tagTabText: { fontSize: 15 },
   tagTabTextActive: { fontWeight: '600' },
