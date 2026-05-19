@@ -40,6 +40,7 @@ import {
   clearWidget,
   syncWidget,
 } from './src/services/widget';
+import ErrorBoundary from './src/components/ErrorBoundary';
 
 const Stack = createNativeStackNavigator();
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -259,13 +260,15 @@ export default function App() {
   if (!isReady) return <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F9FAFB' }}><ActivityIndicator size="large" color="#7C3AED" /></View>;
 
   return (
-    <SafeAreaProvider>
-      <Provider store={store}>
-        <ThemeProvider>
-          <ThemedNavigator isAuthenticated={isAuthenticated} onLoginSuccess={handleLoginSuccess} onLogout={handleLogout} />
-        </ThemeProvider>
-      </Provider>
-    </SafeAreaProvider>
+    <ErrorBoundary>
+      <SafeAreaProvider>
+        <Provider store={store}>
+          <ThemeProvider>
+            <ThemedNavigator isAuthenticated={isAuthenticated} onLoginSuccess={handleLoginSuccess} onLogout={handleLogout} />
+          </ThemeProvider>
+        </Provider>
+      </SafeAreaProvider>
+    </ErrorBoundary>
   );
 }
 

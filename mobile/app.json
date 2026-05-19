@@ -16,10 +16,14 @@
       "bundleIdentifier": "com.chewy.bbtalk",
       "buildNumber": "1",
       "supportsTablet": false,
+      "privacyUrl": "https://bbtalk.cone387.top/privacy-policy/",
       "infoPlist": {
         "NSFaceIDUsageDescription": "使用 Face ID 解锁防窥模式",
         "NSMicrophoneUsageDescription": "长按新建按钮进行语音录入",
         "NSSpeechRecognitionUsageDescription": "将语音转换为文字",
+        "NSPhotoLibraryUsageDescription": "用于将照片附加到碎碎念条目中",
+        "NSLocationWhenInUseUsageDescription": "用于为碎碎念条目添加位置标记",
+        "NSCameraUsageDescription": "用于拍照并附加到碎碎念条目中",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
