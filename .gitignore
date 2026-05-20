@@ -65,3 +65,15 @@ certs/
 *.key
 .playwright-mcp/
 web-*.png
+
+# HyperFrames
+.hyperframes/
+videos/
+*.mp4
+
+# AI Agent skills (managed by tools, not committed)
+.agents/
+.claude/skills/
+.kiro/skills/
+.qoder/skills/
+skills-lock.json

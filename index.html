@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+      background: #0D1B2A;
+      font-family: "Space Grotesk", sans-serif;
+    }
+    .scene {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+      background: #0D1B2A;
+    }
+    #scene2, #scene3, #scene4, #scene5 { opacity: 0; }
+
+    /* Scene 1 — Hook */
+    .s1-glow {
+      position: absolute;
+      width: 800px;
+      height: 800px;
+      top: 140px;
+      left: 560px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(79,195,247,0.12) 0%, rgba(79,195,247,0) 70%);
+    }
+    .s1-ghost {
+      position: absolute;
+      top: 300px;
+      left: -100px;
+      font-size: 200px;
+      font-weight: 800;
+      color: rgba(224,225,221,0.04);
+      white-space: nowrap;
+      letter-spacing: 0.1em;
+    }
+    .s1-grid {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 1920px;
+      height: 1080px;
+      background-image:
+        linear-gradient(rgba(65,90,119,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(65,90,119,0.03) 1px, transparent 1px);
+      background-size: 80px 80px;
+    }
+    .s1-content {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: flex-start;
+      width: 100%;
+      height: 100%;
+      padding: 200px 240px;
+      gap: 20px;
+    }
+    .s1-title {
+      font-size: 96px;
+      font-weight: 800;
+      color: #E0E1DD;
+      letter-spacing: -0.03em;
+    }
+    .s1-tagline {
+      font-size: 36px;
+      font-weight: 400;
+      color: #778DA9;
+      letter-spacing: 0.02em;
+    }
+    .s1-rule {
+      width: 200px;
+      height: 2px;
+      background: #4FC3F7;
+      margin-top: 8px;
+    }
+
+    /* Scene 2 — Features */
+    .s2-label {
+      position: absolute;
+      top: 80px;
+      left: 160px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 18px;
+      font-weight: 500;
+      color: #778DA9;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+    .s2-diag {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 1920px;
+      height: 1080px;
+      background: repeating-linear-gradient(
+        -45deg,
+        transparent,
+        transparent 120px,
+        rgba(65,90,119,0.06) 120px,
+        rgba(65,90,119,0.06) 121px
+      );
+    }
+    .s2-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      width: 100%;
+      height: 100%;
+      padding: 180px 200px 120px;
+      align-content: center;
+    }
+    .s2-card {
+      background: #1B263B;
+      border: 2px solid #415A77;
+      border-radius: 12px;
+      padding: 48px 56px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .s2-card-icon {
+      font-size: 42px;
+    }
+    .s2-card-title {
+      font-size: 36px;
+      font-weight: 700;
+      color: #E0E1DD;
+    }
+    .s2-card-desc {
+      font-size: 22px;
+      font-weight: 400;
+      color: #778DA9;
+      font-family: "IBM Plex Mono", monospace;
+    }
+
+    /* Scene 3 — Platforms */
+    .s3-glow {
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      top: 240px;
+      left: 660px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(79,195,247,0.15) 0%, rgba(79,195,247,0) 70%);
+    }
+    .s3-label {
+      position: absolute;
+      top: 80px;
+      left: 160px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 18px;
+      font-weight: 500;
+      color: #778DA9;
+      letter-spacing: 0.15em;
+    }
+    .s3-counter {
+      position: absolute;
+      top: 80px;
+      right: 160px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 32px;
+      font-weight: 700;
+      color: #4FC3F7;
+      font-variant-numeric: tabular-nums;
+    }
+    .s3-cols {
+      display: flex;
+      gap: 40px;
+      width: 100%;
+      height: 100%;
+      padding: 160px 140px 100px;
+      align-items: center;
+    }
+    .s3-platform {
+      flex: 1;
+      background: #1B263B;
+      border-radius: 12px;
+      border-top: 3px solid #4FC3F7;
+      padding: 60px 48px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      height: 560px;
+      justify-content: center;
+    }
+    .s3-plat-title {
+      font-size: 42px;
+      font-weight: 800;
+      color: #E0E1DD;
+    }
+    .s3-plat-tags {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .s3-tag {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 22px;
+      color: #778DA9;
+      padding: 8px 16px;
+      background: rgba(65,90,119,0.2);
+      border-radius: 6px;
+      width: fit-content;
+    }
+
+    /* Scene 4 — Deploy */
+    .s4-grain {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 1920px;
+      height: 1080px;
+      opacity: 0.03;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+    .s4-content {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+      height: 100%;
+      padding: 120px 200px;
+      gap: 48px;
+    }
+    .s4-terminal {
+      background: #1B263B;
+      border-radius: 12px;
+      padding: 0;
+      width: 1200px;
+      overflow: hidden;
+    }
+    .s4-term-bar {
+      background: #0D1B2A;
+      padding: 16px 24px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .s4-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+    }
+    .s4-dot-r { background: #E5383B; }
+    .s4-dot-y { background: #FFC300; }
+    .s4-dot-g { background: #2EC4B6; }
+    .s4-term-body {
+      padding: 48px 40px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 26px;
+      color: #E0E1DD;
+      line-height: 1.6;
+      white-space: nowrap;
+    }
+    .s4-prompt {
+      color: #4FC3F7;
+    }
+    .s4-cmd {
+      color: #E0E1DD;
+    }
+    .s4-cursor {
+      display: inline-block;
+      width: 12px;
+      height: 28px;
+      background: #4FC3F7;
+      vertical-align: middle;
+      margin-left: 4px;
+    }
+    .s4-subtitle {
+      font-size: 36px;
+      font-weight: 400;
+      color: #778DA9;
+      text-align: center;
+    }
+
+    /* Scene 5 — CTA */
+    .s5-glow {
+      position: absolute;
+      width: 800px;
+      height: 800px;
+      top: 140px;
+      left: 560px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(79,195,247,0.10) 0%, rgba(79,195,247,0) 70%);
+    }
+    .s5-grid {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 1920px;
+      height: 1080px;
+      background-image:
+        linear-gradient(rgba(65,90,119,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(65,90,119,0.03) 1px, transparent 1px);
+      background-size: 80px 80px;
+    }
+    .s5-content {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+      height: 100%;
+      padding: 120px 200px;
+      gap: 32px;
+    }
+    .s5-heading {
+      font-size: 72px;
+      font-weight: 800;
+      color: #E0E1DD;
+      letter-spacing: -0.02em;
+    }
+    .s5-url {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 28px;
+      color: #4FC3F7;
+      position: relative;
+    }
+    .s5-url-line {
+      position: absolute;
+      bottom: -4px;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: #4FC3F7;
+    }
+    .s5-wordmark {
+      position: absolute;
+      bottom: 60px;
+      right: 120px;
+      font-size: 24px;
+      font-weight: 700;
+      color: #415A77;
+    }
+  </style>
+</head>
+<body>
+  <div id="root" data-composition-id="main" data-width="1920" data-height="1080" data-start="0" data-duration="30">
+
+    <!-- Scene 1: Hook -->
+    <div id="scene1" class="scene">
+      <div class="s1-grid"></div>
+      <div class="s1-glow"></div>
+      <div class="s1-ghost">碎碎念 Snippets</div>
+      <div class="s1-content">
+        <div class="s1-title">ChewyBBTalk</div>
+        <div class="s1-tagline">现代化的个人微博系统</div>
+        <div class="s1-rule"></div>
+      </div>
+    </div>
+
+    <!-- Scene 2: Features -->
+    <div id="scene2" class="scene">
+      <div class="s2-diag"></div>
+      <div class="s2-label">FEATURES</div>
+      <div class="s2-grid">
+        <div class="s2-card">
+          <div class="s2-card-icon">&#9998;</div>
+          <div class="s2-card-title">Markdown 编辑</div>
+          <div class="s2-card-desc">富文本格式化</div>
+        </div>
+        <div class="s2-card">
+          <div class="s2-card-icon">&#128206;</div>
+          <div class="s2-card-title">文件附件</div>
+          <div class="s2-card-desc">拖拽上传 &middot; S3 存储</div>
+        </div>
+        <div class="s2-card">
+          <div class="s2-card-icon">&#128274;</div>
+          <div class="s2-card-title">隐私保护</div>
+          <div class="s2-card-desc">自动模糊 &middot; 权限控制</div>
+        </div>
+        <div class="s2-card">
+          <div class="s2-card-icon">&#127991;</div>
+          <div class="s2-card-title">标签分类</div>
+          <div class="s2-card-desc">灵活组织内容</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scene 3: Multi-Platform -->
+    <div id="scene3" class="scene">
+      <div class="s3-glow"></div>
+      <div class="s3-label">PLATFORMS</div>
+      <div class="s3-counter">×3</div>
+      <div class="s3-cols">
+        <div class="s3-platform">
+          <div class="s3-plat-title">Web</div>
+          <div class="s3-plat-tags">
+            <div class="s3-tag">React + TypeScript</div>
+            <div class="s3-tag">Vite + PWA</div>
+            <div class="s3-tag">Tailwind CSS</div>
+          </div>
+        </div>
+        <div class="s3-platform">
+          <div class="s3-plat-title">Mobile</div>
+          <div class="s3-plat-tags">
+            <div class="s3-tag">React Native</div>
+            <div class="s3-tag">Expo SDK</div>
+            <div class="s3-tag">iOS + Android</div>
+          </div>
+        </div>
+        <div class="s3-platform">
+          <div class="s3-plat-title">Desktop</div>
+          <div class="s3-plat-tags">
+            <div class="s3-tag">Electron</div>
+            <div class="s3-tag">Floating Widget</div>
+            <div class="s3-tag">System Tray</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scene 4: Deploy -->
+    <div id="scene4" class="scene">
+      <div class="s4-grain"></div>
+      <div class="s4-content">
+        <div class="s4-terminal">
+          <div class="s4-term-bar">
+            <div class="s4-dot s4-dot-r"></div>
+            <div class="s4-dot s4-dot-y"></div>
+            <div class="s4-dot s4-dot-g"></div>
+          </div>
+          <div class="s4-term-body">
+            <span class="s4-prompt">$ </span><span class="s4-cmd">docker run -p 4010:4010 ghcr.io/cone387/chewybbtalk</span><span class="s4-cursor"></span>
+          </div>
+        </div>
+        <div class="s4-subtitle">一行命令，即刻部署</div>
+      </div>
+    </div>
+
+    <!-- Scene 5: CTA -->
+    <div id="scene5" class="scene">
+      <div class="s5-grid"></div>
+      <div class="s5-glow"></div>
+      <div class="s5-content">
+        <div class="s5-heading">开始使用</div>
+        <div class="s5-url">
+          github.com/cone387/ChewyBBTalk
+          <div class="s5-url-line"></div>
+        </div>
+      </div>
+      <div class="s5-wordmark">ChewyBBTalk</div>
+    </div>
+  </div>
+
+  <script>
+    window.__timelines = window.__timelines || {};
+    var tl = gsap.timeline({ paused: true });
+
+    // === SCENE 1: Hook (0-6s) ===
+    // Decorative ambient
+    tl.to(".s1-glow", { scale: 1.03, duration: 3, ease: "sine.inOut", yoyo: true, repeat: 1 }, 0);
+    tl.to(".s1-ghost", { y: -30, duration: 6, ease: "none" }, 0);
+
+    // Entrance animations
+    tl.fromTo(".s1-title",
+      { scale: 0.9, opacity: 0 },
+      { scale: 1, opacity: 1, duration: 0.6, ease: "expo.out" }, 0.3);
+    tl.fromTo(".s1-tagline",
+      { y: 40, opacity: 0 },
+      { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 0.7);
+    tl.fromTo(".s1-rule",
+      { scaleX: 0, transformOrigin: "left center" },
+      { scaleX: 1, duration: 0.4, ease: "power2.out" }, 1.0);
+
+    // === TRANSITION 1→2 at 5.5s: Blur crossfade ===
+    tl.to("#scene1", { filter: "blur(15px)", scale: 1.05, opacity: 0, duration: 0.4, ease: "power2.in" }, 5.5);
+    tl.fromTo("#scene2",
+      { filter: "blur(15px)", scale: 0.95, opacity: 0 },
+      { filter: "blur(0px)", scale: 1, opacity: 1, duration: 0.4, ease: "power2.out" }, 5.7);
+
+    // === SCENE 2: Features (6-13s) ===
+    var cards = document.querySelectorAll(".s2-card");
+    cards.forEach(function(card, i) {
+      tl.fromTo(card,
+        { y: 60, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 6.2 + i * 0.15);
+    });
+    tl.fromTo(".s2-label",
+      { opacity: 0, x: -20 },
+      { opacity: 1, x: 0, duration: 0.3, ease: "power2.out" }, 6.0);
+
+    // Ambient diagonal rotation
+    tl.to(".s2-diag", { rotation: 0.5, duration: 7, ease: "none" }, 6);
+
+    // === TRANSITION 2→3 at 12.5s: Blur crossfade ===
+    tl.to("#scene2", { filter: "blur(15px)", scale: 1.05, opacity: 0, duration: 0.4, ease: "power2.in" }, 12.5);
+    tl.fromTo("#scene3",
+      { filter: "blur(15px)", scale: 0.95, opacity: 0 },
+      { filter: "blur(0px)", scale: 1, opacity: 1, duration: 0.4, ease: "power2.out" }, 12.7);
+
+    // === SCENE 3: Multi-Platform (13-20s) ===
+    var platforms = document.querySelectorAll(".s3-platform");
+    platforms.forEach(function(plat, i) {
+      var delay = i === 1 ? 0 : 0.05;
+      tl.fromTo(plat,
+        { y: 100, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.7, ease: "expo.out" }, 13.2 + delay + i * 0.08);
+    });
+
+    // Tags stagger
+    var tags = document.querySelectorAll(".s3-tag");
+    tags.forEach(function(tag, i) {
+      tl.fromTo(tag,
+        { x: -30, opacity: 0 },
+        { x: 0, opacity: 1, duration: 0.3, ease: "power2.out" }, 13.8 + i * 0.08);
+    });
+
+    tl.fromTo(".s3-label",
+      { opacity: 0 },
+      { opacity: 1, duration: 0.3, ease: "power2.out" }, 13.0);
+    tl.fromTo(".s3-counter",
+      { opacity: 0, scale: 0.8 },
+      { opacity: 1, scale: 1, duration: 0.4, ease: "back.out(2)" }, 13.5);
+
+    // Ambient glow
+    tl.fromTo(".s3-glow",
+      { scale: 0.8 },
+      { scale: 1, duration: 0.6, ease: "power2.out" }, 13.0);
+    tl.to(".s3-glow", { scale: 1.03, duration: 3.5, ease: "sine.inOut", yoyo: true, repeat: 1 }, 14);
+
+    // === TRANSITION 3→4 at 19.5s: Directional blur ===
+    tl.to("#scene3", { filter: "blur(12px)", skewX: -8, x: -200, opacity: 0, duration: 0.4, ease: "power3.in" }, 19.5);
+    tl.fromTo("#scene4",
+      { filter: "blur(12px)", skewX: 8, x: 200, opacity: 0 },
+      { filter: "blur(0px)", skewX: 0, x: 0, opacity: 1, duration: 0.4, ease: "power3.out" }, 19.65);
+
+    // === SCENE 4: Deploy (20-25s) ===
+    tl.fromTo(".s4-terminal",
+      { y: 30, opacity: 0 },
+      { y: 0, opacity: 1, duration: 0.6, ease: "power2.out" }, 20.2);
+
+    // Typing effect via clip-path on the command text
+    tl.fromTo(".s4-cmd",
+      { clipPath: "inset(0 100% 0 0)" },
+      { clipPath: "inset(0 0% 0 0)", duration: 1.5, ease: "steps(40)" }, 20.6);
+
+    // Cursor blink
+    tl.to(".s4-cursor", { opacity: 0, duration: 0.25, ease: "steps(1)", yoyo: true, repeat: 7 }, 20.6);
+
+    // Subtitle
+    tl.fromTo(".s4-subtitle",
+      { y: 20, opacity: 0 },
+      { y: 0, opacity: 1, duration: 0.4, ease: "sine.out" }, 22.3);
+
+    // === TRANSITION 4→5 at 24.5s: Blur crossfade (gentle) ===
+    tl.to("#scene4", { filter: "blur(20px)", scale: 1.05, opacity: 0, duration: 0.5, ease: "sine.in" }, 24.5);
+    tl.fromTo("#scene5",
+      { filter: "blur(20px)", scale: 0.95, opacity: 0 },
+      { filter: "blur(0px)", scale: 1, opacity: 1, duration: 0.5, ease: "sine.out" }, 24.7);
+
+    // === SCENE 5: CTA (25-30s) ===
+    tl.fromTo(".s5-heading",
+      { y: -40, opacity: 0 },
+      { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 25.2);
+    tl.fromTo(".s5-url",
+      { x: -30, opacity: 0 },
+      { x: 0, opacity: 1, duration: 0.4, ease: "power2.out" }, 25.5);
+    tl.fromTo(".s5-url-line",
+      { scaleX: 0, transformOrigin: "left center" },
+      { scaleX: 1, duration: 0.3, ease: "power2.out" }, 25.8);
+    tl.fromTo(".s5-wordmark",
+      { opacity: 0 },
+      { opacity: 1, duration: 0.3, ease: "sine.out" }, 26.0);
+
+    // Ambient glow
+    tl.to(".s5-glow", { scale: 1.04, duration: 2.5, ease: "sine.inOut", yoyo: true, repeat: 1 }, 25);
+
+    // Final fade out (only allowed on last scene)
+    tl.to(".s5-heading", { opacity: 0, duration: 0.8, ease: "sine.in" }, 29.0);
+    tl.to(".s5-url", { opacity: 0, duration: 0.6, ease: "sine.in" }, 29.1);
+    tl.to(".s5-url-line", { opacity: 0, duration: 0.5, ease: "sine.in" }, 29.1);
+    tl.to(".s5-wordmark", { opacity: 0, duration: 0.5, ease: "sine.in" }, 29.2);
+
+    window.__timelines["main"] = tl;
+  </script>
+</body>
+</html>
