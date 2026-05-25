@@ -123,10 +123,16 @@ async function doRefresh(): Promise<boolean> {
       return true;
     }
 
-    await clearAuth();
+    // refresh token 被服务端明确拒绝（过期/黑名单），清除登录态
+    if (response.status === 401 || response.status === 403) {
+      await clearAuth();
+      return false;
+    }
+
+    // 其他服务端错误（500 等），不清除登录态，下次再试
     return false;
   } catch {
-    await clearAuth();
+    // 网络错误，不清除登录态，保留 token 下次重试
     return false;
   }
 }
@@ -137,10 +143,18 @@ function startTokenRefresh(accessToken: string): void {
   const payload = parseJwt(accessToken);
   if (!payload?.exp) return;
 
-  const delay = payload.exp * 1000 - Date.now() - 5 * 60 * 1000;
+  // 提前 5 分钟刷新，最少 30 秒后
+  const delay = Math.max(30_000, payload.exp * 1000 - Date.now() - 5 * 60 * 1000);
 
   if (delay > 0) {
-    refreshTimer = setTimeout(() => refreshAccessToken(), delay);
+    refreshTimer = setTimeout(() => {
+      refreshAccessToken().then((success) => {
+        if (!success) {
+          // 刷新失败（可能网络问题），30 秒后重试
+          refreshTimer = setTimeout(() => refreshAccessToken(), 30_000);
+        }
+      });
+    }, delay);
   } else {
     refreshAccessToken();
   }
@@ -244,6 +258,7 @@ export async function initAuth(): Promise<boolean> {
     const payload = parseJwt(accessToken);
     if (payload?.exp) {
       if (payload.exp < Date.now() / 1000) {
+        // access token 过期，尝试刷新
         const refreshed = await refreshAccessToken();
         if (!refreshed) return false;
       } else {
@@ -257,14 +272,22 @@ export async function initAuth(): Promise<boolean> {
       try { currentUser = JSON.parse(saved); } catch {}
     }
 
-    // 获取最新用户信息
-    const userInfo = await fetchCurrentUser();
-    if (userInfo) {
-      currentUser = userInfo;
-      await storage.setItemAsync(USER_INFO_KEY, JSON.stringify(userInfo));
-      return true;
+    // 获取最新用户信息（失败时不清除登录态，使用缓存）
+    try {
+      const userInfo = await fetchCurrentUser();
+      if (userInfo) {
+        currentUser = userInfo;
+        await storage.setItemAsync(USER_INFO_KEY, JSON.stringify(userInfo));
+      }
+      // userInfo 为 null 但有缓存用户信息时，保持登录态（可能是网络问题）
+    } catch {
+      // 网络错误等，不影响登录态
     }
 
+    // 只要有有效 token 且有用户信息（缓存或最新），就保持登录
+    if (currentUser) return true;
+
+    // 没有任何用户信息，清除登录态
     await clearAuth();
     return false;
   } catch {

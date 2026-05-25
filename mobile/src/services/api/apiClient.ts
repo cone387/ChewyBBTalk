@@ -2,7 +2,7 @@
  * API Client (React Native 版)
  * 与 Web 版逻辑一致，但 getAccessToken 是异步的
  */
-import { getAccessToken, refreshAccessToken, logout } from '../auth';
+import { getAccessToken, refreshAccessToken } from '../auth';
 import { getApiBaseUrl } from '../../config';
 
 class ApiClient {
@@ -64,15 +64,15 @@ class ApiClient {
             }
           }
         } else {
-          await logout();
-          throw new Error('会话已过期，请重新登录');
+          // refresh 失败但不一定是 token 过期（可能是网络问题）
+          // refreshAccessToken 内部只在 401/403 时才 clearAuth
+          throw new Error('会话刷新失败，请稍后重试');
         }
       } catch (error) {
         if ((error as Error).message === '网络连接失败，请检查网络设置' ||
-            (error as Error).message === '会话已过期，请重新登录') {
+            (error as Error).message === '会话刷新失败，请稍后重试') {
           throw error;
         }
-        await logout();
         throw new Error('认证失败，请重新登录');
       }
     }

@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ActivityIndicator, View, Animated, Dimensions, TouchableOpacity, StyleSheet, PanResponder, Platform } from 'react-native';
+import { ActivityIndicator, View, Animated, Dimensions, TouchableOpacity, StyleSheet, PanResponder, Platform, AppState } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Provider } from 'react-redux';
 import { store } from './src/store';
-import { initAuth } from './src/services/auth';
+import { initAuth, refreshAccessToken } from './src/services/auth';
 import { loadApiBaseUrl } from './src/config';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 import { checkForUpdates } from './src/utils/versionChecker';
@@ -41,6 +41,7 @@ import {
   syncWidget,
 } from './src/services/widget';
 import ErrorBoundary from './src/components/ErrorBoundary';
+import AppBackgroundBlur from './src/components/AppBackgroundBlur';
 
 const Stack = createNativeStackNavigator();
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -251,6 +252,17 @@ export default function App() {
     return () => stopWidgetAutoSync();
   }, [isAuthenticated]);
 
+  // 从后台恢复时主动刷新 token，保持登录态
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        refreshAccessToken();
+      }
+    });
+    return () => subscription.remove();
+  }, [isAuthenticated]);
+
   const handleLoginSuccess = useCallback(() => setIsAuthenticated(true), []);
   const handleLogout = useCallback(() => {
     setIsAuthenticated(false);
@@ -265,6 +277,7 @@ export default function App() {
         <Provider store={store}>
           <ThemeProvider>
             <ThemedNavigator isAuthenticated={isAuthenticated} onLoginSuccess={handleLoginSuccess} onLogout={handleLogout} />
+            <AppBackgroundBlur />
           </ThemeProvider>
         </Provider>
       </SafeAreaProvider>

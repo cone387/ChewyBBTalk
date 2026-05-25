@@ -172,9 +172,10 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
       </ScrollView>
 
       {/* 服务器选择弹窗 */}
-      <Modal visible={showServerPicker} transparent animationType="slide" onRequestClose={() => setShowServerPicker(false)}>
+      <Modal visible={showServerPicker} transparent animationType="fade" onRequestClose={() => setShowServerPicker(false)}>
         <TouchableOpacity style={[styles.modalOverlay, { backgroundColor: c.overlay }]} activeOpacity={1} onPress={() => { setShowServerPicker(false); setShowAddServer(false); }}>
           <View style={[styles.modalSheet, { backgroundColor: c.surface }]} onStartShouldSetResponder={() => true}>
+            <View style={styles.sheetHandle} />
             <Text style={[styles.modalTitle, { color: c.text }]}>选择服务</Text>
 
             {servers.map(s => (
@@ -268,8 +269,9 @@ const styles = StyleSheet.create({
   privacyText: { textAlign: 'center', fontSize: 12, marginTop: 12 },
   privacyLink: { textDecorationLine: 'underline' },
   // 服务器选择弹窗
-  modalOverlay: { flex: 1, justifyContent: 'center', padding: 24 },
-  modalSheet: { borderRadius: 20, padding: 20 },
+  modalOverlay: { flex: 1, justifyContent: 'flex-end' },
+  modalSheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 34 },
+  sheetHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: 'rgba(0,0,0,0.15)', alignSelf: 'center', marginBottom: 14 },
   modalTitle: { fontSize: 17, fontWeight: '600', marginBottom: 14 },
   serverItem: {
     flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 12,
