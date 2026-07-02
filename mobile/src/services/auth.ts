@@ -272,6 +272,19 @@ export async function initAuth(): Promise<boolean> {
       try { currentUser = JSON.parse(saved); } catch {}
     }
 
+    // 冷启动时不要让 /user/me/ 阻塞首屏。已有缓存用户时先恢复登录态，后台刷新最新资料。
+    if (currentUser) {
+      void fetchCurrentUser()
+        .then(async (userInfo) => {
+          if (userInfo) {
+            currentUser = userInfo;
+            await storage.setItemAsync(USER_INFO_KEY, JSON.stringify(userInfo));
+          }
+        })
+        .catch(() => {});
+      return true;
+    }
+
     // 获取最新用户信息（失败时不清除登录态，使用缓存）
     try {
       const userInfo = await fetchCurrentUser();
