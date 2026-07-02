@@ -42,6 +42,7 @@ import {
 } from './src/services/widget';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import AppBackgroundBlur from './src/components/AppBackgroundBlur';
+import ScreenCaptureProtection from './src/components/ScreenCaptureProtection';
 
 const Stack = createNativeStackNavigator();
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -278,6 +279,7 @@ export default function App() {
           <ThemeProvider>
             <ThemedNavigator isAuthenticated={isAuthenticated} onLoginSuccess={handleLoginSuccess} onLogout={handleLogout} />
             <AppBackgroundBlur />
+            <ScreenCaptureProtection />
           </ThemeProvider>
         </Provider>
       </SafeAreaProvider>

@@ -1,12 +1,20 @@
 import { Alert, ActionSheetIOS, Platform } from 'react-native';
 import { webAlert, webConfirm, webActionSheet } from './webAlert';
 
+function getPlatformOS(): string {
+  return Platform?.OS ?? 'native';
+}
+
+function canUseWebDialog(): boolean {
+  return getPlatformOS() === 'web' && typeof window !== 'undefined' && typeof document !== 'undefined';
+}
+
 /**
  * 跨平台通知弹窗（单按钮"确定"）
  * Web 端使用 iOS 风格弹窗，Native 端使用 Alert.alert
  */
 export function xAlert(title: string, message?: string): void {
-  if (Platform.OS === 'web') {
+  if (canUseWebDialog()) {
     webAlert(title, message);
   } else {
     Alert.alert(title, message);
@@ -24,7 +32,7 @@ export function xConfirm(
   onCancel?: () => void,
   options?: { confirmText?: string; cancelText?: string; destructive?: boolean },
 ): void {
-  if (Platform.OS === 'web') {
+  if (canUseWebDialog()) {
     webConfirm(title, message, onConfirm, onCancel, options);
   } else {
     Alert.alert(title, message, [
@@ -48,9 +56,9 @@ export function xActionSheet(
   options: ActionSheetOption[],
   onSelect: (index: number) => void,
 ): void {
-  if (Platform.OS === 'web') {
+  if (canUseWebDialog()) {
     webActionSheet(title, options, onSelect);
-  } else if (Platform.OS === 'ios') {
+  } else if (getPlatformOS() === 'ios') {
     const labels = [...options.map(o => o.text), '取消'];
     const destructiveIndex = options.findIndex(o => o.destructive);
     ActionSheetIOS.showActionSheetWithOptions(

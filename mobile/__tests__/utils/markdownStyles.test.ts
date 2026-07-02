@@ -67,11 +67,13 @@ describe('getMarkdownStyles - Property 3: Markdown 样式主题适配一致性',
     );
   });
 
-  it('blockquote.borderLeftColor 应等于输入的 colors.border', () => {
+  it('blockquote 使用灰底圆角且不再显示左边框', () => {
     fc.assert(
       fc.property(arbThemeColors, (colors) => {
         const styles = getMarkdownStyles(colors);
-        expect(styles.blockquote.borderLeftColor).toBe(colors.border);
+        expect(styles.blockquote.backgroundColor).toBe('#F3F4F6');
+        expect(styles.blockquote.borderRadius).toBe(8);
+        expect(styles.blockquote.borderLeftColor).toBeUndefined();
       }),
       { numRuns: 100 },
     );

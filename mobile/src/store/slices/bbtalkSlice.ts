@@ -116,6 +116,7 @@ const bbtalkSlice = createSlice({
         state.bbtalks = action.payload;
         state.totalCount = action.payload.length;
         state.hasMore = false; // Cache doesn't have pagination info
+        state.isLoading = false;
       }
     },
     optimisticDelete: (state, action: PayloadAction<string>) => {

@@ -194,8 +194,6 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
     return unsub;
   }, [navigation, privacy.resetPrivacyTimer, privacy.loadPrivacySettings]);
 
-  useEffect(() => { dispatch(loadBBTalks({})); dispatch(loadTags()); }, [dispatch]);
-
   // --- Offline Cache: init + load cached data on mount ---
   useEffect(() => {
     let mounted = true;
@@ -212,6 +210,8 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
     })();
     return () => { mounted = false; };
   }, [initCache, loadCachedData, dispatch]);
+
+  useEffect(() => { dispatch(loadBBTalks({})); dispatch(loadTags()); }, [dispatch]);
 
   // --- Offline Cache: sync to cache after successful API load ---
   const prevBBTalksRef = useRef<BBTalk[]>([]);
