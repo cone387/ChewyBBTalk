@@ -28,6 +28,27 @@ interface MockAnimationResult {
   start: (cb?: () => void) => void;
 }
 
+interface GestureState {
+  dx: number;
+  dy: number;
+  vx: number;
+  vy: number;
+  moveX: number;
+  moveY: number;
+  x0: number;
+  y0: number;
+  numberActiveTouches: number;
+  stateID: number;
+}
+
+interface SwipeConfig {
+  onMoveShouldSetPanResponder: (evt: unknown, gesture: GestureState) => boolean;
+  onPanResponderGrant: (evt: unknown, gesture: GestureState) => void;
+  onPanResponderMove: (evt: unknown, gesture: GestureState) => void;
+  onPanResponderRelease: (evt: unknown, gesture: GestureState) => void;
+  onPanResponderTerminate: (evt: unknown, gesture: GestureState) => void;
+}
+
 const springCalls: Array<{ toValue: number; useNativeDriver: boolean }> = [];
 const timingCalls: Array<{ toValue: number; duration: number; useNativeDriver: boolean }> = [];
 
@@ -67,7 +88,7 @@ function makeBBTalk(overrides: Partial<BBTalk> = {}): BBTalk {
   };
 }
 
-function gs(overrides: any = {}) {
+function gs(overrides: Partial<GestureState> = {}): GestureState {
   return {
     dx: 0, dy: 0, vx: 0, vy: 0,
     moveX: 0, moveY: 0, x0: 0, y0: 0,
@@ -76,7 +97,7 @@ function gs(overrides: any = {}) {
   };
 }
 
-const evt = {} as any;
+const evt = {};
 
 interface SetupOptions {
   item?: BBTalk;
@@ -121,8 +142,8 @@ function createSwipeConfig(options: SetupOptions = {}) {
 
   const closeSwipeRef = { current: closeSwipe };
 
-  const config = {
-    onMoveShouldSetPanResponder: (_evt: any, gesture: any) => {
+  const config: SwipeConfig = {
+    onMoveShouldSetPanResponder: (_evt, gesture) => {
       if (batchModeRef.current) return false;
       return (
         Math.abs(gesture.dx) > 10 &&
@@ -136,10 +157,10 @@ function createSwipeConfig(options: SetupOptions = {}) {
       }
       openSwipeRefRef.current.current = closeSwipeRef.current;
     },
-    onPanResponderMove: (_evt: any, gesture: any) => {
+    onPanResponderMove: (_evt, gesture) => {
       translateX.setValue(gesture.dx);
     },
-    onPanResponderRelease: (_evt: any, gesture: any) => {
+    onPanResponderRelease: (_evt, gesture) => {
       const { dx, vx } = gesture;
       const absDx = Math.abs(dx);
       const absVx = Math.abs(vx);
