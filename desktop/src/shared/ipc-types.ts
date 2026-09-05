@@ -49,6 +49,7 @@ export interface AuthApi {
   login(username: string, password: string, apiUrl?: string): Promise<{ ok: boolean; error?: string }>;
   logout(): Promise<void>;
   getAccessToken(): Promise<string | null>;
+  getValidAccessToken(): Promise<string | null>;
   isLoggedIn(): Promise<boolean>;
 }
 

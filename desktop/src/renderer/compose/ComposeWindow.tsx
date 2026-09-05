@@ -123,7 +123,7 @@ export function ComposeWindow() {
     setIsUploading(true);
     try {
       const apiUrl = await window.desktop.compose.getApiUrl();
-      const token = await window.desktop.auth.getAccessToken();
+      const token = await window.desktop.auth.getValidAccessToken();
       const uploaded = await uploadFiles(files, apiUrl, token);
       setUploadedFiles((prev) => [...prev, ...uploaded]);
     } catch (err: unknown) {
@@ -201,7 +201,7 @@ export function ComposeWindow() {
     setSubmitting(true);
     try {
       const apiUrl = await window.desktop.compose.getApiUrl();
-      const token = await window.desktop.auth.getAccessToken();
+      const token = await window.desktop.auth.getValidAccessToken();
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 

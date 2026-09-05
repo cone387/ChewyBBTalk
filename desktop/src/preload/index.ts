@@ -38,6 +38,7 @@ const api: DesktopApi = {
       ipcRenderer.invoke('auth:login', username, password, apiUrl),
     logout: () => ipcRenderer.invoke('auth:logout'),
     getAccessToken: () => ipcRenderer.invoke('auth:get-access-token'),
+    getValidAccessToken: () => ipcRenderer.invoke('auth:get-valid-access-token'),
     isLoggedIn: () => ipcRenderer.invoke('auth:is-logged-in'),
   },
   shell: {

@@ -2,7 +2,7 @@
  * 认证相关 IPC。
  */
 import { ipcMain } from 'electron';
-import { login, logout, getAccessToken, isLoggedIn } from '../auth';
+import { login, logout, getAccessToken, getValidAccessToken, isLoggedIn } from '../auth';
 
 export function registerAuthIpc() {
   ipcMain.handle('auth:login', async (_, username: string, password: string, apiUrl?: string) => {
@@ -16,6 +16,8 @@ export function registerAuthIpc() {
   ipcMain.handle('auth:get-access-token', () => {
     return getAccessToken();
   });
+
+  ipcMain.handle('auth:get-valid-access-token', () => getValidAccessToken());
 
   ipcMain.handle('auth:is-logged-in', () => {
     return isLoggedIn();

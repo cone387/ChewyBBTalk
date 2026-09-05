@@ -77,5 +77,20 @@
 - **WHEN** 用户上次登录后关闭 App，再次打开
 - **THEN** 客户端从 SecureStore 读取 token，自动恢复登录状态（若 token 仍有效）
 
+### Requirement: 客户端自动续期
+Web、iOS/Android 和桌面端 SHALL 在 access token 到期前主动刷新，并在多个请求同时触发刷新时复用同一个刷新请求。
+
+#### Scenario: 到期前刷新
+- **WHEN** access token 距离过期小于 5 分钟
+- **THEN** 客户端使用 refresh token 获取新 token 并更新本地存储，不中断用户操作
+
+#### Scenario: 短暂网络故障
+- **WHEN** 刷新请求因网络错误或临时 5xx 失败
+- **THEN** 客户端保留现有登录态并持续重试，不立即清除 token
+
+#### Scenario: refresh token 明确失效
+- **WHEN** 服务端返回 401/403 表示 refresh token 过期或已在黑名单
+- **THEN** 客户端清除认证信息并引导用户重新登录
+
 ### Requirement: Identity 扩展接口
 系统 SHALL 在 Identity 表中预留 `provider` / `provider_user_id` 字段，便于后续接入 OAuth、微信、邮箱验证码等登录方式而无需修改 User 表。

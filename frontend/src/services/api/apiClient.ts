@@ -53,15 +53,25 @@ class ApiClient {
             });
           }
         } else {
-          // 刷新失败，重定向到登录页
-          console.log('[ApiClient] Token 刷新失败，重定向到登录页');
-          logout();
-          throw new Error('会话已过期，请重新登录');
+          // 网络故障时 refreshAccessToken 会保留本地登录态并稍后重试；
+          // 只有它已清除 access token（refresh token 明确失效）才跳转登录。
+          if (!getAccessToken()) {
+            console.log('[ApiClient] Refresh token 已失效，重定向到登录页');
+            logout();
+            throw new Error('会话已过期，请重新登录');
+          }
+          throw new Error('会话刷新失败，请稍后重试');
         }
       } catch (error) {
         console.error('[ApiClient] Token 刷新过程中出错:', error);
-        logout();
-        throw new Error('认证失败，请重新登录');
+        if (error instanceof Error && (error.message === '会话刷新失败，请稍后重试' || error.message === '会话已过期，请重新登录')) {
+          throw error;
+        }
+        if (!getAccessToken()) {
+          logout();
+          throw new Error('认证失败，请重新登录');
+        }
+        throw error;
       }
     }
 

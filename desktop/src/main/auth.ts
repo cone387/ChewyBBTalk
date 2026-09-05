@@ -14,6 +14,7 @@ interface TokenPair {
 
 let accessToken: string | null = null;
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+let refreshPromise: Promise<boolean> | null = null;
 
 function parseJwtExp(token: string): number | null {
   try {
@@ -38,6 +39,14 @@ function scheduleRefresh(token: string) {
   } else {
     refreshAccessToken();
   }
+}
+
+function scheduleRefreshRetry() {
+  if (refreshTimer) clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(async () => {
+    const success = await refreshAccessToken();
+    if (!success && (store.get('auth') as any)?.refreshToken) scheduleRefreshRetry();
+  }, 30_000);
 }
 
 export async function login(
@@ -71,6 +80,12 @@ export async function login(
 }
 
 export async function refreshAccessToken(): Promise<boolean> {
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = doRefresh().finally(() => { refreshPromise = null; });
+  return refreshPromise;
+}
+
+async function doRefresh(): Promise<boolean> {
   const auth = store.get('auth') as any;
   const refreshToken = auth?.refreshToken;
   if (!refreshToken) return false;
@@ -82,7 +97,12 @@ export async function refreshAccessToken(): Promise<boolean> {
       body: JSON.stringify({ refresh: refreshToken }),
     });
     if (!res.ok) {
-      accessToken = null;
+      if (res.status === 401 || res.status === 403) {
+        accessToken = null;
+        store.set('auth' as any, { ...auth, refreshToken: undefined });
+      } else {
+        scheduleRefreshRetry();
+      }
       return false;
     }
     const data = await res.json();
@@ -93,9 +113,20 @@ export async function refreshAccessToken(): Promise<boolean> {
     scheduleRefresh(data.access);
     return true;
   } catch {
-    accessToken = null;
+    // Network failures are transient; keep the session and retry later.
+    scheduleRefreshRetry();
     return false;
   }
+}
+
+/** Return an access token suitable for an API request, refreshing near expiry. */
+export async function getValidAccessToken(): Promise<string | null> {
+  if (!accessToken) return null;
+  const exp = parseJwtExp(accessToken);
+  if (exp && exp * 1000 - Date.now() < 60_000) {
+    await refreshAccessToken();
+  }
+  return accessToken;
 }
 
 export function getAccessToken(): string | null {

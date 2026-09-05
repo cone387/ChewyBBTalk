@@ -129,10 +129,12 @@ async function doRefresh(): Promise<boolean> {
       return false;
     }
 
-    // 其他服务端错误（500 等），不清除登录态，下次再试
+    // 其他服务端错误（500 等），不清除登录态，并安排重试
+    scheduleRefreshRetry();
     return false;
   } catch {
-    // 网络错误，不清除登录态，保留 token 下次重试
+    // 网络错误，不清除登录态，保留 token 并持续重试
+    scheduleRefreshRetry();
     return false;
   }
 }
@@ -148,16 +150,24 @@ function startTokenRefresh(accessToken: string): void {
 
   if (delay > 0) {
     refreshTimer = setTimeout(() => {
-      refreshAccessToken().then((success) => {
-        if (!success) {
-          // 刷新失败（可能网络问题），30 秒后重试
-          refreshTimer = setTimeout(() => refreshAccessToken(), 30_000);
+      refreshAccessToken().then(async (success) => {
+        if (!success && await getRefreshToken()) {
+          // 刷新失败（可能网络问题），持续重试直到成功或 refresh token 失效
+          scheduleRefreshRetry();
         }
       });
     }, delay);
   } else {
     refreshAccessToken();
   }
+}
+
+function scheduleRefreshRetry(): void {
+  if (refreshTimer) clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(async () => {
+    const success = await refreshAccessToken();
+    if (!success && await getRefreshToken()) scheduleRefreshRetry();
+  }, 30_000);
 }
 
 // --- 登录 / 注册 / 登出 ---
@@ -260,7 +270,14 @@ export async function initAuth(): Promise<boolean> {
       if (payload.exp < Date.now() / 1000) {
         // access token 过期，尝试刷新
         const refreshed = await refreshAccessToken();
-        if (!refreshed) return false;
+        if (!refreshed) {
+          const saved = await storage.getItemAsync(USER_INFO_KEY);
+          if (saved) {
+            try { currentUser = JSON.parse(saved); } catch { /* 缓存损坏时按未登录处理 */ }
+          }
+          if (currentUser) return true;
+          return false;
+        }
       } else {
         startTokenRefresh(accessToken);
       }
