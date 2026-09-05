@@ -149,7 +149,7 @@ export default function DataManagementScreen() {
   };
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: c.surfaceSecondary }]} contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 20 }}>
+    <ScrollView style={[styles.container, { backgroundColor: c.surfaceSecondary }]} contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 20, width: '100%', maxWidth: 760, alignSelf: 'center' }}>
       <View style={[styles.card, { backgroundColor: c.cardBg }]}>
         <View style={[styles.cardHeader, { backgroundColor: c.borderLight }]}>
           <View style={[styles.headerIcon, { backgroundColor: c.primary }]}><Ionicons name="cloud-download-outline" size={20} color="#fff" /></View>

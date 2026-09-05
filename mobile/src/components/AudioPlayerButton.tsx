@@ -36,7 +36,7 @@ function PlayerCard({ uri, attachment }: { uri: string; attachment: Attachment }
       : '音频';
 
   return (
-    <TouchableOpacity style={[styles.card, { backgroundColor: c.borderLight, borderColor: c.border }]} activeOpacity={0.7} onPress={toggle}>
+    <TouchableOpacity style={[styles.card, { backgroundColor: c.borderLight, borderColor: c.border }]} activeOpacity={0.7} onPress={toggle} accessibilityRole="button" accessibilityLabel={`${status.playing ? '暂停' : '播放'}音频 ${attachment.originalFilename || attachment.filename || ''}`}>
       <View style={[styles.iconWrap, { backgroundColor: c.primary + '18' }]}>
         <Ionicons name={iconName} size={20} color={c.primary} />
       </View>

@@ -7,35 +7,37 @@
 
 ## 🔥 高优先级（建议优先做）
 
-### 1. 全文搜索
+### 1. 搜索体验与索引优化
 
-**痛点**：碎碎念越积越多后，"上次我记的那条..." 找不到。
+**现状**：Web 与移动端已支持服务端关键词搜索、标签筛选、自然日日期范围和附件存在性筛选；当前实现基于 DRF SearchFilter，适合中小数据量。
+
+**下一步**：碎碎念越积越多后，需要更快、更稳定的全文检索。
 
 **方案**：
 - SQLite：启用 [FTS5 虚表](https://www.sqlite.org/fts5.html)，对 `BBTalk.content` 建索引
 - PostgreSQL：使用 `pg_trgm` + `tsvector`，支持中文分词（`zhparser` / `jieba`）
-- 前端：搜索框 + 按标签 / 时间范围 / 是否含附件过滤
+- 前端：搜索框 + 按标签 / 时间范围 / 是否含附件过滤（基础能力已落地）
 - 接口：`GET /api/bbtalk/search/?q=xxx&tag=xxx&from=xxx`
 
 **预估**：后端 2-3 天，前端 1-2 天。
 
-### 2. mobile / frontend 双前端统一
+### 2. Web 与原生端分工稳定化
 
-**痛点**：`frontend/`（React + Vite）与 `mobile/`（Expo + RN Web）功能重复，维护双倍成本。
+**原则**：`frontend/`（React + Vite + PWA）是实际部署的 Web 主线，继续长期维护；`mobile/`（Expo + React Native）负责 iOS/Android 原生应用。Expo Web 仅用于开发验证，不纳入生产部署，也不替代 `frontend/`。
 
 **方案**：
-- 评估 `mobile/` 的 Web 输出是否能完全替代 `frontend/`
-- 把 `mobile/` Web 构建产物挂到 nginx，下线 `frontend/`
-- 桌面端独有功能（如键盘快捷键、拖拽上传）补到 mobile 的 web-only 分支
-
-**收益**：维护成本减半 + 三端 UI 完全一致。
+- Web 新功能继续落地在 `frontend/`，保持 Docker/Nginx 部署链路稳定
+- iOS/Android 原生体验在 `mobile/` 独立迭代，通过 API 与 Web 共享后端能力
+- 仅在确有复用价值时抽取跨端 service/types，不以合并 UI 代码为目标
 
 ### 3. 数据备份自动化
 
-**痛点**：现在依赖用户手动导出。
+**现状**：已提供 `backup_data` 管理命令，可按用户生成包含评论、标签和附件的 ZIP，支持原子写入、保留数量、用户筛选和预演。
+
+**下一步**：接入宿主机 cron / systemd timer 或可选 Celery 调度，并在 Web 面板提供备份列表和下载入口。
 
 **方案**：
-- 后端：Celery 定时任务（每日 / 每周）自动打包 SQLite + media 到指定目录
+- 后端：定时任务（每日 / 每周）自动调用备份命令，打包 SQLite + media 到指定目录
 - 可选上传到 S3 / 阿里云 OSS
 - 前端：用户面板可下载最近 N 份备份
 - 配置项：保留份数、加密密码
@@ -136,7 +138,7 @@
 
 1. **全文搜索** — 用户体验立竿见影，工程量适中
 2. **AI 智能标签** — 差异化卖点，App Store 上架时是亮点
-3. **frontend 下线计划** — 长期减负，让维护更轻
+3. **数据备份自动化** — 先保证数据可恢复，再扩展高级能力
 
 ---
 

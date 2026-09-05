@@ -1,0 +1,11 @@
+[Unit]
+Description=Run ChewyBBTalk backup daily
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+RandomizedDelaySec=15m
+Unit=chewybbtalk-backup.service
+
+[Install]
+WantedBy=timers.target

@@ -13,7 +13,7 @@ from .data_import import DataImporter, validate_import_file, ImportError
 from .storage_migration import StorageMigrationService
 from drf_spectacular.utils import extend_schema
 from django.shortcuts import get_object_or_404
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.db.models.functions import TruncDate
 from django.contrib.auth import login as django_login, logout as django_logout
 from rest_framework.decorators import action
@@ -288,10 +288,24 @@ class BBTalkFilter(django_filters.FilterSet):
     create_time__date = django_filters.DateFilter(field_name='create_time', lookup_expr='date')
     create_time__gte = django_filters.DateTimeFilter(field_name='create_time', lookup_expr='gte')
     create_time__lte = django_filters.DateTimeFilter(field_name='create_time', lookup_expr='lte')
+    create_date__gte = django_filters.DateFilter(field_name='create_time', lookup_expr='date__gte')
+    create_date__lte = django_filters.DateFilter(field_name='create_time', lookup_expr='date__lte')
+    has_attachments = django_filters.BooleanFilter(method='filter_has_attachments')
+
+    def filter_has_attachments(self, queryset, name, value):
+        """按 attachments JSON 是否为空过滤，兼容 NULL 和空数组。"""
+        if value is None:
+            return queryset
+        empty_attachments = Q(attachments=[]) | Q(attachments__isnull=True)
+        return queryset.exclude(empty_attachments) if value else queryset.filter(empty_attachments)
 
     class Meta:
         model = BBTalk
-        fields = ['tags__name', 'visibility', 'create_time__date', 'create_time__gte', 'create_time__lte']
+        fields = [
+            'tags__name', 'visibility',
+            'create_time__date', 'create_time__gte', 'create_time__lte',
+            'create_date__gte', 'create_date__lte', 'has_attachments',
+        ]
 
 
 class BBTalkViewSet(viewsets.ModelViewSet):
@@ -317,7 +331,7 @@ class BBTalkViewSet(viewsets.ModelViewSet):
             'tags'  # 预加载标签
         ).annotate(
             comment_count=Count('comments')
-        ).order_by('-is_pinned', '-update_time')
+        ).order_by('-is_pinned', '-update_time').distinct()
 
     @action(detail=True, methods=['post'], url_path='pin')
     def toggle_pin(self, request, uid=None):
@@ -466,7 +480,7 @@ class PublicBBTalkViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         return BBTalk.objects.filter(
             visibility='public'
-        ).prefetch_related('tags').order_by('-update_time')
+        ).prefetch_related('tags').order_by('-update_time').distinct()
 
 
 @extend_schema(
@@ -814,6 +828,10 @@ def export_data(request):
                                     'tags_skipped': {'type': 'integer'},
                                     'bbtalks_created': {'type': 'integer'},
                                     'bbtalks_skipped': {'type': 'integer'},
+                                    'attachments_created': {'type': 'integer'},
+                                    'attachments_skipped': {'type': 'integer'},
+                                    'comments_created': {'type': 'integer'},
+                                    'comments_skipped': {'type': 'integer'},
                                     'storage_settings_created': {'type': 'integer'},
                                     'errors': {'type': 'array', 'items': {'type': 'string'}}
                                 }

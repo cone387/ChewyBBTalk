@@ -24,7 +24,11 @@
 
 #### Scenario: 添加新配置
 - **WHEN** 用户提交 `{ name, s3_access_key_id, s3_secret_access_key, s3_bucket_name, s3_region_name, s3_endpoint_url }`
-- **THEN** 系统持久化配置（密钥加密存储），返回完整对象
+- **THEN** 系统持久化配置（密钥以 `enc:v1:` 格式加密存储），返回完整对象；读取接口不得返回密钥明文
+
+#### Scenario: 回填旧密钥
+- **WHEN** 管理员执行 `encrypt_storage_secrets` 命令
+- **THEN** 系统将历史明文密钥加密，已加密记录保持不变，命令可重复执行
 
 #### Scenario: 列出所有配置
 - **WHEN** 用户请求 `GET /settings/storage/`

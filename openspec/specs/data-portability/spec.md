@@ -46,7 +46,22 @@
 
 #### Scenario: 新增统计
 - **WHEN** 导入完成
-- **THEN** 返回 `{ tags_created, tags_skipped, bbtalks_created, bbtalks_skipped, errors: [] }`
+- **THEN** 返回 `{ tags_created, tags_skipped, bbtalks_created, bbtalks_skipped, attachments_created, attachments_skipped, comments_created, comments_skipped, errors: [] }`
+
+### Requirement: ZIP 附件恢复
+系统 SHALL 在导入包含附件目录的 ZIP 时创建新的附件记录，将文件写入当前用户激活的存储（未配置时使用本地存储），并更新 BBTalk 中的附件引用。
+
+#### Scenario: 恢复附件
+- **WHEN** ZIP 中的 `data.json` 包含附件元信息，且 `attachments/<storage_path>` 文件存在
+- **THEN** 系统写入文件、创建当前用户所有的 Attachment 记录，并将 BBTalk 引用映射到新的附件 UID 与预览地址
+
+#### Scenario: 缺少附件文件
+- **WHEN** 元信息存在但 ZIP 中缺少对应文件
+- **THEN** 跳过该附件并增加 `attachments_skipped`，不阻断其他记录导入
+
+#### Scenario: 拒绝不安全路径
+- **WHEN** 附件 `storage_path` 是绝对路径或包含 `..` 路径段
+- **THEN** 系统拒绝导入并返回路径不安全错误，不写入文件
 
 ### Requirement: 导入预校验
 系统 SHALL 提供 `POST /api/v1/bbtalk/data/validate/` 接口，对上传文件做格式与版本校验，返回是否可导入。
@@ -76,3 +91,18 @@
 #### Scenario: Native 分享
 - **WHEN** iOS / Android 用户点击导出
 - **THEN** 唤起系统分享面板，可保存到「文件」、AirDrop、邮件等
+
+### Requirement: 服务端备份命令
+系统 SHALL 提供可重复执行的 `backup_data` 管理命令，为每个用户生成包含附件的 ZIP 备份，支持按用户筛选、保留数量、输出目录和预演模式。
+
+#### Scenario: 创建备份
+- **WHEN** 管理员执行 `backup_data`
+- **THEN** 系统将备份原子写入 `DATA_DIR/backups/<user-id>/`，并输出创建结果
+
+#### Scenario: 清理旧备份
+- **WHEN** 用户目录中的备份数量超过 `--keep`
+- **THEN** 系统保留最新备份并删除更旧的 ZIP，不删除临时文件以外的其他数据
+
+#### Scenario: 预演备份
+- **WHEN** 管理员执行 `backup_data --dry-run`
+- **THEN** 系统只输出计划，不创建或删除任何文件

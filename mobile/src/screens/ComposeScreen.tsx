@@ -23,6 +23,7 @@ import type { Attachment, BBTalk } from '../types';
 import { buildImageSource } from '../utils/imageSource';
 import VoiceRecordingOverlay from '../components/VoiceRecordingOverlay';
 import { xAlert, xConfirm } from '../utils/crossAlert';
+import { COMPOSE_TOOLBAR_LABELS } from '../utils/composeToolbarLabels';
 
 // expo-audio hook — 在 native 端使用，web 端返回 null
 import { useAudioPlayer, setAudioModeAsync } from 'expo-audio';
@@ -316,6 +317,7 @@ export default function ComposeScreen() {
               }
               setEditMode(m => m === 'edit' ? 'preview' : 'edit');
             }}
+            accessibilityRole="button"
             accessibilityLabel={editMode === 'edit' ? '切换到预览模式' : '切换到编辑模式'}
           >
             <Ionicons
@@ -375,7 +377,7 @@ export default function ComposeScreen() {
                     <Text style={[styles.fileName, { color: c.textTertiary }]} numberOfLines={1}>{att.originalFilename || '附件'}</Text>
                   </View>
                 )}
-                <TouchableOpacity style={styles.removeBtn} onPress={() => setAttachments(p => p.filter(a => a.uid !== att.uid))}><Ionicons name="close" size={12} color="#fff" /></TouchableOpacity>
+                <TouchableOpacity style={styles.removeBtn} onPress={() => setAttachments(p => p.filter(a => a.uid !== att.uid))} hitSlop={{ top: 11, bottom: 11, left: 11, right: 11 }} accessibilityRole="button" accessibilityLabel="删除附件"><Ionicons name="close" size={12} color="#fff" /></TouchableOpacity>
               </View>
             ))}
           </ScrollView>
@@ -392,7 +394,7 @@ export default function ComposeScreen() {
               <TouchableOpacity onPress={() => {
                 // 从内容中删除 #tag 
                 setContent(prev => prev.replace(new RegExp(`(^|\\s)#${tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s`, 'g'), '$1'));
-              }} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}>
+              }} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }} accessibilityRole="button" accessibilityLabel={`移除标签 ${tag}`}>
                 <Ionicons name="close-circle" size={14} color={c.primary + '80'} />
               </TouchableOpacity>
             </View>
@@ -416,16 +418,16 @@ export default function ComposeScreen() {
         )}
         {location && (
           <View style={styles.locationBar}><Ionicons name="location" size={14} color="#10B981" /><Text style={styles.locationText}>{location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}</Text>
-            <TouchableOpacity onPress={() => setLocation(null)}><Ionicons name="close-circle" size={16} color="#C4C4C4" /></TouchableOpacity></View>
+            <TouchableOpacity onPress={() => setLocation(null)} accessibilityRole="button" accessibilityLabel="移除位置"><Ionicons name="close-circle" size={16} color="#C4C4C4" /></TouchableOpacity></View>
         )}
         <View style={styles.toolbarInner}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always"
             contentContainerStyle={styles.toolbarRow}>
-            <TouchableOpacity style={styles.toolBtn} onPress={() => pickMedia('images')}><Ionicons name="image-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
-            <TouchableOpacity style={styles.toolBtn} onPress={takePhoto}><Ionicons name="camera-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
-            <TouchableOpacity style={styles.toolBtn} onPress={() => pickMedia('videos')}><Ionicons name="videocam-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
-            <TouchableOpacity style={styles.toolBtn} onPress={pickFile}><Ionicons name="attach-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
-            <TouchableOpacity style={styles.toolBtn} onPress={() => { Keyboard.dismiss(); setVoiceRecording(true); }}><Ionicons name="mic-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
+            <TouchableOpacity style={styles.toolBtn} onPress={() => pickMedia('images')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.addImage}><Ionicons name="image-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
+            <TouchableOpacity style={styles.toolBtn} onPress={takePhoto} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.takePhoto}><Ionicons name="camera-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
+            <TouchableOpacity style={styles.toolBtn} onPress={() => pickMedia('videos')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.addVideo}><Ionicons name="videocam-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
+            <TouchableOpacity style={styles.toolBtn} onPress={pickFile} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.addFile}><Ionicons name="attach-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
+            <TouchableOpacity style={styles.toolBtn} onPress={() => { Keyboard.dismiss(); setVoiceRecording(true); }} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.recordAudio}><Ionicons name="mic-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
             <TouchableOpacity style={styles.toolBtn} onPress={() => {
               if (showQuickTags) {
                 // 第二次点击：隐藏快速标签
@@ -442,17 +444,17 @@ export default function ComposeScreen() {
                 setShowQuickTags(true);
               }
               setTimeout(() => inputRef.current?.focus(), 30);
-            }}><Ionicons name="pricetag-outline" size={19} color={showQuickTags ? c.primary : c.textSecondary} /></TouchableOpacity>
-            <TouchableOpacity style={styles.toolBtn} onPress={getLocation}><Ionicons name="location-outline" size={19} color={location ? '#10B981' : c.textSecondary} /></TouchableOpacity>
-            <TouchableOpacity style={styles.toolBtn} onPress={() => setVisibility(v => v === 'private' ? 'public' : 'private')}><Ionicons name={visibility === 'private' ? 'lock-closed-outline' : 'globe-outline'} size={19} color={visibility === 'public' ? c.primary : c.textSecondary} /></TouchableOpacity>
+            }} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.insertTag}><Ionicons name="pricetag-outline" size={19} color={showQuickTags ? c.primary : c.textSecondary} /></TouchableOpacity>
+            <TouchableOpacity style={styles.toolBtn} onPress={getLocation} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.addLocation}><Ionicons name="location-outline" size={19} color={location ? '#10B981' : c.textSecondary} /></TouchableOpacity>
+            <TouchableOpacity style={styles.toolBtn} onPress={() => setVisibility(v => v === 'private' ? 'public' : 'private')} accessibilityRole="button" accessibilityLabel={visibility === 'private' ? COMPOSE_TOOLBAR_LABELS.toggleVisibility : '切换为私密'}><Ionicons name={visibility === 'private' ? 'lock-closed-outline' : 'globe-outline'} size={19} color={visibility === 'public' ? c.primary : c.textSecondary} /></TouchableOpacity>
             <View style={[styles.toolDivider, { backgroundColor: c.border }]} />
-            <TouchableOpacity style={[styles.mdBtn, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => mdInsert('bold')}><Text style={[styles.mdBold, { color: c.text }]}>B</Text></TouchableOpacity>
-            <TouchableOpacity style={[styles.mdBtn, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => mdInsert('italic')}><Text style={[styles.mdItalic, { color: c.text }]}>I</Text></TouchableOpacity>
-            <TouchableOpacity style={[styles.mdBtn, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => mdInsert('heading')}><Text style={[styles.mdBtnText, { color: c.textSecondary }]}>H</Text></TouchableOpacity>
-            <TouchableOpacity style={[styles.mdBtn, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => mdInsert('list')}><Ionicons name="list" size={15} color={c.textSecondary} /></TouchableOpacity>
-            <TouchableOpacity style={[styles.mdBtn, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => mdInsert('quote')}><Ionicons name="chatbox-outline" size={15} color={c.textSecondary} /></TouchableOpacity>
-            <TouchableOpacity style={[styles.mdBtn, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => mdInsert('code')}><Ionicons name="code-slash" size={15} color={c.textSecondary} /></TouchableOpacity>
-            <TouchableOpacity style={[styles.mdBtn, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => mdInsert('link')}><Ionicons name="link-outline" size={15} color={c.textSecondary} /></TouchableOpacity>
+            <TouchableOpacity style={[styles.mdBtn, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => mdInsert('bold')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.bold}><Text style={[styles.mdBold, { color: c.text }]}>B</Text></TouchableOpacity>
+            <TouchableOpacity style={[styles.mdBtn, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => mdInsert('italic')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.italic}><Text style={[styles.mdItalic, { color: c.text }]}>I</Text></TouchableOpacity>
+            <TouchableOpacity style={[styles.mdBtn, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => mdInsert('heading')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.heading}><Text style={[styles.mdBtnText, { color: c.textSecondary }]}>H</Text></TouchableOpacity>
+            <TouchableOpacity style={[styles.mdBtn, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => mdInsert('list')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.list}><Ionicons name="list" size={15} color={c.textSecondary} /></TouchableOpacity>
+            <TouchableOpacity style={[styles.mdBtn, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => mdInsert('quote')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.quote}><Ionicons name="chatbox-outline" size={15} color={c.textSecondary} /></TouchableOpacity>
+            <TouchableOpacity style={[styles.mdBtn, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => mdInsert('code')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.code}><Ionicons name="code-slash" size={15} color={c.textSecondary} /></TouchableOpacity>
+            <TouchableOpacity style={[styles.mdBtn, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => mdInsert('link')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.link}><Ionicons name="link-outline" size={15} color={c.textSecondary} /></TouchableOpacity>
           </ScrollView>
         </View>
       </View>
@@ -470,7 +472,7 @@ export default function ComposeScreen() {
 
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, width: '100%', maxWidth: 1000, alignSelf: 'center' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 0.5,
@@ -478,7 +480,7 @@ const styles = StyleSheet.create({
   cancelText: { fontSize: 16 },
   headerTitle: { fontSize: 17, fontWeight: '600' },
   headerCenter: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  modeToggleBtn: { padding: 4 },
+  modeToggleBtn: { padding: 4, minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   publishBtn: { borderRadius: 20, paddingHorizontal: 18, paddingVertical: 8 },
   publishText: { color: '#fff', fontSize: 15, fontWeight: '600' },
   scroll: { flex: 1 },
@@ -493,7 +495,7 @@ const styles = StyleSheet.create({
   attachmentImage: { width: 60, height: 60, borderRadius: 8 },
   filePlaceholder: { width: 60, height: 60, borderRadius: 8, borderWidth: 1, justifyContent: 'center', alignItems: 'center', padding: 2 },
   fileName: { fontSize: 8, marginTop: 1, textAlign: 'center' },
-  removeBtn: { position: 'absolute', top: -4, right: -4, width: 18, height: 18, borderRadius: 9, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
+  removeBtn: { position: 'absolute', top: -4, right: -4, width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
   parsedTag: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5 },
   parsedTagText: { fontSize: 13, fontWeight: '500' },
   charCountWrap: { paddingHorizontal: 12 },
@@ -506,9 +508,9 @@ const styles = StyleSheet.create({
   locationBar: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 4 },
   locationText: { flex: 1, fontSize: 12, color: '#059669' },
   toolbarRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 8, gap: 4 },
-  toolBtn: { padding: 7 },
+  toolBtn: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
   toolDivider: { width: 1, height: 20, marginHorizontal: 4 },
-  mdBtn: { width: 30, height: 28, borderRadius: 6, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
+  mdBtn: { width: 44, height: 44, borderRadius: 8, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
   mdBold: { fontSize: 13, fontWeight: '800' },
   mdItalic: { fontSize: 13, fontWeight: '600', fontStyle: 'italic' },
   mdBtnText: { fontSize: 12, fontWeight: '700' },

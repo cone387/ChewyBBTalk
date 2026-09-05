@@ -15,6 +15,15 @@ uv run python chewy_space/manage.py migrate
 # 初始化管理员（admin / admin123）
 uv run python chewy_space/manage.py init_system
 
+# 将历史明文 S3 密钥回填为加密值（可重复执行，不修改管理员密码）
+uv run python chewy_space/manage.py encrypt_storage_secrets
+
+# 创建所有用户的 ZIP 备份（默认写入 DATA_DIR/backups，每用户保留 7 份）
+uv run python chewy_space/manage.py backup_data
+
+# 只备份指定用户并保留 14 份；可先用 --dry-run 预览
+uv run python chewy_space/manage.py backup_data --user-id 1 --keep 14 --dry-run
+
 # 启动开发服务器
 uv run python chewy_space/manage.py runserver 0.0.0.0:8020
 ```
@@ -35,6 +44,8 @@ uv run python chewy_space/manage.py runserver 0.0.0.0:8020
 | `ALLOWED_HOSTS` | 允许的主机 | `*` |
 | `ADMIN_USERNAME` | 初始管理员用户名 | `admin` |
 | `ADMIN_PASSWORD` | 初始管理员密码 | `admin123` |
+
+S3 Secret Access Key 会以 `enc:v1:` 格式加密存储，密钥由 `SECRET_KEY` 派生。请保持生产环境的 `SECRET_KEY` 稳定；历史明文配置可按上面的命令手动回填，管理员密码策略不受影响。
 
 支持 SQLite、PostgreSQL、MySQL，通过 `DATABASE_URL` 切换：
 

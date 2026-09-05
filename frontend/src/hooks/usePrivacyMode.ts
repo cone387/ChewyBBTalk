@@ -236,7 +236,6 @@ export function usePrivacyMode(options: UsePrivacyModeOptions = {}): UsePrivacyM
         clearTimeout(debounceTimer)
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled]) // 只依赖 enabled，避免重复绑定
   
   // 当 timeout 改变时，重置计时器
@@ -245,7 +244,6 @@ export function usePrivacyMode(options: UsePrivacyModeOptions = {}): UsePrivacyM
       console.log('[Privacy] 超时时长已更新为', timeout, 'ms，重置计时器')
       resetTimerRef.current()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeout, enabled, isPrivacyMode]) // 故意不包含 resetTimer，避免循环
 
   return {

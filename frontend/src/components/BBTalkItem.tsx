@@ -42,7 +42,7 @@ export default function BBTalkItem({ bbtalk, onDelete }: BBTalkItemProps) {
       setComments(data);
       setLoaded(true);
       setExpanded(true);
-    } catch {} finally {
+    } catch { /* 保持折叠状态，错误通过后续重试恢复 */ } finally {
       setLoading(false);
     }
   };

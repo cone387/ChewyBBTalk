@@ -39,11 +39,11 @@ Tag 提供给用户对 BBTalk 进行分类和检索的能力。Tag 在用户维�
 
 #### Scenario: 仅删除标签
 - **WHEN** 用户选择「仅删除标签」
-- **THEN** 系统删除 Tag 与中间表关联，不影响 BBTalk
+- **THEN** 系统删除 Tag 与中间表关联，不影响 BBTalk，并返回 HTTP 200 与 `{ deleted_bbtalks: 0 }`
 
 #### Scenario: 同时删除碎碎念
 - **WHEN** 用户选择「同时删除碎碎念」并通过二次确认
-- **THEN** 系统删除 Tag 以及所有关联的 BBTalk
+- **THEN** 系统删除 Tag 以及该标签关联的全部 BBTalk（即使 BBTalk 还关联其他标签），并返回 HTTP 200 与实际删除数量 `deleted_bbtalks`
 
 #### Scenario: 二次确认避免误操作
 - **WHEN** 用户选择「同时删除碎碎念」

@@ -67,6 +67,8 @@ function PrivacyLockOverlay({
               style={[styles.biometricBtn, { borderColor: c.border, backgroundColor: c.primaryLight }]}
               onPress={onBiometricUnlock}
               activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityLabel={Platform.OS === 'ios' ? '使用 Face ID 或 Touch ID 解锁' : '使用指纹解锁'}
             >
               <Ionicons
                 name={Platform.OS === 'ios' ? 'scan' : 'finger-print'}
@@ -114,6 +116,8 @@ function PrivacyLockOverlay({
             onPress={onUnlock}
             disabled={unlocking || !unlockPassword}
             activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="密码解锁"
           >
             {unlocking
               ? <ActivityIndicator size="small" color="#fff" />
@@ -129,6 +133,8 @@ function PrivacyLockOverlay({
           onLongPress={onVoiceRecord}
           delayLongPress={300}
           activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel="锁定状态下新建碎碎念"
         >
           <Ionicons name="add" size={28} color="#fff" />
         </TouchableOpacity>

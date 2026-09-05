@@ -64,7 +64,7 @@ export default function StorageSettingsScreen() {
   if (loading) return <View style={[styles.container, { backgroundColor: c.surfaceSecondary }]}><LoadingPlaceholder /></View>;
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: c.surfaceSecondary }]} contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 20 }}>
+    <ScrollView style={[styles.container, { backgroundColor: c.surfaceSecondary }]} contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 20, width: '100%', maxWidth: 760, alignSelf: 'center' }}>
       <View style={[styles.statusCard, { backgroundColor: c.primaryLight }]}>
         <Ionicons name="server" size={20} color={c.primary} />
         <Text style={[styles.statusText, { color: c.primary }]}>

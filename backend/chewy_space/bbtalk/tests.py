@@ -2,6 +2,7 @@ from django.test import TestCase, override_settings, TransactionTestCase
 from django.db import transaction, IntegrityError
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
+from django.utils import timezone
 from .models import User, Tag, BBTalk
 import json
 
@@ -251,6 +252,54 @@ class BBTalkAPITest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         results = response.data['results']
         self.assertTrue(all(item['visibility'] == 'public' for item in results))
+
+    def test_search_deduplicates_results_when_multiple_tags_match(self):
+        """关键词同时命中正文和多个标签时，每条 BBTalk 只返回一次。"""
+        searchable = BBTalk.objects.create(
+            user=self.user,
+            content='搜索正文',
+            visibility='private',
+        )
+        tag_a = Tag.objects.create(name='搜索生活', user=self.user)
+        tag_b = Tag.objects.create(name='搜索工作', user=self.user)
+        searchable.tags.add(tag_a, tag_b)
+
+        response = self.client.get('/api/v1/bbtalk/', {'search': '搜索'})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual([item['uid'] for item in response.data['results']].count(searchable.uid), 1)
+
+    def test_filter_bbtalks_by_attachment_presence(self):
+        BBTalk.objects.create(
+            user=self.user,
+            content='有图片',
+            visibility='private',
+            attachments=[{'uid': 'image-1', 'type': 'image'}],
+        )
+
+        with_attachment = self.client.get('/api/v1/bbtalk/', {'has_attachments': 'true'})
+        without_attachment = self.client.get('/api/v1/bbtalk/', {'has_attachments': 'false'})
+
+        self.assertEqual(with_attachment.status_code, status.HTTP_200_OK)
+        self.assertTrue(all(item['attachments'] for item in with_attachment.data['results']))
+        self.assertEqual(without_attachment.status_code, status.HTTP_200_OK)
+        self.assertTrue(all(not item['attachments'] for item in without_attachment.data['results']))
+
+    def test_filter_bbtalks_by_inclusive_calendar_date_range(self):
+        BBTalk.objects.filter(pk=self.bbtalk_public.pk).update(
+            create_time=timezone.datetime(2026, 1, 10, tzinfo=timezone.get_current_timezone())
+        )
+        BBTalk.objects.filter(pk=self.bbtalk_private.pk).update(
+            create_time=timezone.datetime(2026, 1, 20, tzinfo=timezone.get_current_timezone())
+        )
+
+        response = self.client.get('/api/v1/bbtalk/', {
+            'create_date__gte': '2026-01-10',
+            'create_date__lte': '2026-01-10',
+        })
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual([item['uid'] for item in response.data['results']], [self.bbtalk_public.uid])
     
     def test_create_bbtalk_basic(self):
         """测试创建基本 BBTalk"""
@@ -501,8 +550,34 @@ class TagAPITest(APITestCase):
         url = f'/api/v1/bbtalk/tags/{self.tag.uid}/'
         response = self.client.delete(url)
         
-        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data, {'deleted_bbtalks': 0})
         self.assertFalse(Tag.objects.filter(id=self.tag.id).exists())
+
+    def test_delete_tag_with_bbtalks_deletes_all_associations(self):
+        """同时删除标签时，应删除该标签关联的全部 BBTalk。"""
+        other_tag = Tag.objects.create(
+            name='其他标签',
+            user=self.user,
+            color='#00ff00',
+        )
+        shared_bbtalk = BBTalk.objects.create(
+            user=self.user,
+            content='同时关联两个标签的内容',
+            visibility='private',
+        )
+        shared_bbtalk.tags.add(self.tag, other_tag)
+        self.assertEqual(self.tag.bbtalks.count(), 2)
+
+        url = f'/api/v1/bbtalk/tags/{self.tag.uid}/?delete_bbtalks=true'
+        response = self.client.delete(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data, {'deleted_bbtalks': 2})
+        self.assertFalse(Tag.objects.filter(id=self.tag.id).exists())
+        self.assertFalse(BBTalk.objects.filter(id=self.bbtalk.id).exists())
+        self.assertFalse(BBTalk.objects.filter(id=shared_bbtalk.id).exists())
+        self.assertTrue(Tag.objects.filter(id=other_tag.id).exists())
 
 
 @override_settings(DEBUG=True)

@@ -129,7 +129,7 @@ function createSwipeConfig(options: SetupOptions = {}) {
         Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.5
       );
     },
-    onPanResponderGrant: () => {
+    onPanResponderGrant: (_evt?: any, _gesture?: any) => {
       const otherClose = openSwipeRefRef.current.current;
       if (otherClose && otherClose !== closeSwipeRef.current) {
         otherClose();
@@ -184,7 +184,7 @@ function createSwipeConfig(options: SetupOptions = {}) {
         bounciness: 4,
       }).start();
     },
-    onPanResponderTerminate: () => {
+    onPanResponderTerminate: (_evt?: any, _gesture?: any) => {
       isOpenRef.current = false;
       MockAnimated.spring(translateX, {
         toValue: 0,

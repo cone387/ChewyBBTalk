@@ -6,6 +6,7 @@ import colorsys
 import base64
 from uuid import uuid4
 from chewy_attachment.django_app.models import AttachmentBase
+from .secret_encryption import decrypt_secret, encrypt_secret, is_encrypted
 
 
 def generate_uid():
@@ -297,6 +298,15 @@ class UserStorageSettings(models.Model):
     
     def __str__(self):
         return f"{self.user.username} - {self.name}"
+
+    def save(self, *args, **kwargs):
+        """Encrypt S3 secrets before writing them to the database."""
+        update_fields = kwargs.get('update_fields')
+        if self.s3_secret_access_key and not is_encrypted(self.s3_secret_access_key):
+            self.s3_secret_access_key = encrypt_secret(self.s3_secret_access_key)
+            if update_fields is not None:
+                kwargs['update_fields'] = set(update_fields) | {'s3_secret_access_key'}
+        return super().save(*args, **kwargs)
     
     def is_s3_configured(self) -> bool:
         """检查 S3 配置是否完整"""
@@ -313,7 +323,7 @@ class UserStorageSettings(models.Model):
             return {}
         return {
             'access_key_id': self.s3_access_key_id,
-            'secret_access_key': self.s3_secret_access_key,
+            'secret_access_key': decrypt_secret(self.s3_secret_access_key),
             'bucket_name': self.s3_bucket_name,
             'region_name': self.s3_region_name or 'us-east-1',
             'endpoint_url': self.s3_endpoint_url or None,

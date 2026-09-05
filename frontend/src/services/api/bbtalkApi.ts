@@ -94,6 +94,9 @@ export const bbtalkApi = {
     search?: string;
     tags__name?: string;
     visibility?: string;
+    has_attachments?: boolean;
+    create_date__gte?: string;
+    create_date__lte?: string;
   }): Promise<PaginatedResponse<BBTalk>> {
     const data = await apiClient.get<any>('/api/v1/bbtalk/', params);
     return {

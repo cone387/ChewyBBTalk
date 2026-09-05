@@ -336,7 +336,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
         />
       ) : (
         <View style={[styles.header, { paddingTop: insets.top + 8, backgroundColor: c.background }]}>
-          <TouchableOpacity onPress={onOpenDrawer} style={styles.headerBtn} accessibilityLabel="打开菜单">
+          <TouchableOpacity onPress={onOpenDrawer} style={styles.headerBtn} accessibilityRole="button" accessibilityLabel="打开菜单">
             <Ionicons name="menu-outline" size={26} color={c.text} />
           </TouchableOpacity>
           {searchVisible ? (
@@ -353,7 +353,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
               dispatch(loadBBTalks({ tags: tagNames, date: selectedDate || undefined }));
             }
             setSearchVisible(!searchVisible);
-          }} style={styles.headerBtn} accessibilityLabel={searchVisible ? '关闭搜索' : '搜索'}>
+          }} style={styles.headerBtn} accessibilityRole="button" accessibilityLabel={searchVisible ? '关闭搜索' : '搜索'}>
             <Ionicons name={searchVisible ? 'close' : 'search-outline'} size={22} color={c.text} />
           </TouchableOpacity>
         </View>
@@ -370,6 +370,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
 
       <Animated.View style={{ flex: 1, transform: [{ translateX: showTagTabs && tags.length > 0 ? tagSwipe.listSlideAnim : 0 }] }}
         {...(showTagTabs && tags.length > 0 ? tagSwipe.panResponder.panHandlers : {})}>
+        <View style={styles.listViewport}>
         <FlatList data={filteredBBTalks} keyExtractor={item => item.id}
           renderItem={renderItem}
           ListHeaderComponent={listHeaderComponent}
@@ -396,11 +397,13 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} enabled={!isOffline} tintColor={c.primary} colors={[c.primary]} progressBackgroundColor={c.surface} />}
           onEndReached={onEndReached} onEndReachedThreshold={0.3}
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 80 }} />
+        </View>
       </Animated.View>
 
       {privacy.showCountdown && privacy.privacyEnabled && privacy.privacySeconds !== null && privacy.privacySeconds > 0 && !privacy.locked && (
         <TouchableOpacity style={[styles.countdownBadge, { bottom: insets.bottom + 88, backgroundColor: c.primary }]}
-          onPress={() => privacy.setLocked(true)} onLongPress={() => navigation.navigate('PrivacySettings')} activeOpacity={0.7}>
+          onPress={() => privacy.setLocked(true)} onLongPress={() => navigation.navigate('PrivacySettings')} activeOpacity={0.7}
+          accessibilityRole="button" accessibilityLabel="锁定内容">
           <Ionicons name="lock-closed" size={12} color="#fff" />
           <Text style={styles.countdownText}>
             {privacy.privacySeconds >= 60 ? `${Math.floor(privacy.privacySeconds / 60)}:${(privacy.privacySeconds % 60).toString().padStart(2, '0')}` : `${privacy.privacySeconds}s`}
@@ -410,14 +413,14 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
 
       {!batch.batchMode && (
         <TouchableOpacity style={[styles.fab, { bottom: insets.bottom + 24, backgroundColor: c.primary, shadowColor: '#000' }]}
-          onPress={() => { if (guardOfflineWrite()) return; navigation.navigate('Compose'); }} onLongPress={() => { if (guardOfflineWrite()) return; setVoiceRecording(true); }} delayLongPress={300} activeOpacity={0.85} accessibilityLabel="新建碎碎念">
+          onPress={() => { if (guardOfflineWrite()) return; navigation.navigate('Compose'); }} onLongPress={() => { if (guardOfflineWrite()) return; setVoiceRecording(true); }} delayLongPress={300} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="新建碎碎念">
           <Ionicons name="add" size={28} color="#fff" />
         </TouchableOpacity>
       )}
 
       <Modal visible={!!previewImage} transparent animationType="fade" onRequestClose={() => setPreviewImage(null)}>
         <View style={styles.previewOverlay}>
-          <TouchableOpacity style={styles.previewClose} onPress={() => setPreviewImage(null)}>
+          <TouchableOpacity style={styles.previewClose} onPress={() => setPreviewImage(null)} accessibilityRole="button" accessibilityLabel="关闭图片预览">
             <Ionicons name="close" size={28} color="#fff" />
           </TouchableOpacity>
           {previewImages.length > 1 && (
@@ -427,12 +430,12 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
           )}
           {previewImage && <ImageViewer imageUrl={previewImage} onClose={() => setPreviewImage(null)} />}
           {previewImages.length > 1 && previewIndex > 0 && (
-            <TouchableOpacity style={[styles.previewNav, styles.previewNavLeft]} onPress={() => { const i = previewIndex - 1; setPreviewIndex(i); setPreviewImage(previewImages[i]); }}>
+            <TouchableOpacity style={[styles.previewNav, styles.previewNavLeft]} onPress={() => { const i = previewIndex - 1; setPreviewIndex(i); setPreviewImage(previewImages[i]); }} accessibilityRole="button" accessibilityLabel="上一张图片">
               <Ionicons name="chevron-back" size={32} color="#fff" />
             </TouchableOpacity>
           )}
           {previewImages.length > 1 && previewIndex < previewImages.length - 1 && (
-            <TouchableOpacity style={[styles.previewNav, styles.previewNavRight]} onPress={() => { const i = previewIndex + 1; setPreviewIndex(i); setPreviewImage(previewImages[i]); }}>
+            <TouchableOpacity style={[styles.previewNav, styles.previewNavRight]} onPress={() => { const i = previewIndex + 1; setPreviewIndex(i); setPreviewImage(previewImages[i]); }} accessibilityRole="button" accessibilityLabel="下一张图片">
               <Ionicons name="chevron-forward" size={32} color="#fff" />
             </TouchableOpacity>
           )}
@@ -474,11 +477,12 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  listViewport: { flex: 1, width: '100%', maxWidth: 960, alignSelf: 'center' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingBottom: 12,
   },
-  headerBtn: { padding: 4, width: 34, alignItems: 'center' },
+  headerBtn: { padding: 4, width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   headerCenter: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 18, fontWeight: '700' },
   filterBadge: { marginLeft: 8, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, maxWidth: 140 },

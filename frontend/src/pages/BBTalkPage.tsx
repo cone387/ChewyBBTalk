@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useCallback, useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
 import { loadBBTalks, createBBTalkAsync, updateBBTalkAsync, loadMoreBBTalks, loadPublicBBTalks, loadMorePublicBBTalks, optimisticDelete, undoDelete } from '../store/slices/bbtalkSlice'
@@ -236,6 +236,9 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
   const [editingBBTalk, setEditingBBTalk] = useState<typeof bbtalks[0] | null>(null)
   const [searchKeyword, setSearchKeyword] = useState('')
   const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const [hasAttachments, setHasAttachments] = useState<boolean | undefined>(undefined)
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [isInitialLoad, setIsInitialLoad] = useState(true)
   const [copyTip, setCopyTip] = useState<{ show: boolean; id: string | null }>({ show: false, id: null })
@@ -289,7 +292,6 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
       resetTimerRef.current()
     }
     prevTimeoutRef.current = privacyTimeoutMinutes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [privacyTimeoutMinutes, isPublic, isPrivacyMode]) // 故意不包含 resetTimer，避免循环
 
   // 登录跳转
@@ -317,29 +319,30 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
     setIsInitialLoad(false)
   }, [dispatch, isPublic])
 
-  // 监听标签筛选，重新加载数据
+  const buildFilterParams = useCallback(() => {
+    const tagNames = selectedTags.map(tagId => tags.find(t => t.id === tagId)?.name).filter(Boolean) as string[]
+    return {
+      search: searchKeyword.trim() || undefined,
+      tags: tagNames,
+      hasAttachments,
+      dateFrom: dateFrom || undefined,
+      dateTo: dateTo || undefined,
+    }
+  }, [dateFrom, dateTo, hasAttachments, searchKeyword, selectedTags, tags])
+
+  // 监听搜索与筛选条件，防抖后重新加载数据
   useEffect(() => {
     // 跳过初始加载
     if (isInitialLoad) {
-      console.log('[BBTalkPage] 标签筛选 useEffect 跳过 - 初始加载中')
+      console.log('[BBTalkPage] 搜索筛选 useEffect 跳过 - 初始加载中')
       return
     }
-    
-    // 只在标签选择变化时才发送请求
-    if (tags.length === 0) {
-      console.log('[BBTalkPage] 标签筛选 useEffect 跳过 - tags 还未加载')
-      return // 标签还没加载完成，不发送请求
-    }
-    
-    console.log('[BBTalkPage] 标签筛选 useEffect 触发, selectedTags:', selectedTags)
-    const tagNames = selectedTags.map(tagId => {
-      const tag = tags.find(t => t.id === tagId)
-      return tag?.name
-    }).filter(Boolean) as string[]
-    
-    console.log('[BBTalkPage] 发送标签筛选请求, tagNames:', tagNames)
-    dispatch(loadBBTalks({ tags: tagNames }))
-  }, [selectedTags, isInitialLoad, dispatch])
+
+    const timer = window.setTimeout(() => {
+      dispatch(loadBBTalks(buildFilterParams()))
+    }, 300)
+    return () => window.clearTimeout(timer)
+  }, [buildFilterParams, dispatch, isInitialLoad])
 
   // 点击外部关闭菜单
   useEffect(() => {
@@ -488,7 +491,10 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
           return tag?.name
         }).filter(Boolean) as string[]
         
-        await dispatch(loadMoreBBTalks({ tags: tagNames }))
+        await dispatch(loadMoreBBTalks({
+          ...buildFilterParams(),
+          tags: tagNames,
+        }))
       }
     } finally {
       setIsLoadingMore(false)
@@ -556,14 +562,8 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
     }
   }
 
-  // 筛选BBTalks（仅用于搜索关键词的前端筛选）
-  const filteredBBTalks = bbtalks.filter(bbtalk => {
-    // 搜索关键词筛选
-    if (searchKeyword && !bbtalk.content.toLowerCase().includes(searchKeyword.toLowerCase())) {
-      return false
-    }
-    return true
-  })
+  // 搜索与筛选由后端处理，客户端只负责渲染当前页结果。
+  const filteredBBTalks = bbtalks
 
   return (
     <div className="h-full bg-gray-50">
@@ -594,6 +594,21 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
               <svg className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="sr-only" htmlFor="desktop-attachment-filter">附件筛选</label>
+              <select id="desktop-attachment-filter" value={hasAttachments === undefined ? 'all' : hasAttachments ? 'yes' : 'no'} onChange={(e) => setHasAttachments(e.target.value === 'all' ? undefined : e.target.value === 'yes')} className="rounded-lg border border-gray-200 px-2 py-1.5 text-xs text-gray-700 focus:border-blue-500">
+                <option value="all">附件：全部</option>
+                <option value="yes">有附件</option>
+                <option value="no">无附件</option>
+              </select>
+              <label className="sr-only" htmlFor="desktop-date-from">开始日期</label>
+              <input id="desktop-date-from" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} aria-label="开始日期" className="rounded-lg border border-gray-200 px-2 py-1.5 text-xs text-gray-700 focus:border-blue-500" />
+              <label className="sr-only" htmlFor="desktop-date-to">结束日期</label>
+              <input id="desktop-date-to" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} aria-label="结束日期" className="rounded-lg border border-gray-200 px-2 py-1.5 text-xs text-gray-700 focus:border-blue-500" />
+              {(hasAttachments !== undefined || dateFrom || dateTo || searchKeyword) && (
+                <button type="button" onClick={() => { setHasAttachments(undefined); setDateFrom(''); setDateTo(''); setSearchKeyword('') }} className="rounded-lg px-2 py-1.5 text-xs text-blue-600 hover:bg-blue-50">清除筛选</button>
+              )}
             </div>
           </div>
 
@@ -1366,6 +1381,19 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                 <svg className="w-4 h-4 text-gray-400 absolute left-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <label className="sr-only" htmlFor="mobile-attachment-filter">附件筛选</label>
+                <select id="mobile-attachment-filter" value={hasAttachments === undefined ? 'all' : hasAttachments ? 'yes' : 'no'} onChange={(e) => setHasAttachments(e.target.value === 'all' ? undefined : e.target.value === 'yes')} className="rounded-lg border border-gray-200 px-2 py-2 text-xs text-gray-700 focus:border-blue-500">
+                  <option value="all">附件：全部</option>
+                  <option value="yes">有附件</option>
+                  <option value="no">无附件</option>
+                </select>
+                <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} aria-label="开始日期" className="rounded-lg border border-gray-200 px-2 py-2 text-xs text-gray-700 focus:border-blue-500" />
+                <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} aria-label="结束日期" className="rounded-lg border border-gray-200 px-2 py-2 text-xs text-gray-700 focus:border-blue-500" />
+                {(hasAttachments !== undefined || dateFrom || dateTo || searchKeyword) && (
+                  <button type="button" onClick={() => { setHasAttachments(undefined); setDateFrom(''); setDateTo(''); setSearchKeyword('') }} className="rounded-lg px-2 py-2 text-xs text-blue-600 hover:bg-blue-50">清除筛选</button>
+                )}
               </div>
             </div>
             

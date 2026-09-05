@@ -37,6 +37,7 @@ class DataExporter:
             'user': self._export_user(),
             'tags': self._export_tags(),
             'bbtalks': self._export_bbtalks(),
+            'comments': self._export_comments(),
             'storage_settings': self._export_storage_settings(),
             'attachments': self._export_attachments(),
         }
@@ -82,6 +83,22 @@ class DataExporter:
                 'update_time': bbtalk.update_time.isoformat(),
             }
             for bbtalk in bbtalks
+        ]
+
+    def _export_comments(self) -> List[Dict[str, Any]]:
+        """导出当前用户的评论，并以 BBTalk uid 建立关联。"""
+        from .models import Comment
+
+        comments = Comment.objects.filter(user=self.user).select_related('bbtalk').order_by('create_time')
+        return [
+            {
+                'uid': comment.uid,
+                'bbtalk_uid': comment.bbtalk.uid,
+                'content': comment.content,
+                'create_time': comment.create_time.isoformat(),
+                'update_time': comment.update_time.isoformat(),
+            }
+            for comment in comments
         ]
     
     def _export_storage_settings(self) -> List[Dict[str, Any]]:
@@ -178,6 +195,7 @@ class DataExporter:
   - user: 用户基本信息
   - tags: 标签列表
   - bbtalks: BBTalk 内容列表
+  - comments: 评论内容列表
   - storage_settings: 存储配置（不包含密钥，需手动配置）
   - attachments: 附件元信息
 
@@ -200,15 +218,18 @@ class DataExporter:
     
     def _add_attachments_to_zip(self, zf: zipfile.ZipFile):
         """将附件文件添加到 ZIP（如果可访问）"""
+        from chewy_attachment.django_app.storage import get_storage_engine_for_attachment
+
         attachments = Attachment.objects.filter(owner_id=self.user.id)
         
         for att in attachments:
             try:
-                # 尝试读取附件内容
-                if hasattr(att, 'file') and att.file:
-                    file_content = att.file.read()
-                    zf.writestr(f'attachments/{att.storage_path}', file_content)
-                    logger.info(f"已添加附件: {att.storage_path}")
+                # Attachment 只保存元数据，文件内容需通过对应 storage engine 读取。
+                storage = get_storage_engine_for_attachment(att.storage_config_id or None)
+                file_content = storage.get_file(att.storage_path)
+                zip_path = f"attachments/{att.storage_path.replace('\\', '/').lstrip('/')}"
+                zf.writestr(zip_path, file_content)
+                logger.info(f"已添加附件: {att.storage_path}")
             except Exception as e:
-                logger.warning(f"无法导出附件 {att.file_id}: {e}")
+                logger.warning(f"无法导出附件 {att.id}: {e}")
                 continue

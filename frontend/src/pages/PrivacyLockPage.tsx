@@ -184,7 +184,6 @@ export default function PrivacyLockPage() {
       }, 500)
       return () => clearTimeout(timer)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobile, isBiometricSupported])
   
   // 发布 BBTalk

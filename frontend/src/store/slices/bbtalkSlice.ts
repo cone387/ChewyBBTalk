@@ -29,13 +29,16 @@ const initialState: BBTalkState = {
 // 异步Actions
 export const loadBBTalks = createAsyncThunk(
   'bbtalk/loadBBTalks',
-  async (params: { page?: number; search?: string; tags?: string[] } = {}, { rejectWithValue }) => {
+  async (params: { page?: number; search?: string; tags?: string[]; hasAttachments?: boolean; dateFrom?: string; dateTo?: string } = {}, { rejectWithValue }) => {
     try {
-      const { page = 1, search, tags } = params
+      const { page = 1, search, tags, hasAttachments, dateFrom, dateTo } = params
       const result = await bbtalkApi.getBBTalks({ 
         page, 
         search,
-        tags__name: tags?.join(',') 
+        tags__name: tags?.join(','),
+        has_attachments: hasAttachments,
+        create_date__gte: dateFrom,
+        create_date__lte: dateTo,
       })
       return { 
         bbtalks: result.results, 
@@ -52,17 +55,20 @@ export const loadBBTalks = createAsyncThunk(
 
 export const loadMoreBBTalks = createAsyncThunk(
   'bbtalk/loadMoreBBTalks',
-  async (params: { search?: string; tags?: string[] } = {}, { getState, rejectWithValue }) => {
+  async (params: { search?: string; tags?: string[]; hasAttachments?: boolean; dateFrom?: string; dateTo?: string } = {}, { getState, rejectWithValue }) => {
     try {
       const state = getState() as any
       const currentPage = state.bbtalk.currentPage
       const nextPage = currentPage + 1
       
-      const { search, tags } = params
+      const { search, tags, hasAttachments, dateFrom, dateTo } = params
       const result = await bbtalkApi.getBBTalks({ 
         page: nextPage, 
         search,
-        tags__name: tags?.join(',') 
+        tags__name: tags?.join(','),
+        has_attachments: hasAttachments,
+        create_date__gte: dateFrom,
+        create_date__lte: dateTo,
       })
       return { 
         bbtalks: result.results, 
@@ -97,7 +103,7 @@ export const loadPublicBBTalks = createAsyncThunk(
 // 加载更多公开的 BBTalks
 export const loadMorePublicBBTalks = createAsyncThunk(
   'bbtalk/loadMorePublicBBTalks',
-  async (_params: {} = {}, { getState, rejectWithValue }) => {
+  async (_params: Record<string, never> = {}, { getState, rejectWithValue }) => {
     try {
       const state = getState() as any
       const currentPage = state.bbtalk.currentPage

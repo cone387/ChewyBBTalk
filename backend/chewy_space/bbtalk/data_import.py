@@ -9,10 +9,12 @@ import zipfile
 from io import BytesIO
 from typing import Dict, List, Any, Optional
 from datetime import datetime
+from pathlib import PurePosixPath
+from uuid import uuid4
 from django.db import transaction
 from django.utils import timezone
 
-from .models import User, BBTalk, Tag, UserStorageSettings, Attachment, generate_uid
+from .models import User, BBTalk, Tag, UserStorageSettings, Attachment, Comment, generate_uid
 
 logger = logging.getLogger(__name__)
 
@@ -44,10 +46,15 @@ class DataImporter:
             'bbtalks_created': 0,
             'bbtalks_skipped': 0,
             'storage_settings_created': 0,
+            'attachments_created': 0,
+            'attachments_skipped': 0,
+            'comments_created': 0,
+            'comments_skipped': 0,
             'errors': [],
         }
         self.uid_mapping = {}  # 旧UID -> 新对象的映射
         self.tag_mapping = {}  # 旧标签UID -> 新标签对象的映射
+        self.attachment_mapping = {}  # 旧附件ID -> 新附件元信息
     
     def import_from_json(self, json_str: str) -> Dict[str, Any]:
         """
@@ -97,13 +104,14 @@ class DataImporter:
                 raise ImportError("ZIP 文件中缺少 data.json")
             
             json_str = zf.read('data.json').decode('utf-8')
-            
-            # TODO: 处理附件文件（如果有）
-            # self._import_attachments_from_zip(zf)
-            
-            return self.import_from_json(json_str)
-    
-    def import_from_dict(self, data: Dict[str, Any]) -> Dict[str, Any]:
+            try:
+                data = json.loads(json_str)
+            except json.JSONDecodeError as e:
+                raise ImportError(f"ZIP 中的 data.json 格式无效: {e}") from e
+
+            return self.import_from_dict(data, zip_file=zf)
+
+    def import_from_dict(self, data: Dict[str, Any], zip_file=None) -> Dict[str, Any]:
         """
         从字典导入数据
         
@@ -122,12 +130,20 @@ class DataImporter:
                 # 1. 导入标签
                 if 'tags' in data:
                     self._import_tags(data['tags'])
+
+                # 2. 导入 ZIP 中的附件，建立旧 ID 到新元数据的映射
+                if zip_file is not None and 'attachments' in data:
+                    self._import_attachments(data['attachments'], zip_file)
                 
-                # 2. 导入 BBTalk 内容
+                # 3. 导入 BBTalk 内容
                 if 'bbtalks' in data:
                     self._import_bbtalks(data['bbtalks'])
+
+                # 4. 导入评论，使用旧 BBTalk uid 映射到新记录
+                if 'comments' in data:
+                    self._import_comments(data['comments'])
                 
-                # 3. 导入存储配置（可选）
+                # 5. 导入存储配置（可选）
                 if self.options.get('import_storage_settings') and 'storage_settings' in data:
                     self._import_storage_settings(data['storage_settings'])
                 
@@ -139,6 +155,110 @@ class DataImporter:
             raise ImportError(f"导入失败: {e}")
         
         return self.stats
+
+    @staticmethod
+    def _validate_attachment_path(storage_path: str) -> str:
+        """校验附件路径只能指向 ZIP 的 attachments 目录。"""
+        normalized = str(storage_path or '').replace('\\', '/')
+        path = PurePosixPath(normalized)
+        if not normalized or path.is_absolute() or '..' in path.parts:
+            raise ImportError(f"附件路径不安全: {storage_path}")
+        return '/'.join(path.parts)
+
+    def _get_import_storage(self):
+        """将导入文件写入当前用户激活的存储，否则写入默认本地存储。"""
+        from chewy_attachment.django_app.storage import get_storage_engine_for_upload
+
+        active = UserStorageSettings.objects.filter(
+            user=self.user,
+            is_active=True,
+            storage_type='s3',
+        ).first()
+        return get_storage_engine_for_upload(str(active.id) if active and active.is_s3_configured() else None)
+
+    def _import_attachments(self, attachments_data: List[Dict[str, Any]], zip_file) -> None:
+        """从 ZIP 恢复附件文件和数据库记录。"""
+        storage, target_config_id = self._get_import_storage()
+        names = set(zip_file.namelist())
+
+        for attachment_data in attachments_data:
+            old_id = str(attachment_data.get('id') or attachment_data.get('uid') or '')
+            try:
+                storage_path = self._validate_attachment_path(attachment_data.get('storage_path', ''))
+                zip_path = f'attachments/{storage_path}'
+                if not old_id or zip_path not in names:
+                    self.stats['attachments_skipped'] += 1
+                    continue
+
+                content = zip_file.read(zip_path)
+                result = storage.save_file(
+                    content=content,
+                    original_name=attachment_data.get('original_name') or '附件',
+                )
+                new_attachment = Attachment.objects.create(
+                    id=uuid4(),
+                    original_name=attachment_data.get('original_name') or '附件',
+                    storage_path=result.storage_path,
+                    mime_type=attachment_data.get('mime_type') or result.mime_type,
+                    size=result.size,
+                    owner_id=str(self.user.id),
+                    is_public=bool(attachment_data.get('is_public', False)),
+                    storage_config_id=target_config_id or None,
+                )
+                mime_type = new_attachment.mime_type or ''
+                if mime_type.startswith('image/'):
+                    attachment_type = 'image'
+                elif mime_type.startswith('video/'):
+                    attachment_type = 'video'
+                elif mime_type.startswith('audio/'):
+                    attachment_type = 'audio'
+                else:
+                    attachment_type = 'file'
+                self.attachment_mapping[old_id] = {
+                    'uid': str(new_attachment.id),
+                    'url': f'/api/v1/attachments/files/{new_attachment.id}/preview/',
+                    'type': attachment_type,
+                    'filename': new_attachment.original_name,
+                    'originalFilename': new_attachment.original_name,
+                    'fileSize': new_attachment.size,
+                    'mimeType': new_attachment.mime_type,
+                }
+                self.stats['attachments_created'] += 1
+            except ImportError:
+                raise
+            except Exception as e:
+                error_msg = f"导入附件失败 ({attachment_data.get('original_name', 'unknown')}): {e}"
+                logger.error(error_msg)
+                self.stats['errors'].append(error_msg)
+
+    def _rewrite_attachment_refs(self, attachments: List[Any]) -> List[Any]:
+        """将 BBTalk 中的旧附件引用替换为新附件元信息。"""
+        rewritten = []
+        for reference in attachments or []:
+            old_id = ''
+            if isinstance(reference, dict):
+                old_id = str(reference.get('uid') or reference.get('id') or '')
+            elif reference is not None:
+                old_id = str(reference)
+            rewritten.append(self.attachment_mapping.get(old_id, reference))
+        return rewritten
+
+    def _import_comments(self, comments_data: List[Dict[str, Any]]) -> None:
+        """导入评论并关联到本次导入的 BBTalk。"""
+        for comment_data in comments_data:
+            try:
+                bbtalk_uid = str(comment_data.get('bbtalk_uid') or '')
+                bbtalk = self.uid_mapping.get(bbtalk_uid)
+                content = str(comment_data.get('content') or '').strip()
+                if not bbtalk or not content:
+                    self.stats['comments_skipped'] += 1
+                    continue
+                Comment.objects.create(user=self.user, bbtalk=bbtalk, content=content)
+                self.stats['comments_created'] += 1
+            except Exception as e:
+                error_msg = f"导入评论失败: {e}"
+                logger.error(error_msg)
+                self.stats['errors'].append(error_msg)
     
     def _validate_data(self, data: Dict[str, Any]):
         """验证数据格式"""
@@ -202,6 +322,9 @@ class DataImporter:
                 if self.options.get('skip_duplicates'):
                     # 检查是否有相同内容
                     if BBTalk.objects.filter(user=self.user, content=content).exists():
+                        existing = BBTalk.objects.filter(user=self.user, content=content).first()
+                        if existing:
+                            self.uid_mapping[old_uid] = existing
                         self.stats['bbtalks_skipped'] += 1
                         continue
                 
@@ -217,7 +340,7 @@ class DataImporter:
                     user=self.user,
                     content=content,
                     visibility=bbtalk_data.get('visibility', 'private'),
-                    attachments=bbtalk_data.get('attachments', []),
+                    attachments=self._rewrite_attachment_refs(bbtalk_data.get('attachments', [])),
                     context=bbtalk_data.get('context', {}),
                 )
                 

@@ -43,12 +43,12 @@ ChewyBBTalk/
 
 | 端 | 技术栈 | 状态 | 备注 |
 |----|--------|------|------|
-| Web | React 18 + Vite + Tailwind + PWA | 维护中 | 老前端，仍在线上跑 |
+| Web | React 18 + Vite + Tailwind + PWA | 主部署端 | 实际线上 Web/PWA 主线，持续维护 |
 | iOS | Expo + RN 0.81 | 主推 | EAS 构建，Apple ID 登录 |
 | Android | Expo + RN 0.81 | 主推 | EAS 构建 |
-| Expo Web | react-native-web | 主推 | 与 iOS/Android 同代码库 |
+| Expo Web | react-native-web | 开发验证 | 不纳入生产部署，不替代 Web 主线 |
 
-> 长期方向：mobile/ 子项目逐步替代 frontend/。新功能优先在 mobile 落地。
+> 端策略：`frontend/` 负责实际 Web/PWA 部署，`mobile/` 负责 iOS/Android 原生体验；两者通过后端 API 共享能力。
 
 ## 4. 核心领域模型（必须理解）
 

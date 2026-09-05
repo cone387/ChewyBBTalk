@@ -59,7 +59,24 @@ body {
 
 /* 防止移动端滚动容器出现空白间隙 */
 @media (max-width: 1023px) {
-  .overscroll-contain {
-    overscroll-behavior: contain;
+.overscroll-contain {
+  overscroll-behavior: contain;
+}
+}
+
+/* Keyboard users need a focus indicator even where utility classes reset outlines. */
+:is(button, a, input, textarea, select, [role="button"], [tabindex]):focus-visible {
+  outline: 2px solid #2563eb !important;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
   }
 }

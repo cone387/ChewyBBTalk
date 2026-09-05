@@ -1,18 +1,19 @@
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { Provider } from 'react-redux'
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { store } from './store'
-import BBTalkPage from './pages/BBTalkPage'
-import PublicBBTalkPage from './pages/PublicBBTalkPage'
-import BBTalkDetailPage from './pages/BBTalkDetailPage'
-import LoginPage from './pages/LoginPage'
-import PrivacyLockPage from './pages/PrivacyLockPage'
-import SettingsPage from './pages/SettingsPage'
-import PrivacySettingsPage from './pages/PrivacySettingsPage'
-import StorageSettingsPage from './pages/StorageSettingsPage'
-import S3ConfigListPage from './pages/S3ConfigListPage'
-import DataManagementPage from './pages/DataManagementPage'
 import { initAuth } from './services/auth'
+
+const BBTalkPage = lazy(() => import('./pages/BBTalkPage'))
+const PublicBBTalkPage = lazy(() => import('./pages/PublicBBTalkPage'))
+const BBTalkDetailPage = lazy(() => import('./pages/BBTalkDetailPage'))
+const LoginPage = lazy(() => import('./pages/LoginPage'))
+const PrivacyLockPage = lazy(() => import('./pages/PrivacyLockPage'))
+const SettingsPage = lazy(() => import('./pages/SettingsPage'))
+const PrivacySettingsPage = lazy(() => import('./pages/PrivacySettingsPage'))
+const StorageSettingsPage = lazy(() => import('./pages/StorageSettingsPage'))
+const S3ConfigListPage = lazy(() => import('./pages/S3ConfigListPage'))
+const DataManagementPage = lazy(() => import('./pages/DataManagementPage'))
 
 interface AppProps {
   basename?: string;
@@ -22,6 +23,14 @@ interface AppProps {
 let authPromise: Promise<{ ready: boolean; authenticated: boolean; error: string | null }> | null = null;
 
 const PRIVACY_STATE_KEY = 'bbtalk_privacy_mode'
+
+function RouteLoading() {
+  return (
+    <div className="flex h-full min-h-48 items-center justify-center text-sm text-gray-500" role="status" aria-live="polite">
+      页面加载中…
+    </div>
+  )
+}
 
 // 防窥模式检查组件
 function PrivacyModeChecker({ children }: { children: React.ReactNode }) {
@@ -59,13 +68,12 @@ export default function App({ basename = '/' }: AppProps) {
     }
 
     // 创建初始化 Promise
-    authPromise = new Promise(async (resolve) => {
+    authPromise = (async () => {
       try {
         // 如果是子应用，直接使用主应用认证
         if (isWujie) {
           console.log('[BBTalk] 子应用模式，使用主应用认证')
-          resolve({ ready: true, authenticated: true, error: null })
-          return
+          return { ready: true, authenticated: true, error: null }
         }
 
         // 独立运行模式，检查认证状态
@@ -74,12 +82,12 @@ export default function App({ basename = '/' }: AppProps) {
         const authenticated = await initAuth()
         console.log('[BBTalk] 认证结果:', authenticated)
         
-        resolve({ ready: true, authenticated, error: null })
+        return { ready: true, authenticated, error: null }
       } catch (error) {
         console.error('[BBTalk] 初始化错误:', error)
-        resolve({ ready: true, authenticated: false, error: null })
+        return { ready: true, authenticated: false, error: null }
       }
-    })
+    })()
 
     authPromise.then(result => {
       setAuthReady(result.ready)
@@ -140,6 +148,7 @@ export default function App({ basename = '/' }: AppProps) {
         }}
       >
         <PrivacyModeChecker>
+          <Suspense fallback={<RouteLoading />}>
           <Routes>
             {/* 登录页面 */}
             <Route path="/login" element={<LoginPage />} />
@@ -219,6 +228,7 @@ export default function App({ basename = '/' }: AppProps) {
             />
             
           </Routes>
+          </Suspense>
         </PrivacyModeChecker>
       </BrowserRouter>
     </Provider>

@@ -23,6 +23,7 @@ export default function VideoPlayerButton({ attachment }: Props) {
         allowsPictureInPicture
         contentFit="contain"
         nativeControls
+        accessibilityLabel={`播放视频 ${attachment.originalFilename || attachment.filename || ''}`}
       />
     </View>
   );

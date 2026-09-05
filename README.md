@@ -201,6 +201,13 @@ startApp({
 - Docker + Nginx
 - GitHub Actions 自动构建
 
+宿主机定时备份（systemd timer / cron）见 [docs/docker-autostart.md](docs/docker-autostart.md)。
+
+### Web 与原生端分工
+
+- 实际线上 Web/PWA 部署始终使用 `frontend/`（React + Vite），Docker/Nginx 构建链路不切换到 Expo Web。
+- `mobile/` 负责 iOS/Android 原生应用；其中 Expo Web 仅用于开发验证，不作为生产部署目标。
+
 ### 环境要求
 
 - Node.js >= 18
