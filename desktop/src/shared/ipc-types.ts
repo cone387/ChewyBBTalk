@@ -1,3 +1,22 @@
+export interface SubmissionSession { scope: string; generation: number }
+export interface SubmissionPayload {
+  content: string;
+  post_tags?: string;
+  attachments: { uid: string }[];
+  visibility: 'public' | 'private';
+  context: Record<string, unknown>;
+}
+export interface SubmissionIntent {
+  key: string;
+  payload: SubmissionPayload;
+  state: 'pending' | 'confirmed';
+  deleted?: boolean;
+}
+export interface SubmissionSnapshot {
+  session: SubmissionSession;
+  intent?: SubmissionIntent;
+}
+
 /**
  * 主进程 ↔ 渲染进程 IPC 类型定义。
  */
@@ -35,9 +54,13 @@ export interface ComposeApi {
   show(ballScreenX?: number, ballScreenY?: number): Promise<void>;
   hide(): Promise<void>;
   toggle(ballScreenX?: number, ballScreenY?: number): Promise<void>;
-  getDraft(): Promise<string>;
-  saveDraft(draft: string): Promise<void>;
-  clearDraft(): Promise<void>;
+  submissionSnapshot(): Promise<SubmissionSnapshot | null>;
+  publishSubmission(session: SubmissionSession, payload: SubmissionPayload): Promise<SubmissionIntent>;
+  recoverSubmission(session: SubmissionSession, retry: boolean): Promise<SubmissionIntent>;
+  forgetSubmission(session: SubmissionSession, key: string): Promise<void>;
+  getDraft(session: SubmissionSession): Promise<string>;
+  saveDraft(draft: string, session: SubmissionSession): Promise<void>;
+  clearDraft(session: SubmissionSession): Promise<void>;
   getApiUrl(): Promise<string>;
   resize(width: number, height: number): Promise<void>;
   getVisibility(): Promise<'public' | 'private'>;

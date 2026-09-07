@@ -7,11 +7,15 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { parseTags, parseAndClean } from './tagParser';
 import { nextVisibility, visibilityLabel, Visibility } from './visibilityCycle';
 import { uploadFiles, removeFileFromList, UploadedFile } from './uploadManager';
-import { addLog } from './logStore';
+import type { SubmissionSnapshot } from '../../shared/ipc-types';
 import logoUrl from '../../../resources/icon.png';
 
 export function ComposeWindow() {
   // Core state
+  const [snapshot, setSnapshot] = useState<SubmissionSnapshot | null>(null);
+  const snapshotRef = useRef<SubmissionSnapshot | null>(null);
+  const operationRef = useRef(false);
+  const refreshId = useRef(0);
   const [content, setContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<{ kind: 'success' | 'error' | 'info'; text: string } | null>(null);
@@ -27,45 +31,56 @@ export function ComposeWindow() {
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const draftTimerRef = useRef<number | null>(null);
   const toastTimerRef = useRef<number | null>(null);
   const isComposingRef = useRef(false);
   const mountedRef = useRef(false);
 
-  // Check login state — re-check when window gains focus (after login window closes)
+  // Refresh session and pending receipt when the window returns to the foreground.
   useEffect(() => {
-    window.desktop.auth.isLoggedIn().then(setLoggedIn);
-    const handleFocus = () => {
-      window.desktop.auth.isLoggedIn().then(setLoggedIn);
+    let disposed = false;
+    const refresh = async () => {
+      const id = ++refreshId.current;
+      try {
+        const next = await window.desktop.compose.submissionSnapshot();
+        if (disposed || id !== refreshId.current) return;
+        if (next?.session.scope !== snapshotRef.current?.session.scope) {
+          const draft = next ? await window.desktop.compose.getDraft(next.session) : '';
+          if (disposed || id !== refreshId.current) return;
+          setContent(draft); setUploadedFiles([]); setTags([]);
+        }
+        snapshotRef.current = next; setSnapshot(next); setLoggedIn(Boolean(next)); mountedRef.current = true;
+        if (next?.intent?.state === 'pending' && !operationRef.current) {
+          try {
+            const intent = await window.desktop.compose.recoverSubmission(next.session, false);
+            if (!disposed && id === refreshId.current) {
+              const updated = { ...next, intent };
+              snapshotRef.current = updated; setSnapshot(updated);
+            }
+          } catch { /* Keep the original pending receipt and explicit retry controls. */ }
+        }
+      } catch (error) {
+        if (!disposed && id === refreshId.current) {
+          setLoggedIn(false);
+          setToast({ kind: 'error', text: error instanceof Error ? error.message : '无法读取提交状态' });
+        }
+      }
     };
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
+    void refresh();
+    window.addEventListener('focus', refresh);
+    window.addEventListener('online', refresh);
+    window.desktop.compose.getVisibility().then(v => setVisibility(v === 'public' ? 'public' : 'private'));
+    return () => { disposed = true; window.removeEventListener('focus', refresh); window.removeEventListener('online', refresh); };
   }, []);
 
-  // Load draft + visibility on mount
   useEffect(() => {
-    window.desktop.compose.getDraft().then((draft) => {
-      if (draft) setContent(draft);
-      setTimeout(() => { mountedRef.current = true; }, 50);
-    });
-    window.desktop.compose.getVisibility().then((v) => {
-      // Fallback: if stored value is invalid (e.g. 'friends' from old version), reset to 'private'
-      if (v !== 'public' && v !== 'private') setVisibility('private');
-      else setVisibility(v);
-    });
-    setTimeout(() => textareaRef.current?.focus(), 100);
-  }, []);
-
-  // Draft auto-save
-  useEffect(() => {
-    if (draftTimerRef.current != null) window.clearTimeout(draftTimerRef.current);
-    draftTimerRef.current = window.setTimeout(() => {
-      window.desktop.compose.saveDraft(content);
-    }, 2000);
-    return () => {
-      if (draftTimerRef.current != null) window.clearTimeout(draftTimerRef.current);
-    };
-  }, [content]);
+    if (!snapshot || !mountedRef.current || submitting) return;
+    const timer = window.setTimeout(() => {
+      window.desktop.compose.saveDraft(content, snapshot.session).catch(error => {
+        setToast({ kind: 'error', text: error instanceof Error ? error.message : '草稿保存失败' });
+      });
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [content, snapshot?.session.scope, snapshot?.session.generation, submitting]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -119,12 +134,21 @@ export function ComposeWindow() {
 
   // File upload helper
   const handleUploadFiles = async (files: File[]) => {
-    if (files.length === 0) return;
+    const expected = snapshotRef.current?.session;
+    if (files.length === 0 || operationRef.current || !expected) return;
+    const assertUploadSession = async () => {
+      const current = await window.desktop.compose.submissionSnapshot();
+      if (current?.session.scope !== expected.scope || current.session.generation !== expected.generation) {
+        throw new Error('账号已切换，附件未加入当前编辑器');
+      }
+    };
     setIsUploading(true);
     try {
-      const apiUrl = await window.desktop.compose.getApiUrl();
+      const [apiUrl] = JSON.parse(expected.scope) as [string, string];
       const token = await window.desktop.auth.getValidAccessToken();
+      await assertUploadSession();
       const uploaded = await uploadFiles(files, apiUrl, token);
+      await assertUploadSession();
       setUploadedFiles((prev) => [...prev, ...uploaded]);
     } catch (err: unknown) {
       showToastMsg('error', err instanceof Error ? err.message : '上传失败');
@@ -192,66 +216,53 @@ export function ComposeWindow() {
     setUploadedFiles((prev) => removeFileFromList(prev, uid));
   };
 
-  // Publish
-  const publish = useCallback(async () => {
-    const trimmed = content.trim();
-    if (!trimmed || submitting) return;
-    if (!loggedIn) { window.desktop.login.show(); return; }
-
-    setSubmitting(true);
+  const recover = async (retry: boolean) => {
+    if (!snapshot || operationRef.current) return;
+    operationRef.current = true; setSubmitting(true);
     try {
-      const apiUrl = await window.desktop.compose.getApiUrl();
-      const token = await window.desktop.auth.getValidAccessToken();
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
+      const intent = await window.desktop.compose.recoverSubmission(snapshot.session, retry);
+      const updated = { ...snapshot, intent };
+      snapshotRef.current = updated; setSnapshot(updated);
+      showToastMsg('info', intent.deleted ? '原提交已删除，不会重新创建。' : '原提交已确认，当前输入仍保留。');
+    } catch (error) { showToastMsg('error', error instanceof Error ? error.message : '核对失败，原提交已保留'); }
+    finally { operationRef.current = false; setSubmitting(false); }
+  };
+  const publish = useCallback(async () => {
+    if (!content.trim() || operationRef.current || isUploading) return;
+    if (!loggedIn || !snapshot) { window.desktop.login.show(); return; }
+    operationRef.current = true; setSubmitting(true);
+    try {
       const { tags: parsedTags, cleanedContent } = parseAndClean(content);
-      const payload = {
-        content: cleanedContent,
-        tags: parsedTags,
-        attachments: uploadedFiles.map((f) => ({ uid: f.uid })),
-        visibility,
+      const intent = await window.desktop.compose.publishSubmission(snapshot.session, {
+        content: cleanedContent, post_tags: parsedTags.join(','),
+        attachments: uploadedFiles.map(f => ({ uid: f.uid })), visibility,
         context: { source: { client: 'Desktop', platform: navigator.platform } },
-      };
-
-      const response = await fetch(`${apiUrl}/api/v1/bbtalk/`, {
-        method: 'POST', headers, body: JSON.stringify(payload),
       });
-
-      if (!response.ok) {
-        const errBody = await response.text().catch(() => '');
-        let message = `HTTP ${response.status}`;
-        try {
-          const errJson = JSON.parse(errBody);
-          // Try various error formats from DRF
-          if (errJson.detail) message = errJson.detail;
-          else if (errJson.error) message = errJson.error;
-          else if (errJson.non_field_errors) message = Array.isArray(errJson.non_field_errors) ? errJson.non_field_errors.join('; ') : errJson.non_field_errors;
-          else if (errJson.content) message = `content: ${Array.isArray(errJson.content) ? errJson.content.join('; ') : errJson.content}`;
-          else message = JSON.stringify(errJson);
-        } catch {
-          if (errBody) message = errBody.slice(0, 200);
-        }
-        // Log the full error for debugging
-        console.error('[Publish] Error:', response.status, errBody);
-        addLog('error', `发布失败 ${response.status}: ${message}`);
-        throw new Error(message);
+      const updated = { ...snapshot, intent };
+      snapshotRef.current = updated; setSnapshot(updated);
+      if (intent.deleted) { showToastMsg('info', '原提交已删除，不会重新创建。当前输入仍保留。'); return; }
+      try {
+        await window.desktop.compose.clearDraft(snapshot.session);
+        await window.desktop.compose.forgetSubmission(snapshot.session, intent.key);
+      } catch {
+        showToastMsg('error', '发布成功，但本地清理失败，请核对原提交。');
+        return;
       }
-
-      showToastMsg('success', '已发布 ✓');
-      setContent('');
-      setUploadedFiles([]);
-      setTags([]);
-      await window.desktop.compose.clearDraft();
+      snapshotRef.current = { ...snapshot, intent: undefined };
+      setSnapshot(snapshotRef.current);
+      showToastMsg('success', '已发布');
+      setContent(''); setUploadedFiles([]); setTags([]);
       setTimeout(() => textareaRef.current?.focus(), 100);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : '发布失败';
-      addLog('error', msg);
-      showToastMsg('error', msg);
-    } finally {
-      setSubmitting(false);
-    }
-  }, [content, submitting, loggedIn, uploadedFiles, visibility]);
+    } catch (error) {
+      showToastMsg('error', error instanceof Error ? error.message : '发布失败，内容已保留');
+      try {
+        const next = await window.desktop.compose.submissionSnapshot();
+        if (next?.session.scope === snapshot.session.scope && next.session.generation === snapshot.session.generation) {
+          snapshotRef.current = next; setSnapshot(next);
+        }
+      } catch { /* Leave input untouched if persistence cannot be read. */ }
+    } finally { operationRef.current = false; setSubmitting(false); }
+  }, [content, loggedIn, snapshot, uploadedFiles, visibility, isUploading]);
 
   // Loading state
   if (loggedIn === null) {
@@ -263,7 +274,7 @@ export function ComposeWindow() {
   }
 
   return (
-    <div className="compose-root" onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
+    <div className="compose-root" style={{ pointerEvents: submitting ? 'none' : 'auto' }} onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
       <header className="compose-titlebar">
         <img className="titlebar-logo" src={logoUrl} alt="" width="16" height="16" draggable={false} />
         <div className="titlebar-spacer" />
@@ -282,6 +293,7 @@ export function ComposeWindow() {
 
       <main className="compose-body">
         <textarea
+          disabled={submitting}
           ref={textareaRef}
           className="compose-textarea"
           value={content}
@@ -317,6 +329,14 @@ export function ComposeWindow() {
         </div>
       )}
 
+      {snapshot?.intent && <section aria-label="原提交恢复" style={{ padding: '8px 12px', fontSize: 13 }}>
+        <p role="status">{snapshot.intent.state === 'pending' ? '有一份发布结果待核对' : snapshot.intent.deleted ? '原提交已删除，当前输入仍保留' : '原提交已确认，当前输入仍保留'}</p>
+        <details><summary>查看原提交内容</summary><p style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{snapshot.intent.payload.content}</p></details>
+        {snapshot.intent.state === 'pending' && <div style={{ display: 'flex', gap: 8 }}>
+          <button style={{ minHeight: 44 }} disabled={submitting} onClick={() => { void recover(false); }}>核对发布结果</button>
+          <button style={{ minHeight: 44 }} disabled={submitting} onClick={() => { void recover(true); }}>重试原提交</button>
+        </div>}
+      </section>}
       {/* Tag pills — between textarea and toolbar */}
       {tags.length > 0 && (
         <div className="tag-pills">

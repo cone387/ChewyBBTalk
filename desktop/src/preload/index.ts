@@ -22,9 +22,13 @@ const api: DesktopApi = {
     hide: () => ipcRenderer.invoke('compose:hide'),
     toggle: (ballScreenX?: number, ballScreenY?: number) =>
       ipcRenderer.invoke('compose:toggle', ballScreenX, ballScreenY),
-    getDraft: () => ipcRenderer.invoke('compose:get-draft'),
-    saveDraft: (draft: string) => ipcRenderer.invoke('compose:save-draft', draft),
-    clearDraft: () => ipcRenderer.invoke('compose:clear-draft'),
+    submissionSnapshot: () => ipcRenderer.invoke('compose:submission-snapshot'),
+    publishSubmission: (session, payload) => ipcRenderer.invoke('compose:publish-submission', session, payload),
+    recoverSubmission: (session, retry) => ipcRenderer.invoke('compose:recover-submission', session, retry),
+    forgetSubmission: (session, key) => ipcRenderer.invoke('compose:forget-submission', session, key),
+    getDraft: (session) => ipcRenderer.invoke('compose:get-draft', session),
+    saveDraft: (draft, session) => ipcRenderer.invoke('compose:save-draft', draft, session),
+    clearDraft: (session) => ipcRenderer.invoke('compose:clear-draft', session),
     getApiUrl: () => ipcRenderer.invoke('compose:get-api-url'),
     resize: (width: number, height: number) =>
       ipcRenderer.invoke('compose:resize', width, height),

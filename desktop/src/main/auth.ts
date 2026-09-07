@@ -12,6 +12,7 @@ interface TokenPair {
   refresh: string;
 }
 
+let sessionGeneration = 0;
 let accessToken: string | null = null;
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 let refreshPromise: Promise<boolean> | null = null;
@@ -55,7 +56,9 @@ export async function login(
   apiUrl?: string,
 ): Promise<{ ok: boolean; error?: string }> {
   const url = apiUrl || getApiUrl();
-  if (apiUrl) store.set('auth.apiUrl', apiUrl);
+  const generation = ++sessionGeneration;
+  refreshPromise = null;
+  if (refreshTimer) clearTimeout(refreshTimer);
 
   try {
     const res = await fetch(`${url}/api/v1/bbtalk/auth/token/`, {
@@ -68,6 +71,8 @@ export async function login(
       return { ok: false, error: err.error || err.detail || `HTTP ${res.status}` };
     }
     const data: TokenPair & { user?: unknown } = await res.json();
+    if (generation !== sessionGeneration) return { ok: false, error: '会话已改变，请重新操作' };
+    store.set('auth.apiUrl', url);
     accessToken = data.access;
     store.set('auth.username', username);
     // 简单存 refresh（后续可改 keytar）
@@ -81,21 +86,27 @@ export async function login(
 
 export async function refreshAccessToken(): Promise<boolean> {
   if (refreshPromise) return refreshPromise;
-  refreshPromise = doRefresh().finally(() => { refreshPromise = null; });
-  return refreshPromise;
+  const pending = doRefresh().finally(() => { if (refreshPromise === pending) refreshPromise = null; });
+  refreshPromise = pending;
+  return pending;
 }
 
 async function doRefresh(): Promise<boolean> {
   const auth = store.get('auth') as any;
   const refreshToken = auth?.refreshToken;
+  const generation = sessionGeneration;
+  const apiUrl = getApiUrl();
+  const current = () => generation === sessionGeneration && apiUrl === getApiUrl()
+    && (store.get('auth') as any)?.refreshToken === refreshToken;
   if (!refreshToken) return false;
 
   try {
-    const res = await fetch(`${getApiUrl()}/api/v1/bbtalk/auth/token/refresh/`, {
+    const res = await fetch(`${apiUrl}/api/v1/bbtalk/auth/token/refresh/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh: refreshToken }),
     });
+    if (!current()) return false;
     if (!res.ok) {
       if (res.status === 401 || res.status === 403) {
         accessToken = null;
@@ -106,6 +117,7 @@ async function doRefresh(): Promise<boolean> {
       return false;
     }
     const data = await res.json();
+    if (!current()) return false;
     accessToken = data.access;
     if (data.refresh) {
       store.set('auth' as any, { ...store.get('auth'), refreshToken: data.refresh });
@@ -113,6 +125,7 @@ async function doRefresh(): Promise<boolean> {
     scheduleRefresh(data.access);
     return true;
   } catch {
+    if (!current()) return false;
     // Network failures are transient; keep the session and retry later.
     scheduleRefreshRetry();
     return false;
@@ -122,11 +135,12 @@ async function doRefresh(): Promise<boolean> {
 /** Return an access token suitable for an API request, refreshing near expiry. */
 export async function getValidAccessToken(): Promise<string | null> {
   if (!accessToken) return null;
+  const generation = sessionGeneration;
   const exp = parseJwtExp(accessToken);
   if (exp && exp * 1000 - Date.now() < 60_000) {
     await refreshAccessToken();
   }
-  return accessToken;
+  return generation === sessionGeneration ? accessToken : null;
 }
 
 export function getAccessToken(): string | null {
@@ -138,6 +152,8 @@ export function isLoggedIn(): boolean {
 }
 
 export function logout(): void {
+  sessionGeneration += 1;
+  refreshPromise = null;
   accessToken = null;
   if (refreshTimer) clearTimeout(refreshTimer);
   const auth = store.get('auth') as any;
@@ -152,4 +168,15 @@ export async function tryRestoreSession(): Promise<boolean> {
   const auth = store.get('auth') as any;
   if (!auth?.refreshToken) return false;
   return refreshAccessToken();
+}
+
+/** Identity used to scope durable submissions; tokens never leave this snapshot. */
+export function getSubmissionSession(): { scope: string; generation: number; apiUrl: string } | null {
+  if (!accessToken) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(accessToken.split('.')[1], 'base64url').toString());
+    if (payload.user_id === undefined || payload.user_id === null) return null;
+    const apiUrl = getApiUrl().replace(/\/+$/, '');
+    return { scope: JSON.stringify([apiUrl, String(payload.user_id)]), generation: sessionGeneration, apiUrl };
+  } catch { return null; }
 }

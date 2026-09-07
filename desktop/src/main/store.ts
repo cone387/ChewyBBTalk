@@ -4,6 +4,7 @@
  * 结构对齐 design.md "数据模型" 章节的 schema。
  */
 import Store from 'electron-store';
+import type { SubmissionIntent } from '../shared/ipc-types';
 import type { Edge } from '../shared/constants';
 import type { PreferredSnapPoint } from './ball/snap';
 
@@ -26,6 +27,8 @@ export interface SettingsSchema {
     visibility: 'public' | 'private';
     lastSize: { width: number; height: number } | null;
     outbox: unknown[];
+    drafts?: Record<string, string>;
+    submissions?: Record<string, SubmissionIntent>;
   };
   ai: { provider: string; openaiApiKey: string; customEndpoint: string };
 }

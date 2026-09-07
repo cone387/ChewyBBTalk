@@ -6,6 +6,8 @@ import { showComposeWindow, hideComposeWindow, isComposeVisible, resizeComposeWi
 import { showLoginWindow, hideLoginWindow } from '../windows/loginWindow';
 import { showSettingsWindow, hideSettingsWindow } from '../windows/settingsWindow';
 import { store } from '../store';
+import { assertSession, submissionSnapshot, publishSubmission, recoverSubmission, forgetSubmission } from '../submissions';
+import type { SubmissionPayload, SubmissionSession } from '../../shared/ipc-types';
 
 export function registerComposeIpc() {
   ipcMain.handle('compose:show', (_, ballX?: number, ballY?: number) => {
@@ -24,16 +26,23 @@ export function registerComposeIpc() {
     }
   });
 
-  ipcMain.handle('compose:get-draft', () => {
-    return store.get('compose.draft') ?? '';
+  ipcMain.handle('compose:submission-snapshot', () => submissionSnapshot());
+  ipcMain.handle('compose:publish-submission', (_, session: SubmissionSession, payload: SubmissionPayload) => publishSubmission(session, payload));
+  ipcMain.handle('compose:recover-submission', (_, session: SubmissionSession, retry: boolean) => recoverSubmission(session, retry));
+  ipcMain.handle('compose:forget-submission', (_, session: SubmissionSession, key: string) => forgetSubmission(session, key));
+  ipcMain.handle('compose:get-draft', (_, session: SubmissionSession) => {
+    assertSession(session);
+    return store.get('compose.drafts')?.[session.scope] ?? '';
   });
-
-  ipcMain.handle('compose:save-draft', (_, draft: string) => {
-    store.set('compose.draft', draft);
+  ipcMain.handle('compose:save-draft', (_, draft: string, session: SubmissionSession) => {
+    assertSession(session);
+    store.set('compose.drafts', { ...store.get('compose.drafts'), [session.scope]: draft });
   });
-
-  ipcMain.handle('compose:clear-draft', () => {
-    store.set('compose.draft', '');
+  ipcMain.handle('compose:clear-draft', (_, session: SubmissionSession) => {
+    assertSession(session);
+    const drafts = { ...store.get('compose.drafts') };
+    delete drafts[session.scope];
+    store.set('compose.drafts', drafts);
   });
 
   ipcMain.handle('compose:get-api-url', () => {
