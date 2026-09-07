@@ -36,7 +36,7 @@ const components: Components = {
     const isBlock = className?.includes('language-') || false
     if (isBlock) {
       return (
-        <code className={`bg-gray-100 p-3 rounded-lg text-sm overflow-x-auto block my-2 ${className ?? ''}`} {...props}>
+        <code className={`text-sm ${className ?? ''}`} {...props}>
           {children}
         </code>
       )
@@ -47,7 +47,14 @@ const components: Components = {
       </code>
     )
   },
-  pre: ({ children }) => <pre className="my-2">{children}</pre>,
+  pre: ({ children }) => <pre tabIndex={0} aria-label="代码，可横向滚动" className="my-2 max-w-full overflow-x-auto rounded-lg bg-gray-100 p-3 whitespace-pre [overflow-wrap:normal] [&>code]:block [&>code]:bg-transparent [&>code]:p-0 [&>code]:m-0 [&>code]:text-gray-800">{children}</pre>,
+  table: ({ children }) => (
+    <div tabIndex={0} role="region" aria-label="表格，可横向滚动" className="my-3 max-w-full overflow-x-auto">
+      <table className="min-w-full border-collapse text-sm">{children}</table>
+    </div>
+  ),
+  th: ({ children }) => <th className="border border-gray-300 bg-gray-50 p-2 text-left whitespace-nowrap">{children}</th>,
+  td: ({ children }) => <td className="border border-gray-200 p-2 whitespace-nowrap">{children}</td>,
   blockquote: ({ children }) => (
     <blockquote className="border-l-3 border-gray-300 pl-3 my-2 bg-gray-50 rounded p-2">
       {children}
@@ -77,7 +84,7 @@ const components: Components = {
 
 export default function MarkdownRenderer({ content, className }: MarkdownRendererProps) {
   return (
-    <div className={className}>
+    <div className={`min-w-0 max-w-full [overflow-wrap:anywhere] ${className ?? ''}`}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeSanitize]}

@@ -124,7 +124,7 @@ class ImageCacheService {
       await this.init()
       if (!this.db) return
 
-      await this.db.delete('images', url)
+      await this.db.delete('images', this.normalizeUrl(url))
       // console.log('[ImageCache] 删除缓存:', url)
     } catch (error) {
       console.error('[ImageCache] 删除缓存失败:', error)
@@ -257,7 +257,7 @@ class ImageCacheService {
   /**
    * 下载图片并缓存
    */
-  async fetchAndCache(url: string): Promise<Blob | null> {
+  async fetchAndCache(url: string, refresh = false): Promise<Blob | null> {
     try {
       // 标准化 URL（使用配置的协议）
       const normalizedUrl = this.normalizeUrl(url)
@@ -268,7 +268,7 @@ class ImageCacheService {
         mode: 'cors',
         credentials: 'omit',
         referrerPolicy: 'no-referrer',
-        cache: 'default'
+        cache: refresh ? 'reload' : 'default'
       })
       
       if (!response.ok) {
@@ -292,15 +292,16 @@ class ImageCacheService {
   /**
    * 获取图片（优先从缓存，缓存未命中则下载）
    */
-  async getOrFetch(url: string): Promise<Blob | null> {
+  async getOrFetch(url: string, refresh = false): Promise<Blob | null> {
     // 先尝试从缓存获取
-    const cached = await this.get(url)
+    if (refresh) await this.delete(url)
+    const cached = refresh ? null : await this.get(url)
     if (cached) {
       return cached
     }
 
     // 缓存未命中，下载并缓存
-    return await this.fetchAndCache(url)
+    return await this.fetchAndCache(url, refresh)
   }
 }
 
