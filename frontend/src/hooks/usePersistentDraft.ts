@@ -123,5 +123,14 @@ export function usePersistentDraft(key: string | null, data: DraftData, restore:
     try { await work } finally { clearing.current = false }
   }, [key, report])
 
-  return { loaded, status, error, recovered, canRetry: ready.current, retry: flush, clear }
+  const verifyCurrent = async () => {
+    await flush()
+    if (!key || !ready.current) throw new Error('草稿未能持久保存，请保留页面并重试')
+    const record = await readDraft(key)
+    if ((record?.revision ?? null) !== revision.current || saved.current !== draftFingerprint(latest.current)) {
+      throw new Error('草稿保存失败或已被另一标签页修改，请核对后再发布')
+    }
+    return revision.current
+  }
+  return { loaded, status, error, recovered, canRetry: ready.current, retry: flush, clear, verifyCurrent }
 }

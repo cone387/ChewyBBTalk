@@ -32,7 +32,7 @@ function transformAttachment(data: any): Attachment {
   };
 }
 
-function transformBBTalk(data: any): BBTalk {
+export function transformBBTalk(data: any): BBTalk {
   return {
     id: data.uid,
     content: data.content,
@@ -114,6 +114,7 @@ export const bbtalkApi = {
 
   async createBBTalk(data: {
     content: string;
+    submissionKey?: string;
     tags?: string[];
     attachments?: Attachment[];
     visibility?: 'public' | 'private' | 'friends';
@@ -141,16 +142,21 @@ export const bbtalkApi = {
       payload.visibility = data.visibility;
     }
 
-    const response = await apiClient.post<any>('/api/v1/bbtalk/', payload);
+    const response = await apiClient.post<any>('/api/v1/bbtalk/', payload, data.submissionKey ? { 'Idempotency-Key': data.submissionKey } : undefined);
     return transformBBTalk(response);
   },
 
-  async updateBBTalk(uid: string, bbtalk: Partial<BBTalk>): Promise<BBTalk> {
+  async updateBBTalk(uid: string, bbtalk: Partial<BBTalk>, expectedUpdatedAt?: string): Promise<BBTalk> {
     const data = await apiClient.patch<any>(
       `/api/v1/bbtalk/${uid}/`,
-      transformBBTalkToBackend(bbtalk)
+      transformBBTalkToBackend(bbtalk),
+      expectedUpdatedAt ? { 'If-Match': expectedUpdatedAt } : undefined
     );
     return transformBBTalk(data);
+  },
+
+  async submissionStatus(key: string): Promise<BBTalk> {
+    return transformBBTalk(await apiClient.get<any>('/api/v1/bbtalk/submission-status/', { key }));
   },
 
   async deleteBBTalk(uid: string): Promise<void> {

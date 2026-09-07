@@ -1,4 +1,8 @@
-import { getAccessToken, refreshAccessToken, logout } from '../auth';
+import { getAccessToken, getCurrentUser, refreshAccessToken, logout } from '../auth';
+
+export class ApiError extends Error {
+  constructor(message: string, public status: number, public code?: string, public current?: unknown) { super(message); }
+}
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
@@ -15,6 +19,10 @@ class ApiClient {
     responseType: 'json' | 'blob' = 'json'
   ): Promise<T> {
     const token = getAccessToken();
+    const userId = getCurrentUser()?.id;
+    const checkIdentity = () => {
+      if (getCurrentUser()?.id !== userId) throw new Error('账号已切换，此请求的结果不再用于当前会话');
+    };
     
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -30,6 +38,7 @@ class ApiClient {
       ...options,
       headers,
     });
+    checkIdentity();
 
     // 处理 401 未认证：尝试刷新 token 或跳转登录
     if (response.status === 401) {
@@ -43,6 +52,7 @@ class ApiClient {
       // 尝试刷新 token 并重试请求
       try {
         const success = await refreshAccessToken();
+        checkIdentity();
         
         if (success) {
           const newToken = getAccessToken();
@@ -76,9 +86,11 @@ class ApiClient {
       }
     }
 
+    checkIdentity();
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || errorData.message || `请求失败: ${response.status}`);
+      checkIdentity();
+      throw new ApiError(errorData.error || errorData.message || `请求失败: ${response.status}`, response.status, errorData.code, errorData.current);
     }
 
     // 204 No Content 或没有响应体时不解析 JSON
@@ -86,7 +98,9 @@ class ApiClient {
       return undefined as T;
     }
 
-    return responseType === 'blob' ? response.blob() as Promise<T> : response.json();
+    const result = responseType === 'blob' ? await response.blob() : await response.json();
+    checkIdentity();
+    return result as T;
   }
 
   async get<T>(endpoint: string, params?: Record<string, any>): Promise<T> {
@@ -104,16 +118,18 @@ class ApiClient {
     return this.request<T>(url, { method: 'GET' });
   }
 
-  async post<T>(endpoint: string, data?: any): Promise<T> {
+  async post<T>(endpoint: string, data?: any, headers?: Record<string, string>): Promise<T> {
     return this.request<T>(endpoint, {
       method: 'POST',
+      headers,
       body: data ? JSON.stringify(data) : undefined,
     });
   }
 
-  async patch<T>(endpoint: string, data?: any): Promise<T> {
+  async patch<T>(endpoint: string, data?: any, headers?: Record<string, string>): Promise<T> {
     return this.request<T>(endpoint, {
       method: 'PATCH',
+      headers,
       body: data ? JSON.stringify(data) : undefined,
     });
   }

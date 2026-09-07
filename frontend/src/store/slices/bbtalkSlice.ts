@@ -125,6 +125,7 @@ export const createBBTalkAsync = createAsyncThunk(
   'bbtalk/createBBTalk',
   async (data: {
     content: string
+    submissionKey?: string
     tags?: string[]
     attachments?: Attachment[]
     visibility?: 'public' | 'private' | 'friends'
@@ -141,12 +142,12 @@ export const createBBTalkAsync = createAsyncThunk(
 
 export const updateBBTalkAsync = createAsyncThunk(
   'bbtalk/updateBBTalk',
-  async ({ id, data }: { id: string; data: Partial<BBTalk> }, { rejectWithValue }) => {
+  async ({ id, data, expectedUpdatedAt }: { id: string; data: Partial<BBTalk>; expectedUpdatedAt?: string }, { rejectWithValue }) => {
     try {
-      const bbtalk = await bbtalkApi.updateBBTalk(id, data)
+      const bbtalk = await bbtalkApi.updateBBTalk(id, data, expectedUpdatedAt)
       return bbtalk
     } catch (error: any) {
-      return rejectWithValue(error.message || '更新BBTalk失败')
+      return rejectWithValue({ message: error.message || '更新BBTalk失败', code: error.code, current: error.current })
     }
   }
 )
@@ -225,7 +226,7 @@ const bbtalkSlice = createSlice({
       })
       // createBBTalkAsync
       .addCase(createBBTalkAsync.fulfilled, (state, action) => {
-        state.bbtalks.unshift(action.payload)
+        if (!state.bbtalks.some(item => item.id === action.payload.id)) state.bbtalks.unshift(action.payload)
       })
       .addCase(createBBTalkAsync.rejected, (state, action) => {
         state.error = action.payload as string
@@ -238,7 +239,7 @@ const bbtalkSlice = createSlice({
         }
       })
       .addCase(updateBBTalkAsync.rejected, (state, action) => {
-        state.error = action.payload as string
+        state.error = (action.payload as { message?: string } | undefined)?.message ?? '更新失败'
       })
       // deleteBBTalkAsync
       .addCase(deleteBBTalkAsync.fulfilled, (state, action) => {

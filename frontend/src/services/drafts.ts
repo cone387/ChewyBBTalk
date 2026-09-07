@@ -1,6 +1,7 @@
 import { openDB, type DBSchema } from 'idb'
 import type { Attachment } from '../types'
 import type { UploadItem } from '../hooks/useAttachmentUploads'
+import type { SubmissionIntent } from './submissions'
 
 export interface DraftData {
   content: string
@@ -22,6 +23,7 @@ export interface DraftRecord {
 
 interface DraftDatabase extends DBSchema {
   drafts: { key: string; value: DraftRecord }
+  intents: { key: string; value: SubmissionIntent }
 }
 
 export class DraftConflictError extends Error {
@@ -35,19 +37,22 @@ export function draftKey(server: string, userId: number, recordId?: string | num
   return JSON.stringify([url.origin, url.pathname.replace(/\/+$/, ''), userId, recordId == null ? 'new' : `edit:${recordId}`])
 }
 
-function database() {
-  return openDB<DraftDatabase>('ChewyBBTalkDrafts', 1, {
-    upgrade(db) { db.createObjectStore('drafts') },
+export function openDraftDatabase() {
+  return openDB<DraftDatabase>('ChewyBBTalkDrafts', 2, {
+    upgrade(db, oldVersion) {
+      if (oldVersion < 1) db.createObjectStore('drafts')
+      if (oldVersion < 2) db.createObjectStore('intents')
+    },
   })
 }
 
 export async function readDraft(key: string): Promise<DraftRecord | undefined> {
-  const db = await database()
+  const db = await openDraftDatabase()
   try { return await db.get('drafts', key) } finally { db.close() }
 }
 
 export async function writeDraft(key: string, data: DraftData | null, expectedRevision: string | null): Promise<DraftRecord> {
-  const db = await database()
+  const db = await openDraftDatabase()
   try {
     const tx = db.transaction('drafts', 'readwrite')
     // Requests and transaction completion can reject separately on quota errors.

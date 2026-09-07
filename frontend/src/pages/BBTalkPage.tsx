@@ -364,6 +364,12 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
     return () => window.clearTimeout(timer)
   }, [buildFilterParams, dispatch, isInitialLoad])
 
+  useEffect(() => {
+    const resolved = () => { dispatch(loadBBTalks(buildFilterParams())) }
+    window.addEventListener('bbtalk-submission-resolved', resolved)
+    return () => window.removeEventListener('bbtalk-submission-resolved', resolved)
+  }, [buildFilterParams, dispatch])
+
   // 点击外部关闭菜单
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -418,6 +424,8 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
   // 处理发布（包括新建和编辑）
   const handlePublish = async (data: {
     content: string
+    submissionKey?: string
+    expectedUpdatedAt?: string
     tags: string[]
     attachments: Attachment[]
     visibility: 'public' | 'private' | 'friends'
@@ -444,26 +452,16 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
           isDeleted: false
         }))
         
-        // 比较附件文件是否有变化（不可变方式）
-        const originalAttachmentIds = [...(target.attachments?.map(a => a.uid) || [])].sort()
-        const currentAttachmentIds = [...data.attachments.map(a => a.uid)].sort()
-        const attachmentsChanged = JSON.stringify(originalAttachmentIds) !== JSON.stringify(currentAttachmentIds)
-        
-        // 构建更新数据
-        const updateData: any = {
-          content: data.content,
-          tags: tagObjects,
-          visibility: data.visibility
+        // Explicitly save the editor attachment selection after conflict review.
+        const updateData = {
+          content: data.content, tags: tagObjects,
+          visibility: data.visibility, attachments: data.attachments,
         }
-        
-        // 只有当附件有变化时才传递 attachments 字段
-        if (attachmentsChanged) {
-          updateData.attachments = data.attachments
-        }
-        
+
         await dispatch(updateBBTalkAsync({
           id: target.id,
-          data: updateData
+          data: updateData,
+          expectedUpdatedAt: data.expectedUpdatedAt ?? target.updatedAt
         })).unwrap()
         
         // 退出编辑模式
