@@ -45,10 +45,12 @@
 
 Web 草稿执行记录：[web-persistent-drafts](openspec/changes/web-persistent-drafts/tasks.md)。使用 IndexedDB 保存正文、标签、可见性、位置和附件，刷新/导航恢复，按服务器、账号和记录隔离；提供清除、失败提示和并发保护。新建和编辑同时打开时，提交目标分别绑定。
 
+备份恢复执行记录：[backup-recovery-management](openspec/changes/backup-recovery-management/tasks.md)。服务器备份列表、状态、创建与下载，完整 ZIP 清单校验、失败保护及真实文件恢复演练；操作见 [备份恢复说明](docs/backup-recovery.md)。
+
 1. 真机走查暂缓，由用户后续测试反馈；浏览器模拟与自动回归继续进行。
 2. 阅读/详情与编辑入口调整暂缓；附件状态和发布失败反馈已纳入第三轮。
 3. 扩展已有 Web E2E 到附件、权限、网络失败和 WebKit/Firefox；扩大原生关键操作测试。
-4. 备份列表、状态与下载入口，完整恢复演练及失败反馈。
+4. 备份管理与恢复闭环已纳入上述迭代，后续依据实际数据规模优化耗时与存储占用。
 5. 对齐 README、OpenSpec 和历史任务实际状态，保留已暂停事项的原因。
 
 验收：常用操作跨端一致；从备份可恢复正文、标签、评论和附件；关键路径能自动回归。

@@ -55,6 +55,7 @@ attachments.md
 .temp_tests/
 test_*.py
 !scripts/tests/test_*.py
+!backend/chewy_space/bbtalk/test_*.py
 simple_test.py
 test-*.txt
 test.txt

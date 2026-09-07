@@ -865,10 +865,12 @@ def import_data(request):
     try:
         importer = DataImporter(request.user, options)
         stats = importer.import_from_file(file_obj)
+        partial = bool(stats['errors'] or stats['attachments_skipped'] or stats['comments_skipped'])
         
         return Response({
             'success': True,
-            'message': '数据导入成功',
+            'partial': partial,
+            'message': '导入部分完成，请核对跳过项与错误' if partial else '数据导入成功',
             'stats': stats
         })
     

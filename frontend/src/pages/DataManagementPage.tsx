@@ -4,7 +4,8 @@ import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
 import Checkbox from '../components/ui/Checkbox';
 import Toast, { type ToastType } from '../components/ui/Toast';
-import { dataApi, type ImportOptions, type ValidationResult } from '../services/api/dataApi';
+import BackupPanel from '../components/BackupPanel';
+import { dataApi, type ImportOptions, type ImportStats, type ValidationResult } from '../services/api/dataApi';
 
 export default function DataManagementPage() {
   const navigate = useNavigate();
@@ -20,7 +21,9 @@ export default function DataManagementPage() {
     import_storage_settings: false,
   });
   const [isImporting, setIsImporting] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [importReport, setImportReport] = useState<{ partial: boolean; stats: ImportStats } | null>(null);
   
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
 
@@ -48,7 +51,7 @@ export default function DataManagementPage() {
       showToast('数据导出成功', 'success');
     } catch (error) {
       console.error('导出失败:', error);
-      showToast('导出失败，请重试', 'error');
+      showToast(error instanceof Error ? error.message : '导出失败，请重试', 'error');
     } finally {
       setIsExporting(false);
     }
@@ -59,6 +62,9 @@ export default function DataManagementPage() {
     if (!file) return;
     
     setImportFile(file);
+    setValidationResult(null);
+    setIsValidating(true);
+    e.target.value = '';
     
     try {
       const result = await dataApi.validateImport(file);
@@ -71,8 +77,8 @@ export default function DataManagementPage() {
       }
     } catch (error) {
       console.error('文件验证失败:', error);
-      showToast('文件验证失败', 'error');
-    }
+      showToast(error instanceof Error ? error.message : '文件验证失败', 'error');
+    } finally { setIsValidating(false); }
   };
 
   const handleImport = async () => {
@@ -82,19 +88,13 @@ export default function DataManagementPage() {
     try {
       const result = await dataApi.importData(importFile, importOptions);
       
-      showToast(
-        `导入成功！创建 ${result.stats.bbtalks_created} 条内容，${result.stats.tags_created} 个标签`,
-        'success'
-      );
+      const partial = Boolean(result.partial || result.stats.errors.length || result.stats.attachments_skipped || result.stats.comments_skipped);
+      setImportReport({ partial, stats: result.stats });
       
       setShowImportModal(false);
       setImportFile(null);
       setValidationResult(null);
       
-      // 刷新页面以显示新导入的数据
-      setTimeout(() => {
-        navigate('/');
-      }, 1000);
     } catch (error: any) {
       console.error('导入失败:', error);
       showToast(error.message || '导入失败，请重试', 'error');
@@ -120,6 +120,15 @@ export default function DataManagementPage() {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-8 space-y-6">
+        <BackupPanel />
+        {importReport && <section aria-label="导入结果" className="rounded-2xl border border-gray-200 bg-white p-6">
+          <h2 className="text-lg font-semibold">{importReport.partial ? '导入部分完成，请核对' : '数据导入成功'}</h2>
+          <p className="mt-2 text-sm leading-relaxed text-gray-700">新增 {importReport.stats.bbtalks_created} 条内容、{importReport.stats.tags_created} 个标签、{importReport.stats.comments_created ?? 0} 条评论、{importReport.stats.attachments_created ?? 0} 个附件。</p>
+          <p className="mt-2 text-sm text-gray-600">跳过 {importReport.stats.bbtalks_skipped} 条内容、{importReport.stats.tags_skipped} 个标签、{importReport.stats.comments_skipped ?? 0} 条评论、{importReport.stats.attachments_skipped ?? 0} 个附件。</p>
+          {importReport.partial && <p role="alert" className="mt-3 text-sm text-amber-900">部分数据未恢复，请检查原备份和以下错误后再处理，避免重复导入。</p>}
+          <ul className="mt-2 space-y-1 text-sm text-red-700">{importReport.stats.errors.map((message, index) => <li key={index} className="break-words">{message}</li>)}</ul>
+          <Button className="mt-4 min-h-[44px]" onClick={() => navigate('/')}>查看记录</Button>
+        </section>}
         {/* 数据导出 */}
         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
           <div className="flex items-start gap-4 mb-6">
@@ -137,7 +146,7 @@ export default function DataManagementPage() {
               <div className="space-y-3 mb-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">导出格式</label>
-                  <div className="flex gap-3">
+                  <div className="flex flex-col gap-3 sm:flex-row">
                     <button
                       onClick={() => setExportFormat('json')}
                       className={`flex-1 px-4 py-2 rounded-lg border-2 transition-all ${
@@ -204,12 +213,14 @@ export default function DataManagementPage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                     </svg>
                     <p className="text-sm text-gray-600">
-                      {importFile ? importFile.name : '点击选择文件或拖拽到此处'}
+                      {isValidating ? '正在校验文件…' : importFile ? importFile.name : '点击选择文件或拖拽到此处'}
                     </p>
                     <p className="text-xs text-gray-400 mt-1">支持 JSON 和 ZIP 格式</p>
                   </div>
                   <input
                     type="file"
+                    aria-label="选择导入文件"
+                    disabled={isValidating || isImporting}
                     accept=".json,.zip"
                     onChange={handleFileSelect}
                     className="hidden"
@@ -243,7 +254,7 @@ export default function DataManagementPage() {
       {showImportModal && validationResult && (
         <Modal
           visible={showImportModal}
-          onClose={() => setShowImportModal(false)}
+          onClose={() => { if (!isImporting) setShowImportModal(false); }}
           title="确认导入"
         >
           <div className="space-y-4">
@@ -270,6 +281,8 @@ export default function DataManagementPage() {
                 <span className="text-gray-600">存储配置：</span>
                 <span className="font-medium">{validationResult.preview.storage_settings_count} 个</span>
               </div>
+              <div className="flex justify-between"><span className="text-gray-600">评论数量：</span><span>{validationResult.preview.comments_count ?? 0} 条</span></div>
+              <div className="flex justify-between"><span className="text-gray-600">附件数量：</span><span>{validationResult.preview.attachments_count ?? 0} 个</span></div>
             </div>
 
             <div className="flex flex-col gap-3 [&>label]:min-h-11">

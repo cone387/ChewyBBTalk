@@ -11,7 +11,8 @@ class ApiClient {
 
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    responseType: 'json' | 'blob' = 'json'
   ): Promise<T> {
     const token = getAccessToken();
     
@@ -85,7 +86,7 @@ class ApiClient {
       return undefined as T;
     }
 
-    return response.json();
+    return responseType === 'blob' ? response.blob() as Promise<T> : response.json();
   }
 
   async get<T>(endpoint: string, params?: Record<string, any>): Promise<T> {
@@ -119,6 +120,10 @@ class ApiClient {
 
   async delete<T>(endpoint: string): Promise<T> {
     return this.request<T>(endpoint, { method: 'DELETE' });
+  }
+
+  async download(endpoint: string): Promise<Blob> {
+    return this.request<Blob>(endpoint, { method: 'GET' }, 'blob');
   }
 }
 
