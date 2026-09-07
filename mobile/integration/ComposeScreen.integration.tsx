@@ -50,7 +50,9 @@ test('real editor restores a pending submission after remount and retries its or
   const attachment = { uid: 'file-1', type: 'file', url: 'https://integration.example/file', filename: 'notes.txt' };
   await AsyncStorage.setItem(`compose_draft:${getSession().scope}`, JSON.stringify({ version: 1, content: '草稿正文', visibility: 'public', attachments: [attachment], location: { latitude: 1, longitude: 2 } }));
   const first = mount();
-  await first.findByDisplayValue('草稿正文');
+  // Flush initial AsyncStorage effects outside the query timeout (cold native transforms are slow in CI).
+  await act(async () => {});
+  expect(first.getByDisplayValue('草稿正文')).toBeTruthy();
   const input = first.getByPlaceholderText('你要BB什么？支持 Markdown，输入 # 添加标签');
   fireEvent.changeText(input, '#工作 原始内容');
   await act(async () => {});
