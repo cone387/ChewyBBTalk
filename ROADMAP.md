@@ -37,6 +37,8 @@
 
 ## 下一轮 P1：体验与数据保障
 
+部署稳定性执行记录：[deploy-built-image](openspec/changes/deploy-built-image/tasks.md)。自动部署使用 CI 镜像 digest，增加拉取预检、串行锁、启动检查和失败现场保留；操作见 [镜像部署说明](docs/image-deployment.md)。
+
 第四轮执行记录：[image-retry-content-layout](openspec/changes/image-retry-content-layout/tasks.md)。图片加载失败/损坏缓存手动恢复，及长链接、代码块、宽表格的小屏布局补强。
 
 第三轮执行记录：[attachment-recovery-ui-polish](openspec/changes/attachment-recovery-ui-polish/tasks.md)。已完成附件独立重试、发布/更新/防窥编辑失败保留以及 Web 小屏与横屏走查；验收边界见变更记录。阅读与编辑入口调整按用户要求暂缓。

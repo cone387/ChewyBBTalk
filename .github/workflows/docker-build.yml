@@ -12,8 +12,23 @@ env:
   IMAGE_NAME: cone387/chewy-bbtalk
 
 jobs:
-  build:
+  deployment-tests:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+    - uses: actions/checkout@v4
+    - name: Validate deployment scripts
+      run: |
+        bash -n scripts/deploy-image.sh
+        bash -n deploy.sh
+        python3 -m unittest discover -s scripts/tests -v
+
+  build:
+    needs: deployment-tests
+    runs-on: ubuntu-latest
+    outputs:
+      digest: ${{ steps.image.outputs.digest }}
     permissions:
       contents: read
       packages: write
@@ -46,6 +61,7 @@ jobs:
           type=raw,value=latest,enable={{is_default_branch}}
 
     - name: Build and push
+      id: image
       uses: docker/build-push-action@v5
       with:
         context: .
@@ -62,6 +78,13 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+    concurrency:
+      group: production-deployment
+      cancel-in-progress: false
+    env:
+      DEPLOY_COMMIT: ${{ github.sha }}
+      DEPLOY_IMAGE: ghcr.io/cone387/chewy-bbtalk@${{ needs.build.outputs.digest }}
+      DEPLOY_DIR: ${{ secrets.DEPLOY_PATH || '/home/bzl/projects/ChewyBBTalk' }}
     
     steps:
     - name: Deploy to server via SSH
@@ -72,7 +95,21 @@ jobs:
         key: ${{ secrets.DEPLOY_KEY }}
         port: ${{ secrets.DEPLOY_PORT || 22 }}
         command_timeout: 30m
+        envs: DEPLOY_COMMIT,DEPLOY_IMAGE,DEPLOY_DIR
         script: |
-          cd ${{ secrets.DEPLOY_PATH || '/home/bzl/projects/ChewyBBTalk' }}
-          git pull
-          ./deploy.sh update cn
+          set -eu
+          cd "$DEPLOY_DIR"
+          latest=$(git ls-remote origin refs/heads/master | cut -f1)
+          if [ -z "$latest" ]; then
+            echo '无法确认远端版本，停止部署'
+            exit 1
+          fi
+          if [ "$latest" != "$DEPLOY_COMMIT" ]; then
+            echo '跳过已被更新提交替代的构建'
+            exit 0
+          fi
+          git fetch origin "$DEPLOY_COMMIT"
+          deploy_script=$(mktemp)
+          trap 'rm -f "$deploy_script"' EXIT
+          git show "$DEPLOY_COMMIT:scripts/deploy-image.sh" > "$deploy_script"
+          bash "$deploy_script" "$DEPLOY_IMAGE"

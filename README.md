@@ -23,7 +23,7 @@
 一条命令即可启动，无需任何配置文件：
 
 ```bash
-docker run -d --name chewybbtalk -p 4010:4010 -v bbtalk_data:/app/data ghcr.io/cone387/chewybbtalk:latest
+docker run -d --name chewybbtalk -p 4010:4010 -v bbtalk_data:/app/data ghcr.io/cone387/chewy-bbtalk:latest
 ```
 
 启动后访问 http://localhost:4010 ，默认管理员账号 `admin` / `admin123`。
@@ -35,7 +35,7 @@ docker run -d --name chewybbtalk -p 4010:4010 \
   -v bbtalk_data:/app/data \
   -e ADMIN_PASSWORD=your-password \
   -e SECRET_KEY=your-secret-key \
-  ghcr.io/cone387/chewybbtalk:latest
+  ghcr.io/cone387/chewy-bbtalk:latest
 ```
 
 ### 方式二：Docker Compose 部署
@@ -102,7 +102,7 @@ VITE_SITE_COPYRIGHT=© 2024 ChewyBBTalk
 
 项目提供多种 Docker 镜像，支持 `linux/amd64` 和 `linux/arm64` 架构：
 
-- **单容器镜像**（推荐）: `ghcr.io/cone387/chewybbtalk:latest`
+- **单容器镜像**（推荐）: `ghcr.io/cone387/chewy-bbtalk:latest`
   - 包含前端、后端、Nginx，开箱即用
 - **后端镜像**: `ghcr.io/cone387/chewybbtalk-backend:latest`
 - **前端镜像**: `ghcr.io/cone387/chewybbtalk-frontend:latest`
@@ -318,3 +318,5 @@ MIT License - 查看 [LICENSE](LICENSE) 文件了解详情
 - [React](https://reactjs.org/) - 前端框架
 - [chewy-attachment](https://github.com/cone387/ChewyAttachment) - 附件管理
 - 所有贡献者和开源项目的支持！
+
+自动部署使用 CI 构建的固定镜像 digest，不在服务器重复构建。拉取、启动检查与失败恢复方式见 [镜像部署说明](docs/image-deployment.md)。

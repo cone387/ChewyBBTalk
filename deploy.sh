@@ -233,31 +233,7 @@ clean() {
 
 # 从远程拉取镜像并更新
 pull() {
-    log_info "从远程拉取最新镜像..."
-    docker pull "$REMOTE_IMAGE"
-    
-    check_env
-    
-    # 停止并删除旧容器（兼容旧名称）
-    log_info "停止并删除旧容器..."
-    docker stop chewy-bbtalk chewybbtalk 2>/dev/null || true
-    docker rm chewy-bbtalk chewybbtalk 2>/dev/null || true
-    
-    # 使用远程镜像启动新容器
-    log_info "启动新容器..."
-    docker run -d \
-        --name "$CONTAINER_NAME" \
-        --restart unless-stopped \
-        -p "$PORT:$PORT" \
-        $ENV_FILE_OPT \
-        -v "$(pwd)/data:/app/data" \
-        "$REMOTE_IMAGE"
-    
-    # 清理旧镜像
-    docker image prune -f
-    
-    log_info "更新完成！"
-    show_access_info
+    bash "$(dirname "${BASH_SOURCE[0]}")/scripts/deploy-image.sh" "${1:-$REMOTE_IMAGE}"
 }
 
 # 显示访问信息
@@ -301,9 +277,9 @@ ChewyBBTalk 单容器部署脚本
   start         启动容器 (如果镜像不存在会自动构建)
   stop          停止容器
   restart       重启容器
-  update [cn]   快速更新部署，保留缓存 (推荐用于 CI/CD)
+  update [cn]   快速更新部署，保留缓存 (手动源码构建)
   rebuild [cn]  完全重新构建镜像并启动容器 (删除旧镜像)
-  pull          从 GitHub Container Registry 拉取最新镜像并更新
+  pull [镜像]   拉取镜像、切换容器并检查服务 (自动部署使用 digest)
   logs          查看容器日志
   status        查看容器状态
   shell         进入容器 shell
@@ -361,7 +337,7 @@ main() {
             rebuild
             ;;
         pull)
-            pull
+            pull "${2:-$REMOTE_IMAGE}"
             ;;
         logs)
             logs

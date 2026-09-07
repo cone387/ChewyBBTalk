@@ -79,3 +79,4 @@ videos/
 .kiro/skills/
 .qoder/skills/
 skills-lock.json
+.deploy-image.lock
