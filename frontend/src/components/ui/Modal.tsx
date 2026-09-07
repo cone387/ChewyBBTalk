@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom'
 import React, { useEffect, useId, useRef } from 'react'
 
 const openModals: HTMLElement[] = []
@@ -78,9 +79,9 @@ const Modal: React.FC<ModalProps> = ({
 
   if (!visible) return null
   
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
       onClick={onClose}
     >
       {/* 背景遮罩 */}
@@ -128,7 +129,7 @@ const Modal: React.FC<ModalProps> = ({
           </div>
         )}
       </div>
-    </div>
+    </div>, document.body
   )
 }
 

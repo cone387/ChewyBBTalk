@@ -4,7 +4,7 @@ export function useUndoableDelete<T>(options: {
   remove: (item: T) => void
   restore: (item: T) => void
   commit: (item: T) => Promise<void>
-  onError: (error: unknown) => void
+  onError: (error: unknown, item: T) => void
   duration?: number
 }) {
   const callbacks = useRef(options)
@@ -23,7 +23,7 @@ export function useUndoableDelete<T>(options: {
     const handlers = callbacks.current
     void handlers.commit(item).catch(error => {
       handlers.restore(item)
-      handlers.onError(error)
+      handlers.onError(error, item)
     })
   }, [])
 

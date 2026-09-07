@@ -140,7 +140,7 @@ jobs:
         run: uv sync --frozen
 
       - name: Install Chromium
-        run: npx playwright install --with-deps --no-shell chromium
+        run: npx playwright install --with-deps --no-shell chromium firefox webkit
 
       - name: Web browser regression
         run: npm run test:e2e

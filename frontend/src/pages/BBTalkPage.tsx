@@ -1,3 +1,4 @@
+import { useActionFeedback } from '../hooks/useActionFeedback'
 import { useUndoableDelete } from '../hooks/useUndoableDelete'
 import { useCallback, useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -34,46 +35,59 @@ import { bbtalkApi } from '../services/api'
 
 // 内联评论按钮组件
 function InlineCommentButton({ bbtalkId, commentCount: initialCount, inputVisible, onToggleInput }: { bbtalkId: string; commentCount: number; inputVisible: boolean; onToggleInput: () => void }) {
+  const feedback = useActionFeedback()
   const [comments, setComments] = useState<Comment[]>([])
   const [loaded, setLoaded] = useState(false)
   const [loading, setLoading] = useState(false)
   const [expanded, setExpanded] = useState(true)
   const [newComment, setNewComment] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const sendingRef = useRef(false)
+  const commentValueRef = useRef(newComment)
+  commentValueRef.current = newComment
 
-  // 有评论时自动加载
+  const loadComments = async () => {
+    setLoading(true)
+    try { setComments(await bbtalkApi.getComments(bbtalkId)); setLoaded(true) }
+    finally { setLoading(false) }
+  }
   useEffect(() => {
     if (initialCount > 0 && !loaded && !loading) {
-      setLoading(true)
-      bbtalkApi.getComments(bbtalkId).then(data => {
-        setComments(data)
-        setLoaded(true)
-      }).catch(() => {}).finally(() => setLoading(false))
+      void loadComments().catch(() => feedback.report('评论加载失败', loadComments))
     }
   }, [bbtalkId, initialCount])
 
-  const handleSubmit = async () => {
+  const sendComment = async () => {
     const text = newComment.trim()
-    if (!text || submitting) return
+    if (!text || sendingRef.current) return
+    sendingRef.current = true
     setSubmitting(true)
     try {
       const comment = await bbtalkApi.createComment(bbtalkId, text)
       setComments(prev => [...prev, comment])
-      setNewComment('')
-      onToggleInput()
-      setLoaded(true)
-      setExpanded(true)
-    } catch (e: any) {
-      alert('发送失败: ' + (e.message || '请稍后重试'))
-    } finally { setSubmitting(false) }
+      if (commentValueRef.current.trim() === text) {
+        setNewComment('')
+        onToggleInput()
+      }
+      feedback.dismiss()
+      setLoaded(true); setExpanded(true)
+    } finally { sendingRef.current = false; setSubmitting(false) }
   }
+  const handleSubmit = () => {
+    void sendComment().catch((error: Error) => feedback.report('发送失败，评论内容已保留：' + error.message, sendComment))
+  }
+  const handleDelete = (comment: Comment) => {
+    feedback.confirm({
+      title: '删除评论',
+      message: `确定删除这条评论？
 
-  const handleDelete = async (comment: Comment) => {
-    if (!confirm('确定要删除这条评论吗？')) return
-    try {
-      await bbtalkApi.deleteComment(bbtalkId, comment.uid)
-      setComments(prev => prev.filter(c => c.uid !== comment.uid))
-    } catch (e: any) { alert('删除失败: ' + e.message) }
+${comment.content}`,
+      confirmLabel: '确认删除',
+      action: async () => {
+        await bbtalkApi.deleteComment(bbtalkId, comment.uid)
+        setComments(prev => prev.filter(c => c.uid !== comment.uid))
+      },
+    })
   }
 
   const formatTime = (dateStr: string) => {
@@ -91,6 +105,7 @@ function InlineCommentButton({ bbtalkId, commentCount: initialCount, inputVisibl
 
   return (
     <div>
+      {feedback.feedback}
       {/* 评论列表 - 浅灰背景 */}
       {expanded && comments.length > 0 && (
         <div className="mt-3 bg-gray-50 rounded-xl px-4 py-3 space-y-2.5">
@@ -103,7 +118,7 @@ function InlineCommentButton({ bbtalkId, commentCount: initialCount, inputVisibl
               </p>
               <div className="flex items-center gap-2 shrink-0">
                 <span className="text-xs text-gray-400">{formatTime(comment.createdAt)}</span>
-                <button onClick={() => handleDelete(comment)} className="text-gray-300 hover:text-red-500 opacity-0 group-hover/comment:opacity-100 transition-opacity text-xs">✕</button>
+                <button aria-label={`删除评论：${comment.content}`} onClick={() => handleDelete(comment)} className="min-h-[44px] min-w-[44px] rounded text-gray-600 hover:text-red-700 focus-visible:ring-2 focus-visible:ring-blue-500 text-xs">✕</button>
               </div>
             </div>
           ))}
@@ -132,6 +147,7 @@ function InlineCommentButton({ bbtalkId, commentCount: initialCount, inputVisibl
               if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit() }
               if (e.key === 'Escape') { onToggleInput(); setNewComment('') }
             }}
+            aria-label="评论内容"
             placeholder="写一条评论... (Enter 发送, Esc 取消)"
             className="flex-1 px-4 py-2 text-sm border border-gray-200 rounded-full focus:outline-none focus:border-indigo-400 bg-gray-50 placeholder-gray-400"
             disabled={submitting}
@@ -224,6 +240,7 @@ function SortableTagItem({
 }
 
 export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
+  const feedback = useActionFeedback()
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
   const { bbtalks, isLoading, hasMore, totalCount } = useAppSelector((state) => state.bbtalk)
@@ -248,7 +265,10 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
     remove: ({ bbtalk }) => { dispatch(optimisticDelete(bbtalk.id)) },
     restore: (item) => { dispatch(undoDelete(item)) },
     commit: ({ bbtalk }) => bbtalkApi.deleteBBTalk(bbtalk.id),
-    onError: (error) => alert('删除失败: ' + (error instanceof Error ? error.message : '请稍后重试')),
+    onError: (error, item) => feedback.report('删除失败：' + (error instanceof Error ? error.message : '请稍后重试'), async () => {
+      await bbtalkApi.deleteBBTalk(item.bbtalk.id)
+      dispatch(optimisticDelete(item.bbtalk.id))
+    }),
   })
   const lastScrollY = useRef(0)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -587,16 +607,12 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
         newSortOrder = ((prevTag.sortOrder ?? 0) + (nextTag.sortOrder ?? 0)) / 2
       }
       
-      // 乐观更新：先立即更新本地状态，再发送请求到后端
-      // 如果请求失败，Redux 会自动回滚
-      dispatch(updateTagAsync({
-        id: movedTag.id,
-        data: { sortOrder: newSortOrder }
-      })).unwrap().catch((error) => {
-        // 只有失败时才提示用户
-        console.error('更新标签排序失败:', error)
-        alert('标签排序更新失败，请重试')
-        // 失败后重新加载标签列表以恢复正确状态
+      const saveOrder = async () => {
+        await dispatch(updateTagAsync({ id: movedTag.id, data: { sortOrder: newSortOrder } })).unwrap()
+        await dispatch(loadTags()).unwrap()
+      }
+      void saveOrder().catch(() => {
+        feedback.report('标签排序更新失败，请重试', saveOrder)
         dispatch(loadTags())
       })
     }
@@ -935,7 +951,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                                 }, 2000)
                                 setActiveMenu(null)
                               }).catch(() => {
-                                alert('复制失败，请重试')
+                                feedback.report('复制失败，请重试', () => navigator.clipboard.writeText(shareUrl))
                               })
                             }}
                           >
@@ -1333,6 +1349,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
       )}
 
       {/* 删除撤销提示 */}
+      <div className="fixed bottom-20 left-4 right-4 z-40 mx-auto max-w-lg">{feedback.feedback}</div>
       <UndoToast
         key={deletion.pending?.bbtalk.id ?? 'idle'}
         visible={!!deletion.pending}
