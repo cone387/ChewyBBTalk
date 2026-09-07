@@ -54,6 +54,7 @@ attachments.md
 .temp*
 .temp_tests/
 test_*.py
+!scripts/tests/test_*.py
 simple_test.py
 test-*.txt
 test.txt
