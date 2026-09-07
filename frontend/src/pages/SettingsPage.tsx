@@ -86,6 +86,12 @@ export default function SettingsPage() {
           </div>
         </button>
 
+        <button onClick={() => navigate('/settings/status')}
+          className="w-full p-5 bg-white rounded-2xl shadow-lg border border-gray-100 hover:border-gray-300 transition-all text-left">
+          <div className="text-base font-semibold text-gray-900">运行状态</div>
+          <p className="text-sm text-gray-500 mt-1">服务连接、当前存储与最近备份</p>
+        </button>
+
         {/* 用户信息 & 退出 */}
         {currentUser && (
           <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mt-8">

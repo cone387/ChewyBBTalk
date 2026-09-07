@@ -11,6 +11,7 @@ const LoginPage = lazy(() => import('./pages/LoginPage'))
 const PrivacyLockPage = lazy(() => import('./pages/PrivacyLockPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 const PrivacySettingsPage = lazy(() => import('./pages/PrivacySettingsPage'))
+const StatusPage = lazy(() => import('./pages/StatusPage'))
 const StorageSettingsPage = lazy(() => import('./pages/StorageSettingsPage'))
 const S3ConfigListPage = lazy(() => import('./pages/S3ConfigListPage'))
 const DataManagementPage = lazy(() => import('./pages/DataManagementPage'))
@@ -227,6 +228,7 @@ export default function App({ basename = '/' }: AppProps) {
               } 
             />
             
+            <Route path="/settings/status" element={isAuthenticated ? <StatusPage /> : <Navigate to="/login" replace />} />
           </Routes>
           </Suspense>
         </PrivacyModeChecker>
