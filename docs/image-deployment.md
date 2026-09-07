@@ -11,7 +11,7 @@
 5. 旧容器改名为 `chewy-bbtalk-previous`，新容器使用原 `./data:/app/data`、可选 `.env`、4010 端口和 `unless-stopped` 策略启动。
 6. 通过容器内 Python 检查 Nginx 首页 200 及 Django 用户 API 的 200/401 JSON 响应。检查通过才删除旧容器并报告成功。
 
-服务器需要 Bash、Docker 兼容 CLI、`flock`（util-linux），以及访问 GitHub 和 GHCR 的网络。镜像目前允许匿名拉取；若仓库权限改变，应先在服务器配置凭据。拉取失败仍然可能发生，但不会停止旧服务。
+服务器需要 Bash、Docker 兼容 CLI、`flock`（util-linux）、`timeout`（coreutils），以及访问 GitHub 和 GHCR 的网络。镜像目前允许匿名拉取；若仓库权限改变，应先在服务器配置凭据。拉取失败仍然可能发生，但不会停止旧服务。
 
 预构建镜像中的 `VITE_*` 值在构建时确定，服务器 `.env` 仅用于运行时配置。单容器默认同源 API 与根路径部署。需要定制 Web 构建配置时可手动使用源码构建命令，本轮不加入运行时 Vite 配置注入。
 
@@ -35,6 +35,10 @@ bash scripts/deploy-image.sh ghcr.io/cone387/chewy-bbtalk@sha256:<完整64位摘
 - 若尚无旧容器，首次安装失败自然没有可恢复的 previous 容器。
 
 检查默认尝试 60 次、间隔 2 秒，每个 HTTP 请求另有 3 秒超时。可用 `DEPLOY_HEALTH_ATTEMPTS`、`DEPLOY_HEALTH_INTERVAL` 调整较慢服务器的等待；`DEPLOY_PULL_ATTEMPTS`、`DEPLOY_RETRY_DELAY` 调整拉取重试。部署锁文件 `.deploy-image.lock` 保留在目录内，锁在进程退出时释放，不要在部署中删除文件。
+
+每次拉取默认限制 300 秒，可用 `DEPLOY_PULL_TIMEOUT` 调整；每次容器探测限制 10 秒。流水线在远端使用 25 分钟总时限，早于 SSH action 的 30 分钟观察时限结束，并清理其进程组，防止超时后遗留部署继续切换服务。
+
+2026-09-07 实际排查：run `34089794116` 在 GHCR 镜像层传输阶段超时，压缩镜像约 124.5 MiB；SSH action 超时后远端拉取仍存活。已核对并停止该次遗留部署及子进程，确认锁释放、旧服务首页仍为 200。此记录不代表新版已经部署，后续以新流水线和实际容器检查为准。
 
 容器切换有短暂服务中断；健康检查代表 Web 和 Django 能响应，不代表所有业务操作、外部存储或数据库恢复演练通过。
 

@@ -18,6 +18,7 @@ else
 fi
 case "$1" in
   pull)
+    if [[ "$MOCK_MODE" == pull_hang ]]; then /usr/bin/sleep 30; fi
     count=0
     [[ ! -f "$MOCK_COUNT" ]] || count=$(cat "$MOCK_COUNT")
     count=$((count+1)); echo "$count" > "$MOCK_COUNT"
@@ -63,7 +64,7 @@ class DeployImageTests(unittest.TestCase):
             env = dict(os.environ, PATH=str(binary) + os.pathsep + os.environ["PATH"],
                        MOCK_LOG=log.as_posix(), MOCK_COUNT=(root / "count").as_posix(),
                        MOCK_MODE=mode, DEPLOY_PULL_ATTEMPTS="3", DEPLOY_HEALTH_ATTEMPTS="2",
-                       DEPLOY_RETRY_DELAY="0", DEPLOY_HEALTH_INTERVAL="0")
+                       DEPLOY_RETRY_DELAY="0", DEPLOY_HEALTH_INTERVAL="0", DEPLOY_PULL_TIMEOUT="1")
             # A copied LF script also makes the test independent of Windows autocrlf.
             script = root / "deploy-image.sh"
             script.write_text((ROOT / "scripts/deploy-image.sh").read_text(encoding="utf-8"), encoding="utf-8", newline="\n")
@@ -104,6 +105,12 @@ class DeployImageTests(unittest.TestCase):
         result, calls = self.run_deploy("retry")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(calls.count("pull " + IMAGE), 2)
+
+    def test_hung_pull_is_terminated_without_switching_containers(self):
+        result, calls = self.run_deploy("pull_hang")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(calls.count("pull " + IMAGE), 3)
+        self.assertFalse(any(call.startswith(("stop ", "rename ", "rm ", "run ")) for call in calls))
 
     def test_start_and_health_failure_preserve_previous(self):
         for mode in ("run_fail", "health_fail"):

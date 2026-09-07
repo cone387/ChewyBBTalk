@@ -99,7 +99,7 @@ jobs:
         script: |
           set -eu
           cd "$DEPLOY_DIR"
-          latest=$(git ls-remote origin refs/heads/master | cut -f1)
+          latest=$(timeout --kill-after=5 30 git ls-remote origin refs/heads/master | cut -f1)
           if [ -z "$latest" ]; then
             echo '无法确认远端版本，停止部署'
             exit 1
@@ -108,8 +108,10 @@ jobs:
             echo '跳过已被更新提交替代的构建'
             exit 0
           fi
-          git fetch origin "$DEPLOY_COMMIT"
+          timeout --kill-after=5 60 git fetch origin "$DEPLOY_COMMIT"
           deploy_script=$(mktemp)
           trap 'rm -f "$deploy_script"' EXIT
           git show "$DEPLOY_COMMIT:scripts/deploy-image.sh" > "$deploy_script"
-          bash "$deploy_script" "$DEPLOY_IMAGE"
+          # End the remote process group before the SSH action's 30 minute
+          # observation deadline, including children left by a stalled pull.
+          timeout --kill-after=15 1500 bash "$deploy_script" "$DEPLOY_IMAGE"

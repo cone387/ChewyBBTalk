@@ -6,6 +6,7 @@ image="${1:-ghcr.io/cone387/chewy-bbtalk:latest}"
 container=chewy-bbtalk
 previous=chewy-bbtalk-previous
 pull_attempts="${DEPLOY_PULL_ATTEMPTS:-3}"
+pull_timeout="${DEPLOY_PULL_TIMEOUT:-300}"
 health_attempts="${DEPLOY_HEALTH_ATTEMPTS:-60}"
 retry_delay="${DEPLOY_RETRY_DELAY:-5}"
 health_interval="${DEPLOY_HEALTH_INTERVAL:-2}"
@@ -14,7 +15,9 @@ fail() { printf '[ERROR] %s\n' "$*" >&2; exit 1; }
 [[ "$image" =~ ^ghcr\.io/cone387/chewy-bbtalk(:[A-Za-z0-9_.-]+|@sha256:[a-f0-9]{64})$ ]] || fail '无效的镜像引用'
 [[ "$pull_attempts" =~ ^[1-9][0-9]*$ && "$health_attempts" =~ ^[1-9][0-9]*$ ]] || fail '检查次数必须为正整数'
 [[ "$retry_delay" =~ ^[0-9]+$ && "$health_interval" =~ ^[0-9]+$ ]] || fail '等待时间必须为非负整数'
+[[ "$pull_timeout" =~ ^[1-9][0-9]*$ ]] || fail '镜像拉取超时必须为正整数秒'
 command -v docker >/dev/null || fail '需要 Docker 兼容命令'
+command -v timeout >/dev/null || fail '需要 timeout（coreutils）'
 command -v flock >/dev/null || fail '需要 flock（util-linux）'
 exec 9>.deploy-image.lock
 flock -n 9 || fail '已有部署正在执行'
@@ -40,7 +43,8 @@ mkdir -p data
 printf '[INFO] 拉取镜像 %s\n' "$image"
 pulled=false
 for ((attempt=1; attempt<=pull_attempts; attempt++)); do
-  if docker pull "$image"; then pulled=true; break; fi
+  printf '[INFO] 拉取尝试 %s/%s，超时 %s 秒\n' "$attempt" "$pull_attempts" "$pull_timeout"
+  if timeout --kill-after=5 "$pull_timeout" docker pull "$image"; then pulled=true; break; fi
   if ((attempt < pull_attempts)); then sleep "$retry_delay"; fi
 done
 [[ "$pulled" == true ]] || fail '镜像拉取失败，旧容器未变更'
@@ -71,7 +75,7 @@ with response:
 '
 healthy=false
 for ((attempt=1; attempt<=health_attempts; attempt++)); do
-  if docker exec "$container" python -c "$probe" >/dev/null 2>&1; then healthy=true; break; fi
+  if timeout --kill-after=5 10 docker exec "$container" python -c "$probe" >/dev/null 2>&1; then healthy=true; break; fi
   if ((attempt < health_attempts)); then sleep "$health_interval"; fi
 done
 [[ "$healthy" == true ]] || fail "新容器启动检查失败；保留 $previous 与新容器现场，请检查日志和数据库迁移后人工恢复"
