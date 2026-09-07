@@ -61,6 +61,7 @@ export const attachmentApi = {
     media_type?: string;
     description?: string;
     is_public?: boolean;
+    signal?: AbortSignal;
   }): Promise<Attachment> {
     // 前端预校验：确保 file 是有效的 File/Blob 对象且非空
     if (!file || typeof file !== 'object' || !('size' in file)) {
@@ -90,12 +91,13 @@ export const attachmentApi = {
       headers,
       body: formData,
       credentials: 'include',
+      signal: params?.signal,
     });
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       // DRF serializer 验证错误格式: {"file": ["错误信息"]} 或 {"detail": "错误信息"}
-      let message = '上传失败';
+      let message = response.status === 413 ? '文件太大，请压缩后重试' : '上传失败，请重试';
       if (error.detail) {
         message = error.detail;
       } else if (error.file) {

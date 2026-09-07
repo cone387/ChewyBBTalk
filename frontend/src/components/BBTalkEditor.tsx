@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { attachmentApi } from '../services/mediaApi'
+import { useAttachmentUploads } from '../hooks/useAttachmentUploads'
 import { useAppSelector } from '../store/hooks'
 import CachedImage from './CachedImage'
 import Toast, { type ToastType } from './ui/Toast'
@@ -19,21 +19,19 @@ interface BBTalkEditorProps {
   onCancelEdit?: () => void  // 取消编辑回调
 }
 
-interface UploadedFile {
-  uid: string
-  url: string
-  type: 'image' | 'video' | 'audio' | 'file'
-  name: string
-  mimeType?: string
-  fileSize?: number
-}
-
 export default function BBTalkEditor({ onPublish, isPublishing = false, editing = null, onCancelEdit }: BBTalkEditorProps) {
   const [content, setContent] = useState('')
   const [tags, setTags] = useState<string[]>([])
-  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
+  const uploads = useAttachmentUploads()
+  const uploadedFiles = uploads.items.flatMap(item => item.attachment ? [{
+    ...item.attachment, name: item.file.name, uploadId: item.id,
+    type: /\.(jpe?g|png|gif|bmp|webp|svg|ico|tiff?)(?:\?|$)/i.test(item.attachment.url) ? 'image' as const : item.attachment.type,
+  }] : [])
+  const isUploading = uploads.items.some(item => item.status === 'uploading')
+  const hasUnfinishedUploads = uploads.items.some(item => item.status !== 'ready')
+  const [publishError, setPublishError] = useState<string | null>(null)
+  const submittingRef = useRef(false)
   const [existingAttachments, setExistingAttachments] = useState<Attachment[]>([])  // 编辑模式下的现有附件
-  const [isUploading, setIsUploading] = useState(false)
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null)
   const [locationError, setLocationError] = useState<boolean>(false)  // 定位失败状态
   const [visibility, setVisibility] = useState<'public' | 'private' | 'friends'>('private')
@@ -95,7 +93,7 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
       })
       setExistingAttachments(validAttachments)
       // 编辑模式下清空新上传文件列表
-      setUploadedFiles([])
+      uploads.reset()
       
       // 聚焦到输入框 - 移动端需要用户主动点击
       const isMobile = window.innerWidth < 768
@@ -300,67 +298,12 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
     }
   }, [content])
 
-  // 处理文件上传
-  const handleFileUpload = async (files: FileList | null, type: 'image' | 'attachment' = 'attachment') => {
-    if (!files || files.length === 0) return
-
-    setIsUploading(true)
-    try {
-      const uploadPromises = Array.from(files).map(async (file) => {
-        const response = await attachmentApi.upload(file, {
-          media_type: type === 'image' ? 'image' : 'auto'
-        })
-        console.log('上传成功:', response)
-        
-        // 辅助函数：判断是否为图片
-        const isImageFile = (mediaType: string, url: string | undefined) => {
-          if (mediaType === 'image') return true
-          if (!url) return false
-          
-          // 如果 mediaType 不可靠，检查 URL 扩展名
-          const urlLower = url.toLowerCase()
-          const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.ico', '.tif', '.tiff']
-          return imageExts.some(ext => {
-            const urlPath = urlLower.split('?')[0] // 移除查询参数
-            return urlPath.endsWith(ext)
-          })
-        }
-        
-        // 确定文件类型
-        const fileType = isImageFile(response.type, response.url) ? 'image' : response.type as any
-        
-        return {
-          uid: response.uid,
-          url: response.url,
-          type: fileType,
-          name: file.name,
-          mimeType: response.mimeType,
-          fileSize: response.fileSize,
-        }
-      })
-
-      const results = await Promise.all(uploadPromises)
-      console.log('所有文件上传完成:', results)
-      setUploadedFiles(prev => [...prev, ...results])
-    } catch (error: any) {
-      console.error('上传失败:', error)
-      // 优先使用后端返回的具体错误信息
-      const message = error?.message || (
-        error?.response?.status === 413
-          ? '文件太大，请压缩后重试'
-          : '上传失败，请重试'
-      )
-      setToast({ message, type: 'error' })
-    } finally {
-      setIsUploading(false)
-    }
+  // 文件输入、拖拽和粘贴共用独立上传状态。
+  const handleFileUpload = (files: FileList | null, type: 'image' | 'attachment' = 'attachment') => {
+    if (!files?.length || isPublishing || submittingRef.current) return
+    uploads.add(Array.from(files), type === 'image' ? 'image' : 'auto')
   }
 
-  // 移除已上传的文件
-  const handleRemoveFile = (uid: string) => {
-    setUploadedFiles(prev => prev.filter(f => f.uid !== uid))
-  }
-  
   // 移除现有附件文件（编辑模式）
   const handleRemoveExistingAttachment = (uid: string) => {
     setExistingAttachments(prev => prev.filter(a => a.uid !== uid))
@@ -443,7 +386,10 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
 
   // 处理发布/更新
   const handleSubmit = async () => {
-    if (!content.trim()) return
+    if (!content.trim() || isPublishing || submittingRef.current || hasUnfinishedUploads) return
+    submittingRef.current = true
+    setPublishError(null)
+    setShowTagSelector(false)
 
     const context: Record<string, any> = {
       source: {
@@ -485,13 +431,16 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
       if (!editing) {
         setContent('')
         setTags([])
-        setUploadedFiles([])
+        uploads.reset()
         setExistingAttachments([])
         setLocation(null)
         setVisibility('private')
       }
     } catch (error) {
       console.error(editing ? '更新失败:' : '发布失败:', error)
+      setPublishError(`${editing ? '更新' : '发布'}失败，内容已保留，请重试。`)
+    } finally {
+      submittingRef.current = false
     }
   }
   
@@ -613,7 +562,7 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
     // Enter 键发布（Shift+Enter 换行）
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      if (content.trim() && !isPublishing && !isUploading) {
+      if (content.trim() && !isPublishing && !hasUnfinishedUploads) {
         handleSubmit()
       }
       return
@@ -645,6 +594,7 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
         </div>
       )}
       
+      <fieldset disabled={isPublishing} className="min-w-0 border-0 p-0 m-0">
       {/* 主编辑区 */}
       <div className="p-4 pb-2 relative">
         <textarea
@@ -661,7 +611,8 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
           }}
           placeholder="你要BB什么？"
           className="w-full min-h-[56px] max-h-[400px] resize-none border-none outline-none text-gray-800 placeholder-gray-400 text-base leading-relaxed"
-          style={{ overflow: 'hidden' }}
+          style={{ overflowY: 'auto' }}
+          aria-label="记录内容"
           rows={2}
         />
 
@@ -754,8 +705,9 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
                   )}
                   <button
                     onClick={() => handleRemoveExistingAttachment(attachment.uid)}
-                    className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-red-600"
-                    title="删除"
+                    className="absolute top-0 right-0 min-w-11 min-h-11 bg-white border border-gray-200 text-gray-600 rounded-lg flex items-center justify-center hover:bg-red-50 hover:text-red-700"
+                    aria-label={`移除附件 ${attachment.originalFilename || attachment.filename || "附件"}`}
+                    title="移除附件"
                   >
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -796,9 +748,10 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
                   </div>
                 )}
                 <button
-                  onClick={() => handleRemoveFile(file.uid)}
-                  className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-red-600"
-                  title="删除"
+                  onClick={() => uploads.remove(file.uploadId)}
+                  className="absolute top-0 right-0 min-w-11 min-h-11 bg-white border border-gray-200 text-gray-600 rounded-lg flex items-center justify-center hover:bg-red-50 hover:text-red-700"
+                  aria-label={`移除附件 ${file.name}`}
+                  title="移除附件"
                 >
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -847,9 +800,28 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
         )}
       </div>
 
+      {uploads.items.some(item => item.status !== 'ready') && (
+        <div className="px-4 pb-3 space-y-2" aria-live="polite">
+          {uploads.items.filter(item => item.status !== 'ready').map(item => (
+            <div key={item.id} className="rounded-lg border border-gray-200 bg-gray-50 p-3" data-testid="upload-status">
+              <p className="text-sm font-medium text-gray-800 break-all">{item.file.name}</p>
+              <p className={`mt-1 text-sm break-words ${item.status === 'failed' ? 'text-red-700' : 'text-gray-600'}`}>
+                {item.status === 'uploading' ? '上传中…' : item.error}
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {item.status === 'failed' && <button onClick={() => uploads.retry(item.id)} className="min-h-11 px-3 rounded-lg bg-blue-600 text-white text-sm">重试上传</button>}
+                <button onClick={() => uploads.remove(item.id)} className="min-h-11 px-3 rounded-lg border border-gray-300 text-gray-700 text-sm">移除文件</button>
+              </div>
+            </div>
+          ))}
+          <p className="text-sm text-gray-600">请完成上传或移除失败文件后再发布。</p>
+        </div>
+      )}
+      {publishError && <p role="alert" className="mx-4 mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{publishError}</p>}
+
       {/* 工具栏 - 始终显示 */}
       <div className="px-4 pb-3 pt-2 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
             {/* 标签选择按钮 - 点击插入 # 触发选择器 */}
             <button
               onClick={() => {
@@ -874,7 +846,7 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
                   textarea.setSelectionRange(newPos, newPos)
                 }, 0)
               }}
-              className="p-2 hover:bg-gray-50 rounded-lg transition-colors group"
+              className="min-w-11 min-h-11 p-2 hover:bg-gray-50 rounded-lg transition-colors group"
               title="添加标签"
             >
               <svg className="w-5 h-5 text-gray-600 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -886,7 +858,7 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
             <button
               onClick={() => imageInputRef.current?.click()}
               disabled={isUploading}
-              className="p-2 hover:bg-gray-50 rounded-lg transition-colors group relative"
+              className="min-w-11 min-h-11 p-2 hover:bg-gray-50 rounded-lg transition-colors group relative"
               title="上传图片"
             >
               <svg className="w-5 h-5 text-gray-600 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -898,7 +870,7 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
-              className="p-2 hover:bg-gray-50 rounded-lg transition-colors group"
+              className="min-w-11 min-h-11 p-2 hover:bg-gray-50 rounded-lg transition-colors group"
               title="上传附件"
             >
               <svg className="w-5 h-5 text-gray-600 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -909,7 +881,7 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
             {/* 位置 */}
             <button
               onClick={handleGetLocation}
-              className={`p-2 rounded-lg transition-colors group ${
+              className={`min-w-11 min-h-11 p-2 rounded-lg transition-colors group ${
                 location ? 'bg-green-50' : locationError ? 'bg-red-50' : 'hover:bg-gray-50'
               }`}
               title={location ? '清除位置' : locationError ? '定位失败，点击重试' : '添加位置'}
@@ -925,7 +897,7 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
             {/* 可见性切换 */}
             <button
               onClick={() => setVisibility(prev => prev === 'private' ? 'public' : 'private')}
-              className={`p-2 rounded-lg transition-colors group ${
+              className={`min-w-11 min-h-11 p-2 rounded-lg transition-colors group ${
                 visibility === 'public' ? 'bg-blue-50' : 'hover:bg-gray-50'
               }`}
               title={visibility === 'public' ? '公开可见' : '仅自己可见'}
@@ -953,15 +925,15 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
               <button
                 onClick={handleCancel}
                 disabled={isPublishing}
-                className="shrink-0 px-4 sm:px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+                className="min-h-11 shrink-0 px-4 sm:px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors text-sm font-medium"
               >
                 取消
               </button>
             )}
             <button
               onClick={handleSubmit}
-              disabled={!content.trim() || isPublishing || isUploading}
-              className="shrink-0 px-4 sm:px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+              disabled={!content.trim() || isPublishing || hasUnfinishedUploads}
+              className="min-h-11 shrink-0 px-4 sm:px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors text-sm font-medium"
             >
               {isPublishing ? (editing ? '更新中...' : '发布中...') : (editing ? '保存' : '发布')}
             </button>
@@ -975,16 +947,19 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
         accept="image/*"
         multiple
         className="hidden"
-        onChange={(e) => handleFileUpload(e.target.files, 'image')}
+        aria-label="上传图片"
+        onChange={(e) => { handleFileUpload(e.target.files, 'image'); e.target.value = '' }}
       />
       <input
         ref={fileInputRef}
         type="file"
         multiple
         className="hidden"
-        onChange={(e) => handleFileUpload(e.target.files, 'attachment')}
+        aria-label="上传附件"
+        onChange={(e) => { handleFileUpload(e.target.files, 'attachment'); e.target.value = '' }}
       />
 
+      </fieldset>
       {/* Toast提示 */}
       {toast && (
         <Toast

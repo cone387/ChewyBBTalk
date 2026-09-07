@@ -102,10 +102,10 @@ const Modal: React.FC<ModalProps> = ({
         {title && (
           <div className="shrink-0 px-6 py-4 border-b border-gray-200">
             <div className="flex items-center justify-between">
-              <h3 id={titleId} className="text-lg font-semibold text-gray-900">{title}</h3>
+              <h3 id={titleId} className="min-w-0 break-words text-lg font-semibold text-gray-900">{title}</h3>
               <button
                 onClick={onClose}
-                className="min-w-11 min-h-11 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"
+                className="shrink-0 min-w-11 min-h-11 flex items-center justify-center text-gray-500 hover:text-gray-600 transition-colors"
                 aria-label="关闭"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

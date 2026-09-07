@@ -272,7 +272,7 @@ export default function DataManagementPage() {
               </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="flex flex-col gap-3 [&>label]:min-h-11">
               <Checkbox
                 label="跳过重复内容"
                 checked={importOptions.skip_duplicates ?? true}

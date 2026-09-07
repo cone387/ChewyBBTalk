@@ -469,7 +469,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
       }
     } catch (error) {
       console.error(editingBBTalk ? '更新失败:' : '发布失败:', error)
-      alert(editingBBTalk ? '更新失败，请重试' : '发布失败，请重试')
+      throw error
     } finally {
       setIsPublishing(false)
     }

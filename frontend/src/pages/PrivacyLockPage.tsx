@@ -195,6 +195,7 @@ export default function PrivacyLockPage() {
       setTimeout(() => setPublishSuccess(false), 3000)
     } catch (err) {
       console.error('发布失败:', err)
+      throw err
     } finally {
       setIsPublishing(false)
     }
