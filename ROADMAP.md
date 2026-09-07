@@ -43,7 +43,9 @@
 
 第三轮执行记录：[attachment-recovery-ui-polish](openspec/changes/attachment-recovery-ui-polish/tasks.md)。已完成附件独立重试、发布/更新/防窥编辑失败保留以及 Web 小屏与横屏走查；验收边界见变更记录。阅读与编辑入口调整按用户要求暂缓。
 
-1. 真机走查小屏、横屏、深色主题、大字体、键盘弹出、语音和后台恢复；更新截图。
+Web 草稿执行记录：[web-persistent-drafts](openspec/changes/web-persistent-drafts/tasks.md)。使用 IndexedDB 保存正文、标签、可见性、位置和附件，刷新/导航恢复，按服务器、账号和记录隔离；提供清除、失败提示和并发保护。新建和编辑同时打开时，提交目标分别绑定。
+
+1. 真机走查暂缓，由用户后续测试反馈；浏览器模拟与自动回归继续进行。
 2. 阅读/详情与编辑入口调整暂缓；附件状态和发布失败反馈已纳入第三轮。
 3. 扩展已有 Web E2E 到附件、权限、网络失败和 WebKit/Firefox；扩大原生关键操作测试。
 4. 备份列表、状态与下载入口，完整恢复演练及失败反馈。

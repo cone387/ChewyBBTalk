@@ -1,6 +1,10 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useAttachmentUploads } from '../hooks/useAttachmentUploads'
+import { usePersistentDraft } from '../hooks/usePersistentDraft'
+import { draftKey, type DraftData } from '../services/drafts'
+import { getCurrentUser } from '../services/auth'
+import Modal from './ui/Modal'
 import { useAppSelector } from '../store/hooks'
 import CachedImage from './CachedImage'
 import Toast, { type ToastType } from './ui/Toast'
@@ -19,7 +23,13 @@ interface BBTalkEditorProps {
   onCancelEdit?: () => void  // 取消编辑回调
 }
 
-export default function BBTalkEditor({ onPublish, isPublishing = false, editing = null, onCancelEdit }: BBTalkEditorProps) {
+export default function BBTalkEditor(props: BBTalkEditorProps) {
+  const user = getCurrentUser()
+  const scope = user ? draftKey(import.meta.env.VITE_API_BASE_URL || '/', user.id, props.editing?.id) : null
+  return <BBTalkEditorContent key={scope ?? 'anonymous'} {...props} draftScope={scope} />
+}
+
+function BBTalkEditorContent({ onPublish, isPublishing = false, editing = null, onCancelEdit, draftScope }: BBTalkEditorProps & { draftScope: string | null }) {
   const [content, setContent] = useState('')
   const [tags, setTags] = useState<string[]>([])
   const uploads = useAttachmentUploads()
@@ -38,6 +48,41 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
   const [suggestedTag, setSuggestedTag] = useState<string | null>(null) // 建议创建的标签
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null) // Toast提示
   const [isDragOver, setIsDragOver] = useState(false) // 拖拽状态
+  const [confirmClear, setConfirmClear] = useState(false)
+  const [clearing, setClearing] = useState(false)
+  const [baseUpdatedAt, setBaseUpdatedAt] = useState(editing?.updatedAt)
+  const baseChanged = Boolean(editing && baseUpdatedAt !== editing.updatedAt)
+  const draftData = useMemo<DraftData>(() => ({
+    content, tags, visibility, attachments: existingAttachments, uploads: uploads.items,
+    location, baseUpdatedAt,
+  }), [content, tags, visibility, existingAttachments, uploads.items, location, baseUpdatedAt])
+  const draft = usePersistentDraft(draftScope, draftData, saved => {
+    setContent(saved.content)
+    setTags(saved.tags)
+    setVisibility(saved.visibility)
+    setExistingAttachments(saved.attachments)
+    setLocation(saved.location)
+    uploads.restore(saved.uploads)
+    setBaseUpdatedAt(saved.baseUpdatedAt)
+  })
+
+  const clearDraft = async () => {
+    setClearing(true)
+    try {
+      await draft.clear()
+      const names = editing?.tags?.map(tag => tag.name) ?? []
+      setContent(editing ? `${names.map(name => `#${name} `).join('')}${editing.content}` : '')
+      setTags(names)
+      setVisibility(editing?.visibility ?? 'private')
+      setExistingAttachments(editing?.attachments?.filter(item => item?.uid?.trim()) ?? [])
+      uploads.reset()
+      setLocation(null)
+      setPublishError(null)
+      setBaseUpdatedAt(editing?.updatedAt)
+      setConfirmClear(false)
+    } catch { /* The draft status displays the storage error. */ }
+    finally { setClearing(false) }
+  }
   
   // 标签选择器状态
   const [showTagSelector, setShowTagSelector] = useState(false)
@@ -101,7 +146,9 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
         textareaRef.current.focus()
       }
     }
-  }, [editing])
+    // Identity changes remount this editor. Background list refreshes must not
+    // replace the user's current input with a newly fetched record object.
+  }, [])
   
   // 首次进入页面时自动聚焦并获取位置
   useEffect(() => {
@@ -124,7 +171,7 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
           
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          setLocation({
+          setLocation(previous => previous ?? {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude
           })
@@ -300,7 +347,7 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
 
   // 文件输入、拖拽和粘贴共用独立上传状态。
   const handleFileUpload = (files: FileList | null, type: 'image' | 'attachment' = 'attachment') => {
-    if (!files?.length || isPublishing || submittingRef.current) return
+    if (!files?.length || !draft.loaded || clearing || isPublishing || submittingRef.current) return
     uploads.add(Array.from(files), type === 'image' ? 'image' : 'auto')
   }
 
@@ -386,7 +433,7 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
 
   // 处理发布/更新
   const handleSubmit = async () => {
-    if (!content.trim() || isPublishing || submittingRef.current || hasUnfinishedUploads) return
+    if (!content.trim() || !draft.loaded || clearing || isPublishing || submittingRef.current || hasUnfinishedUploads) return
     submittingRef.current = true
     setPublishError(null)
     setShowTagSelector(false)
@@ -426,6 +473,12 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
         visibility,
         context: Object.keys(context).length > 0 ? context : undefined
       })
+
+      // Publishing succeeded even if local cleanup fails; never invite a
+      // duplicate submission by presenting a storage failure as a post failure.
+      try { await draft.clear() } catch {
+        setToast({ message: '发布成功，但本地草稿清理失败，请刷新后核对并清除', type: 'error' })
+      }
 
       // 清空表单 (仅在新建模式下)
       if (!editing) {
@@ -594,7 +647,22 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
         </div>
       )}
       
-      <fieldset disabled={isPublishing} className="min-w-0 border-0 p-0 m-0">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 px-4 pt-2 text-xs text-gray-600">
+        <span role={draft.error ? 'alert' : 'status'} className={draft.error ? 'text-red-700' : ''}>{draft.recovered ? '已恢复草稿 · ' : ''}{draft.status}</span>
+        <div className="flex items-center gap-2">
+          {draft.error && draft.canRetry && <button type="button" className="min-h-[44px] px-2 text-blue-700" onClick={() => { void draft.retry() }}>重试保存</button>}
+          <button type="button" disabled={!draft.loaded || isPublishing || clearing} className="min-h-[44px] px-2 hover:text-red-700 disabled:opacity-50" onClick={() => setConfirmClear(true)}>清除草稿</button>
+        </div>
+      </div>
+      {baseChanged && <p role="alert" className="px-4 py-2 text-sm text-amber-800">已恢复草稿，但原记录已有更新。保存前请核对，避免覆盖其他修改。</p>}
+      <Modal visible={confirmClear} title="清除草稿" onClose={() => { if (!clearing) setConfirmClear(false) }}>
+        <p className="text-sm text-gray-700">将清除当前本地草稿和待上传文件。{editing ? '编辑内容将恢复为当前记录。' : '此操作无法撤销。'}</p>
+        <div className="mt-4 flex justify-end gap-3">
+          <button type="button" disabled={clearing} className="min-h-[44px] px-4" onClick={() => setConfirmClear(false)}>取消</button>
+          <button type="button" disabled={clearing} className="min-h-[44px] rounded bg-red-600 px-4 text-white disabled:opacity-50" onClick={() => { void clearDraft() }}>{clearing ? '正在清除…' : '确认清除'}</button>
+        </div>
+      </Modal>
+      <fieldset disabled={isPublishing || !draft.loaded || clearing} className="min-w-0 border-0 p-0 m-0">
       {/* 主编辑区 */}
       <div className="p-4 pb-2 relative">
         <textarea

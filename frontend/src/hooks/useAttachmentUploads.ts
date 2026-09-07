@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { attachmentApi } from '../services/mediaApi'
 import type { Attachment } from '../types'
 
-interface UploadItem {
+export interface UploadItem {
   id: string
   file: File
   mediaType: string
@@ -55,12 +55,23 @@ export function useAttachmentUploads() {
     setItems([])
   }, [])
 
+  const restore = useCallback((saved: UploadItem[]) => {
+    active.current.forEach(controller => controller.abort())
+    active.current.clear()
+    setItems(saved.map(item => ({
+      ...item,
+      id: `upload-${++nextId.current}`,
+      status: item.status === 'ready' && item.attachment ? 'ready' : 'failed',
+      error: item.status === 'ready' && item.attachment ? undefined : '未完成上传，请重试',
+    })))
+  }, [])
+
   useEffect(() => {
     const controllers = active.current
     return () => { controllers.forEach(controller => controller.abort()); controllers.clear() }
   }, [])
 
-  return { items, add, remove, reset, retry: (id: string) => {
+  return { items, add, remove, reset, restore, retry: (id: string) => {
     const item = items.find(value => value.id === id && value.status === 'failed')
     if (item) void upload(item)
   } }

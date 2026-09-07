@@ -407,7 +407,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
     attachments: Attachment[]
     visibility: 'public' | 'private' | 'friends'
     context?: Record<string, any>
-  }) => {
+  }, target: typeof bbtalks[0] | null = null) => {
     setIsPublishing(true)
     try {
       console.log('发布内容:', data)
@@ -417,7 +417,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
         !tags.some(existingTag => existingTag.name === tagName)
       )
       
-      if (editingBBTalk) {
+      if (target) {
         // 编辑模式：更新现有 BBTalk
         const tagObjects = data.tags.map(tagName => ({
           id: '',
@@ -430,7 +430,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
         }))
         
         // 比较附件文件是否有变化（不可变方式）
-        const originalAttachmentIds = [...(editingBBTalk.attachments?.map(a => a.uid) || [])].sort()
+        const originalAttachmentIds = [...(target.attachments?.map(a => a.uid) || [])].sort()
         const currentAttachmentIds = [...data.attachments.map(a => a.uid)].sort()
         const attachmentsChanged = JSON.stringify(originalAttachmentIds) !== JSON.stringify(currentAttachmentIds)
         
@@ -447,7 +447,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
         }
         
         await dispatch(updateBBTalkAsync({
-          id: editingBBTalk.id,
+          id: target.id,
           data: updateData
         })).unwrap()
         
@@ -468,7 +468,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
         dispatch(loadTags())
       }
     } catch (error) {
-      console.error(editingBBTalk ? '更新失败:' : '发布失败:', error)
+      console.error(target ? '更新失败:' : '发布失败:', error)
       throw error
     } finally {
       setIsPublishing(false)
@@ -848,12 +848,12 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                 const location = getLocation()
 
                 return (
-                  <div key={bbtalk.id} className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow relative bbtalk-item group">
+                  <div key={bbtalk.id} data-record-id={bbtalk.id} className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow relative bbtalk-item group">
                     {/* 编辑模式 */}
                     {isEditing ? (
                       <div className="p-6">
                         <BBTalkEditor 
-                          onPublish={handlePublish} 
+                          onPublish={data => handlePublish(data, bbtalk)}
                           isPublishing={isPublishing}
                           editing={editingBBTalk}
                           onCancelEdit={handleCancelEdit}

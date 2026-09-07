@@ -42,3 +42,18 @@ it('aborts pending requests on unmount', () => {
   unmount()
   expect(signal?.aborted).toBe(true)
 })
+
+it('restores unfinished files without requests and retries with the original File', async () => {
+  vi.mocked(attachmentApi.upload).mockResolvedValue(attachment)
+  const file = new File(['restored bytes'], 'restored.txt')
+  const { result } = renderHook(useAttachmentUploads)
+  act(() => result.current.restore([
+    { id: 'old', file, mediaType: 'auto', status: 'uploading' },
+    { id: 'ready', file, mediaType: 'auto', status: 'ready', attachment },
+  ]))
+  expect(attachmentApi.upload).not.toHaveBeenCalled()
+  expect(result.current.items.map(item => item.status)).toEqual(['failed', 'ready'])
+  act(() => result.current.retry(result.current.items[0].id))
+  await waitFor(() => expect(result.current.items[0].status).toBe('ready'))
+  expect(vi.mocked(attachmentApi.upload).mock.calls[0][0]).toBe(file)
+})
