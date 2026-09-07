@@ -64,24 +64,24 @@ export const loadMoreBBTalks = createAsyncThunk(
 export const createBBTalkAsync = createAsyncThunk(
   'bbtalk/createBBTalk',
   async (data: {
-    content: string; tags?: string[]; attachments?: Attachment[];
+    content: string; submissionKey?: string; tags?: string[]; attachments?: Attachment[];
     visibility?: 'public' | 'private' | 'friends'; context?: Record<string, any>;
   }, { rejectWithValue }) => {
     try {
       return await bbtalkApi.createBBTalk(data);
     } catch (error: any) {
-      return rejectWithValue(error.message || '创建失败');
+      return rejectWithValue({ message: error.message || '创建失败', status: error.status, code: error.code });
     }
   }
 );
 
 export const updateBBTalkAsync = createAsyncThunk(
   'bbtalk/updateBBTalk',
-  async ({ id, data }: { id: string; data: Partial<BBTalk> }, { rejectWithValue }) => {
+  async ({ id, data, expectedUpdatedAt }: { id: string; data: Partial<BBTalk>; expectedUpdatedAt?: string }, { rejectWithValue }) => {
     try {
-      return await bbtalkApi.updateBBTalk(id, data);
+      return await bbtalkApi.updateBBTalk(id, data, expectedUpdatedAt);
     } catch (error: any) {
-      return rejectWithValue(error.message || '更新失败');
+      return rejectWithValue({ message: error.message || '更新失败', code: error.code, current: error.current });
     }
   }
 );
@@ -167,8 +167,10 @@ const bbtalkSlice = createSlice({
         state.hasMore = false; // Stop retrying on error
       })
       .addCase(createBBTalkAsync.fulfilled, (state, action) => {
-        state.bbtalks.unshift(action.payload);
-        state.totalCount += 1;
+        if (!state.bbtalks.some(item => item.id === action.payload.id)) {
+          state.bbtalks.unshift(action.payload);
+          state.totalCount += 1;
+        }
       })
       .addCase(updateBBTalkAsync.fulfilled, (state, action) => {
         const idx = state.bbtalks.findIndex(b => b.id === action.payload.id);

@@ -6,6 +6,10 @@ import { getAccessToken, refreshAccessToken } from '../auth';
 import { getApiBaseUrl } from '../../config';
 import { getSession, isCurrentSession } from '../session';
 
+export class ApiError extends Error {
+  constructor(message: string, public status: number, public code?: string, public current?: unknown) { super(message); }
+}
+
 class ApiClient {
   private getBaseUrl(): string {
     return getApiBaseUrl();
@@ -91,7 +95,8 @@ class ApiClient {
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       const serverMessage = errorData.error || errorData.message;
-      throw new Error(serverMessage || `服务器错误 (${response.status})，请稍后重试`);
+      assertSession();
+      throw new ApiError(serverMessage || `服务器错误 (${response.status})，请稍后重试`, response.status, errorData.code, errorData.current);
     }
 
     if (response.status === 204 || response.headers.get('content-length') === '0') {
@@ -117,16 +122,18 @@ class ApiClient {
     return this.request<T>(url, { method: 'GET' });
   }
 
-  async post<T>(endpoint: string, data?: any): Promise<T> {
+  async post<T>(endpoint: string, data?: any, headers?: Record<string, string>): Promise<T> {
     return this.request<T>(endpoint, {
       method: 'POST',
+      headers,
       body: data ? JSON.stringify(data) : undefined,
     });
   }
 
-  async patch<T>(endpoint: string, data?: any): Promise<T> {
+  async patch<T>(endpoint: string, data?: any, headers?: Record<string, string>): Promise<T> {
     return this.request<T>(endpoint, {
       method: 'PATCH',
+      headers,
       body: data ? JSON.stringify(data) : undefined,
     });
   }

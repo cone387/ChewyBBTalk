@@ -1,3 +1,5 @@
+import { beginSubmission, readSubmission, confirmSubmission, forgetConfirmedSubmission, type SubmissionIntent } from '../services/submissions';
+import { bbtalkApi, transformBBTalk } from '../services/api/bbtalkApi';
 import { getSession, isCurrentSession } from '../services/session';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
@@ -141,6 +143,45 @@ export default function ComposeScreen() {
   const [voiceRecording, setVoiceRecording] = useState(false);
   const [editMode, setEditMode] = useState<'edit' | 'preview'>('edit');
   const publishedRef = useRef(false);
+  const submittingRef = useRef(false);
+  const [submission, setSubmission] = useState<SubmissionIntent>();
+  const [submissionReady, setSubmissionReady] = useState(isEditing);
+  const [submissionMessage, setSubmissionMessage] = useState('');
+  const [baseUpdatedAt, setBaseUpdatedAt] = useState(editItem?.updatedAt);
+  useEffect(() => {
+    if (isEditing) return;
+    let cancelled = false;
+    readSubmission(session).then(saved => {
+      if (!cancelled && isCurrentSession(session)) { setSubmission(saved); setSubmissionReady(true); }
+    }).catch(() => {
+      if (!cancelled) setSubmissionMessage('无法读取原提交，请保留输入并重新打开编辑器。');
+    });
+    return () => { cancelled = true; };
+  }, [isEditing, session]);
+
+  const recoverSubmission = async (retry: boolean) => {
+    if (!submission || submittingRef.current || !isCurrentSession(session)) return;
+    submittingRef.current = true; setSubmitting(true);
+    try {
+      if (retry) await dispatch(createBBTalkAsync({ ...submission.payload, submissionKey: submission.key })).unwrap();
+      else await bbtalkApi.submissionStatus(submission.key);
+      await confirmSubmission(submission.key, session);
+      setSubmission({ ...submission, state: 'confirmed' });
+      setSubmissionMessage('已确认原提交发布成功，当前输入仍保留。修改后可发布新记录。');
+      dispatch(loadTags());
+    } catch (error: any) {
+      if (!isCurrentSession(session)) return;
+      if (error.status === 410) {
+        try {
+          await confirmSubmission(submission.key, session);
+          setSubmission({ ...submission, state: 'confirmed' });
+        } catch { /* Retain the original identity on storage failure. */ }
+        setSubmissionMessage('原提交的记录已删除，不会重新创建。');
+      } else setSubmissionMessage(error.status === 404
+        ? '暂未查到结果，可重试原提交；当前输入仍保留。'
+        : '核对或重试失败，原提交和当前输入已保留，请稍后重试。');
+    } finally { submittingRef.current = false; setSubmitting(false); }
+  };
 
   // 判断是否有未保存修改
   const hasUnsavedChanges = useCallback(() => {
@@ -172,6 +213,7 @@ export default function ComposeScreen() {
   // 编辑退出确认：有未保存修改时拦截返回操作
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', (e: any) => {
+      if (submittingRef.current && !publishedRef.current) { e.preventDefault(); return; }
       // 已发布成功，跳过确认，清理草稿
       if (publishedRef.current) return;
 
@@ -289,25 +331,62 @@ export default function ComposeScreen() {
   };
 
   const handleSubmit = async () => {
+    if (submittingRef.current || uploading || !submissionReady || !isCurrentSession(session)) return;
     const cleaned = cleanContent(content); if (!cleaned) { xAlert('提示', '请输入内容'); return; }
-    Keyboard.dismiss(); setSubmitting(true);
+    submittingRef.current = true; Keyboard.dismiss(); setSubmitting(true);
     try {
       const ctx: Record<string, any> = { source: { client: 'ChewyBBTalk Mobile', version: '1.0', platform: 'mobile' } }; if (location) ctx.location = location;
-      if (isEditing && editItem) await dispatch(updateBBTalkAsync({ id: editItem.id, data: { content: cleaned, tags: currentTags.map(n => ({ id: '', name: n, color: '', sortOrder: 0, bbtalkCount: 0 })), visibility, attachments } })).unwrap();
-      else await dispatch(createBBTalkAsync({ content: cleaned, tags: currentTags, visibility, attachments, context: ctx })).unwrap();
+      let intent: SubmissionIntent | undefined;
+      if (isEditing && editItem) {
+        await dispatch(updateBBTalkAsync({ id: editItem.id, expectedUpdatedAt: baseUpdatedAt, data: { content: cleaned, tags: currentTags.map(n => ({ id: '', name: n, color: '', sortOrder: 0, bbtalkCount: 0 })), visibility, attachments } })).unwrap();
+      } else {
+        intent = await beginSubmission({ content: cleaned, tags: currentTags, visibility, attachments, context: ctx }, session);
+        setSubmission(intent);
+        if (!isCurrentSession(session)) return;
+        await dispatch(createBBTalkAsync({ ...intent.payload, submissionKey: intent.key })).unwrap();
+      }
       if (!isCurrentSession(session)) return;
-      dispatch(loadTags()); await AsyncStorage.removeItem(draftKey); publishedRef.current = true; navigation.goBack();
-    } catch (e: any) { xAlert('失败', e.message || '请重试'); } finally { setSubmitting(false); }
+      dispatch(loadTags());
+      try {
+        if (intent) {
+          await confirmSubmission(intent.key, session);
+          setSubmission({ ...intent, state: 'confirmed' });
+        }
+        if (!isEditing) await AsyncStorage.removeItem(draftKey);
+        if (intent) await forgetConfirmedSubmission(intent.key, session);
+      } catch {
+        setSubmissionMessage('发布成功，但本地清理失败。请核对原提交，避免重复发布。');
+        return;
+      }
+      publishedRef.current = true; navigation.goBack();
+    } catch (error: any) {
+      if (!isCurrentSession(session)) return;
+      if (error.code === 'edit_conflict' && error.current) {
+        const latest = transformBBTalk(error.current);
+        xConfirm('记录已有新版本',
+          `你的输入仍保留。服务器最新内容：
+
+${latest.content}
+
+标签：${latest.tags.map(t => t.name).join('、') || '无'}
+可见性：${latest.visibility}
+附件：${latest.attachments.map(a => a.filename || a.uid).join('、') || '无'}`,
+          () => { if (isCurrentSession(session)) { setBaseUpdatedAt(latest.updatedAt); setSubmissionMessage('已核对最新版本，可继续修改后再次保存。'); } },
+          undefined, { confirmText: '保留修改继续编辑', cancelText: '暂不处理' });
+      } else {
+        setSubmissionMessage(`发布或更新失败，内容已保留。${error.message || (typeof error === 'string' ? error : '请重试')}`);
+      }
+    } finally { submittingRef.current = false; setSubmitting(false); }
   };
 
-  const canSubmit = cleanContent(content).length > 0 && !submitting && !uploading;
+  const canSubmit = cleanContent(content).length > 0 && submissionReady && !submitting && !uploading;
 
   // 计算工具栏高度（大约）
   const toolbarHeight = 44 + (showQuickTags ? 40 : 0) + (location ? 28 : 0) + 36; // main + tags + location + md
   const bottomPad = keyboardH > 0 ? 0 : (insets.bottom || 12);
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: c.background }]}>
+    <View pointerEvents={submitting ? 'none' : 'auto'} style={[styles.container, { paddingTop: insets.top, backgroundColor: c.background }]}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: c.headerBg, borderBottomColor: c.border }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}><Text style={[styles.cancelText, { color: c.textSecondary }]}>取消</Text></TouchableOpacity>
@@ -336,12 +415,26 @@ export default function ComposeScreen() {
         </TouchableOpacity>
       </View>
 
+      {(submission || submissionMessage) && <View style={{ padding: 12, backgroundColor: c.surface, borderBottomWidth: 1, borderBottomColor: c.border }}>
+        <Text accessibilityLiveRegion="polite" style={{ color: c.text, fontSize: 14 }}>{submissionMessage || (submission?.state === 'pending' ? '有一份发布结果待核对' : '原提交已确认，当前输入仍保留')}</Text>
+        {submission && <TouchableOpacity accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center' }} onPress={() => xAlert('原提交内容', submission.payload.content)}>
+          <Text style={{ color: c.primary }}>查看原提交内容</Text>
+        </TouchableOpacity>}
+        {submission?.state === 'pending' && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+          <TouchableOpacity accessibilityRole="button" disabled={submitting} style={{ minHeight: 44, justifyContent: 'center' }} onPress={() => { void recoverSubmission(false); }}>
+            <Text style={{ color: c.primary }}>核对发布结果</Text>
+          </TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" disabled={submitting} style={{ minHeight: 44, justifyContent: 'center' }} onPress={() => { void recoverSubmission(true); }}>
+            <Text style={{ color: c.primary }}>重试原提交</Text>
+          </TouchableOpacity>
+        </View>}
+      </View>}
       {/* 编辑区 / 预览区 */}
       {editMode === 'edit' ? (
         <View style={[styles.editorArea, { backgroundColor: c.surface }]}>
           <TextInput ref={inputRef} style={[styles.textInput, { color: c.text }]}
             placeholder="你要BB什么？支持 Markdown，输入 # 添加标签" placeholderTextColor={c.textTertiary}
-            value={content} onChangeText={setContent} multiline textAlignVertical="top" autoFocus
+            editable={!submitting} value={content} onChangeText={setContent} multiline textAlignVertical="top" autoFocus
             onSelectionChange={(e) => setCursorPos(e.nativeEvent.selection.start)}
             scrollEnabled={true} />
         </View>
