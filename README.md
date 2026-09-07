@@ -26,7 +26,7 @@
 docker run -d --name chewybbtalk -p 4010:4010 -v bbtalk_data:/app/data ghcr.io/cone387/chewy-bbtalk:latest
 ```
 
-启动后访问 http://localhost:4010 ，默认管理员账号 `admin` / `admin123`。
+启动后访问 http://localhost:4010 ，管理员用户名默认为 `admin`，初始密码见下方说明。
 
 如需自定义配置：
 
@@ -80,7 +80,8 @@ DATABASE_URL=sqlite:////app/data/db/db.sqlite3  # 默认 SQLite
 
 # 系统管理员账号（首次启动时创建）
 ADMIN_USERNAME=admin        # 默认 admin
-ADMIN_PASSWORD=admin123     # 默认 admin123
+ADMIN_PASSWORD=            # 留空则随机生成并保存到受限文件
+CREATE_DEMO_USER=false      # 默认不创建固定凭据的演示账号
 ```
 
 ### 前端配置（frontend/.env）
@@ -120,11 +121,13 @@ VITE_SITE_COPYRIGHT=© 2024 ChewyBBTalk
 首次启动时会自动创建管理员账号：
 
 - **用户名**: `admin`
-- **密码**: `admin123`
+- **密码**: 使用 `ADMIN_PASSWORD`，留空时随机生成并保存到 `/app/data/credentials/initial-admin.json`，不会写入启动日志。
 
-**⚠️ 请在首次登录后立即修改默认密码！**
+首次登录后修改初始密码并移除凭据文件。升级不会覆盖已有账号密码。
 
-也可通过环境变量自定义：`-e ADMIN_USERNAME=myuser -e ADMIN_PASSWORD=mypassword`
+容器管理员可执行 `docker exec chewybbtalk cat /app/data/credentials/initial-admin.json` 获取初始凭据。Compose 容器名为 `chewybbtalk-backend`。本地运行默认保存在 `backend/chewy_space/data/credentials/`，可通过 `DATA_DIR` 指定数据目录。
+
+也可通过环境变量提供 `ADMIN_USERNAME` 和 `ADMIN_PASSWORD`。仅明确设置 `CREATE_DEMO_USER=true` 时才会新建固定凭据的演示账号；现有演示账号不会自动删除。
 
 ## 🌐 Web 客户端
 

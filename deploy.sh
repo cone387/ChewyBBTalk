@@ -47,7 +47,7 @@ check_env() {
         ENV_FILE_OPT="--env-file .env"
     else
         log_info "未发现 .env 文件，使用默认配置启动"
-        log_info "默认管理员账号: admin / admin123"
+        log_info "管理员: admin；初始随机密码见 /app/data/credentials/initial-admin.json"
         ENV_FILE_OPT=""
     fi
 }

@@ -1,6 +1,6 @@
 # ChewyBBTalk Docker Compose
 # Quickstart: docker compose up -d
-# 默认管理员账号: admin / admin123
+# 管理员: admin；未指定密码时生成受限凭据文件
 # 访问: http://localhost:4010
 
 services:
@@ -20,7 +20,8 @@ services:
       - DEBUG=${DEBUG:-false}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS:-*}
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+      - CREATE_DEMO_USER=${CREATE_DEMO_USER:-false}
     expose:
       - "8020"
     volumes:

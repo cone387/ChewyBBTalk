@@ -4,7 +4,7 @@
 # Quickstart:
 #   docker run -d -p 4010:4010 -v bbtalk_data:/app/data ghcr.io/cone387/chewybbtalk
 #
-# 默认管理员账号: admin / admin123
+# 管理员: admin；初始随机密码见 /app/data/credentials/initial-admin.json
 # 访问: http://localhost:4010
 
 # ================================

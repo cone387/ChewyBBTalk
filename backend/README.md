@@ -12,7 +12,7 @@ uv sync
 # 数据库迁移
 uv run python chewy_space/manage.py migrate
 
-# 初始化管理员（admin / admin123）
+# 初始化管理员（未指定 ADMIN_PASSWORD 时生成受限凭据文件）
 uv run python chewy_space/manage.py init_system
 
 # 将历史明文 S3 密钥回填为加密值（可重复执行，不修改管理员密码）
@@ -43,7 +43,7 @@ uv run python chewy_space/manage.py runserver 0.0.0.0:8020
 | `SECRET_KEY` | Django Secret Key | 自动生成并持久化 |
 | `ALLOWED_HOSTS` | 允许的主机 | `*` |
 | `ADMIN_USERNAME` | 初始管理员用户名 | `admin` |
-| `ADMIN_PASSWORD` | 初始管理员密码 | `admin123` |
+| `ADMIN_PASSWORD` | 初始管理员密码 | 留空时随机生成，保存到 DATA_DIR/credentials/initial-admin.json |
 
 S3 Secret Access Key 会以 `enc:v1:` 格式加密存储，密钥由 `SECRET_KEY` 派生。请保持生产环境的 `SECRET_KEY` 稳定；历史明文配置可按上面的命令手动回填，管理员密码策略不受影响。
 

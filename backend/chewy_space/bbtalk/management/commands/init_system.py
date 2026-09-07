@@ -3,7 +3,12 @@
 创建默认管理员账号和 demo 演示账号
 """
 import os
-from django.core.management.base import BaseCommand
+import json
+import secrets
+import subprocess
+from pathlib import Path
+from django.conf import settings
+from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 from datetime import timedelta
@@ -132,19 +137,24 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         self.stdout.write('开始初始化系统...')
         self.create_admin_user()
-        self.create_demo_user()
+        if os.getenv('CREATE_DEMO_USER', '').lower() in ('1', 'true', 'yes'):
+            self.create_demo_user()
         self.stdout.write(self.style.SUCCESS('系统初始化完成！'))
 
     def create_admin_user(self):
         username = os.getenv('ADMIN_USERNAME', 'admin')
         email = os.getenv('ADMIN_EMAIL', 'admin@example.com')
-        password = os.getenv('ADMIN_PASSWORD', 'admin123')
+        password = os.getenv('ADMIN_PASSWORD', '')
 
         try:
             with transaction.atomic():
                 if User.objects.filter(username=username).exists():
                     self.stdout.write(self.style.WARNING(f'管理员账号 "{username}" 已存在，跳过创建'))
                     return
+
+                credential_path = None
+                if not password:
+                    password, credential_path = self.initial_credential(username)
 
                 user = User.objects.create(
                     username=username,
@@ -166,10 +176,49 @@ class Command(BaseCommand):
 
                 self.stdout.write(self.style.SUCCESS(f'成功创建管理员账号: {username}'))
                 self.stdout.write(f'  邮箱: {email}')
-                self.stdout.write(f'  密码: {password}')
-                self.stdout.write(self.style.WARNING('请及时修改默认密码！'))
+                if credential_path:
+                    self.stdout.write(f'  初始密码已保存到受限文件: {credential_path}')
+                else:
+                    self.stdout.write('  使用显式提供的 ADMIN_PASSWORD，密码不会写入日志')
+                self.stdout.write(self.style.WARNING('首次登录后请修改初始密码并移除凭据文件'))
         except Exception as e:
-            self.stdout.write(self.style.ERROR(f'创建管理员账号失败: {str(e)}'))
+            raise CommandError(f'创建管理员账号失败: {str(e)}') from e
+
+    def initial_credential(self, username):
+        directory = Path(os.getenv('DATA_DIR', str(settings.BASE_DIR / 'data'))) / 'credentials'
+        directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+        if directory.is_symlink():
+            raise CommandError('凭据目录不能是符号链接')
+        if os.name == 'nt':
+            account = os.environ.get('USERNAME')
+            if not account:
+                raise CommandError('无法确定凭据文件所有者')
+            domain = os.environ.get('USERDOMAIN')
+            account = f'{domain}{chr(92)}{account}' if domain else account
+            subprocess.run(['icacls', str(directory), '/inheritance:r',
+                            '/grant:r', f'{account}:(OI)(CI)F',
+                            '/grant:r', '*S-1-5-18:(OI)(CI)F'],
+                           check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+        else:
+            directory.chmod(0o700)
+        path = directory / 'initial-admin.json'
+        if path.is_symlink():
+            raise CommandError('凭据文件不能是符号链接')
+        try:
+            descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError:
+            if os.name != 'nt':
+                path.chmod(0o600)
+            saved = json.loads(path.read_text(encoding='utf-8'))
+            if saved.get('username') != username or not isinstance(saved.get('password'), str) or len(saved['password']) < 24:
+                raise CommandError('已有初始化凭据不匹配，请核对凭据文件后重试')
+            return saved['password'], path
+        password = secrets.token_urlsafe(32)
+        with os.fdopen(descriptor, 'w', encoding='utf-8') as output:
+            json.dump({'username': username, 'password': password}, output, ensure_ascii=False)
+            output.flush()
+            os.fsync(output.fileno())
+        return password, path
 
     def create_demo_user(self):
         username = 'demo'
