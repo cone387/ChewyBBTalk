@@ -62,6 +62,9 @@ jobs:
       - name: Run Jest tests
         run: npm test -- --runInBand --silent
 
+      - name: Mobile screen integration
+        run: npm run test:integration
+
       - name: Typecheck
         run: npx tsc --noEmit
 

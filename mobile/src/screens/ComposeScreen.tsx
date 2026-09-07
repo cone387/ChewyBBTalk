@@ -146,6 +146,7 @@ export default function ComposeScreen() {
   const submittingRef = useRef(false);
   const [submission, setSubmission] = useState<SubmissionIntent>();
   const [submissionReady, setSubmissionReady] = useState(isEditing);
+  const [draftReady, setDraftReady] = useState(isEditing);
   const [submissionMessage, setSubmissionMessage] = useState('');
   const [baseUpdatedAt, setBaseUpdatedAt] = useState(editItem?.updatedAt);
   useEffect(() => {
@@ -160,9 +161,12 @@ export default function ComposeScreen() {
   }, [isEditing, session]);
 
   const recoverSubmission = async (retry: boolean) => {
-    if (!submission || submittingRef.current || !isCurrentSession(session)) return;
+    if (!submission || !draftReady || submittingRef.current || !isCurrentSession(session)) return;
     submittingRef.current = true; setSubmitting(true);
     try {
+      // Persist the current editor separately before resolving the original submission.
+      await AsyncStorage.setItem(draftKey, JSON.stringify({ version: 1, content, visibility, attachments, location }));
+      if (!isCurrentSession(session)) return;
       if (retry) await dispatch(createBBTalkAsync({ ...submission.payload, submissionKey: submission.key })).unwrap();
       else await bbtalkApi.submissionStatus(submission.key);
       await confirmSubmission(submission.key, session);
@@ -179,7 +183,7 @@ export default function ComposeScreen() {
         setSubmissionMessage('原提交的记录已删除，不会重新创建。');
       } else setSubmissionMessage(error.status === 404
         ? '暂未查到结果，可重试原提交；当前输入仍保留。'
-        : '核对或重试失败，原提交和当前输入已保留，请稍后重试。');
+        : '保存当前草稿或核对失败，原提交仍保留。请保留编辑器中的输入后重试。');
     } finally { submittingRef.current = false; setSubmitting(false); }
   };
 
@@ -199,20 +203,35 @@ export default function ComposeScreen() {
     const s1 = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', (e) => setKeyboardH(e.endCoordinates.height));
     const s2 = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboardH(0));
 
-    // 新建模式：加载草稿
+    // 新建模式：加载草稿，兼容旧版纯正文。
+    let cancelled = false;
     if (!isEditing) {
       AsyncStorage.getItem(draftKey).then(draft => {
-        if (draft && isCurrentSession(session)) setContent(draft);
+        if (cancelled || !isCurrentSession(session)) return;
+        if (draft) {
+          let saved: any;
+          try { saved = JSON.parse(draft); } catch { /* Legacy plain text. */ }
+          if (saved?.version === 1 && typeof saved.content === 'string' && Array.isArray(saved.attachments)) {
+            setContent(saved.content);
+            setVisibility(saved.visibility === 'public' ? 'public' : 'private');
+            setAttachments(saved.attachments);
+            setLocation(saved.location || null);
+          } else setContent(draft);
+        }
+        setDraftReady(true);
+      }).catch(() => {
+        if (!cancelled) setSubmissionMessage('无法读取草稿，请重新打开编辑器后重试。');
       });
     }
 
-    return () => { s1.remove(); s2.remove(); };
+    return () => { cancelled = true; s1.remove(); s2.remove(); };
   }, []);
 
   // 新建模式：离开时自动保存草稿（发布成功后不保存）
   // 编辑退出确认：有未保存修改时拦截返回操作
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', (e: any) => {
+      if (!draftReady || !isCurrentSession(session)) return;
       if (submittingRef.current && !publishedRef.current) { e.preventDefault(); return; }
       // 已发布成功，跳过确认，清理草稿
       if (publishedRef.current) return;
@@ -230,8 +249,8 @@ export default function ComposeScreen() {
       xConfirm('放弃编辑？', '你有未保存的内容，确定要放弃吗？', () => {
             // 新建模式下放弃时保存草稿
             if (!isEditing) {
-              if (content.trim()) {
-                AsyncStorage.setItem(draftKey, content);
+              if (content.trim() || attachments.length) {
+                AsyncStorage.setItem(draftKey, JSON.stringify({ version: 1, content, visibility, attachments, location }));
               } else {
                 AsyncStorage.removeItem(draftKey);
               }
@@ -240,7 +259,7 @@ export default function ComposeScreen() {
       }, undefined, { confirmText: '放弃', cancelText: '继续编辑', destructive: true });
     });
     return unsubscribe;
-  }, [navigation, hasUnsavedChanges, content, isEditing]);
+  }, [navigation, hasUnsavedChanges, content, visibility, attachments, location, isEditing, draftReady, session]);
 
   const parseTags = (t: string): string[] => [...new Set(Array.from(t.matchAll(/(?:^|\s)#([^\s#]+)\s/g)).map(m => m[1]))];
   const cleanContent = (t: string): string => t.replace(/(?:^|\s)#([^\s#]+)\s/g, ' ').trim();
@@ -331,7 +350,7 @@ export default function ComposeScreen() {
   };
 
   const handleSubmit = async () => {
-    if (submittingRef.current || uploading || !submissionReady || !isCurrentSession(session)) return;
+    if (submittingRef.current || uploading || !submissionReady || !draftReady || !isCurrentSession(session)) return;
     const cleaned = cleanContent(content); if (!cleaned) { xAlert('提示', '请输入内容'); return; }
     submittingRef.current = true; Keyboard.dismiss(); setSubmitting(true);
     try {
@@ -379,7 +398,7 @@ ${latest.content}
     } finally { submittingRef.current = false; setSubmitting(false); }
   };
 
-  const canSubmit = cleanContent(content).length > 0 && submissionReady && !submitting && !uploading;
+  const canSubmit = cleanContent(content).length > 0 && submissionReady && draftReady && !submitting && !uploading;
 
   // 计算工具栏高度（大约）
   const toolbarHeight = 44 + (showQuickTags ? 40 : 0) + (location ? 28 : 0) + 36; // main + tags + location + md
@@ -434,7 +453,7 @@ ${latest.content}
         <View style={[styles.editorArea, { backgroundColor: c.surface }]}>
           <TextInput ref={inputRef} style={[styles.textInput, { color: c.text }]}
             placeholder="你要BB什么？支持 Markdown，输入 # 添加标签" placeholderTextColor={c.textTertiary}
-            editable={!submitting} value={content} onChangeText={setContent} multiline textAlignVertical="top" autoFocus
+            editable={!submitting && draftReady} value={content} onChangeText={setContent} multiline textAlignVertical="top" autoFocus
             onSelectionChange={(e) => setCursorPos(e.nativeEvent.selection.start)}
             scrollEnabled={true} />
         </View>
