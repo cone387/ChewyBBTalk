@@ -21,6 +21,10 @@ command -v timeout >/dev/null || fail '需要 timeout（coreutils）'
 command -v flock >/dev/null || fail '需要 flock（util-linux）'
 exec 9>.deploy-image.lock
 flock -n 9 || fail '已有部署正在执行'
+# Podman can leave conmon running after the CLI exits. Never pass the lock
+# descriptor to container processes; explicitly unlock on normal/error exit.
+trap 'flock -u 9' EXIT
+docker() { command docker "$@" 9>&-; }
 
 exists() { docker container inspect "$1" >/dev/null 2>&1; }
 exists "$previous" && fail "存在 $previous，请先检查上次失败部署并处理保留容器"
@@ -44,7 +48,7 @@ printf '[INFO] 拉取镜像 %s\n' "$image"
 pulled=false
 for ((attempt=1; attempt<=pull_attempts; attempt++)); do
   printf '[INFO] 拉取尝试 %s/%s，超时 %s 秒\n' "$attempt" "$pull_attempts" "$pull_timeout"
-  if timeout --kill-after=5 "$pull_timeout" docker pull "$image"; then pulled=true; break; fi
+  if timeout --kill-after=5 "$pull_timeout" docker pull "$image" 9>&-; then pulled=true; break; fi
   if ((attempt < pull_attempts)); then sleep "$retry_delay"; fi
 done
 [[ "$pulled" == true ]] || fail '镜像拉取失败，旧容器未变更'
@@ -75,7 +79,7 @@ with response:
 '
 healthy=false
 for ((attempt=1; attempt<=health_attempts; attempt++)); do
-  if timeout --kill-after=5 10 docker exec "$container" python -c "$probe" >/dev/null 2>&1; then healthy=true; break; fi
+  if timeout --kill-after=5 10 docker exec "$container" python -c "$probe" 9>&- >/dev/null 2>&1; then healthy=true; break; fi
   if ((attempt < health_attempts)); then sleep "$health_interval"; fi
 done
 [[ "$healthy" == true ]] || fail "新容器启动检查失败；保留 $previous 与新容器现场，请检查日志和数据库迁移后人工恢复"

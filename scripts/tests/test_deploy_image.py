@@ -11,6 +11,7 @@ BASH = os.environ.get("BASH_BIN") or shutil.which("bash")
 IMAGE = "ghcr.io/cone387/chewy-bbtalk@sha256:" + "a" * 64
 MOCK_DOCKER = r'''#!/usr/bin/env bash
 set -eu
+if { true >&9; } 2>/dev/null; then printf 'lock-inherited\n' >> "$MOCK_LOG"; fi
 if [[ "$1" == exec ]]; then
   printf 'exec %s\n' "$2" >> "$MOCK_LOG"
 else
@@ -89,6 +90,11 @@ class DeployImageTests(unittest.TestCase):
         result, calls = self.run_deploy("fresh")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse(any(call.startswith(("stop ", "rename ", "rm ")) for call in calls))
+
+    def test_container_cli_never_inherits_deployment_lock(self):
+        result, calls = self.run_deploy()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("lock-inherited", calls)
 
     def test_legacy_container_is_preserved(self):
         result, calls = self.run_deploy("legacy")
