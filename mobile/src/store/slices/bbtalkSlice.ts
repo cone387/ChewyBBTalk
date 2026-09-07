@@ -9,6 +9,8 @@ interface BBTalkState {
   isLoading: boolean;
   error: string | null;
   totalCount: number;
+  hasLoadedFromNetwork: boolean;
+  isFiltered: boolean;
 }
 
 const initialState: BBTalkState = {
@@ -18,6 +20,8 @@ const initialState: BBTalkState = {
   isLoading: false,
   error: null,
   totalCount: 0,
+  hasLoadedFromNetwork: false,
+  isFiltered: false,
 };
 
 export const loadBBTalks = createAsyncThunk(
@@ -112,7 +116,7 @@ const bbtalkSlice = createSlice({
     clearError: (state) => { state.error = null; },
     setBBTalksFromCache: (state, action: PayloadAction<BBTalk[]>) => {
       // Only populate from cache if store is empty (avoid overwriting fresh API data)
-      if (state.bbtalks.length === 0) {
+      if (!state.hasLoadedFromNetwork && state.bbtalks.length === 0) {
         state.bbtalks = action.payload;
         state.totalCount = action.payload.length;
         state.hasMore = false; // Cache doesn't have pagination info
@@ -142,6 +146,8 @@ const bbtalkSlice = createSlice({
       .addCase(loadBBTalks.fulfilled, (state, action) => {
         state.isLoading = false;
         state.bbtalks = action.payload.bbtalks;
+        state.hasLoadedFromNetwork = true;
+        state.isFiltered = !action.payload.isFullLoad;
         state.currentPage = action.payload.page;
         state.hasMore = action.payload.hasMore;
         if (action.payload.isFullLoad) state.totalCount = action.payload.totalCount;

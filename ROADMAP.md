@@ -1,156 +1,60 @@
-# ChewyBBTalk · 迭代路线图（建议）
+# ChewyBBTalk 迭代路线图
 
-> 这份文档收集了产品下一阶段的迭代建议，按优先级排列，作为后续规划的参考。
-> 不是承诺，按需取舍。具体落地时再用 OpenSpec 流程拆成 change。
+更新：2026-09-07。以下是按优先级维护的计划，不是交付日期承诺。
 
----
+## 产品边界
 
-## 🔥 高优先级（建议优先做）
+- `frontend/`：生产 Web，保留响应式浏览器访问；移除 PWA 安装、离线 worker 和专属维护工具。
+- `mobile/`：iOS/Android 原生体验；Expo Web 仅供开发验证。
+- `desktop/`：悬浮入口和快捷记录。
+- 三端共用后端 API，按需要复用 service/types，各自维护 UI。
 
-### 1. 搜索体验与索引优化
+## 已有能力
 
-**现状**：Web 与移动端已支持服务端关键词搜索、标签筛选、自然日日期范围和附件存在性筛选；当前实现基于 DRF SearchFilter，适合中小数据量。
+- 记录、标签、附件、评论、置顶、可见性；关键词、标签、日期与附件筛选。
+- 原生端主题、语音、草稿、防窥与离线读取缓存。
+- 桌面悬浮球、编辑、登录、设置、托盘和快捷键。
+- JSON/ZIP 导入导出、存储迁移、`backup_data` 命令；宿主机 systemd timer / cron 脚本和部署说明。
+- 四部分 CI；后端、移动端、桌面测试和 Web 检查。
 
-**下一步**：碎碎念越积越多后，需要更快、更稳定的全文检索。
+## 第一轮：可靠性与 Web 简化
 
-**方案**：
-- SQLite：启用 [FTS5 虚表](https://www.sqlite.org/fts5.html)，对 `BBTalk.content` 建索引
-- PostgreSQL：使用 `pg_trgm` + `tsvector`，支持中文分词（`zhparser` / `jieba`）
-- 前端：搜索框 + 按标签 / 时间范围 / 是否含附件过滤（基础能力已落地）
-- 接口：`GET /api/bbtalk/search/?q=xxx&tag=xxx&from=xxx`
+执行记录：[reliability-and-web-simplification](openspec/changes/reliability-and-web-simplification/tasks.md)。完成状态和验证以该任务文件为准。
 
-**预估**：后端 2-3 天，前端 1-2 天。
+- 移除 PWA，并提供旧 Service Worker 自注销迁移。
+- 原生缓存按服务器、账号隔离；切换会话清内存、拒绝旧请求回写；草稿按会话归属保存。
+- 桌面发布版本入口替换模拟更新检查。
+- Web Modal 焦点/滚动、Select 键盘行为，以及迁移和会话隔离回归测试。
 
-### 2. Web 与原生端分工稳定化
+## 下一轮 P1：体验与数据保障
 
-**原则**：`frontend/`（React + Vite + PWA）是实际部署的 Web 主线，继续长期维护；`mobile/`（Expo + React Native）负责 iOS/Android 原生应用。Expo Web 仅用于开发验证，不纳入生产部署，也不替代 `frontend/`。
+1. 真机走查小屏、横屏、深色主题、大字体、键盘弹出、语音和后台恢复；更新截图。
+2. 明确阅读/详情与编辑入口，统一发布、可见性、附件状态和删除撤销反馈。
+3. Web 登录→发布→编辑→搜索→删除撤销端到端回归；扩大原生关键操作测试。
+4. 备份列表、状态与下载入口，完整恢复演练及失败反馈。
+5. 对齐 README、OpenSpec 和历史任务实际状态，保留已暂停事项的原因。
 
-**方案**：
-- Web 新功能继续落地在 `frontend/`，保持 Docker/Nginx 部署链路稳定
-- iOS/Android 原生体验在 `mobile/` 独立迭代，通过 API 与 Web 共享后端能力
-- 仅在确有复用价值时抽取跨端 service/types，不以合并 UI 代码为目标
+验收：常用操作跨端一致；从备份可恢复正文、标签、评论和附件；关键路径能自动回归。
 
-### 3. 数据备份自动化
+## P2：记录与查找效率
 
-**现状**：已提供 `backup_data` 管理命令，可按用户生成包含评论、标签和附件的 ZIP，支持原子写入、保留数量、用户筛选和预演。
+- 搜索结果高亮与性能基线，按实际数据规模引入全文索引和中文分词。
+- 离线草稿补发、幂等请求、失败重试与冲突处理。
+- 多端自动刷新，先明确同步契约，再决定轮询或 WebSocket。
+- 附件缩略图、大列表和分页性能优化，以测量结果决定实施。
+- 结构化日志、错误上报和基础运行监控。
 
-**下一步**：接入宿主机 cron / systemd timer 或可选 Celery 调度，并在 Web 面板提供备份列表和下载入口。
+## P3：按使用反馈扩展
 
-**方案**：
-- 后端：定时任务（每日 / 每周）自动调用备份命令，打包 SQLite + media 到指定目录
-- 可选上传到 S3 / 阿里云 OSS
-- 前端：用户面板可下载最近 N 份备份
-- 配置项：保留份数、加密密码
+- AI 标签/回顾、OCR、语音转写后端 fallback。
+- 主屏 Widget：JS 数据管线已有，原生实现与构建验收仍暂停，单独立项。
+- 2FA、邀请协作、国际化、第三方导入。
+- 应用商店发布、桌面签名分发与自动升级链路按平台分别验收。
 
----
+## 文档校正事项
 
-## 💎 中优先级（提升体验）
+- 历史 `expo-web-alert-fix` 的代码已存在，任务表需要对照验收后归档。
+- `mobile-ui-card-redesign` 的勾选与当前标签布局存在差异，需要先明确最终设计再修订规格。
+- CI、基础搜索、宿主机备份脚本已存在，后续工作是补强和用户入口，不应重复立项。
 
-### 4. AI 辅助
-
-按子能力分阶段：
-
-- **智能标签**：根据 content 自动建议标签（本地 LLM 或 OpenAI API）
-- **智能回顾**："去年今日"、"上周思考"，邮件 / 推送提醒
-- **语义搜索**：用 `pgvector` + embedding，搜「焦虑」能找出「最近压力大」
-- **OCR**：图片附件提取文字，纳入搜索索引（Tesseract / 苹果 Vision）
-- **语音转文字**：录音附件自动转写（Whisper / 苹果 Speech）
-
-### 5. 实时多端同步
-
-**痛点**：iOS 写完后，桌面端要刷新才能看到。
-
-**方案**：Django Channels + WebSocket，broadcast `bbtalk_created/updated/deleted` 事件。前端订阅后实时更新列表。
-
-### 6. 双因素认证（2FA）
-
-**方案**：TOTP（Google Authenticator 兼容） + 备用码。`django-otp` 即可接入。
-
-### 7. 评论扩展为多人协作
-
-**当前**：评论模型已存在，但仅作者自己使用。
-
-**扩展方向**：
-- 邀请好友（生成邀请链接 / 二维码）评论指定 BBTalk
-- 权限粒度：私密 / 仅好友可见 / 公开
-- 类似 Day One 的「Shared Journals」
-
----
-
-## 🛠 中长期（工程健康度）
-
-### 8. 测试覆盖 + CI
-
-- 后端：补充 `pytest-django`，目标覆盖率 70%+
-- 移动端：扩展 `__tests__/`，关键 hooks 与 service 层 100%
-- GitHub Actions：push / PR 自动跑测试 + lint + 类型检查
-
-### 9. 监控与日志
-
-- Sentry 接入（前后端错误上报）
-- 后端结构化日志（JSON），可对接 Loki / ELK
-- API 性能监控（慢查询 / N+1）
-
-### 10. 国际化（i18n）
-
-- 移动端：`i18n-js` 或 `react-i18next`
-- 后端：Django 自带 i18n
-- 至少：中文（已有）、英文
-- App Store 国际化文案 + 截图
-
-### 11. 性能优化
-
-- 列表：`@shopify/flash-list` 替换 `FlatList`
-- 图片：缩略图 + 懒加载，原图按需下载
-- API 分页：游标分页替换 offset
-- 后端 Redis 缓存热数据
-
----
-
-## 🎨 产品 / 交互层
-
-### 12. 写作辅助
-
-- 写作模板（晨间日记 / 复盘 / 灵感记录）
-- iOS Widget（首屏快速写一条）
-- macOS / Windows 原生快捷键（如 ⌘N 新建）
-- CLI：`chewy add "今天的灵感"` 终端速记
-
-### 13. 数据可视化
-
-- 写作热力图（GitHub-style）
-- 标签使用分布（饼图 / 词云）
-- 时间线视图（按月 / 季归档）
-- 字数统计、连续记录天数
-
-### 14. 第三方集成
-
-- 微信读书 / 豆瓣：导入读书笔记
-- Telegram bot：发消息给 bot 自动建一条 BBTalk
-- IFTTT / 快捷指令：iOS Siri 语音速记
-- RSS 输出（公开标签的 BBTalk 转 RSS）
-
----
-
-## 推荐近期 Sprint
-
-如果要选 3 个最先做：
-
-1. **全文搜索** — 用户体验立竿见影，工程量适中
-2. **AI 智能标签** — 差异化卖点，App Store 上架时是亮点
-3. **数据备份自动化** — 先保证数据可恢复，再扩展高级能力
-
----
-
-## 流程
-
-具体落地时按 OpenSpec 工作流：
-
-```
-openspec change create <name>   # 立项
-openspec change validate <name> # 校验
-# 实施 → tests → review
-openspec archive <name>         # 完成归档
-```
-
-详见 [openspec/](./openspec/) 与 [.github/skills/](./.github/skills/)。
+新迭代按 OpenSpec 建立提案、规格、设计和任务，实施后记录验证结果。

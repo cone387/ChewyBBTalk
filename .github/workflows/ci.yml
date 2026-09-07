@@ -114,10 +114,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Web regression tests
+        run: npm test
+
       - name: Lint Web client
         run: npm run lint
 
-      # frontend/ remains the deployed Web/PWA client. Do not replace this
+      # frontend/ remains the deployed Web client. Do not replace this
       # with an Expo Web build; mobile Web is not part of the deployment path.
-      - name: Build Web/PWA
+      - name: Build Web
         run: npm run build

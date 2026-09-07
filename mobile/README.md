@@ -164,7 +164,8 @@ mobile/
 - [ ] 存储迁移（本地 ↔ S3）
 - [ ] 推送通知（FCM / APNs）
 - [ ] 深度链接（分享链接打开 App）
-- [ ] 离线缓存（SQLite / MMKV）
+- [x] SQLite 离线读取缓存（按服务器与账号隔离）
+- [ ] 离线写入补发、冲突处理与同步队列
 - [ ] EAS Build 独立构建 + 应用商店上架
 - [ ] Sign in with Apple（App Store 要求）
 - [ ] 国际化

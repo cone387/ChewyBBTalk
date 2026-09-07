@@ -1,3 +1,4 @@
+import { getSession, isCurrentSession } from '../services/session';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
@@ -111,6 +112,8 @@ const compactStyles = StyleSheet.create({
 });
 
 export default function ComposeScreen() {
+  const session = useRef(getSession()).current;
+  const draftKey = `compose_draft:${session.scope ?? 'signed-out'}`;
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const dispatch = useAppDispatch();
@@ -157,8 +160,8 @@ export default function ComposeScreen() {
 
     // 新建模式：加载草稿
     if (!isEditing) {
-      AsyncStorage.getItem('compose_draft').then(draft => {
-        if (draft) setContent(draft);
+      AsyncStorage.getItem(draftKey).then(draft => {
+        if (draft && isCurrentSession(session)) setContent(draft);
       });
     }
 
@@ -175,7 +178,7 @@ export default function ComposeScreen() {
       // 无未保存修改，保存/清理草稿后直接返回
       if (!hasUnsavedChanges()) {
         if (!isEditing) {
-          AsyncStorage.removeItem('compose_draft');
+          AsyncStorage.removeItem(draftKey);
         }
         return;
       }
@@ -186,9 +189,9 @@ export default function ComposeScreen() {
             // 新建模式下放弃时保存草稿
             if (!isEditing) {
               if (content.trim()) {
-                AsyncStorage.setItem('compose_draft', content);
+                AsyncStorage.setItem(draftKey, content);
               } else {
-                AsyncStorage.removeItem('compose_draft');
+                AsyncStorage.removeItem(draftKey);
               }
             }
             navigation.dispatch(e.data.action);
@@ -292,7 +295,8 @@ export default function ComposeScreen() {
       const ctx: Record<string, any> = { source: { client: 'ChewyBBTalk Mobile', version: '1.0', platform: 'mobile' } }; if (location) ctx.location = location;
       if (isEditing && editItem) await dispatch(updateBBTalkAsync({ id: editItem.id, data: { content: cleaned, tags: currentTags.map(n => ({ id: '', name: n, color: '', sortOrder: 0, bbtalkCount: 0 })), visibility, attachments } })).unwrap();
       else await dispatch(createBBTalkAsync({ content: cleaned, tags: currentTags, visibility, attachments, context: ctx })).unwrap();
-      dispatch(loadTags()); await AsyncStorage.removeItem('compose_draft'); publishedRef.current = true; navigation.goBack();
+      if (!isCurrentSession(session)) return;
+      dispatch(loadTags()); await AsyncStorage.removeItem(draftKey); publishedRef.current = true; navigation.goBack();
     } catch (e: any) { xAlert('失败', e.message || '请重试'); } finally { setSubmitting(false); }
   };
 

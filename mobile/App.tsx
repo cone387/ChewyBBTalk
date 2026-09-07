@@ -1,3 +1,4 @@
+import { getSession, onSessionChange } from './src/services/session';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ActivityIndicator, View, Animated, Dimensions, TouchableOpacity, StyleSheet, PanResponder, Platform, AppState } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
@@ -254,6 +255,9 @@ function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
 }
 
 export default function App() {
+  useEffect(() => onSessionChange(() => {
+    if (!getSession().scope) { setIsAuthenticated(false); void clearWidget('logout'); }
+  }), []);
   const [isReady, setIsReady] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   useEffect(() => { (async () => { await loadApiBaseUrl(); setIsAuthenticated(await initAuth()); setIsReady(true); })(); }, []);

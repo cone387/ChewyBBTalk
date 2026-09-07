@@ -3,7 +3,7 @@
 > 本文档面向所有进入本仓库工作的 AI Agent。阅读本文后，你将了解项目的整体架构、核心模块、约定和工作流。
 
 ## 1. 项目一句话介绍
-ChewyBBTalk 是一个**自托管的个人微博/碎碎念系统**，主打 Markdown 内容、附件管理、隐私保护，全栈 TypeScript/Python，支持 Docker 一键部署，提供 Web、PWA、iOS、Android 多端访问。
+ChewyBBTalk 是一个**自托管的个人微博/碎碎念系统**，主打 Markdown 内容、附件管理、隐私保护，全栈 TypeScript/Python，支持 Docker 一键部署，提供 Web、iOS、Android、桌面 多端访问。
 
 ## 2. 仓库结构
 
@@ -43,12 +43,12 @@ ChewyBBTalk/
 
 | 端 | 技术栈 | 状态 | 备注 |
 |----|--------|------|------|
-| Web | React 18 + Vite + Tailwind + PWA | 主部署端 | 实际线上 Web/PWA 主线，持续维护 |
+| Web | React 18 + Vite + Tailwind | 主部署端 | 实际线上 Web 主线，持续维护 |
 | iOS | Expo + RN 0.81 | 主推 | EAS 构建，Apple ID 登录 |
 | Android | Expo + RN 0.81 | 主推 | EAS 构建 |
 | Expo Web | react-native-web | 开发验证 | 不纳入生产部署，不替代 Web 主线 |
 
-> 端策略：`frontend/` 负责实际 Web/PWA 部署，`mobile/` 负责 iOS/Android 原生体验；两者通过后端 API 共享能力。
+> 端策略：`frontend/` 负责实际 Web 部署，`mobile/` 负责 iOS/Android 原生体验；两者通过后端 API 共享能力。
 
 ## 4. 核心领域模型（必须理解）
 

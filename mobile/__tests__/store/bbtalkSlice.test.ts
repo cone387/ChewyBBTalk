@@ -21,6 +21,13 @@ function makeTalk(id: string, content: string): BBTalk {
 }
 
 describe('bbtalkSlice cache startup', () => {
+  it('does not resurrect cached records after a successful empty server response', () => {
+    let state = reducer(undefined, loadBBTalks.fulfilled({
+      bbtalks: [], page: 1, hasMore: false, totalCount: 0, isFullLoad: true,
+    }, 'empty', {}));
+    state = reducer(state, setBBTalksFromCache([makeTalk('deleted', 'old')]));
+    expect(state.bbtalks).toEqual([]);
+  });
   it('shows cached talks during startup load and lets network replace them later', () => {
     let state = reducer(undefined, loadBBTalks.pending('', {}));
     expect(state.isLoading).toBe(true);

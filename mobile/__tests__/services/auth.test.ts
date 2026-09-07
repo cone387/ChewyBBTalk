@@ -39,8 +39,9 @@
 
     expect(result).toBe(true);
     expect(getCurrentUser()?.username).toBe('alice');
-    await Promise.resolve();
-    await Promise.resolve();
+    // Background restoration may perform multiple credential reads before fetch.
+    // Wait for the next event-loop turn rather than assuming two microtasks.
+    await new Promise<void>(resolve => setImmediate(resolve));
     expect(global.fetch).toHaveBeenCalledWith(
       'https://example.test/api/v1/bbtalk/user/me/',
       expect.any(Object),

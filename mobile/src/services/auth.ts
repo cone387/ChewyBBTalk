@@ -6,6 +6,7 @@ import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApiBaseUrl } from '../config';
+import { setSession, clearSession, getSession, isCurrentSession } from './session';
 import type { User } from '../types';
 
 // Web 端 SecureStore 不可用，fallback 到 localStorage
@@ -33,47 +34,69 @@ interface LoginResponse {
 const ACCESS_TOKEN_KEY = 'bbtalk_access_token';
 const REFRESH_TOKEN_KEY = 'bbtalk_refresh_token';
 const USER_INFO_KEY = 'bbtalk_user_info';
+const AUTH_SERVER_KEY = 'bbtalk_auth_server';
 
 let currentUser: User | null = null;
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 let refreshPromise: Promise<boolean> | null = null;
 // 内存中缓存 token，供同步读取（用于图片请求 headers）
 let _cachedAccessToken: string | null = null;
+// Serialize persistence so a slow refresh cannot finish writing after logout.
+let credentialWrites: Promise<void> = Promise.resolve();
+function writeCredentials(operation: () => Promise<void>): Promise<void> {
+  const pending = credentialWrites.then(operation);
+  credentialWrites = pending.catch(() => {});
+  return pending;
+}
 
 // --- Token 存储 ---
 
 export async function getAccessToken(): Promise<string | null> {
+  const server = await storage.getItemAsync(AUTH_SERVER_KEY);
+  if (server && server !== getApiBaseUrl()) return null;
   return storage.getItemAsync(ACCESS_TOKEN_KEY);
 }
 
 /** 同步读取内存中缓存的 token（用于图片 headers 等不能 await 的场景） */
 export function getAccessTokenSync(): string | null {
-  return _cachedAccessToken;
+  return getSession().scope ? _cachedAccessToken : null;
 }
 
 async function getRefreshToken(): Promise<string | null> {
+  const server = await storage.getItemAsync(AUTH_SERVER_KEY);
+  if (server && server !== getApiBaseUrl()) return null;
   return storage.getItemAsync(REFRESH_TOKEN_KEY);
 }
 
 async function storeAuth(response: LoginResponse): Promise<void> {
-  await storage.setItemAsync(ACCESS_TOKEN_KEY, response.access);
-  await storage.setItemAsync(REFRESH_TOKEN_KEY, response.refresh);
-  await storage.setItemAsync(USER_INFO_KEY, JSON.stringify(response.user));
-  currentUser = response.user;
-  _cachedAccessToken = response.access;
-  startTokenRefresh(response.access);
+  const session = getSession();
+  const server = getApiBaseUrl();
+  await writeCredentials(async () => {
+    if (!isCurrentSession(session)) throw new Error('会话已改变');
+    await storage.setItemAsync(AUTH_SERVER_KEY, server);
+    await storage.setItemAsync(ACCESS_TOKEN_KEY, response.access);
+    await storage.setItemAsync(REFRESH_TOKEN_KEY, response.refresh);
+    await storage.setItemAsync(USER_INFO_KEY, JSON.stringify(response.user));
+    if (!isCurrentSession(session)) throw new Error('会话已改变');
+    currentUser = response.user;
+    setSession(server, response.user.id);
+    _cachedAccessToken = response.access;
+    startTokenRefresh(response.access);
+  });
 }
 
 async function clearAuth(): Promise<void> {
-  await storage.deleteItemAsync(ACCESS_TOKEN_KEY);
-  await storage.deleteItemAsync(REFRESH_TOKEN_KEY);
-  await storage.deleteItemAsync(USER_INFO_KEY);
+  clearSession();
+  refreshPromise = null;
   currentUser = null;
   _cachedAccessToken = null;
-  if (refreshTimer) {
-    clearTimeout(refreshTimer);
-    refreshTimer = null;
-  }
+  if (refreshTimer) { clearTimeout(refreshTimer); refreshTimer = null; }
+  await writeCredentials(async () => {
+    await storage.deleteItemAsync(ACCESS_TOKEN_KEY);
+    await storage.deleteItemAsync(REFRESH_TOKEN_KEY);
+    await storage.deleteItemAsync(USER_INFO_KEY);
+    await storage.deleteItemAsync(AUTH_SERVER_KEY);
+  });
 }
 
 // --- JWT 解析 ---
@@ -94,33 +117,39 @@ function parseJwt(token: string): { exp: number } | null {
 export async function refreshAccessToken(): Promise<boolean> {
   if (refreshPromise) return refreshPromise;
 
-  refreshPromise = doRefresh().finally(() => {
-    refreshPromise = null;
+  const pending = doRefresh().finally(() => {
+    if (refreshPromise === pending) refreshPromise = null;
   });
-
-  return refreshPromise;
+  refreshPromise = pending;
+  return pending;
 }
 
 async function doRefresh(): Promise<boolean> {
+  const session = getSession();
+  const server = getApiBaseUrl();
   const refreshToken = await getRefreshToken();
-  if (!refreshToken) return false;
+  if (!refreshToken || !isCurrentSession(session)) return false;
 
   try {
-    const response = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/auth/token/refresh/`, {
+    const response = await fetch(`${server}/api/v1/bbtalk/auth/token/refresh/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh: refreshToken }),
     });
 
+    if (!isCurrentSession(session)) return false;
     if (response.ok) {
       const data = await response.json();
-      await storage.setItemAsync(ACCESS_TOKEN_KEY, data.access);
-      _cachedAccessToken = data.access;
-      if (data.refresh) {
-        await storage.setItemAsync(REFRESH_TOKEN_KEY, data.refresh);
-      }
-      startTokenRefresh(data.access);
-      return true;
+      if (!isCurrentSession(session)) return false;
+      await writeCredentials(async () => {
+        if (!isCurrentSession(session)) return;
+        await storage.setItemAsync(ACCESS_TOKEN_KEY, data.access);
+        if (data.refresh) await storage.setItemAsync(REFRESH_TOKEN_KEY, data.refresh);
+        if (!isCurrentSession(session)) return;
+        _cachedAccessToken = data.access;
+        startTokenRefresh(data.access);
+      });
+      return isCurrentSession(session);
     }
 
     // refresh token 被服务端明确拒绝（过期/黑名单），清除登录态
@@ -133,8 +162,8 @@ async function doRefresh(): Promise<boolean> {
     scheduleRefreshRetry();
     return false;
   } catch {
-    // 网络错误，不清除登录态，保留 token 并持续重试
-    scheduleRefreshRetry();
+    // 网络错误仅允许原会话重试。
+    if (isCurrentSession(session)) scheduleRefreshRetry();
     return false;
   }
 }
@@ -176,6 +205,7 @@ export async function login(
   username: string,
   password: string
 ): Promise<{ success: boolean; error?: string }> {
+  const session = getSession();
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10000);
   try {
@@ -188,6 +218,7 @@ export async function login(
 
     if (response.ok) {
       const data: LoginResponse = await response.json();
+      if (!isCurrentSession(session)) return { success: false, error: '服务已切换，请重新登录' };
       await storeAuth(data);
       await AsyncStorage.setItem('privacy_locked', 'false');
       return { success: true };
@@ -211,6 +242,7 @@ export async function register(data: {
   email?: string;
   display_name?: string;
 }): Promise<{ success: boolean; error?: string }> {
+  const session = getSession();
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10000);
   try {
@@ -223,6 +255,7 @@ export async function register(data: {
 
     if (response.ok) {
       const resData: LoginResponse = await response.json();
+      if (!isCurrentSession(session)) return { success: false, error: '服务已切换，请重新登录' };
       await storeAuth(resData);
       return { success: true };
     }
@@ -240,21 +273,19 @@ export async function register(data: {
 }
 
 export async function logout(): Promise<void> {
-  const refreshToken = await getRefreshToken();
-  if (refreshToken) {
-    const accessToken = await getAccessToken();
-    try {
-      await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/auth/token/blacklist/`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ refresh: refreshToken }),
-      });
-    } catch {}
-  }
+  const server = getApiBaseUrl();
+  const [refreshToken, accessToken] = await Promise.all([getRefreshToken(), getAccessToken()]);
   await clearAuth();
+  if (refreshToken) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    // Local logout completes immediately, even if the server cannot be reached.
+    void fetch(`${server}/api/v1/bbtalk/auth/token/blacklist/`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh: refreshToken }), signal: controller.signal,
+    }).catch(() => {}).finally(() => clearTimeout(timeout));
+  }
 }
 
 // --- 用户信息 ---
@@ -263,6 +294,8 @@ export async function initAuth(): Promise<boolean> {
   try {
     const accessToken = await getAccessToken();
     if (!accessToken) return false;
+    // Bind legacy credentials to the saved server before any later server switch.
+    await storage.setItemAsync(AUTH_SERVER_KEY, getApiBaseUrl());
     _cachedAccessToken = accessToken; // 启动时填充内存缓存
 
     const payload = parseJwt(accessToken);
@@ -275,7 +308,7 @@ export async function initAuth(): Promise<boolean> {
           if (saved) {
             try { currentUser = JSON.parse(saved); } catch { /* 缓存损坏时按未登录处理 */ }
           }
-          if (currentUser) return true;
+          if (currentUser) { setSession(getApiBaseUrl(), currentUser.id); return true; }
           return false;
         }
       } else {
@@ -291,9 +324,11 @@ export async function initAuth(): Promise<boolean> {
 
     // 冷启动时不要让 /user/me/ 阻塞首屏。已有缓存用户时先恢复登录态，后台刷新最新资料。
     if (currentUser) {
+      setSession(getApiBaseUrl(), currentUser.id);
+      const session = getSession();
       void fetchCurrentUser()
         .then(async (userInfo) => {
-          if (userInfo) {
+          if (userInfo && isCurrentSession(session)) {
             currentUser = userInfo;
             await storage.setItemAsync(USER_INFO_KEY, JSON.stringify(userInfo));
           }
@@ -315,7 +350,7 @@ export async function initAuth(): Promise<boolean> {
     }
 
     // 只要有有效 token 且有用户信息（缓存或最新），就保持登录
-    if (currentUser) return true;
+    if (currentUser) { setSession(getApiBaseUrl(), currentUser.id); return true; }
 
     // 没有任何用户信息，清除登录态
     await clearAuth();

@@ -1,157 +1,87 @@
-/**
- * 离线缓存服务模块（原生端）
- * 使用 expo-sqlite 实现 BBTalk 数据本地持久化
- * - 初始化 SQLite 数据库和表结构
- * - 全量替换写入 BBTalk 缓存
- * - 读取缓存并反序列化（损坏数据跳过）
- * - 清除缓存
- * - 读写最后同步时间戳
- *
- * Web 端使用 offlineCacheService.web.ts 的空实现（Metro 自动解析）
- */
+/** Native read cache, isolated by server + account. Never adopts legacy rows. */
 import * as SQLite from 'expo-sqlite';
 import type { BBTalk } from '../types';
+import { getSession, isCurrentSession, type Session } from './session';
 import { logError } from '../utils/errorHandler';
 
-const DB_NAME = 'bbtalk_cache.db';
-
 let db: SQLite.SQLiteDatabase | null = null;
-
-/**
- * 获取数据库实例（懒初始化）
- */
 function getDB(): SQLite.SQLiteDatabase {
-  if (!db) {
-    db = SQLite.openDatabaseSync(DB_NAME);
-  }
+  if (!db) db = SQLite.openDatabaseSync('bbtalk_cache.db');
   return db;
 }
 
-/**
- * 初始化 SQLite 数据库和表结构
- * 创建 bbtalks 表和 meta 表（如果不存在）
- */
 export async function initCacheDB(): Promise<void> {
-  try {
-    const database = getDB();
-    database.execSync(
-      `CREATE TABLE IF NOT EXISTS bbtalks (
-        id TEXT PRIMARY KEY,
-        data TEXT NOT NULL,
-        synced_at TEXT NOT NULL
-      );`
-    );
-    database.execSync(
-      `CREATE TABLE IF NOT EXISTS meta (
-        key TEXT PRIMARY KEY,
-        value TEXT NOT NULL
-      );`
-    );
-  } catch (e) {
-    logError(e, 'initCacheDB');
-    throw e;
-  }
+  const database = getDB();
+  database.withTransactionSync(() => {
+    database.execSync(`
+      CREATE TABLE IF NOT EXISTS scoped_bbtalks (
+        scope TEXT NOT NULL, id TEXT NOT NULL, data TEXT NOT NULL,
+        position INTEGER NOT NULL, PRIMARY KEY (scope, id)
+      );
+      CREATE TABLE IF NOT EXISTS scoped_meta (
+        scope TEXT NOT NULL, key TEXT NOT NULL, value TEXT NOT NULL,
+        PRIMARY KEY (scope, key)
+      );
+      DROP TABLE IF EXISTS bbtalks;
+      DROP TABLE IF EXISTS meta;
+    `);
+  });
 }
 
-/**
- * 将 BBTalk 列表写入缓存（全量替换）
- * 使用事务批量写入，先清空再插入
- */
-export async function cacheBBTalks(bbtalks: BBTalk[]): Promise<void> {
-  try {
-    const database = getDB();
-    const now = new Date().toISOString();
+function canAccess(session: Session): boolean {
+  return session.scope !== null && isCurrentSession(session);
+}
 
-    database.withTransactionSync(() => {
-      database.runSync('DELETE FROM bbtalks');
-      for (const item of bbtalks) {
-        database.runSync(
-          'INSERT INTO bbtalks (id, data, synced_at) VALUES (?, ?, ?)',
-          [item.id, JSON.stringify(item), now]
-        );
-      }
+export async function cacheBBTalks(bbtalks: BBTalk[], session = getSession()): Promise<void> {
+  if (!canAccess(session)) return;
+  const database = getDB();
+  database.withTransactionSync(() => {
+    database.runSync('DELETE FROM scoped_bbtalks WHERE scope = ?', [session.scope!]);
+    bbtalks.forEach((item, position) => database.runSync(
+      'INSERT OR REPLACE INTO scoped_bbtalks (scope, id, data, position) VALUES (?, ?, ?, ?)',
+      [session.scope!, item.id, JSON.stringify(item), position],
+    ));
+  });
+}
+
+export async function getCachedBBTalks(session = getSession()): Promise<BBTalk[]> {
+  if (!canAccess(session)) return [];
+  try {
+    const rows = getDB().getAllSync<{ id: string; data: string }>(
+      'SELECT id, data FROM scoped_bbtalks WHERE scope = ? ORDER BY position ASC', [session.scope!],
+    );
+    return rows.flatMap(row => {
+      try { return [JSON.parse(row.data) as BBTalk]; }
+      catch (error) { logError(error, `parse cached bbtalk id=${row.id}`); return []; }
     });
-  } catch (e) {
-    logError(e, 'cacheBBTalks');
-    throw e;
-  }
-}
-
-/**
- * 从缓存读取 BBTalk 列表
- * 损坏数据跳过并 logError
- */
-export async function getCachedBBTalks(): Promise<BBTalk[]> {
-  try {
-    const database = getDB();
-    const rows = database.getAllSync<{ id: string; data: string; synced_at: string }>(
-      'SELECT id, data, synced_at FROM bbtalks ORDER BY synced_at DESC'
-    );
-
-    const results: BBTalk[] = [];
-    for (const row of rows) {
-      try {
-        const parsed = JSON.parse(row.data) as BBTalk;
-        results.push(parsed);
-      } catch (e) {
-        logError(e, `parse cached bbtalk id=${row.id}`);
-        // 损坏数据跳过
-      }
-    }
-    return results;
-  } catch (e) {
-    logError(e, 'getCachedBBTalks');
+  } catch (error) {
+    logError(error, 'getCachedBBTalks');
     return [];
   }
 }
 
-/**
- * 清除所有缓存数据（bbtalks 表和 meta 表）
- */
-export async function clearCache(): Promise<void> {
-  try {
-    const database = getDB();
-    database.withTransactionSync(() => {
-      database.runSync('DELETE FROM bbtalks');
-      database.runSync('DELETE FROM meta');
-    });
-  } catch (e) {
-    logError(e, 'clearCache');
-    throw e;
-  }
+/** Clear only this account's records and sync time. */
+export async function clearCache(session = getSession()): Promise<void> {
+  if (!canAccess(session)) return;
+  const database = getDB();
+  database.withTransactionSync(() => {
+    database.runSync('DELETE FROM scoped_bbtalks WHERE scope = ?', [session.scope!]);
+    database.runSync('DELETE FROM scoped_meta WHERE scope = ?', [session.scope!]);
+  });
 }
 
-/**
- * 获取最后同步时间戳
- * 从 meta 表中读取 last_sync_time
- */
-export async function getLastSyncTime(): Promise<string | null> {
+export async function getLastSyncTime(session = getSession()): Promise<string | null> {
+  if (!canAccess(session)) return null;
   try {
-    const database = getDB();
-    const row = database.getFirstSync<{ value: string }>(
-      'SELECT value FROM meta WHERE key = ?',
-      ['last_sync_time']
-    );
-    return row?.value ?? null;
-  } catch (e) {
-    logError(e, 'getLastSyncTime');
-    return null;
-  }
+    return getDB().getFirstSync<{ value: string }>(
+      'SELECT value FROM scoped_meta WHERE scope = ? AND key = ?',
+      [session.scope!, 'last_sync_time'],
+    )?.value ?? null;
+  } catch (error) { logError(error, 'getLastSyncTime'); return null; }
 }
 
-/**
- * 更新最后同步时间戳
- * 写入 meta 表中的 last_sync_time
- */
-export async function setLastSyncTime(timestamp: string): Promise<void> {
-  try {
-    const database = getDB();
-    database.runSync(
-      'INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)',
-      ['last_sync_time', timestamp]
-    );
-  } catch (e) {
-    logError(e, 'setLastSyncTime');
-    throw e;
-  }
+export async function setLastSyncTime(timestamp: string, session = getSession()): Promise<void> {
+  if (!canAccess(session)) return;
+  getDB().runSync('INSERT OR REPLACE INTO scoped_meta (scope, key, value) VALUES (?, ?, ?)',
+    [session.scope!, 'last_sync_time', timestamp]);
 }

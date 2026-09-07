@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { getSession, isCurrentSession } from '../services/session';
 import NetInfo from '@react-native-community/netinfo';
 import type { BBTalk } from '../types';
 import {
@@ -25,6 +26,7 @@ export interface UseOfflineCacheReturn {
  * - 维护 lastSyncTime 状态
  */
 export function useOfflineCache(): UseOfflineCacheReturn {
+  const session = useRef(getSession()).current;
   const [isOffline, setIsOffline] = useState(false);
   const [lastSyncTime, setLastSyncTimeState] = useState<string | null>(null);
 
@@ -41,34 +43,35 @@ export function useOfflineCache(): UseOfflineCacheReturn {
   const initCache = useCallback(async () => {
     try {
       await initCacheDB();
-      const syncTime = await getLastSyncTime();
-      setLastSyncTimeState(syncTime);
+      const syncTime = await getLastSyncTime(session);
+      if (isCurrentSession(session)) setLastSyncTimeState(syncTime);
     } catch (e) {
       logError(e, 'useOfflineCache.initCache');
     }
-  }, []);
+  }, [session]);
 
   // 从 SQLite 读取缓存 BBTalk 列表
   const loadCachedData = useCallback(async (): Promise<BBTalk[]> => {
     try {
-      return await getCachedBBTalks();
+      const cached = await getCachedBBTalks(session);
+      return isCurrentSession(session) ? cached : [];
     } catch (e) {
       logError(e, 'useOfflineCache.loadCachedData');
       return [];
     }
-  }, []);
+  }, [session]);
 
   // 将最新数据写入缓存并更新 lastSyncTime
   const syncToCache = useCallback(async (bbtalks: BBTalk[]) => {
     try {
-      await cacheBBTalks(bbtalks);
+      await cacheBBTalks(bbtalks, session);
       const now = new Date().toISOString();
-      await setLastSyncTime(now);
-      setLastSyncTimeState(now);
+      await setLastSyncTime(now, session);
+      if (isCurrentSession(session)) setLastSyncTimeState(now);
     } catch (e) {
       logError(e, 'useOfflineCache.syncToCache');
     }
-  }, []);
+  }, [session]);
 
   return {
     isOffline,

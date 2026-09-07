@@ -8,7 +8,7 @@
 - 📎 文件上传和附件管理（基于 chewy-attachment）
 - 🏷️ 标签系统和分类管理
 - � 用户认证和权限控制
-- 📱 PWA 支持，可安装到桌面
+- 📱 响应式 Web + iOS/Android 原生客户端 + 桌面快捷记录
 - 🔒 防窥模式（长时间不活动自动模糊内容）
 - 🐳 Docker 容器化部署（一条命令即可启动）
 - 📦 数据导入导出（支持跨服务器迁移）
@@ -126,20 +126,13 @@ VITE_SITE_COPYRIGHT=© 2024 ChewyBBTalk
 
 也可通过环境变量自定义：`-e ADMIN_USERNAME=myuser -e ADMIN_PASSWORD=mypassword`
 
-## 📱 PWA 功能
+## 🌐 Web 客户端
 
-应用支持 Progressive Web App (PWA) 功能：
+`frontend/` 提供普通浏览器访问和响应式布局，不再提供 PWA 安装、Service Worker 离线缓存或离线可用承诺。
 
-**特性**
-- 📱 可安装为桌面/移动应用
-- 🔄 自动更新缓存
-- 📶 离线访问支持
-- 🚀 快速启动和加载
+从旧版本升级时，保留的 `/sw.js` 仅用于让历史 Service Worker 清理自身缓存并注销；不会强制刷新正在编辑的页面。曾安装到主屏幕的快捷方式可由用户自行移除。自定义反向代理也必须允许该文件返回 JavaScript，并设置 `Cache-Control: no-cache, no-store, must-revalidate`。
 
-**安装方式**
-- Chrome/Edge：地址栏右侧点击安装图标
-- Safari：分享菜单 → 添加到主屏幕
-- 或浏览器菜单中选择"安装应用"
+原生端离线读取由 `mobile/` 的账号隔离缓存提供。
 
 ## 🔒 防窥模式
 
@@ -205,7 +198,7 @@ startApp({
 
 ### Web 与原生端分工
 
-- 实际线上 Web/PWA 部署始终使用 `frontend/`（React + Vite），Docker/Nginx 构建链路不切换到 Expo Web。
+- 实际线上 Web 部署始终使用 `frontend/`（React + Vite），Docker/Nginx 构建链路不切换到 Expo Web。
 - `mobile/` 负责 iOS/Android 原生应用；其中 Expo Web 仅用于开发验证，不作为生产部署目标。
 
 ### 环境要求

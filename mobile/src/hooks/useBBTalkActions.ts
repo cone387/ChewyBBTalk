@@ -1,3 +1,4 @@
+import { getSession, isCurrentSession } from '../services/session';
 import { useCallback, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
@@ -17,6 +18,7 @@ interface UseBBTalkActionsOptions {
 
 export function useBBTalkActions({ showError, onNavigateCompose }: UseBBTalkActionsOptions) {
   const dispatch = useAppDispatch();
+  const session = useRef(getSession()).current;
   const { bbtalks } = useAppSelector(s => s.bbtalk);
   const [pendingDelete, setPendingDelete] = useState<{ bbtalk: BBTalk; index: number } | null>(null);
   const [isSharing, setIsSharing] = useState(false);
@@ -35,18 +37,21 @@ export function useBBTalkActions({ showError, onNavigateCompose }: UseBBTalkActi
   }, [isSharing]);
 
   const handleDelete = useCallback((item: BBTalk) => {
+    if (!isCurrentSession(session)) return;
     const index = bbtalks.findIndex(b => b.id === item.id);
     if (index === -1) return;
     setPendingDelete({ bbtalk: item, index });
     dispatch(optimisticDelete(item.id));
     deleteTimerRef.current = setTimeout(async () => {
+      if (!isCurrentSession(session)) return;
       try { await bbtalkApi.deleteBBTalk(item.id); }
-      catch (error: any) { dispatch(undoDelete({ bbtalk: item, index })); showError('删除失败', error.message || '请稍后重试'); }
+      catch (error: any) { if (!isCurrentSession(session)) return; dispatch(undoDelete({ bbtalk: item, index })); showError('删除失败', error.message || '请稍后重试'); }
       setPendingDelete(null);
     }, 3000);
   }, [bbtalks, dispatch, showError]);
 
   const handleUndo = useCallback(() => {
+    if (!isCurrentSession(session)) return;
     if (deleteTimerRef.current) { clearTimeout(deleteTimerRef.current); deleteTimerRef.current = null; }
     if (pendingDelete) { dispatch(undoDelete(pendingDelete)); setPendingDelete(null); }
   }, [pendingDelete, dispatch]);
@@ -62,6 +67,7 @@ export function useBBTalkActions({ showError, onNavigateCompose }: UseBBTalkActi
       { text: '复制' },
       { text: '删除', destructive: true },
     ], (idx) => {
+      if (!isCurrentSession(session)) return;
       if (idx === 0) onNavigateCompose(item);
       if (idx === 1) dispatch(togglePinAsync(item.id));
       if (idx === 2) shareBBTalk(item);
@@ -73,6 +79,7 @@ export function useBBTalkActions({ showError, onNavigateCompose }: UseBBTalkActi
   const toggleVisibility = useCallback((item: BBTalk) => {
     const newVis = item.visibility === 'public' ? 'private' : 'public';
     xConfirm('切换可见性', `确定设为${newVis === 'public' ? '公开' : '私密'}？`, () => {
+      if (!isCurrentSession(session)) return;
       dispatch(updateBBTalkAsync({ id: item.id, data: { visibility: newVis } as any }));
     });
   }, [dispatch]);
@@ -94,6 +101,7 @@ export function useBBTalkActions({ showError, onNavigateCompose }: UseBBTalkActi
           audioAttachment = await attachmentApi.upload(audioUri, `voice_${Date.now()}.${ext}`, mime);
         }
       }
+      if (!isCurrentSession(session)) return;
       await dispatch(createBBTalkAsync({
         content: text || '🎙️ 语音记录', attachments: audioAttachment ? [audioAttachment] : [],
         visibility: 'private',

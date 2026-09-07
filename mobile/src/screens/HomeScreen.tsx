@@ -50,7 +50,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
     xAlert(title, msg);
   }, []);
 
-  const { bbtalks, isLoading, hasMore } = useAppSelector(s => s.bbtalk);
+  const { hasLoadedFromNetwork, isFiltered, bbtalks, isLoading, hasMore } = useAppSelector(s => s.bbtalk);
   const { tags } = useAppSelector(s => s.tag);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -216,13 +216,13 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
   // --- Offline Cache: sync to cache after successful API load ---
   const prevBBTalksRef = useRef<BBTalk[]>([]);
   useEffect(() => {
-    // Only sync when bbtalks changed and we're not loading (i.e., API just returned)
-    // Also skip if offline (no new data to cache) or if bbtalks is empty
-    if (!isLoading && bbtalks.length > 0 && !isOffline && bbtalks !== prevBBTalksRef.current) {
+    // Persist authoritative unfiltered data, including an empty list after deletion.
+    // Cached hydration and filtered results must not overwrite the full read cache.
+    if (hasLoadedFromNetwork && !isFiltered && !isLoading && !isOffline && bbtalks !== prevBBTalksRef.current) {
       prevBBTalksRef.current = bbtalks;
       syncToCache(bbtalks).catch(e => logError(e, 'HomeScreen syncToCache'));
     }
-  }, [bbtalks, isLoading, isOffline, syncToCache]);
+  }, [bbtalks, hasLoadedFromNetwork, isFiltered, isLoading, isOffline, syncToCache]);
   useEffect(() => {
     if (tags.length === 0 && !selectedDate) return;
     LayoutAnimation.configureNext(LayoutAnimation.create(200, 'easeInEaseOut', 'opacity'));

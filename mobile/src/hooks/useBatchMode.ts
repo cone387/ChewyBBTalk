@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react';
+import { getSession, isCurrentSession } from '../services/session';
+import { useState, useCallback, useRef } from 'react';
 import { bbtalkApi } from '../services/api/bbtalkApi';
 import { xConfirm } from '../utils/crossAlert';
 import { useAppDispatch } from '../store/hooks';
@@ -26,6 +27,7 @@ interface UseBatchModeReturn {
 
 export function useBatchMode({ showError, onComplete }: UseBatchModeOptions): UseBatchModeReturn {
   const dispatch = useAppDispatch();
+  const session = useRef(getSession()).current;
   const [batchMode, setBatchMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isExecuting, setIsExecuting] = useState(false);
@@ -71,10 +73,11 @@ export function useBatchMode({ showError, onComplete }: UseBatchModeOptions): Us
               const errors: string[] = [];
 
               for (let i = 0; i < ids.length; i++) {
+                if (!isCurrentSession(session)) break;
                 setProgress({ done: i + 1, total: ids.length });
                 try {
                   await bbtalkApi.deleteBBTalk(ids[i]);
-                  dispatch(optimisticDelete(ids[i]));
+                  isCurrentSession(session) && dispatch(optimisticDelete(ids[i]));
                 } catch (e: any) {
                   failed++;
                   errors.push(e.message || '未知错误');
@@ -90,7 +93,7 @@ export function useBatchMode({ showError, onComplete }: UseBatchModeOptions): Us
               }
 
               exitBatchMode();
-              onComplete();
+              if (isCurrentSession(session)) onComplete();
               resolve();
         }, () => resolve(), { confirmText: '删除', destructive: true },
       );
@@ -104,6 +107,7 @@ export function useBatchMode({ showError, onComplete }: UseBatchModeOptions): Us
     const errors: string[] = [];
 
     for (let i = 0; i < ids.length; i++) {
+      if (!isCurrentSession(session)) break;
       setProgress({ done: i + 1, total: ids.length });
       try {
         await bbtalkApi.updateBBTalk(ids[i], {
@@ -124,7 +128,7 @@ export function useBatchMode({ showError, onComplete }: UseBatchModeOptions): Us
     }
 
     exitBatchMode();
-    onComplete();
+    if (isCurrentSession(session)) onComplete();
   }, [showError, onComplete, exitBatchMode]);
 
   const batchUpdateVisibility = useCallback(async (ids: string[], visibility: 'public' | 'private' | 'friends') => {
@@ -134,6 +138,7 @@ export function useBatchMode({ showError, onComplete }: UseBatchModeOptions): Us
     const errors: string[] = [];
 
     for (let i = 0; i < ids.length; i++) {
+      if (!isCurrentSession(session)) break;
       setProgress({ done: i + 1, total: ids.length });
       try {
         await bbtalkApi.updateBBTalk(ids[i], { visibility });
@@ -152,7 +157,7 @@ export function useBatchMode({ showError, onComplete }: UseBatchModeOptions): Us
     }
 
     exitBatchMode();
-    onComplete();
+    if (isCurrentSession(session)) onComplete();
   }, [showError, onComplete, exitBatchMode]);
 
   return {
