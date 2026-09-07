@@ -57,7 +57,7 @@ Web 草稿执行记录：[web-persistent-drafts](openspec/changes/web-persistent
 
 ## P2：记录与查找效率
 
-- 搜索结果高亮与性能基线，按实际数据规模引入全文索引和中文分词。
+- 搜索结果高亮、筛选摘要和性能基线已完成，见 [search-list-usability](openspec/changes/search-list-usability/tasks.md)；全文索引和中文分词依据真实规模再评估。
 - 离线草稿补发、幂等请求、失败重试与冲突处理。
 - 多端自动刷新，先明确同步契约，再决定轮询或 WebSocket。
 - 附件缩略图、大列表和分页性能优化，以测量结果决定实施。
@@ -77,3 +77,7 @@ Web 草稿执行记录：[web-persistent-drafts](openspec/changes/web-persistent
 - CI、基础搜索、宿主机备份脚本已存在，后续工作是补强和用户入口，不应重复立项。
 
 新迭代按 OpenSpec 建立提案、规格、设计和任务，实施后记录验证结果。
+
+## 当前执行：多端与部署体验
+
+用户已授权完成多端刷新与发布防重复、Web 反馈统一与跨浏览器兼容、首次部署与运行状态入口。完整范围见 [next-readiness-plan](docs/next-readiness-plan.md)，任务见 [multi-client-readiness](openspec/changes/multi-client-readiness/tasks.md)。后端协议先行，三端接入完成前不宣称防重复已全面交付。

@@ -11,6 +11,7 @@ from .authentication import authenticate_with_password, create_user_with_passwor
 from .data_export import DataExporter
 from .data_import import DataImporter, validate_import_file, ImportError
 from .storage_migration import StorageMigrationService
+from .submission import ReliableSubmissionMixin
 from drf_spectacular.utils import extend_schema
 from django.shortcuts import get_object_or_404
 from django.db.models import Count, Q, Exists, OuterRef, Subquery
@@ -313,7 +314,7 @@ class BBTalkFilter(django_filters.FilterSet):
         ]
 
 
-class BBTalkViewSet(viewsets.ModelViewSet):
+class BBTalkViewSet(ReliableSubmissionMixin, viewsets.ModelViewSet):
     """提供BBTalk的CRUD操作的视图集"""
     queryset = BBTalk.objects.all()  # 用于路由自动识别，实际查询使用 get_queryset()
     serializer_class = BBTalkSerializer

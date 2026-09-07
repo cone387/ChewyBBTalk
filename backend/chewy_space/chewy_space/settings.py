@@ -225,7 +225,10 @@ CORS_ALLOW_HEADERS = [
     'user-agent',
     'x-csrftoken',
     'x-requested-with',
+    'idempotency-key',
+    'if-match',
 ]
+CORS_EXPOSE_HEADERS = ['Idempotency-Replayed', 'Retry-After']
 
 # REST Framework
 REST_FRAMEWORK = {

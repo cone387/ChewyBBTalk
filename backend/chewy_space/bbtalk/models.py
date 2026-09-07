@@ -406,6 +406,19 @@ class Comment(BaseModel):
         return self.content[:30]
 
 
+class SubmissionReceipt(models.Model):
+    """Durable submission identity, retained when its record is deleted."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    key = models.CharField(max_length=128)
+    payload_hash = models.CharField(max_length=64)
+    record = models.ForeignKey(BBTalk, null=True, on_delete=models.SET_NULL)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = 'cb_submission_receipts'
+        constraints = [models.UniqueConstraint(fields=['user', 'key'], name='submission_user_key_unique')]
+
+
 class Attachment(AttachmentBase):
     """
     自定义附件模型
