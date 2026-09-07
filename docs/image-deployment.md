@@ -55,3 +55,5 @@ python3 -m unittest discover -s scripts/tests -v
 测试以假的容器 CLI 执行真实脚本，覆盖首次部署、旧名称迁移、拉取失败/重试、镜像预检失败、启动/健康失败、残留容器、锁冲突和配置错误。Windows 可将 `BASH_BIN` 指向 Git Bash；真实镜像与服务器验证以 Actions 结果为准。
 
 2026-09-07 后续备份版本：3ae91b5 的构建成功，但部署发现旧 conmon 继承了锁句柄。80bce0f 关闭容器命令继承的 fd 9 并在退出时解锁；10 项脚本测试通过。确认只有旧 conmon 持锁后归档旧锁文件，服务保持运行。部署 34095949418 成功，运行镜像 `ghcr.io/cone387/chewy-bbtalk@sha256:993a34ccfcf675e8201f64daee94c4aa64d3fce64fe168c41bf40fc9eaad71fa`，独立检查 Web 200/API 401，且 `flock -n .deploy-image.lock true` 成功。
+
+最终搜索版本 `64c6b8e`：部署 run 34097343536 成功，镜像 `ghcr.io/cone387/chewy-bbtalk@sha256:3d516bc091b0c33abcb979f38acebe241af1d6dfb9e7884d0957379fb80ea7b2`。独立服务器检查确认运行摘要一致、Web 200、用户/备份接口未登录均 401、部署锁可用。CI run 34097343528 全部成功。后续验收文档提交不变更运行代码。
