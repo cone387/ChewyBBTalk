@@ -13,8 +13,8 @@ from .data_import import DataImporter, validate_import_file, ImportError
 from .storage_migration import StorageMigrationService
 from drf_spectacular.utils import extend_schema
 from django.shortcuts import get_object_or_404
-from django.db.models import Count, Q
-from django.db.models.functions import TruncDate
+from django.db.models import Count, Q, Exists, OuterRef, Subquery
+from django.db.models.functions import TruncDate, Coalesce
 from django.contrib.auth import login as django_login, logout as django_logout
 from rest_framework.decorators import action
 
@@ -285,12 +285,17 @@ def delete_account(request):
 
 
 class BBTalkFilter(django_filters.FilterSet):
+    tags__name = django_filters.CharFilter(method='filter_tag_name')
     create_time__date = django_filters.DateFilter(field_name='create_time', lookup_expr='date')
     create_time__gte = django_filters.DateTimeFilter(field_name='create_time', lookup_expr='gte')
     create_time__lte = django_filters.DateTimeFilter(field_name='create_time', lookup_expr='lte')
     create_date__gte = django_filters.DateFilter(field_name='create_time', lookup_expr='date__gte')
     create_date__lte = django_filters.DateFilter(field_name='create_time', lookup_expr='date__lte')
     has_attachments = django_filters.BooleanFilter(method='filter_has_attachments')
+
+    def filter_tag_name(self, queryset, name, value):
+        matching = BBTalk.tags.through.objects.filter(bbtalk_id=OuterRef('pk'), tag__name=value)
+        return queryset.filter(Exists(matching))
 
     def filter_has_attachments(self, queryset, name, value):
         """按 attachments JSON 是否为空过滤，兼容 NULL 和空数组。"""
@@ -325,13 +330,16 @@ class BBTalkViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         # 只返回当前用户的记录，并优化关联查询
         user = self.request.user
+        # A correlated count avoids grouping the entire feed (including the
+        # pagination count query) and cannot multiply counts through tag joins.
+        comments = Comment.objects.filter(bbtalk_id=OuterRef('pk')).order_by().values('bbtalk_id').annotate(total=Count('*')).values('total')
         return BBTalk.objects.filter(
             user=user
         ).prefetch_related(
             'tags'  # 预加载标签
         ).annotate(
-            comment_count=Count('comments')
-        ).order_by('-is_pinned', '-update_time').distinct()
+            comment_count=Coalesce(Subquery(comments[:1]), 0)
+        ).order_by('-is_pinned', '-update_time', '-id')
 
     @action(detail=True, methods=['post'], url_path='pin')
     def toggle_pin(self, request, uid=None):

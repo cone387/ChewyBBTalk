@@ -2,10 +2,12 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeSanitize from 'rehype-sanitize'
 import type { Components } from 'react-markdown'
+import rehypeSearchHighlight from '../utils/searchHighlight'
 
 interface MarkdownRendererProps {
   content: string
   className?: string
+  search?: string
 }
 
 const components: Components = {
@@ -82,12 +84,12 @@ const components: Components = {
   ),
 }
 
-export default function MarkdownRenderer({ content, className }: MarkdownRendererProps) {
+export default function MarkdownRenderer({ content, className, search = '' }: MarkdownRendererProps) {
   return (
     <div className={`min-w-0 max-w-full [overflow-wrap:anywhere] ${className ?? ''}`}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeSanitize]}
+        rehypePlugins={[rehypeSanitize, [rehypeSearchHighlight, { search }]]}
         components={components}
       >
         {content}

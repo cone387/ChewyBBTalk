@@ -335,6 +335,21 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
     }
   }, [dateFrom, dateTo, hasAttachments, searchKeyword, selectedTags, tags])
 
+  const clearFilters = () => {
+    setSearchKeyword('')
+    setSelectedTags([])
+    setHasAttachments(undefined)
+    setDateFrom('')
+    setDateTo('')
+  }
+  const activeFilters = [
+    ...(searchKeyword.trim() ? [{ key: 'search', label: `关键词：${searchKeyword.trim()}`, remove: () => setSearchKeyword('') }] : []),
+    ...selectedTags.map(id => ({ key: `tag-${id}`, label: `标签：${tags.find(tag => tag.id === id)?.name ?? id}`, remove: () => setSelectedTags(previous => previous.filter(tag => tag !== id)) })),
+    ...(hasAttachments !== undefined ? [{ key: 'attachments', label: hasAttachments ? '有附件' : '无附件', remove: () => setHasAttachments(undefined) }] : []),
+    ...(dateFrom ? [{ key: 'from', label: `开始：${dateFrom}`, remove: () => setDateFrom('') }] : []),
+    ...(dateTo ? [{ key: 'to', label: `结束：${dateTo}`, remove: () => setDateTo('') }] : []),
+  ]
+
   // 监听搜索与筛选条件，防抖后重新加载数据
   useEffect(() => {
     // 跳过初始加载
@@ -611,8 +626,8 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
               <input id="desktop-date-from" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} aria-label="开始日期" className="rounded-lg border border-gray-200 px-2 py-1.5 text-xs text-gray-700 focus:border-blue-500" />
               <label className="sr-only" htmlFor="desktop-date-to">结束日期</label>
               <input id="desktop-date-to" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} aria-label="结束日期" className="rounded-lg border border-gray-200 px-2 py-1.5 text-xs text-gray-700 focus:border-blue-500" />
-              {(hasAttachments !== undefined || dateFrom || dateTo || searchKeyword) && (
-                <button type="button" onClick={() => { setHasAttachments(undefined); setDateFrom(''); setDateTo(''); setSearchKeyword('') }} className="rounded-lg px-2 py-1.5 text-xs text-blue-600 hover:bg-blue-50">清除筛选</button>
+              {activeFilters.length > 0 && (
+                <button type="button" onClick={clearFilters} className="rounded-lg px-2 py-1.5 text-xs text-blue-600 hover:bg-blue-50">清除筛选</button>
               )}
             </div>
           </div>
@@ -776,6 +791,18 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
             </div>
           )}
 
+          {activeFilters.length > 0 && <section aria-label="当前筛选条件" className="mb-4 rounded-xl border border-blue-100 bg-blue-50/70 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-medium text-gray-800">当前筛选 · {activeFilters.length}</p>
+              <button type="button" onClick={clearFilters} className="min-h-11 px-2 text-sm text-blue-700 hover:underline">全部清除</button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {activeFilters.map(filter => <button key={filter.key} type="button" aria-label={`移除${filter.label}`} onClick={filter.remove} className="flex min-h-11 max-w-full items-center gap-2 rounded-lg border border-blue-200 bg-white px-3 py-2 text-left text-sm text-blue-900 hover:bg-blue-100">
+                <span className="min-w-0 [overflow-wrap:anywhere]">{filter.label}</span><span aria-hidden="true" className="shrink-0">×</span>
+              </button>)}
+            </div>
+          </section>}
+
           {/* BBTalk 列表 */}
           <div className="space-y-4">
             {isLoading && bbtalks.length === 0 ? (
@@ -784,7 +811,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
               </div>
             ) : filteredBBTalks.length === 0 ? (
               <div className="bg-white rounded-lg shadow p-6 text-center text-gray-600">
-                {searchKeyword || selectedTags.length > 0 ? '没有找到匹配的碎碎念' : '暂无碎碎念'}
+                {activeFilters.length > 0 ? '没有找到匹配的碎碎念' : '暂无碎碎念'}
               </div>
             ) : (
               filteredBBTalks.map((bbtalk) => {
@@ -930,7 +957,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                     </div>
 
                     {/* 内容 */}
-                    <MarkdownRenderer content={bbtalk.content} />
+                    <MarkdownRenderer content={bbtalk.content} search={searchKeyword.trim()} />
                     
                     {/* 标签 */}
                     {bbtalk.tags && bbtalk.tags.length > 0 && (
@@ -1298,8 +1325,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
           {/* 首页 */}
           <button
             onClick={() => {
-              setSelectedTags([])
-              setSearchKeyword('')
+              clearFilters()
               scrollToTop()
             }}
             className="flex flex-col items-center justify-center flex-1 h-full text-blue-600 min-w-0"
@@ -1313,12 +1339,12 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
           {/* 标签 */}
           <button
             onClick={() => setShowMobileMenu(true)}
-            className={`flex flex-col items-center justify-center flex-1 h-full min-w-0 ${selectedTags.length > 0 ? 'text-blue-600' : 'text-gray-600'}`}
+            className={`flex flex-col items-center justify-center flex-1 h-full min-w-0 ${activeFilters.length > 0 ? 'text-blue-600' : 'text-gray-600'}`}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
             </svg>
-            <span className="text-xs mt-0.5">标签{selectedTags.length > 0 ? `(${selectedTags.length})` : ''}</span>
+            <span className="text-xs mt-0.5">筛选{activeFilters.length > 0 ? `(${activeFilters.length})` : ''}</span>
           </button>
           
           {/* 设置 */}
@@ -1346,7 +1372,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
           >
             {/* 头部 */}
             <div className="flex items-center justify-between p-4 border-b border-gray-100">
-              <h3 className="font-medium text-gray-900">筛选标签</h3>
+              <h3 className="font-medium text-gray-900">筛选记录</h3>
               <button onClick={() => setShowMobileMenu(false)} aria-label="关闭筛选" className="min-w-11 min-h-11 flex items-center justify-center">
                 <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1377,8 +1403,8 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                 </select>
                 <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} aria-label="开始日期" className="rounded-lg border border-gray-200 px-2 py-2 text-xs text-gray-700 focus:border-blue-500" />
                 <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} aria-label="结束日期" className="rounded-lg border border-gray-200 px-2 py-2 text-xs text-gray-700 focus:border-blue-500" />
-                {(hasAttachments !== undefined || dateFrom || dateTo || searchKeyword) && (
-                  <button type="button" onClick={() => { setHasAttachments(undefined); setDateFrom(''); setDateTo(''); setSearchKeyword('') }} className="rounded-lg px-2 py-2 text-xs text-blue-600 hover:bg-blue-50">清除筛选</button>
+                {activeFilters.length > 0 && (
+                  <button type="button" onClick={clearFilters} className="rounded-lg px-2 py-2 text-xs text-blue-600 hover:bg-blue-50">清除筛选</button>
                 )}
               </div>
             </div>
