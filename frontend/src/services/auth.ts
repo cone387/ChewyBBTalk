@@ -48,6 +48,14 @@ function getApiBaseUrl(): string {
   return import.meta.env.VITE_API_BASE_URL || '';
 }
 
+export async function getAuthPolicy(signal?: AbortSignal): Promise<{ registration_enabled: boolean }> {
+  const response = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/auth/policy/`, { signal, cache: 'no-store' });
+  if (!response.ok) throw new Error('无法读取注册设置');
+  const policy = await response.json();
+  if (typeof policy.registration_enabled !== 'boolean') throw new Error('注册设置格式错误');
+  return policy;
+}
+
 /**
  * 获取 Access Token
  */
@@ -521,7 +529,8 @@ export async function verifyPassword(password: string): Promise<{ success: boole
       storeAuth(data);
       return { success: true };
     } else {
-      return { success: false, error: '密码错误' };
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false, error: errorData.error || (response.status === 429 ? '请求过于频繁，请稍后重试' : '密码错误') };
     }
   } catch (error) {
     console.error('[Auth] 密码验证错误:', error);

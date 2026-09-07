@@ -106,3 +106,34 @@ test('a second deletion does not cancel or hide the undo state for the latest re
   await expect(first).toHaveCount(0)
   await expect(second).toBeVisible()
 })
+
+
+test('closed registration keeps existing login available', async ({ page }) => {
+  await page.route('**/auth/policy/', route => route.fulfill({ json: { registration_enabled: false } }))
+  await prepareUser(page)
+  await expect(page.getByText('当前服务未开放注册，请联系管理员')).toBeVisible()
+  await expect(page.getByRole('button', { name: '创建新账户' })).toHaveCount(0)
+  await login(page)
+})
+
+test('registration policy failure can be retried and throttling preserves credentials', async ({ page }) => {
+  let policyFails = true
+  await page.route('**/auth/policy/', route => policyFails
+    ? route.fulfill({ status: 503, json: { error: 'unavailable' } })
+    : route.fulfill({ json: { registration_enabled: true } }))
+  await page.goto('/login')
+  await expect(page.getByText('无法读取注册设置，已有账户可继续登录。')).toBeVisible()
+  policyFails = false
+  await page.getByRole('button', { name: '重试读取注册设置' }).click()
+  await page.getByRole('button', { name: '创建新账户' }).click()
+  await expect(page.getByRole('heading', { name: '创建账户' })).toBeVisible()
+  await page.getByRole('button', { name: '登录已有账户' }).click()
+  await page.route('**/auth/token/', route => route.fulfill({ status: 429,
+    headers: { 'Retry-After': '42' }, json: { code: 'rate_limited', error: '请求过于频繁，请 42 秒后重试', retry_after: 42 } }))
+  await page.getByPlaceholder('请输入用户名').fill('existing-account')
+  await page.getByPlaceholder('请输入密码').fill(password)
+  await page.getByRole('button', { name: '登录', exact: true }).click()
+  await expect(page.getByText('请求过于频繁，请 42 秒后重试')).toBeVisible()
+  await expect(page.getByPlaceholder('请输入用户名')).toHaveValue('existing-account')
+  await expect(page.getByPlaceholder('请输入密码')).toHaveValue(password)
+})

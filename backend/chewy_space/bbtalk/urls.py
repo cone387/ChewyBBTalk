@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from rest_framework_simplejwt.views import TokenRefreshView
+from .auth_policy import LimitedTokenRefreshView, AuthPolicyView
 from .backup_views import backups, download_backup
 from .views import (
     BBTalkViewSet, TagViewSet, PublicBBTalkViewSet,
@@ -20,9 +20,10 @@ router.register(r'public', PublicBBTalkViewSet, basename='bbtalk-public')
 router.register(r'', BBTalkViewSet)
 
 urlpatterns = [
+    path('auth/policy/', AuthPolicyView.as_view(), name='auth_policy'),
     # JWT Token 认证
     path('auth/token/', token_obtain_view, name='token_obtain'),  # 获取 Token
-    path('auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),  # 刷新 Token
+    path('auth/token/refresh/', LimitedTokenRefreshView.as_view(), name='token_refresh'),  # 刷新 Token
     path('auth/token/blacklist/', token_blacklist_view, name='token_blacklist'),  # Token 登出（黑名单）
     # Session 认证（传统方式）
     path('auth/login/', login_view, name='login'),  # Session 登录

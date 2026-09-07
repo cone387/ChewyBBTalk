@@ -17,6 +17,10 @@ def main():
             "STATIC_ROOT": str(root / "static"),
             "SECRET_KEY": "isolated-browser-tests-only-not-a-production-key",
             "DEBUG": "false",
+            "REGISTRATION_ENABLED": "true",
+            "AUTH_LOGIN_RATE": "10000/minute",
+            "AUTH_REGISTRATION_RATE": "10000/minute",
+            "AUTH_REFRESH_RATE": "10000/minute",
             "ALLOWED_HOSTS": "127.0.0.1,localhost",
         })
         sys.path.insert(0, str(Path(__file__).resolve().parent / "chewy_space"))

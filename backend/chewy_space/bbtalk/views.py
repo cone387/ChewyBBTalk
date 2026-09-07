@@ -1,3 +1,6 @@
+from django.conf import settings
+from rest_framework.decorators import throttle_classes
+from .auth_policy import LoginThrottle, RegistrationThrottle
 from rest_framework import viewsets, filters, permissions, status
 from rest_framework.decorators import api_view, permission_classes as permission_classes_decorator
 from rest_framework.response import Response
@@ -53,6 +56,7 @@ from rest_framework.decorators import action
 )
 @api_view(['POST'])
 @permission_classes_decorator([permissions.AllowAny])
+@throttle_classes([LoginThrottle])
 def token_obtain_view(request):
     """获取 JWT Token（用用户名密码换取 Token）"""
     username = request.data.get('username')
@@ -95,6 +99,7 @@ def token_obtain_view(request):
 )
 @api_view(['POST'])
 @permission_classes_decorator([permissions.AllowAny])
+@throttle_classes([LoginThrottle])
 def login_view(request):
     """用户登录（Session 认证，传统方式）"""
     username = request.data.get('username')
@@ -194,8 +199,11 @@ def logout_view(request):
 )
 @api_view(['POST'])
 @permission_classes_decorator([permissions.AllowAny])
+@throttle_classes([RegistrationThrottle])
 def register_view(request):
     """用户注册"""
+    if not settings.REGISTRATION_ENABLED:
+        return Response({'error': '当前服务未开放注册，请联系管理员', 'code': 'registration_disabled'}, status=403)
     username = request.data.get('username', '').strip()
     password = request.data.get('password', '')
     email = request.data.get('email', '').strip()

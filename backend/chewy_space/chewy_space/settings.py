@@ -231,7 +231,13 @@ CORS_ALLOW_HEADERS = [
 CORS_EXPOSE_HEADERS = ['Idempotency-Replayed', 'Retry-After']
 
 # REST Framework
+REGISTRATION_ENABLED = os.getenv('REGISTRATION_ENABLED', 'false').lower() in ('1', 'true', 'yes')
+AUTH_LOGIN_RATE = os.getenv('AUTH_LOGIN_RATE', '30/minute')
+AUTH_REGISTRATION_RATE = os.getenv('AUTH_REGISTRATION_RATE', '5/minute')
+AUTH_REFRESH_RATE = os.getenv('AUTH_REFRESH_RATE', '120/minute')
+
 REST_FRAMEWORK = {
+    'EXCEPTION_HANDLER': 'bbtalk.auth_policy.auth_exception_handler',
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_simplejwt.authentication.JWTAuthentication',  # JWT 认证（主要）
         'bbtalk.authentication.SessionAuthentication',  # Session 认证（备用）

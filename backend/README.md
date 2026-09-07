@@ -90,3 +90,20 @@ backend/
 ```bash
 uv run python chewy_space/manage.py test bbtalk
 ```
+
+
+### 注册与认证请求限制
+
+自助注册默认关闭，包括升级后未配置此项的实例；已有账号仍可登录。
+需要开放注册时，在根目录 `.env` 设置 `REGISTRATION_ENABLED=true` 并重启服务。
+Web 登录页读取服务端策略，关闭时展示管理员联系提示；策略读取失败可重试，不阻止已有账号登录。
+
+`AUTH_LOGIN_RATE=30/minute`、`AUTH_REGISTRATION_RATE=5/minute`、`AUTH_REFRESH_RATE=120/minute`
+分别控制登录（JWT 与旧登录接口共享额度）、注册和令牌刷新请求；成功与失败请求均计数。
+达到限制返回 HTTP 429、中文原因、`Retry-After` 秒数和 `retry_after` 字段。
+设置某项为空可关闭该项限制，修改后需重启服务。
+
+默认使用 Django 进程内缓存，按直接连接 IP 计数；多个 worker 的额度独立，重启会重置，
+不是全局严格配额。应用不信任客户端提供的 `X-Forwarded-For`，反向代理后的访问可能共享代理 IP 额度。
+部署时按并发和用户规模调整额度；需要跨 worker 或真实来源 IP 的统一限制时，
+在可信入口代理配置对应限流，或另行配置共享缓存及可信代理策略。
