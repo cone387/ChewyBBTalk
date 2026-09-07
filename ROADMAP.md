@@ -49,7 +49,7 @@ Web 草稿执行记录：[web-persistent-drafts](openspec/changes/web-persistent
 
 1. 真机走查暂缓，由用户后续测试反馈；浏览器模拟与自动回归继续进行。
 2. 阅读/详情与编辑入口调整暂缓；附件状态和发布失败反馈已纳入第三轮。
-3. 扩展已有 Web E2E 到附件、权限、网络失败和 WebKit/Firefox；扩大原生关键操作测试。
+3. Web E2E 已覆盖附件、权限、网络失败和 WebKit/Firefox；原生真实关键组件与 Electron 窗口回归已接入 CI。后续按缺陷和使用反馈增补。
 4. 备份管理与恢复闭环已纳入上述迭代，后续依据实际数据规模优化耗时与存储占用。
 5. 对齐 README、OpenSpec 和历史任务实际状态，保留已暂停事项的原因。
 
@@ -78,6 +78,6 @@ Web 草稿执行记录：[web-persistent-drafts](openspec/changes/web-persistent
 
 新迭代按 OpenSpec 建立提案、规格、设计和任务，实施后记录验证结果。
 
-## 当前执行：多端与部署体验
+## 已完成：多端与部署体验
 
-用户已授权完成多端刷新与发布防重复、Web 反馈统一与跨浏览器兼容、首次部署与运行状态入口。完整范围见 [next-readiness-plan](docs/next-readiness-plan.md)，任务见 [multi-client-readiness](openspec/changes/multi-client-readiness/tasks.md)。三端接入、Web 反馈和跨浏览器回归、安全初始化、注册限流与运行状态入口已实现并完成本地验收；最终 CI 与实际部署以任务记录为准。
+用户已授权完成多端刷新与发布防重复、Web 反馈统一与跨浏览器兼容、首次部署与运行状态入口。完整范围见 [next-readiness-plan](docs/next-readiness-plan.md)，任务见 [multi-client-readiness](openspec/changes/multi-client-readiness/tasks.md)。三端接入、Web 反馈和跨浏览器回归、安全初始化、注册限流与运行状态入口已完成；最终 CI、镜像及实际运行均验证通过，证据见 [本轮验收记录](docs/multi-client-readiness-validation.md)。
