@@ -14,11 +14,11 @@ export default defineConfig({
     cors: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:8020',
+        target: process.env.VITE_PROXY_TARGET || 'http://localhost:8020',
         changeOrigin: true,
       },
       '/media': {
-        target: 'http://localhost:8020',
+        target: process.env.VITE_PROXY_TARGET || 'http://localhost:8020',
         changeOrigin: true,
       }
     }

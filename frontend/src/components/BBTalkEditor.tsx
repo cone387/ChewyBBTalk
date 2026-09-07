@@ -848,7 +848,7 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
       </div>
 
       {/* 工具栏 - 始终显示 */}
-      <div className="px-4 pb-3 pt-2 flex items-center justify-between">
+      <div className="px-4 pb-3 pt-2 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
             {/* 标签选择按钮 - 点击插入 # 触发选择器 */}
             <button
@@ -947,15 +947,13 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
           </div>
 
         {/* 右侧按钮 */}
-        <div className="flex items-center gap-3">
-            <span className="text-xs text-gray-400">
-              {content.length > 0 && `${content.length} 字`}
-            </span>
+        <div className="ml-auto flex shrink-0 items-center gap-3 whitespace-nowrap">
+            {content.length > 0 && <span className="text-xs text-gray-400">{content.length} 字</span>}
             {editing && (
               <button
                 onClick={handleCancel}
                 disabled={isPublishing}
-                className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+                className="shrink-0 px-4 sm:px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors text-sm font-medium"
               >
                 取消
               </button>
@@ -963,7 +961,7 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
             <button
               onClick={handleSubmit}
               disabled={!content.trim() || isPublishing || isUploading}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+              className="shrink-0 px-4 sm:px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors text-sm font-medium"
             >
               {isPublishing ? (editing ? '更新中...' : '发布中...') : (editing ? '保存' : '发布')}
             </button>

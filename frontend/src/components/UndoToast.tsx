@@ -17,14 +17,18 @@ export default function UndoToast({
 }: UndoToastProps) {
   const [show, setShow] = useState(false)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const onDismissRef = useRef(onDismiss)
+  onDismissRef.current = onDismiss
 
   useEffect(() => {
+    let frame: number | undefined
     if (visible) {
       // Small delay to trigger CSS transition
-      requestAnimationFrame(() => setShow(true))
+      frame = requestAnimationFrame(() => setShow(true))
       timerRef.current = setTimeout(() => {
         setShow(false)
-        setTimeout(onDismiss, 300) // Wait for slide-out animation
+        dismissTimerRef.current = setTimeout(() => onDismissRef.current(), 300)
       }, duration)
     } else {
       setShow(false)
@@ -32,10 +36,13 @@ export default function UndoToast({
 
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current)
+      if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current)
+      if (frame !== undefined) cancelAnimationFrame(frame)
     }
-  }, [visible, duration, onDismiss])
+  }, [visible, duration])
 
   const handleUndo = () => {
+    if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current)
     if (timerRef.current) {
       clearTimeout(timerRef.current)
       timerRef.current = null
@@ -48,7 +55,9 @@ export default function UndoToast({
 
   return (
     <div
-      className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 ease-out ${
+      role="status"
+      aria-live="polite"
+      className={`fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] lg:bottom-6 left-1/2 -translate-x-1/2 z-[60] transition-all duration-300 ease-out ${
         show ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
       }`}
     >

@@ -64,6 +64,8 @@ certs/
 *.pem
 *.key
 .playwright-mcp/
+frontend/playwright-report/
+frontend/test-results/
 web-*.png
 
 # HyperFrames

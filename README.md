@@ -250,6 +250,10 @@ ChewyBBTalk/
    npm run dev  # 开发服务器：http://localhost:5173
    ```
 
+### Web 浏览器回归
+
+在 `frontend/` 运行 `npm run test:e2e`，会自动启动临时 Django 数据库和 Web，覆盖桌面及小屏的登录、记录编辑、搜索与删除撤销。安装与报告说明见 [frontend/e2e/README.md](frontend/e2e/README.md)。
+
 ## 📋 API 端点
 
 | 方法 | 端点 | 说明 |

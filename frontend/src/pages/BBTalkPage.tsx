@@ -1,3 +1,4 @@
+import { useUndoableDelete } from '../hooks/useUndoableDelete'
 import { useCallback, useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
@@ -243,8 +244,12 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
   const [isInitialLoad, setIsInitialLoad] = useState(true)
   const [copyTip, setCopyTip] = useState<{ show: boolean; id: string | null }>({ show: false, id: null })
   const [previewImage, setPreviewImage] = useState<{ src: string; alt: string } | null>(null)
-  const [pendingDelete, setPendingDelete] = useState<{ bbtalk: typeof bbtalks[0]; index: number } | null>(null)
-  const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const deletion = useUndoableDelete<{ bbtalk: typeof bbtalks[0]; index: number }>({
+    remove: ({ bbtalk }) => { dispatch(optimisticDelete(bbtalk.id)) },
+    restore: (item) => { dispatch(undoDelete(item)) },
+    commit: ({ bbtalk }) => bbtalkApi.deleteBBTalk(bbtalk.id),
+    onError: (error) => alert('删除失败: ' + (error instanceof Error ? error.message : '请稍后重试')),
+  })
   const lastScrollY = useRef(0)
   const containerRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -859,7 +864,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                     {/* 更多菜单 - 右上角，公开模式只显示复制链接 */}
                     <div className="absolute top-4 right-4" ref={activeMenu === bbtalk.id ? menuRef : null}>
                       <button
-                        className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                        className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100 focus:opacity-100"
                         onClick={() => setActiveMenu(activeMenu === bbtalk.id ? null : bbtalk.id)}
                         title="更多"
                       >
@@ -909,19 +914,8 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                             onClick={() => {
                               const index = bbtalks.findIndex(b => b.id === bbtalk.id)
                               if (index === -1) return
-                              setPendingDelete({ bbtalk, index })
-                              dispatch(optimisticDelete(bbtalk.id))
+                              deletion.remove({ bbtalk, index })
                               setActiveMenu(null)
-
-                              deleteTimerRef.current = setTimeout(async () => {
-                                try {
-                                  await bbtalkApi.deleteBBTalk(bbtalk.id)
-                                } catch (error: any) {
-                                  dispatch(undoDelete({ bbtalk, index }))
-                                  alert('删除失败: ' + (error.message || '请稍后重试'))
-                                }
-                                setPendingDelete(null)
-                              }, 3000)
                             }}
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1293,18 +1287,10 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
 
       {/* 删除撤销提示 */}
       <UndoToast
-        visible={!!pendingDelete}
-        onUndo={() => {
-          if (deleteTimerRef.current) {
-            clearTimeout(deleteTimerRef.current)
-            deleteTimerRef.current = null
-          }
-          if (pendingDelete) {
-            dispatch(undoDelete(pendingDelete))
-            setPendingDelete(null)
-          }
-        }}
-        onDismiss={() => setPendingDelete(null)}
+        key={deletion.pending?.bbtalk.id ?? 'idle'}
+        visible={!!deletion.pending}
+        onUndo={deletion.undo}
+        onDismiss={deletion.dismiss}
       />
       {/* 移动端底部导航栏 */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 safe-area-pb">
@@ -1361,7 +1347,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
             {/* 头部 */}
             <div className="flex items-center justify-between p-4 border-b border-gray-100">
               <h3 className="font-medium text-gray-900">筛选标签</h3>
-              <button onClick={() => setShowMobileMenu(false)} className="p-1">
+              <button onClick={() => setShowMobileMenu(false)} aria-label="关闭筛选" className="min-w-11 min-h-11 flex items-center justify-center">
                 <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
