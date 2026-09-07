@@ -82,3 +82,5 @@ videos/
 .qoder/skills/
 skills-lock.json
 .deploy-image.lock
+
+frontend/desktop-test-results/

@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
 let composeWindow: BrowserWindow | null = null;
+let resizeTimer: ReturnType<typeof setInterval> | null = null;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -118,6 +119,7 @@ export function getComposeWindow(): BrowserWindow | null {
 export function resizeComposeWindow(width: number, height: number): void {
   if (!composeWindow || composeWindow.isDestroyed()) return;
 
+  if (resizeTimer) { clearInterval(resizeTimer); resizeTimer = null; }
   const [currentW, currentH] = composeWindow.getSize();
   if (currentW === width && currentH === height) return;
 
@@ -130,10 +132,11 @@ export function resizeComposeWindow(width: number, height: number): void {
     const dw = (width - currentW) / steps;
     const dh = (height - currentH) / steps;
     let step = 0;
-    const interval = setInterval(() => {
+    resizeTimer = setInterval(() => {
       step++;
       if (step >= steps || !composeWindow || composeWindow.isDestroyed()) {
-        clearInterval(interval);
+        if (resizeTimer) clearInterval(resizeTimer);
+        resizeTimer = null;
         if (composeWindow && !composeWindow.isDestroyed()) {
           composeWindow.setSize(width, height);
         }

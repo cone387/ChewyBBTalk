@@ -3,7 +3,7 @@
  * Integrates: tag parsing, visibility cycling, file uploads (button/drag/paste),
  * file previews, auto-resize, and enriched publish payload.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { parseTags, parseAndClean } from './tagParser';
 import { nextVisibility, visibilityLabel, Visibility } from './visibilityCycle';
 import { uploadFiles, removeFileFromList, UploadedFile } from './uploadManager';
@@ -81,6 +81,38 @@ export function ComposeWindow() {
     }, 500);
     return () => window.clearTimeout(timer);
   }, [content, snapshot?.session.scope, snapshot?.session.generation, submitting]);
+
+  // Include the recovery panel in the native window's height budget.
+  useLayoutEffect(() => {
+    const textarea = textareaRef.current;
+    const root = textarea?.closest('.compose-root');
+    if (!textarea || !root) return;
+    let frame = 0;
+    let lastHeight = 0;
+    const resize = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const fixedHeight = Array.from(root.children)
+          .filter(element => !element.classList.contains('compose-body') && !element.classList.contains('compose-toast'))
+          .filter(element => getComputedStyle(element).position !== 'absolute')
+          .reduce((height, element) => height + element.getBoundingClientRect().height, 0);
+        textarea.style.height = '0px';
+        const natural = textarea.scrollHeight;
+        const textHeight = Math.max(42, Math.min(Math.max(63, natural), 300, 500 - fixedHeight - 20));
+        textarea.style.height = `${textHeight}px`;
+        textarea.style.overflowY = natural > textHeight ? 'auto' : 'hidden';
+        const height = Math.max(160, Math.min(500, Math.ceil(fixedHeight + textHeight + 20)));
+        if (height !== lastHeight) {
+          lastHeight = height;
+          void window.desktop.compose.resize(440, height);
+        }
+      });
+    };
+    const observer = new ResizeObserver(resize);
+    root.querySelectorAll('.submission-recovery, .file-preview-area, .tag-pills').forEach(element => observer.observe(element));
+    resize();
+    return () => { observer.disconnect(); cancelAnimationFrame(frame); };
+  }, [content, tags, uploadedFiles, snapshot?.intent?.state, loggedIn]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -220,6 +252,7 @@ export function ComposeWindow() {
     if (!snapshot || operationRef.current) return;
     operationRef.current = true; setSubmitting(true);
     try {
+      await window.desktop.compose.saveDraft(content, snapshot.session);
       const intent = await window.desktop.compose.recoverSubmission(snapshot.session, retry);
       const updated = { ...snapshot, intent };
       snapshotRef.current = updated; setSnapshot(updated);
@@ -329,7 +362,7 @@ export function ComposeWindow() {
         </div>
       )}
 
-      {snapshot?.intent && <section aria-label="原提交恢复" style={{ padding: '8px 12px', fontSize: 13 }}>
+      {snapshot?.intent && <section className="submission-recovery" aria-label="原提交恢复" style={{ padding: '8px 12px', fontSize: 13 }}>
         <p role="status">{snapshot.intent.state === 'pending' ? '有一份发布结果待核对' : snapshot.intent.deleted ? '原提交已删除，当前输入仍保留' : '原提交已确认，当前输入仍保留'}</p>
         <details><summary>查看原提交内容</summary><p style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{snapshot.intent.payload.content}</p></details>
         {snapshot.intent.state === 'pending' && <div style={{ display: 'flex', gap: 8 }}>

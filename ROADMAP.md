@@ -58,8 +58,8 @@ Web 草稿执行记录：[web-persistent-drafts](openspec/changes/web-persistent
 ## P2：记录与查找效率
 
 - 搜索结果高亮、筛选摘要和性能基线已完成，见 [search-list-usability](openspec/changes/search-list-usability/tasks.md)；全文索引和中文分词依据真实规模再评估。
-- 离线草稿补发、幂等请求、失败重试与冲突处理。
-- 多端自动刷新，先明确同步契约，再决定轮询或 WebSocket。
+- 三端持久提交、服务端幂等、明确重试和编辑冲突保护已实现；不自动离线发布。
+- Web/原生前台与网络恢复刷新、桌面唤醒核对已实现；持续实时同步和 WebSocket 按实际需求再评估。
 - 附件缩略图、大列表和分页性能优化，以测量结果决定实施。
 - 结构化日志、错误上报和基础运行监控。
 
@@ -80,4 +80,4 @@ Web 草稿执行记录：[web-persistent-drafts](openspec/changes/web-persistent
 
 ## 当前执行：多端与部署体验
 
-用户已授权完成多端刷新与发布防重复、Web 反馈统一与跨浏览器兼容、首次部署与运行状态入口。完整范围见 [next-readiness-plan](docs/next-readiness-plan.md)，任务见 [multi-client-readiness](openspec/changes/multi-client-readiness/tasks.md)。后端协议先行，三端接入完成前不宣称防重复已全面交付。
+用户已授权完成多端刷新与发布防重复、Web 反馈统一与跨浏览器兼容、首次部署与运行状态入口。完整范围见 [next-readiness-plan](docs/next-readiness-plan.md)，任务见 [multi-client-readiness](openspec/changes/multi-client-readiness/tasks.md)。三端接入、Web 反馈和跨浏览器回归、安全初始化、注册限流与运行状态入口已实现并完成本地验收；最终 CI 与实际部署以任务记录为准。
