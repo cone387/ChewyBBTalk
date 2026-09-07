@@ -73,6 +73,8 @@ function BBTalkEditorContent({ onPublish, isPublishing = false, editing = null, 
     setPublishError(null)
     try {
       assertIdentity()
+      await draft.verifyCurrent()
+      assertIdentity()
       if (retry) await onPublish({ ...intent.payload, submissionKey: intent.key })
       else await bbtalkApi.submissionStatus(intent.key)
       assertIdentity()

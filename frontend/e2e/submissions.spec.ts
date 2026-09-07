@@ -90,3 +90,30 @@ test('stale edit preserves input and requires review before saving against new v
   await page.reload()
   await expect(page.locator('.bbtalk-item')).toContainText('本地未保存修改')
 })
+
+test('foreground refresh keeps the active search and unsent draft', async ({ page }) => {
+  await login(page)
+  if (!(await page.getByPlaceholder('搜索 BBTalk...').filter({ visible: true }).count())) {
+    await page.getByRole('button', { name: /^筛选(?:\(\d+\))?$/ }).click()
+  }
+  await page.getByPlaceholder('搜索 BBTalk...').filter({ visible: true }).fill('前台命中')
+  const close = page.getByRole('button', { name: '关闭筛选' })
+  if (await close.isVisible()) await close.click()
+  await expect(page.getByText('关键词：前台命中', { exact: true })).toBeVisible()
+  await page.getByLabel('记录内容').fill('尚未提交的本地草稿')
+  const token = await page.evaluate(() => localStorage.getItem('bbtalk_access_token'))
+  const headers = { Authorization: `Bearer ${token}` }
+  expect((await page.request.post('/api/v1/bbtalk/', { headers, data: { content: '前台命中远端新增' } })).status()).toBe(201)
+  expect((await page.request.post('/api/v1/bbtalk/', { headers, data: { content: '不匹配的记录' } })).status()).toBe(201)
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+  await expect(page.locator('.bbtalk-item')).toHaveCount(1)
+  await expect(page.locator('.bbtalk-item')).toContainText('前台命中远端新增')
+  await expect(page.getByRole('button', { name: '移除关键词：前台命中' })).toBeVisible()
+  await expect(page.getByLabel('记录内容')).toHaveValue('尚未提交的本地草稿')
+  await page.clock.install()
+  await page.clock.fastForward(1100)
+  expect((await page.request.post('/api/v1/bbtalk/', { headers, data: { content: '前台命中网络恢复新增' } })).status()).toBe(201)
+  await page.evaluate(() => window.dispatchEvent(new Event('online')))
+  await expect(page.locator('.bbtalk-item')).toHaveCount(2)
+  await expect(page.getByLabel('记录内容')).toHaveValue('尚未提交的本地草稿')
+})

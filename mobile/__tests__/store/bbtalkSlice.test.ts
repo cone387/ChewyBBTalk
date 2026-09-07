@@ -22,7 +22,7 @@ function makeTalk(id: string, content: string): BBTalk {
 
 describe('bbtalkSlice cache startup', () => {
   it('does not resurrect cached records after a successful empty server response', () => {
-    let state = reducer(undefined, loadBBTalks.fulfilled({
+    let state = reducer(reducer(undefined, loadBBTalks.pending('empty', {})), loadBBTalks.fulfilled({
       bbtalks: [], page: 1, hasMore: false, totalCount: 0, isFullLoad: true,
     }, 'empty', {}));
     state = reducer(state, setBBTalksFromCache([makeTalk('deleted', 'old')]));

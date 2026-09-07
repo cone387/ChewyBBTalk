@@ -3,6 +3,8 @@ import { bbtalkApi } from '../../services/api';
 import type { BBTalk, Attachment } from '../../types';
 
 interface BBTalkState {
+  activeRequestId?: string;
+  hiddenRecordIds: string[];
   bbtalks: BBTalk[];
   currentPage: number;
   hasMore: boolean;
@@ -14,6 +16,7 @@ interface BBTalkState {
 }
 
 const initialState: BBTalkState = {
+  hiddenRecordIds: [],
   bbtalks: [],
   currentPage: 1,
   hasMore: true,
@@ -117,17 +120,19 @@ const bbtalkSlice = createSlice({
     setBBTalksFromCache: (state, action: PayloadAction<BBTalk[]>) => {
       // Only populate from cache if store is empty (avoid overwriting fresh API data)
       if (!state.hasLoadedFromNetwork && state.bbtalks.length === 0) {
-        state.bbtalks = action.payload;
+        state.bbtalks = action.payload.filter(item => !state.hiddenRecordIds.includes(item.id));
         state.totalCount = action.payload.length;
         state.hasMore = false; // Cache doesn't have pagination info
         state.isLoading = false;
       }
     },
     optimisticDelete: (state, action: PayloadAction<string>) => {
+      if (!state.hiddenRecordIds.includes(action.payload)) state.hiddenRecordIds.push(action.payload);
       state.bbtalks = state.bbtalks.filter(b => b.id !== action.payload);
       state.totalCount -= 1;
     },
     undoDelete: (state, action: PayloadAction<{ bbtalk: BBTalk; index: number }>) => {
+      state.hiddenRecordIds = state.hiddenRecordIds.filter(id => id !== action.payload.bbtalk.id);
       state.bbtalks.splice(action.payload.index, 0, action.payload.bbtalk);
       state.totalCount += 1;
     },
@@ -142,10 +147,13 @@ const bbtalkSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(loadBBTalks.pending, (state) => { state.isLoading = true; state.error = null; })
+      .addCase(loadBBTalks.pending, (state, action) => {
+        state.activeRequestId = action.meta.requestId; state.isLoading = true; state.error = null; })
       .addCase(loadBBTalks.fulfilled, (state, action) => {
+        if (state.activeRequestId !== action.meta.requestId) return;
+        state.activeRequestId = undefined;
         state.isLoading = false;
-        state.bbtalks = action.payload.bbtalks;
+        state.bbtalks = action.payload.bbtalks.filter(item => !state.hiddenRecordIds.includes(item.id));
         state.hasLoadedFromNetwork = true;
         state.isFiltered = !action.payload.isFullLoad;
         state.currentPage = action.payload.page;
@@ -153,16 +161,23 @@ const bbtalkSlice = createSlice({
         if (action.payload.isFullLoad) state.totalCount = action.payload.totalCount;
       })
       .addCase(loadBBTalks.rejected, (state, action) => {
+        if (state.activeRequestId !== action.meta.requestId) return;
+        state.activeRequestId = undefined;
         state.isLoading = false; state.error = action.payload as string;
       })
-      .addCase(loadMoreBBTalks.pending, (state) => { state.isLoading = true; })
+      .addCase(loadMoreBBTalks.pending, (state, action) => {
+        state.activeRequestId = action.meta.requestId; state.isLoading = true; })
       .addCase(loadMoreBBTalks.fulfilled, (state, action) => {
+        if (state.activeRequestId !== action.meta.requestId) return;
+        state.activeRequestId = undefined;
         state.isLoading = false;
-        state.bbtalks = [...state.bbtalks, ...action.payload.bbtalks];
+        state.bbtalks = [...state.bbtalks, ...action.payload.bbtalks.filter(item => !state.hiddenRecordIds.includes(item.id))];
         state.currentPage = action.payload.page;
         state.hasMore = action.payload.hasMore;
       })
       .addCase(loadMoreBBTalks.rejected, (state, action) => {
+        if (state.activeRequestId !== action.meta.requestId) return;
+        state.activeRequestId = undefined;
         state.isLoading = false; state.error = action.payload as string;
         state.hasMore = false; // Stop retrying on error
       })

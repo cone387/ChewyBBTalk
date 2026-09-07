@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
-  RefreshControl, ActivityIndicator, Modal,
+  RefreshControl, ActivityIndicator, Modal, AppState,
   Platform, Animated, LayoutAnimation, UIManager, Linking, BackHandler,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -57,6 +57,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
   const loadingMoreRef = useRef(false);
   const [searchVisible, setSearchVisible] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [activeSearch, setActiveSearch] = useState('');
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [previewImages, setPreviewImages] = useState<string[]>([]);
@@ -211,7 +212,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
     return () => { mounted = false; };
   }, [initCache, loadCachedData, dispatch]);
 
-  useEffect(() => { dispatch(loadBBTalks({})); dispatch(loadTags()); }, [dispatch]);
+  useEffect(() => { dispatch(loadTags()); }, [dispatch]);
 
   // --- Offline Cache: sync to cache after successful API load ---
   const prevBBTalksRef = useRef<BBTalk[]>([]);
@@ -224,30 +225,46 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
     }
   }, [bbtalks, hasLoadedFromNetwork, isFiltered, isLoading, isOffline, syncToCache]);
   useEffect(() => {
-    if (tags.length === 0 && !selectedDate) return;
     LayoutAnimation.configureNext(LayoutAnimation.create(200, 'easeInEaseOut', 'opacity'));
     const tagNames = selectedTag ? [tags.find(t => t.id === selectedTag)?.name].filter(Boolean) as string[] : [];
-    dispatch(loadBBTalks({ tags: tagNames, date: selectedDate || undefined }));
-  }, [selectedTag, selectedDate]);
+    dispatch(loadBBTalks({ search: activeSearch || undefined, tags: tagNames, date: selectedDate || undefined }));
+  }, [selectedTag, selectedDate, activeSearch]);
 
   const onRefresh = useCallback(async () => {
     if (isOffline) return; // Disabled when offline
     setRefreshing(true);
     const tagNames = selectedTag ? [tags.find(t => t.id === selectedTag)?.name].filter(Boolean) as string[] : [];
-    await dispatch(loadBBTalks({ tags: tagNames, date: selectedDate || undefined }));
+    await dispatch(loadBBTalks({ search: activeSearch || undefined, tags: tagNames, date: selectedDate || undefined }));
     dispatch(loadTags()); setRefreshing(false);
-  }, [dispatch, selectedTag, selectedDate, tags, isOffline]);
+  }, [dispatch, selectedTag, selectedDate, tags, isOffline, activeSearch]);
   onRefreshRef.current = onRefresh;
+  const foregroundRefreshAt = useRef(0);
+  const foregroundRefresh = useCallback(() => {
+    if (!navigation.isFocused() || AppState.currentState !== 'active' || Date.now() - foregroundRefreshAt.current < 1000) return;
+    foregroundRefreshAt.current = Date.now();
+    void onRefreshRef.current?.();
+  }, [navigation]);
+  useEffect(() => {
+    const focus = navigation.addListener('focus', foregroundRefresh);
+    const active = AppState.addEventListener('change', state => { if (state === 'active') foregroundRefresh(); });
+    return () => { focus(); active.remove(); };
+  }, [navigation, foregroundRefresh]);
+  const previousOffline = useRef(isOffline);
+  useEffect(() => {
+    if (previousOffline.current && !isOffline) foregroundRefresh();
+    previousOffline.current = isOffline;
+  }, [isOffline, foregroundRefresh]);
+
 
   const onEndReached = useCallback(() => {
     if (isOffline) return; // Disabled when offline
     if (loadingMoreRef.current || !hasMore || isLoading) return;
     loadingMoreRef.current = true; setLoadingMore(true);
     const tagNames = selectedTag ? [tags.find(t => t.id === selectedTag)?.name].filter(Boolean) as string[] : [];
-    dispatch(loadMoreBBTalks({ tags: tagNames, date: selectedDate || undefined })).finally(() => {
+    dispatch(loadMoreBBTalks({ search: activeSearch || undefined, tags: tagNames, date: selectedDate || undefined })).finally(() => {
       loadingMoreRef.current = false; setLoadingMore(false);
     });
-  }, [dispatch, hasMore, isLoading, selectedTag, selectedDate, tags, isOffline]);
+  }, [dispatch, hasMore, isLoading, selectedTag, selectedDate, tags, isOffline, activeSearch]);
 
   const showLocation = useCallback((loc: { latitude: number; longitude: number }) => {
     xConfirm('定位信息', `纬度: ${loc.latitude.toFixed(6)}\n经度: ${loc.longitude.toFixed(6)}`, () => {
@@ -265,9 +282,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
       AsyncStorage.setItem('search_history', JSON.stringify(next));
       return next;
     });
-    // Trigger server-side search
-    const tagNames = selectedTag ? [tags.find(t => t.id === selectedTag)?.name].filter(Boolean) as string[] : [];
-    dispatch(loadBBTalks({ search: term, tags: tagNames, date: selectedDate || undefined }));
+    setActiveSearch(term.trim());
   }, [dispatch, selectedTag, selectedDate, tags]);
   const clearSearchHistory = useCallback(() => { setSearchHistory([]); AsyncStorage.removeItem('search_history'); }, []);
 
@@ -348,9 +363,9 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
             if (searchVisible) {
               if (searchText.trim()) saveSearchHistory(searchText);
               setSearchText('');
+              setActiveSearch('');
               // Reload without search filter
-              const tagNames = selectedTag ? [tags.find(t => t.id === selectedTag)?.name].filter(Boolean) as string[] : [];
-              dispatch(loadBBTalks({ tags: tagNames, date: selectedDate || undefined }));
+
             }
             setSearchVisible(!searchVisible);
           }} style={styles.headerBtn} accessibilityRole="button" accessibilityLabel={searchVisible ? '关闭搜索' : '搜索'}>

@@ -2,7 +2,7 @@ import { useUndoableDelete } from '../hooks/useUndoableDelete'
 import { useCallback, useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
-import { loadBBTalks, createBBTalkAsync, updateBBTalkAsync, loadMoreBBTalks, loadPublicBBTalks, loadMorePublicBBTalks, optimisticDelete, undoDelete } from '../store/slices/bbtalkSlice'
+import { invalidateFeed, loadBBTalks, createBBTalkAsync, updateBBTalkAsync, loadMoreBBTalks, loadPublicBBTalks, loadMorePublicBBTalks, optimisticDelete, undoDelete } from '../store/slices/bbtalkSlice'
 import { loadTags, updateTagAsync } from '../store/slices/tagSlice'
 import BBTalkEditor from '../components/BBTalkEditor'
 import CachedImage from '../components/CachedImage'
@@ -353,22 +353,44 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
   // 监听搜索与筛选条件，防抖后重新加载数据
   useEffect(() => {
     // 跳过初始加载
-    if (isInitialLoad) {
+    if (isInitialLoad || isPublic) {
       console.log('[BBTalkPage] 搜索筛选 useEffect 跳过 - 初始加载中')
       return
     }
 
+    dispatch(invalidateFeed())
     const timer = window.setTimeout(() => {
       dispatch(loadBBTalks(buildFilterParams()))
     }, 300)
     return () => window.clearTimeout(timer)
-  }, [buildFilterParams, dispatch, isInitialLoad])
+  }, [buildFilterParams, dispatch, isInitialLoad, isPublic])
 
   useEffect(() => {
     const resolved = () => { dispatch(loadBBTalks(buildFilterParams())) }
     window.addEventListener('bbtalk-submission-resolved', resolved)
     return () => window.removeEventListener('bbtalk-submission-resolved', resolved)
   }, [buildFilterParams, dispatch])
+
+  useEffect(() => {
+    let lastRefresh = 0
+    const refresh = () => {
+      if (document.visibilityState !== 'visible' || !navigator.onLine || Date.now() - lastRefresh < 1000) return
+      lastRefresh = Date.now()
+      if (isPublic) dispatch(loadPublicBBTalks({}))
+      else if (getCurrentUser()) {
+        dispatch(loadBBTalks(buildFilterParams()))
+        dispatch(loadTags())
+      }
+    }
+    window.addEventListener('focus', refresh)
+    window.addEventListener('online', refresh)
+    document.addEventListener('visibilitychange', refresh)
+    return () => {
+      window.removeEventListener('focus', refresh)
+      window.removeEventListener('online', refresh)
+      document.removeEventListener('visibilitychange', refresh)
+    }
+  }, [buildFilterParams, dispatch, isPublic])
 
   // 点击外部关闭菜单
   useEffect(() => {
