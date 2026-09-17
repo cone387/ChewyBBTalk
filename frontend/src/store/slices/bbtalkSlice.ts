@@ -3,6 +3,8 @@ import { bbtalkApi } from '../../services/api'
 import type { BBTalk, Attachment } from '../../types'
 
 interface BBTalkState {
+  activeRequestId?: string;
+  hiddenRecordIds: string[];
   bbtalks: BBTalk[]
   selectedBBTalkId: string | null
   currentPage: number
@@ -15,6 +17,7 @@ interface BBTalkState {
 }
 
 const initialState: BBTalkState = {
+  hiddenRecordIds: [],
   bbtalks: [],
   selectedBBTalkId: null,
   currentPage: 1,
@@ -29,13 +32,16 @@ const initialState: BBTalkState = {
 // 异步Actions
 export const loadBBTalks = createAsyncThunk(
   'bbtalk/loadBBTalks',
-  async (params: { page?: number; search?: string; tags?: string[] } = {}, { rejectWithValue }) => {
+  async (params: { page?: number; search?: string; tags?: string[]; hasAttachments?: boolean; dateFrom?: string; dateTo?: string } = {}, { rejectWithValue }) => {
     try {
-      const { page = 1, search, tags } = params
+      const { page = 1, search, tags, hasAttachments, dateFrom, dateTo } = params
       const result = await bbtalkApi.getBBTalks({ 
         page, 
         search,
-        tags__name: tags?.join(',') 
+        tags__name: tags?.join(','),
+        has_attachments: hasAttachments,
+        create_date__gte: dateFrom,
+        create_date__lte: dateTo,
       })
       return { 
         bbtalks: result.results, 
@@ -52,17 +58,20 @@ export const loadBBTalks = createAsyncThunk(
 
 export const loadMoreBBTalks = createAsyncThunk(
   'bbtalk/loadMoreBBTalks',
-  async (params: { search?: string; tags?: string[] } = {}, { getState, rejectWithValue }) => {
+  async (params: { search?: string; tags?: string[]; hasAttachments?: boolean; dateFrom?: string; dateTo?: string } = {}, { getState, rejectWithValue }) => {
     try {
       const state = getState() as any
       const currentPage = state.bbtalk.currentPage
       const nextPage = currentPage + 1
       
-      const { search, tags } = params
+      const { search, tags, hasAttachments, dateFrom, dateTo } = params
       const result = await bbtalkApi.getBBTalks({ 
         page: nextPage, 
         search,
-        tags__name: tags?.join(',') 
+        tags__name: tags?.join(','),
+        has_attachments: hasAttachments,
+        create_date__gte: dateFrom,
+        create_date__lte: dateTo,
       })
       return { 
         bbtalks: result.results, 
@@ -97,7 +106,7 @@ export const loadPublicBBTalks = createAsyncThunk(
 // 加载更多公开的 BBTalks
 export const loadMorePublicBBTalks = createAsyncThunk(
   'bbtalk/loadMorePublicBBTalks',
-  async (_params: {} = {}, { getState, rejectWithValue }) => {
+  async (_params: Record<string, never> = {}, { getState, rejectWithValue }) => {
     try {
       const state = getState() as any
       const currentPage = state.bbtalk.currentPage
@@ -119,6 +128,7 @@ export const createBBTalkAsync = createAsyncThunk(
   'bbtalk/createBBTalk',
   async (data: {
     content: string
+    submissionKey?: string
     tags?: string[]
     attachments?: Attachment[]
     visibility?: 'public' | 'private' | 'friends'
@@ -135,12 +145,12 @@ export const createBBTalkAsync = createAsyncThunk(
 
 export const updateBBTalkAsync = createAsyncThunk(
   'bbtalk/updateBBTalk',
-  async ({ id, data }: { id: string; data: Partial<BBTalk> }, { rejectWithValue }) => {
+  async ({ id, data, expectedUpdatedAt }: { id: string; data: Partial<BBTalk>; expectedUpdatedAt?: string }, { rejectWithValue }) => {
     try {
-      const bbtalk = await bbtalkApi.updateBBTalk(id, data)
+      const bbtalk = await bbtalkApi.updateBBTalk(id, data, expectedUpdatedAt)
       return bbtalk
     } catch (error: any) {
-      return rejectWithValue(error.message || '更新BBTalk失败')
+      return rejectWithValue({ message: error.message || '更新BBTalk失败', code: error.code, current: error.current })
     }
   }
 )
@@ -161,6 +171,11 @@ const bbtalkSlice = createSlice({
   name: 'bbtalk',
   initialState,
   reducers: {
+    invalidateFeed: (state) => {
+      state.activeRequestId = undefined;
+      state.isLoading = false;
+      state.hasMore = false;
+    },
     selectBBTalk: (state, action: PayloadAction<string>) => {
       state.selectedBBTalkId = action.payload
     },
@@ -174,10 +189,12 @@ const bbtalkSlice = createSlice({
       state.error = null
     },
     optimisticDelete: (state, action: PayloadAction<string>) => {
+      if (!state.hiddenRecordIds.includes(action.payload)) state.hiddenRecordIds.push(action.payload);
       state.bbtalks = state.bbtalks.filter(b => b.id !== action.payload)
       state.totalCount -= 1
     },
     undoDelete: (state, action: PayloadAction<{ bbtalk: BBTalk; index: number }>) => {
+      state.hiddenRecordIds = state.hiddenRecordIds.filter(id => id !== action.payload.bbtalk.id);
       state.bbtalks.splice(action.payload.index, 0, action.payload.bbtalk)
       state.totalCount += 1
     },
@@ -185,13 +202,16 @@ const bbtalkSlice = createSlice({
   extraReducers: (builder) => {
     builder
       // loadBBTalks
-      .addCase(loadBBTalks.pending, (state) => {
+      .addCase(loadBBTalks.pending, (state, action) => {
+        state.activeRequestId = action.meta.requestId;
         state.isLoading = true
         state.error = null
       })
       .addCase(loadBBTalks.fulfilled, (state, action) => {
+        if (state.activeRequestId !== action.meta.requestId) return;
+        state.activeRequestId = undefined;
         state.isLoading = false
-        state.bbtalks = action.payload.bbtalks
+        state.bbtalks = action.payload.bbtalks.filter(item => !state.hiddenRecordIds.includes(item.id))
         state.currentPage = action.payload.page
         state.hasMore = action.payload.hasMore
         // 只在全量加载时更新总数
@@ -200,26 +220,33 @@ const bbtalkSlice = createSlice({
         }
       })
       .addCase(loadBBTalks.rejected, (state, action) => {
+        if (state.activeRequestId !== action.meta.requestId) return;
+        state.activeRequestId = undefined;
         state.isLoading = false
         state.error = action.payload as string
       })
       // loadMoreBBTalks
-      .addCase(loadMoreBBTalks.pending, (state) => {
+      .addCase(loadMoreBBTalks.pending, (state, action) => {
+        state.activeRequestId = action.meta.requestId;
         state.isLoading = true
       })
       .addCase(loadMoreBBTalks.fulfilled, (state, action) => {
+        if (state.activeRequestId !== action.meta.requestId) return;
+        state.activeRequestId = undefined;
         state.isLoading = false
-        state.bbtalks = [...state.bbtalks, ...action.payload.bbtalks]
+        state.bbtalks = [...state.bbtalks, ...action.payload.bbtalks.filter(item => !state.hiddenRecordIds.includes(item.id))]
         state.currentPage = action.payload.page
         state.hasMore = action.payload.hasMore
       })
       .addCase(loadMoreBBTalks.rejected, (state, action) => {
+        if (state.activeRequestId !== action.meta.requestId) return;
+        state.activeRequestId = undefined;
         state.isLoading = false
         state.error = action.payload as string
       })
       // createBBTalkAsync
       .addCase(createBBTalkAsync.fulfilled, (state, action) => {
-        state.bbtalks.unshift(action.payload)
+        if (!state.bbtalks.some(item => item.id === action.payload.id)) state.bbtalks.unshift(action.payload)
       })
       .addCase(createBBTalkAsync.rejected, (state, action) => {
         state.error = action.payload as string
@@ -232,7 +259,7 @@ const bbtalkSlice = createSlice({
         }
       })
       .addCase(updateBBTalkAsync.rejected, (state, action) => {
-        state.error = action.payload as string
+        state.error = (action.payload as { message?: string } | undefined)?.message ?? '更新失败'
       })
       // deleteBBTalkAsync
       .addCase(deleteBBTalkAsync.fulfilled, (state, action) => {
@@ -242,39 +269,49 @@ const bbtalkSlice = createSlice({
         state.error = action.payload as string
       })
       // loadPublicBBTalks
-      .addCase(loadPublicBBTalks.pending, (state) => {
+      .addCase(loadPublicBBTalks.pending, (state, action) => {
+        state.activeRequestId = action.meta.requestId;
         state.isLoading = true
         state.error = null
       })
       .addCase(loadPublicBBTalks.fulfilled, (state, action) => {
+        if (state.activeRequestId !== action.meta.requestId) return;
+        state.activeRequestId = undefined;
         state.isLoading = false
-        state.bbtalks = action.payload.bbtalks
+        state.bbtalks = action.payload.bbtalks.filter(item => !state.hiddenRecordIds.includes(item.id))
         state.currentPage = action.payload.page
         state.hasMore = action.payload.hasMore
         state.totalCount = action.payload.totalCount
       })
       .addCase(loadPublicBBTalks.rejected, (state, action) => {
+        if (state.activeRequestId !== action.meta.requestId) return;
+        state.activeRequestId = undefined;
         state.isLoading = false
         state.error = action.payload as string
       })
       // loadMorePublicBBTalks
-      .addCase(loadMorePublicBBTalks.pending, (state) => {
+      .addCase(loadMorePublicBBTalks.pending, (state, action) => {
+        state.activeRequestId = action.meta.requestId;
         state.isLoading = true
       })
       .addCase(loadMorePublicBBTalks.fulfilled, (state, action) => {
+        if (state.activeRequestId !== action.meta.requestId) return;
+        state.activeRequestId = undefined;
         state.isLoading = false
-        state.bbtalks = [...state.bbtalks, ...action.payload.bbtalks]
+        state.bbtalks = [...state.bbtalks, ...action.payload.bbtalks.filter(item => !state.hiddenRecordIds.includes(item.id))]
         state.currentPage = action.payload.page
         state.hasMore = action.payload.hasMore
       })
       .addCase(loadMorePublicBBTalks.rejected, (state, action) => {
+        if (state.activeRequestId !== action.meta.requestId) return;
+        state.activeRequestId = undefined;
         state.isLoading = false
         state.error = action.payload as string
       })
   },
 })
 
-export const {
+export const { invalidateFeed,
   selectBBTalk,
   setSelectedTags,
   setSearchKeyword,

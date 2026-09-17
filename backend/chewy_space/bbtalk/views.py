@@ -1,3 +1,6 @@
+from django.conf import settings
+from rest_framework.decorators import throttle_classes
+from .auth_policy import LoginThrottle, RegistrationThrottle
 from rest_framework import viewsets, filters, permissions, status
 from rest_framework.decorators import api_view, permission_classes as permission_classes_decorator
 from rest_framework.response import Response
@@ -11,10 +14,11 @@ from .authentication import authenticate_with_password, create_user_with_passwor
 from .data_export import DataExporter
 from .data_import import DataImporter, validate_import_file, ImportError
 from .storage_migration import StorageMigrationService
+from .submission import ReliableSubmissionMixin
 from drf_spectacular.utils import extend_schema
 from django.shortcuts import get_object_or_404
-from django.db.models import Count
-from django.db.models.functions import TruncDate
+from django.db.models import Count, Q, Exists, OuterRef, Subquery
+from django.db.models.functions import TruncDate, Coalesce
 from django.contrib.auth import login as django_login, logout as django_logout
 from rest_framework.decorators import action
 
@@ -52,6 +56,7 @@ from rest_framework.decorators import action
 )
 @api_view(['POST'])
 @permission_classes_decorator([permissions.AllowAny])
+@throttle_classes([LoginThrottle])
 def token_obtain_view(request):
     """获取 JWT Token（用用户名密码换取 Token）"""
     username = request.data.get('username')
@@ -94,6 +99,7 @@ def token_obtain_view(request):
 )
 @api_view(['POST'])
 @permission_classes_decorator([permissions.AllowAny])
+@throttle_classes([LoginThrottle])
 def login_view(request):
     """用户登录（Session 认证，传统方式）"""
     username = request.data.get('username')
@@ -193,8 +199,11 @@ def logout_view(request):
 )
 @api_view(['POST'])
 @permission_classes_decorator([permissions.AllowAny])
+@throttle_classes([RegistrationThrottle])
 def register_view(request):
     """用户注册"""
+    if not settings.REGISTRATION_ENABLED:
+        return Response({'error': '当前服务未开放注册，请联系管理员', 'code': 'registration_disabled'}, status=403)
     username = request.data.get('username', '').strip()
     password = request.data.get('password', '')
     email = request.data.get('email', '').strip()
@@ -285,16 +294,35 @@ def delete_account(request):
 
 
 class BBTalkFilter(django_filters.FilterSet):
+    tags__name = django_filters.CharFilter(method='filter_tag_name')
     create_time__date = django_filters.DateFilter(field_name='create_time', lookup_expr='date')
     create_time__gte = django_filters.DateTimeFilter(field_name='create_time', lookup_expr='gte')
     create_time__lte = django_filters.DateTimeFilter(field_name='create_time', lookup_expr='lte')
+    create_date__gte = django_filters.DateFilter(field_name='create_time', lookup_expr='date__gte')
+    create_date__lte = django_filters.DateFilter(field_name='create_time', lookup_expr='date__lte')
+    has_attachments = django_filters.BooleanFilter(method='filter_has_attachments')
+
+    def filter_tag_name(self, queryset, name, value):
+        matching = BBTalk.tags.through.objects.filter(bbtalk_id=OuterRef('pk'), tag__name=value)
+        return queryset.filter(Exists(matching))
+
+    def filter_has_attachments(self, queryset, name, value):
+        """按 attachments JSON 是否为空过滤，兼容 NULL 和空数组。"""
+        if value is None:
+            return queryset
+        empty_attachments = Q(attachments=[]) | Q(attachments__isnull=True)
+        return queryset.exclude(empty_attachments) if value else queryset.filter(empty_attachments)
 
     class Meta:
         model = BBTalk
-        fields = ['tags__name', 'visibility', 'create_time__date', 'create_time__gte', 'create_time__lte']
+        fields = [
+            'tags__name', 'visibility',
+            'create_time__date', 'create_time__gte', 'create_time__lte',
+            'create_date__gte', 'create_date__lte', 'has_attachments',
+        ]
 
 
-class BBTalkViewSet(viewsets.ModelViewSet):
+class BBTalkViewSet(ReliableSubmissionMixin, viewsets.ModelViewSet):
     """提供BBTalk的CRUD操作的视图集"""
     queryset = BBTalk.objects.all()  # 用于路由自动识别，实际查询使用 get_queryset()
     serializer_class = BBTalkSerializer
@@ -311,13 +339,16 @@ class BBTalkViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         # 只返回当前用户的记录，并优化关联查询
         user = self.request.user
+        # A correlated count avoids grouping the entire feed (including the
+        # pagination count query) and cannot multiply counts through tag joins.
+        comments = Comment.objects.filter(bbtalk_id=OuterRef('pk')).order_by().values('bbtalk_id').annotate(total=Count('*')).values('total')
         return BBTalk.objects.filter(
             user=user
         ).prefetch_related(
             'tags'  # 预加载标签
         ).annotate(
-            comment_count=Count('comments')
-        ).order_by('-is_pinned', '-update_time')
+            comment_count=Coalesce(Subquery(comments[:1]), 0)
+        ).order_by('-is_pinned', '-update_time', '-id')
 
     @action(detail=True, methods=['post'], url_path='pin')
     def toggle_pin(self, request, uid=None):
@@ -466,7 +497,7 @@ class PublicBBTalkViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         return BBTalk.objects.filter(
             visibility='public'
-        ).prefetch_related('tags').order_by('-update_time')
+        ).prefetch_related('tags').order_by('-update_time').distinct()
 
 
 @extend_schema(
@@ -814,6 +845,10 @@ def export_data(request):
                                     'tags_skipped': {'type': 'integer'},
                                     'bbtalks_created': {'type': 'integer'},
                                     'bbtalks_skipped': {'type': 'integer'},
+                                    'attachments_created': {'type': 'integer'},
+                                    'attachments_skipped': {'type': 'integer'},
+                                    'comments_created': {'type': 'integer'},
+                                    'comments_skipped': {'type': 'integer'},
                                     'storage_settings_created': {'type': 'integer'},
                                     'errors': {'type': 'array', 'items': {'type': 'string'}}
                                 }
@@ -847,10 +882,12 @@ def import_data(request):
     try:
         importer = DataImporter(request.user, options)
         stats = importer.import_from_file(file_obj)
+        partial = bool(stats['errors'] or stats['attachments_skipped'] or stats['comments_skipped'])
         
         return Response({
             'success': True,
-            'message': '数据导入成功',
+            'partial': partial,
+            'message': '导入部分完成，请核对跳过项与错误' if partial else '数据导入成功',
             'stats': stats
         })
     

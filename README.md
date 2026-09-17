@@ -8,7 +8,7 @@
 - 📎 文件上传和附件管理（基于 chewy-attachment）
 - 🏷️ 标签系统和分类管理
 - � 用户认证和权限控制
-- 📱 PWA 支持，可安装到桌面
+- 📱 响应式 Web + iOS/Android 原生客户端 + 桌面快捷记录
 - 🔒 防窥模式（长时间不活动自动模糊内容）
 - 🐳 Docker 容器化部署（一条命令即可启动）
 - 📦 数据导入导出（支持跨服务器迁移）
@@ -23,10 +23,10 @@
 一条命令即可启动，无需任何配置文件：
 
 ```bash
-docker run -d --name chewybbtalk -p 4010:4010 -v bbtalk_data:/app/data ghcr.io/cone387/chewybbtalk:latest
+docker run -d --name chewybbtalk -p 4010:4010 -v bbtalk_data:/app/data ghcr.io/cone387/chewy-bbtalk:latest
 ```
 
-启动后访问 http://localhost:4010 ，默认管理员账号 `admin` / `admin123`。
+启动后访问 http://localhost:4010 ，管理员用户名默认为 `admin`，初始密码见下方说明。
 
 如需自定义配置：
 
@@ -35,7 +35,7 @@ docker run -d --name chewybbtalk -p 4010:4010 \
   -v bbtalk_data:/app/data \
   -e ADMIN_PASSWORD=your-password \
   -e SECRET_KEY=your-secret-key \
-  ghcr.io/cone387/chewybbtalk:latest
+  ghcr.io/cone387/chewy-bbtalk:latest
 ```
 
 ### 方式二：Docker Compose 部署
@@ -80,7 +80,8 @@ DATABASE_URL=sqlite:////app/data/db/db.sqlite3  # 默认 SQLite
 
 # 系统管理员账号（首次启动时创建）
 ADMIN_USERNAME=admin        # 默认 admin
-ADMIN_PASSWORD=admin123     # 默认 admin123
+ADMIN_PASSWORD=            # 留空则随机生成并保存到受限文件
+CREATE_DEMO_USER=false      # 默认不创建固定凭据的演示账号
 ```
 
 ### 前端配置（frontend/.env）
@@ -102,7 +103,7 @@ VITE_SITE_COPYRIGHT=© 2024 ChewyBBTalk
 
 项目提供多种 Docker 镜像，支持 `linux/amd64` 和 `linux/arm64` 架构：
 
-- **单容器镜像**（推荐）: `ghcr.io/cone387/chewybbtalk:latest`
+- **单容器镜像**（推荐）: `ghcr.io/cone387/chewy-bbtalk:latest`
   - 包含前端、后端、Nginx，开箱即用
 - **后端镜像**: `ghcr.io/cone387/chewybbtalk-backend:latest`
 - **前端镜像**: `ghcr.io/cone387/chewybbtalk-frontend:latest`
@@ -120,26 +121,21 @@ VITE_SITE_COPYRIGHT=© 2024 ChewyBBTalk
 首次启动时会自动创建管理员账号：
 
 - **用户名**: `admin`
-- **密码**: `admin123`
+- **密码**: 使用 `ADMIN_PASSWORD`，留空时随机生成并保存到 `/app/data/credentials/initial-admin.json`，不会写入启动日志。
 
-**⚠️ 请在首次登录后立即修改默认密码！**
+首次登录后修改初始密码并移除凭据文件。升级不会覆盖已有账号密码。
 
-也可通过环境变量自定义：`-e ADMIN_USERNAME=myuser -e ADMIN_PASSWORD=mypassword`
+容器管理员可执行 `docker exec chewybbtalk cat /app/data/credentials/initial-admin.json` 获取初始凭据。Compose 容器名为 `chewybbtalk-backend`。本地运行默认保存在 `backend/chewy_space/data/credentials/`，可通过 `DATA_DIR` 指定数据目录。
 
-## 📱 PWA 功能
+也可通过环境变量提供 `ADMIN_USERNAME` 和 `ADMIN_PASSWORD`。仅明确设置 `CREATE_DEMO_USER=true` 时才会新建固定凭据的演示账号；现有演示账号不会自动删除。
 
-应用支持 Progressive Web App (PWA) 功能：
+## 🌐 Web 客户端
 
-**特性**
-- 📱 可安装为桌面/移动应用
-- 🔄 自动更新缓存
-- 📶 离线访问支持
-- 🚀 快速启动和加载
+`frontend/` 提供普通浏览器访问和响应式布局，不再提供 PWA 安装、Service Worker 离线缓存或离线可用承诺。
 
-**安装方式**
-- Chrome/Edge：地址栏右侧点击安装图标
-- Safari：分享菜单 → 添加到主屏幕
-- 或浏览器菜单中选择"安装应用"
+从旧版本升级时，保留的 `/sw.js` 仅用于让历史 Service Worker 清理自身缓存并注销；不会强制刷新正在编辑的页面。曾安装到主屏幕的快捷方式可由用户自行移除。自定义反向代理也必须允许该文件返回 JavaScript，并设置 `Cache-Control: no-cache, no-store, must-revalidate`。
+
+原生端离线读取由 `mobile/` 的账号隔离缓存提供。
 
 ## 🔒 防窥模式
 
@@ -201,6 +197,13 @@ startApp({
 - Docker + Nginx
 - GitHub Actions 自动构建
 
+宿主机定时备份（systemd timer / cron）见 [docs/docker-autostart.md](docs/docker-autostart.md)。
+
+### Web 与原生端分工
+
+- 实际线上 Web 部署始终使用 `frontend/`（React + Vite），Docker/Nginx 构建链路不切换到 Expo Web。
+- `mobile/` 负责 iOS/Android 原生应用；其中 Expo Web 仅用于开发验证，不作为生产部署目标。
+
 ### 环境要求
 
 - Node.js >= 18
@@ -249,6 +252,10 @@ ChewyBBTalk/
    npm install
    npm run dev  # 开发服务器：http://localhost:5173
    ```
+
+### Web 浏览器回归
+
+在 `frontend/` 运行 `npm run test:e2e`，会自动启动临时 Django 数据库和 Web，覆盖桌面及小屏的登录、记录编辑、搜索与删除撤销。安装与报告说明见 [frontend/e2e/README.md](frontend/e2e/README.md)。
 
 ## 📋 API 端点
 
@@ -314,3 +321,37 @@ MIT License - 查看 [LICENSE](LICENSE) 文件了解详情
 - [React](https://reactjs.org/) - 前端框架
 - [chewy-attachment](https://github.com/cone387/ChewyAttachment) - 附件管理
 - 所有贡献者和开源项目的支持！
+
+自动部署使用 CI 构建的固定镜像 digest，不在服务器重复构建。拉取、启动检查与失败恢复方式见 [镜像部署说明](docs/image-deployment.md)。
+
+
+### 注册与认证请求限制
+
+自助注册默认关闭，包括升级后未配置此项的实例；已有账号仍可登录。
+需要开放注册时，在根目录 `.env` 设置 `REGISTRATION_ENABLED=true` 并重启服务。
+Web 登录页读取服务端策略，关闭时展示管理员联系提示；策略读取失败可重试，不阻止已有账号登录。
+
+`AUTH_LOGIN_RATE=30/minute`、`AUTH_REGISTRATION_RATE=5/minute`、`AUTH_REFRESH_RATE=120/minute`
+分别控制登录（JWT 与旧登录接口共享额度）、注册和令牌刷新请求；成功与失败请求均计数。
+达到限制返回 HTTP 429、中文原因、`Retry-After` 秒数和 `retry_after` 字段。
+设置某项为空可关闭该项限制，修改后需重启服务。
+
+默认使用 Django 进程内缓存，按直接连接 IP 计数；多个 worker 的额度独立，重启会重置，
+不是全局严格配额。应用不信任客户端提供的 `X-Forwarded-For`，反向代理后的访问可能共享代理 IP 额度。
+部署时按并发和用户规模调整额度；需要跨 worker 或真实来源 IP 的统一限制时，
+在可信入口代理配置对应限流，或另行配置共享缓存及可信代理策略。
+
+
+### 运行状态
+
+登录后打开「设置 → 运行状态」，手动重新检查服务连接、当前账号存储和最近备份。
+普通账号只能查看自己的备份汇总和当前存储检查；管理员另可查看数据库查询结果及附件目录所在磁盘的剩余空间。
+接口 `/api/v1/bbtalk/settings/status/` 要求登录且不缓存，不返回凭据、内部路径或其他账号数据。
+
+本地存储以临时文件验证读写并清理；S3 使用限时只读列表请求验证连接和列表权限，
+不代表上传权限或全部历史附件均可用。存储检查针对当前上传配置，历史附件可能位于其他配置。
+备份状态读取现有账号备份记录；最近执行失败时仍展示之前可用备份，便于恢复。
+状态页不会自动创建备份；在「数据管理」中创建、下载或恢复。
+单项检查失败不隐藏其他结果，网络失败保留上次结果并明确标记，可点击「重新检查」。
+
+本轮实现与自动验收范围见 [多端与部署体验验收记录](docs/multi-client-readiness-validation.md)。

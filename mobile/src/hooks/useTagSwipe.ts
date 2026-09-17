@@ -1,6 +1,7 @@
 import { useRef, useCallback, useMemo } from 'react';
 import { Animated, PanResponder, ScrollView } from 'react-native';
 import type { Tag } from '../types';
+import { useReducedMotion } from './useReducedMotion';
 
 interface UseTagSwipeOptions {
   tags: Tag[];
@@ -10,6 +11,9 @@ interface UseTagSwipeOptions {
 }
 
 export function useTagSwipe({ tags, selectedTag, showTagTabs, onSelectTag }: UseTagSwipeOptions) {
+  const reducedMotion = useReducedMotion();
+  const reducedMotionRef = useRef(reducedMotion);
+  reducedMotionRef.current = reducedMotion;
   const listSlideAnim = useRef(new Animated.Value(0)).current;
   const tagScrollRef = useRef<ScrollView>(null);
   const swipingRef = useRef(false);
@@ -26,13 +30,18 @@ export function useTagSwipe({ tags, selectedTag, showTagTabs, onSelectTag }: Use
       : Math.max(currentTagIdx - 1, 0);
     if (nextIdx === currentTagIdx) return;
     const slideOut = direction === 'left' ? -1 : 1;
+    if (reducedMotion) {
+      onSelectTag(allTagIds[nextIdx]);
+      listSlideAnim.setValue(0);
+      return;
+    }
     Animated.timing(listSlideAnim, { toValue: slideOut * 300, duration: 120, useNativeDriver: true }).start(() => {
       onSelectTag(allTagIds[nextIdx]);
       listSlideAnim.setValue(-slideOut * 300);
       Animated.spring(listSlideAnim, { toValue: 0, useNativeDriver: true, speed: 20, bounciness: 4 }).start();
     });
     if (tagScrollRef.current) tagScrollRef.current.scrollTo({ x: Math.max(0, nextIdx * 70 - 100), animated: true });
-  }, [showTagTabs, onSelectTag, tags, currentTagIdx, allTagIds]);
+  }, [showTagTabs, onSelectTag, tags, currentTagIdx, allTagIds, reducedMotion]);
 
   const switchTagRef = useRef(switchTag); switchTagRef.current = switchTag;
   const showTagTabsRef = useRef(showTagTabs); showTagTabsRef.current = showTagTabs;
@@ -54,11 +63,13 @@ export function useTagSwipe({ tags, selectedTag, showTagTabs, onSelectTag }: Use
       onPanResponderRelease: (_, gesture) => {
         swipingRef.current = false;
         if (Math.abs(gesture.dx) > 60 || Math.abs(gesture.vx) > 0.5) switchTagRef.current(gesture.dx < 0 ? 'left' : 'right');
+        else if (reducedMotionRef.current) listSlideAnim.setValue(0);
         else Animated.spring(listSlideAnim, { toValue: 0, useNativeDriver: true, speed: 20, bounciness: 0 }).start();
       },
       onPanResponderTerminate: () => {
         swipingRef.current = false;
-        Animated.spring(listSlideAnim, { toValue: 0, useNativeDriver: true, speed: 20, bounciness: 0 }).start();
+        if (reducedMotionRef.current) listSlideAnim.setValue(0);
+        else Animated.spring(listSlideAnim, { toValue: 0, useNativeDriver: true, speed: 20, bounciness: 0 }).start();
       },
     })
   ).current;

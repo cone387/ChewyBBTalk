@@ -13,6 +13,7 @@ from django.core.files.base import ContentFile
 from django.utils import timezone
 
 from .models import User, BBTalk, Tag, UserStorageSettings, Attachment
+from .backup_integrity import attachment_member, fingerprint, verify_attachment_references
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +38,7 @@ class DataExporter:
             'user': self._export_user(),
             'tags': self._export_tags(),
             'bbtalks': self._export_bbtalks(),
+            'comments': self._export_comments(),
             'storage_settings': self._export_storage_settings(),
             'attachments': self._export_attachments(),
         }
@@ -75,6 +77,7 @@ class DataExporter:
                 'uid': bbtalk.uid,
                 'content': bbtalk.content,
                 'visibility': bbtalk.visibility,
+                'is_pinned': bbtalk.is_pinned,
                 'tags': [tag.uid for tag in bbtalk.tags.all()],
                 'attachments': bbtalk.attachments,
                 'context': bbtalk.context,
@@ -82,6 +85,22 @@ class DataExporter:
                 'update_time': bbtalk.update_time.isoformat(),
             }
             for bbtalk in bbtalks
+        ]
+
+    def _export_comments(self) -> List[Dict[str, Any]]:
+        """导出当前用户的评论，并以 BBTalk uid 建立关联。"""
+        from .models import Comment
+
+        comments = Comment.objects.filter(user=self.user).select_related('bbtalk').order_by('create_time')
+        return [
+            {
+                'uid': comment.uid,
+                'bbtalk_uid': comment.bbtalk.uid,
+                'content': comment.content,
+                'create_time': comment.create_time.isoformat(),
+                'update_time': comment.update_time.isoformat(),
+            }
+            for comment in comments
         ]
     
     def _export_storage_settings(self) -> List[Dict[str, Any]]:
@@ -152,7 +171,10 @@ class DataExporter:
         
         with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
             # 添加数据 JSON
-            json_data = self.export_to_json()
+            data = self.export_all()
+            if include_attachments:
+                verify_attachment_references(data)
+            json_data = json.dumps(data, ensure_ascii=False, indent=2)
             zf.writestr('data.json', json_data)
             
             # 添加 README
@@ -161,7 +183,9 @@ class DataExporter:
             
             # 如果需要，导出附件文件
             if include_attachments:
-                self._add_attachments_to_zip(zf)
+                members = self._add_attachments_to_zip(zf, data['attachments'])
+                members['data.json'] = fingerprint(json_data.encode('utf-8'))
+                zf.writestr('manifest.json', json.dumps({'version': 1, 'complete': True, 'members': members}))
         
         buffer.seek(0)
         return buffer
@@ -178,6 +202,7 @@ class DataExporter:
   - user: 用户基本信息
   - tags: 标签列表
   - bbtalks: BBTalk 内容列表
+  - comments: 评论内容列表
   - storage_settings: 存储配置（不包含密钥，需手动配置）
   - attachments: 附件元信息
 
@@ -195,20 +220,27 @@ class DataExporter:
 - 导入会创建新内容，不会覆盖已有数据
 - UID 冲突时会生成新的 UID
 - 标签名称冲突时会复用已有标签
-- 附件需要手动处理或确保目标服务器可访问原存储
+- 包含附件文件时可恢复至目标账号存储；完整性清单可检查缺件与损坏
+- 仅元信息的 ZIP 或 JSON 不能独立恢复附件文件，导入后请核对跳过项
 """
     
-    def _add_attachments_to_zip(self, zf: zipfile.ZipFile):
+    def _add_attachments_to_zip(self, zf: zipfile.ZipFile, attachments):
         """将附件文件添加到 ZIP（如果可访问）"""
-        attachments = Attachment.objects.filter(owner_id=self.user.id)
+        from chewy_attachment.django_app.storage import get_storage_engine_for_attachment
+
+        members = {}
         
         for att in attachments:
             try:
-                # 尝试读取附件内容
-                if hasattr(att, 'file') and att.file:
-                    file_content = att.file.read()
-                    zf.writestr(f'attachments/{att.storage_path}', file_content)
-                    logger.info(f"已添加附件: {att.storage_path}")
+                # Attachment 只保存元数据，文件内容需通过对应 storage engine 读取。
+                storage = get_storage_engine_for_attachment(att['storage_config_id'] or None)
+                file_content = storage.get_file(att['storage_path'])
+                zip_path = attachment_member(att['storage_path'])
+                if zip_path in members:
+                    raise ValueError('多个附件使用同一备份路径')
+                zf.writestr(zip_path, file_content)
+                members[zip_path] = fingerprint(file_content)
             except Exception as e:
-                logger.warning(f"无法导出附件 {att.file_id}: {e}")
-                continue
+                logger.exception('无法导出附件 %s', att['id'])
+                raise ValueError(f"附件 {att['original_name']} 读取失败，未生成完整备份") from e
+        return members

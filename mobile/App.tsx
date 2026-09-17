@@ -1,3 +1,4 @@
+import { getSession, onSessionChange } from './src/services/session';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ActivityIndicator, View, Animated, Dimensions, TouchableOpacity, StyleSheet, PanResponder, Platform, AppState } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
@@ -9,11 +10,12 @@ import { initAuth, refreshAccessToken } from './src/services/auth';
 import { loadApiBaseUrl } from './src/config';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 import { checkForUpdates } from './src/utils/versionChecker';
+import { WEB_FOCUS_CSS } from './src/utils/webFocusStyle';
 
-// Web: 去掉 input/textarea 聚焦时的浏览器默认 outline 边框
+// Web: 保留键盘用户可见的焦点指示
 if (Platform.OS === 'web') {
   const style = document.createElement('style');
-  style.textContent = `input:focus,textarea:focus,select:focus,[contenteditable]:focus{outline:none!important;}`;
+  style.textContent = WEB_FOCUS_CSS;
   document.head.appendChild(style);
 }
 
@@ -43,6 +45,7 @@ import {
 import ErrorBoundary from './src/components/ErrorBoundary';
 import AppBackgroundBlur from './src/components/AppBackgroundBlur';
 import ScreenCaptureProtection from './src/components/ScreenCaptureProtection';
+import { useReducedMotion } from './src/hooks/useReducedMotion';
 
 const Stack = createNativeStackNavigator();
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -54,6 +57,9 @@ function HomeWithDrawer({ onLogout }: { onLogout: () => void }) {
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const isLockedRef = useRef(false);
+  const reducedMotion = useReducedMotion();
+  const reducedMotionRef = useRef(reducedMotion);
+  reducedMotionRef.current = reducedMotion;
   const isOpen = useRef(false);
   const translateX = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
@@ -62,20 +68,31 @@ function HomeWithDrawer({ onLogout }: { onLogout: () => void }) {
     if (isOpen.current || isLockedRef.current) return;
     isOpen.current = true;
     setDrawerVisible(true);
+    if (reducedMotionRef.current) {
+      translateX.setValue(0);
+      overlayOpacity.setValue(1);
+      return;
+    }
     Animated.parallel([
       Animated.spring(translateX, { toValue: 0, useNativeDriver: true, speed: 20, bounciness: 0 }),
       Animated.spring(overlayOpacity, { toValue: 1, useNativeDriver: true, speed: 20, bounciness: 0 }),
     ]).start();
-  }, []);
+  }, [overlayOpacity, translateX]);
 
   const closeDrawer = useCallback(() => {
     if (!isOpen.current) return;
     isOpen.current = false;
+    if (reducedMotionRef.current) {
+      translateX.setValue(-DRAWER_WIDTH);
+      overlayOpacity.setValue(0);
+      setDrawerVisible(false);
+      return;
+    }
     Animated.parallel([
       Animated.spring(translateX, { toValue: -DRAWER_WIDTH, useNativeDriver: true, speed: 20, bounciness: 0 }),
       Animated.spring(overlayOpacity, { toValue: 0, useNativeDriver: true, speed: 20, bounciness: 0 }),
     ]).start(() => setDrawerVisible(false));
-  }, []);
+  }, [overlayOpacity, translateX]);
 
   const panResponder = useRef(
     PanResponder.create({
@@ -238,6 +255,9 @@ function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
 }
 
 export default function App() {
+  useEffect(() => onSessionChange(() => {
+    if (!getSession().scope) { setIsAuthenticated(false); void clearWidget('logout'); }
+  }), []);
   const [isReady, setIsReady] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   useEffect(() => { (async () => { await loadApiBaseUrl(); setIsAuthenticated(await initAuth()); setIsReady(true); })(); }, []);

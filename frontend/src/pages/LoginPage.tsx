@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { login, register } from '../services/auth';
+import { login, register, getAuthPolicy } from '../services/auth';
 import Toast from '../components/ui/Toast';
 
 const REMEMBER_USERNAME_KEY = 'bbtalk_remember_username';
@@ -18,6 +18,22 @@ export default function LoginPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [rememberUsername, setRememberUsername] = useState(true);
   
+  const [registrationEnabled, setRegistrationEnabled] = useState<boolean | null>(null);
+  const [policyError, setPolicyError] = useState(false);
+  const [policyAttempt, setPolicyAttempt] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    getAuthPolicy(controller.signal).then(policy => {
+      if (controller.signal.aborted) return;
+      setRegistrationEnabled(policy.registration_enabled);
+      if (!policy.registration_enabled) setIsLogin(true);
+    }).catch(() => {
+      if (!controller.signal.aborted) setPolicyError(true);
+    });
+    return () => controller.abort();
+  }, [policyAttempt]);
+
   // 初始化时读取保存的用户名
   useEffect(() => {
     // 只有明确设置为 false 才不勾选，否则默认勾选
@@ -39,6 +55,10 @@ export default function LoginPage() {
       return;
     }
     
+    if (!isLogin && registrationEnabled !== true) {
+      setError('当前服务未开放注册，请联系管理员');
+      return;
+    }
     setLoading(true);
     
     try {
@@ -255,12 +275,12 @@ export default function LoginPage() {
               <div className="w-full border-t border-gray-200"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-3 bg-white text-gray-400">{isLogin ? '新用户？' : '已有账户？'}</span>
+              <span className="px-3 bg-white text-gray-400">{isLogin ? (registrationEnabled ? '新用户？' : '账户服务') : '已有账户？'}</span>
             </div>
           </div>
           
           {/* 切换登录/注册 */}
-          <button
+          {(registrationEnabled === true || !isLogin) && <button
             type="button"
             onClick={() => {
               setIsLogin(!isLogin);
@@ -271,7 +291,22 @@ export default function LoginPage() {
             className="w-full py-3 border border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLogin ? '创建新账户' : '登录已有账户'}
-          </button>
+          </button>}
+          {registrationEnabled === false && (
+            <p className="text-center text-sm text-gray-500">当前服务未开放注册，请联系管理员</p>
+          )}
+          {policyError && (
+            <div role="status" className="text-center text-sm text-gray-600">
+              <p>无法读取注册设置，已有账户可继续登录。</p>
+              <button type="button" className="min-h-11 px-3 text-blue-600 underline" onClick={() => {
+                setPolicyError(false);
+                setPolicyAttempt(value => value + 1);
+              }}>重试读取注册设置</button>
+            </div>
+          )}
+          {registrationEnabled === null && !policyError && (
+            <p role="status" className="text-center text-sm text-gray-500">正在读取注册设置…</p>
+          )}
         </div>
         
         {/* 底部文字 */}

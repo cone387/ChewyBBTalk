@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
-  RefreshControl, ActivityIndicator, Modal,
+  RefreshControl, ActivityIndicator, Modal, AppState,
   Platform, Animated, LayoutAnimation, UIManager, Linking, BackHandler,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -50,13 +50,14 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
     xAlert(title, msg);
   }, []);
 
-  const { bbtalks, isLoading, hasMore } = useAppSelector(s => s.bbtalk);
+  const { hasLoadedFromNetwork, isFiltered, bbtalks, isLoading, hasMore } = useAppSelector(s => s.bbtalk);
   const { tags } = useAppSelector(s => s.tag);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const loadingMoreRef = useRef(false);
   const [searchVisible, setSearchVisible] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [activeSearch, setActiveSearch] = useState('');
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [previewImages, setPreviewImages] = useState<string[]>([]);
@@ -211,43 +212,59 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
     return () => { mounted = false; };
   }, [initCache, loadCachedData, dispatch]);
 
-  useEffect(() => { dispatch(loadBBTalks({})); dispatch(loadTags()); }, [dispatch]);
+  useEffect(() => { dispatch(loadTags()); }, [dispatch]);
 
   // --- Offline Cache: sync to cache after successful API load ---
   const prevBBTalksRef = useRef<BBTalk[]>([]);
   useEffect(() => {
-    // Only sync when bbtalks changed and we're not loading (i.e., API just returned)
-    // Also skip if offline (no new data to cache) or if bbtalks is empty
-    if (!isLoading && bbtalks.length > 0 && !isOffline && bbtalks !== prevBBTalksRef.current) {
+    // Persist authoritative unfiltered data, including an empty list after deletion.
+    // Cached hydration and filtered results must not overwrite the full read cache.
+    if (hasLoadedFromNetwork && !isFiltered && !isLoading && !isOffline && bbtalks !== prevBBTalksRef.current) {
       prevBBTalksRef.current = bbtalks;
       syncToCache(bbtalks).catch(e => logError(e, 'HomeScreen syncToCache'));
     }
-  }, [bbtalks, isLoading, isOffline, syncToCache]);
+  }, [bbtalks, hasLoadedFromNetwork, isFiltered, isLoading, isOffline, syncToCache]);
   useEffect(() => {
-    if (tags.length === 0 && !selectedDate) return;
     LayoutAnimation.configureNext(LayoutAnimation.create(200, 'easeInEaseOut', 'opacity'));
     const tagNames = selectedTag ? [tags.find(t => t.id === selectedTag)?.name].filter(Boolean) as string[] : [];
-    dispatch(loadBBTalks({ tags: tagNames, date: selectedDate || undefined }));
-  }, [selectedTag, selectedDate]);
+    dispatch(loadBBTalks({ search: activeSearch || undefined, tags: tagNames, date: selectedDate || undefined }));
+  }, [selectedTag, selectedDate, activeSearch]);
 
   const onRefresh = useCallback(async () => {
     if (isOffline) return; // Disabled when offline
     setRefreshing(true);
     const tagNames = selectedTag ? [tags.find(t => t.id === selectedTag)?.name].filter(Boolean) as string[] : [];
-    await dispatch(loadBBTalks({ tags: tagNames, date: selectedDate || undefined }));
+    await dispatch(loadBBTalks({ search: activeSearch || undefined, tags: tagNames, date: selectedDate || undefined }));
     dispatch(loadTags()); setRefreshing(false);
-  }, [dispatch, selectedTag, selectedDate, tags, isOffline]);
+  }, [dispatch, selectedTag, selectedDate, tags, isOffline, activeSearch]);
   onRefreshRef.current = onRefresh;
+  const foregroundRefreshAt = useRef(0);
+  const foregroundRefresh = useCallback(() => {
+    if (!navigation.isFocused() || AppState.currentState !== 'active' || Date.now() - foregroundRefreshAt.current < 1000) return;
+    foregroundRefreshAt.current = Date.now();
+    void onRefreshRef.current?.();
+  }, [navigation]);
+  useEffect(() => {
+    const focus = navigation.addListener('focus', foregroundRefresh);
+    const active = AppState.addEventListener('change', state => { if (state === 'active') foregroundRefresh(); });
+    return () => { focus(); active.remove(); };
+  }, [navigation, foregroundRefresh]);
+  const previousOffline = useRef(isOffline);
+  useEffect(() => {
+    if (previousOffline.current && !isOffline) foregroundRefresh();
+    previousOffline.current = isOffline;
+  }, [isOffline, foregroundRefresh]);
+
 
   const onEndReached = useCallback(() => {
     if (isOffline) return; // Disabled when offline
     if (loadingMoreRef.current || !hasMore || isLoading) return;
     loadingMoreRef.current = true; setLoadingMore(true);
     const tagNames = selectedTag ? [tags.find(t => t.id === selectedTag)?.name].filter(Boolean) as string[] : [];
-    dispatch(loadMoreBBTalks({ tags: tagNames, date: selectedDate || undefined })).finally(() => {
+    dispatch(loadMoreBBTalks({ search: activeSearch || undefined, tags: tagNames, date: selectedDate || undefined })).finally(() => {
       loadingMoreRef.current = false; setLoadingMore(false);
     });
-  }, [dispatch, hasMore, isLoading, selectedTag, selectedDate, tags, isOffline]);
+  }, [dispatch, hasMore, isLoading, selectedTag, selectedDate, tags, isOffline, activeSearch]);
 
   const showLocation = useCallback((loc: { latitude: number; longitude: number }) => {
     xConfirm('定位信息', `纬度: ${loc.latitude.toFixed(6)}\n经度: ${loc.longitude.toFixed(6)}`, () => {
@@ -265,9 +282,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
       AsyncStorage.setItem('search_history', JSON.stringify(next));
       return next;
     });
-    // Trigger server-side search
-    const tagNames = selectedTag ? [tags.find(t => t.id === selectedTag)?.name].filter(Boolean) as string[] : [];
-    dispatch(loadBBTalks({ search: term, tags: tagNames, date: selectedDate || undefined }));
+    setActiveSearch(term.trim());
   }, [dispatch, selectedTag, selectedDate, tags]);
   const clearSearchHistory = useCallback(() => { setSearchHistory([]); AsyncStorage.removeItem('search_history'); }, []);
 
@@ -336,7 +351,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
         />
       ) : (
         <View style={[styles.header, { paddingTop: insets.top + 8, backgroundColor: c.background }]}>
-          <TouchableOpacity onPress={onOpenDrawer} style={styles.headerBtn} accessibilityLabel="打开菜单">
+          <TouchableOpacity onPress={onOpenDrawer} style={styles.headerBtn} accessibilityRole="button" accessibilityLabel="打开菜单">
             <Ionicons name="menu-outline" size={26} color={c.text} />
           </TouchableOpacity>
           {searchVisible ? (
@@ -348,12 +363,12 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
             if (searchVisible) {
               if (searchText.trim()) saveSearchHistory(searchText);
               setSearchText('');
+              setActiveSearch('');
               // Reload without search filter
-              const tagNames = selectedTag ? [tags.find(t => t.id === selectedTag)?.name].filter(Boolean) as string[] : [];
-              dispatch(loadBBTalks({ tags: tagNames, date: selectedDate || undefined }));
+
             }
             setSearchVisible(!searchVisible);
-          }} style={styles.headerBtn} accessibilityLabel={searchVisible ? '关闭搜索' : '搜索'}>
+          }} style={styles.headerBtn} accessibilityRole="button" accessibilityLabel={searchVisible ? '关闭搜索' : '搜索'}>
             <Ionicons name={searchVisible ? 'close' : 'search-outline'} size={22} color={c.text} />
           </TouchableOpacity>
         </View>
@@ -370,6 +385,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
 
       <Animated.View style={{ flex: 1, transform: [{ translateX: showTagTabs && tags.length > 0 ? tagSwipe.listSlideAnim : 0 }] }}
         {...(showTagTabs && tags.length > 0 ? tagSwipe.panResponder.panHandlers : {})}>
+        <View style={styles.listViewport}>
         <FlatList data={filteredBBTalks} keyExtractor={item => item.id}
           renderItem={renderItem}
           ListHeaderComponent={listHeaderComponent}
@@ -396,11 +412,13 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} enabled={!isOffline} tintColor={c.primary} colors={[c.primary]} progressBackgroundColor={c.surface} />}
           onEndReached={onEndReached} onEndReachedThreshold={0.3}
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 80 }} />
+        </View>
       </Animated.View>
 
       {privacy.showCountdown && privacy.privacyEnabled && privacy.privacySeconds !== null && privacy.privacySeconds > 0 && !privacy.locked && (
         <TouchableOpacity style={[styles.countdownBadge, { bottom: insets.bottom + 88, backgroundColor: c.primary }]}
-          onPress={() => privacy.setLocked(true)} onLongPress={() => navigation.navigate('PrivacySettings')} activeOpacity={0.7}>
+          onPress={() => privacy.setLocked(true)} onLongPress={() => navigation.navigate('PrivacySettings')} activeOpacity={0.7}
+          accessibilityRole="button" accessibilityLabel="锁定内容">
           <Ionicons name="lock-closed" size={12} color="#fff" />
           <Text style={styles.countdownText}>
             {privacy.privacySeconds >= 60 ? `${Math.floor(privacy.privacySeconds / 60)}:${(privacy.privacySeconds % 60).toString().padStart(2, '0')}` : `${privacy.privacySeconds}s`}
@@ -410,14 +428,14 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
 
       {!batch.batchMode && (
         <TouchableOpacity style={[styles.fab, { bottom: insets.bottom + 24, backgroundColor: c.primary, shadowColor: '#000' }]}
-          onPress={() => { if (guardOfflineWrite()) return; navigation.navigate('Compose'); }} onLongPress={() => { if (guardOfflineWrite()) return; setVoiceRecording(true); }} delayLongPress={300} activeOpacity={0.85} accessibilityLabel="新建碎碎念">
+          onPress={() => { if (guardOfflineWrite()) return; navigation.navigate('Compose'); }} onLongPress={() => { if (guardOfflineWrite()) return; setVoiceRecording(true); }} delayLongPress={300} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="新建碎碎念">
           <Ionicons name="add" size={28} color="#fff" />
         </TouchableOpacity>
       )}
 
       <Modal visible={!!previewImage} transparent animationType="fade" onRequestClose={() => setPreviewImage(null)}>
         <View style={styles.previewOverlay}>
-          <TouchableOpacity style={styles.previewClose} onPress={() => setPreviewImage(null)}>
+          <TouchableOpacity style={styles.previewClose} onPress={() => setPreviewImage(null)} accessibilityRole="button" accessibilityLabel="关闭图片预览">
             <Ionicons name="close" size={28} color="#fff" />
           </TouchableOpacity>
           {previewImages.length > 1 && (
@@ -427,12 +445,12 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
           )}
           {previewImage && <ImageViewer imageUrl={previewImage} onClose={() => setPreviewImage(null)} />}
           {previewImages.length > 1 && previewIndex > 0 && (
-            <TouchableOpacity style={[styles.previewNav, styles.previewNavLeft]} onPress={() => { const i = previewIndex - 1; setPreviewIndex(i); setPreviewImage(previewImages[i]); }}>
+            <TouchableOpacity style={[styles.previewNav, styles.previewNavLeft]} onPress={() => { const i = previewIndex - 1; setPreviewIndex(i); setPreviewImage(previewImages[i]); }} accessibilityRole="button" accessibilityLabel="上一张图片">
               <Ionicons name="chevron-back" size={32} color="#fff" />
             </TouchableOpacity>
           )}
           {previewImages.length > 1 && previewIndex < previewImages.length - 1 && (
-            <TouchableOpacity style={[styles.previewNav, styles.previewNavRight]} onPress={() => { const i = previewIndex + 1; setPreviewIndex(i); setPreviewImage(previewImages[i]); }}>
+            <TouchableOpacity style={[styles.previewNav, styles.previewNavRight]} onPress={() => { const i = previewIndex + 1; setPreviewIndex(i); setPreviewImage(previewImages[i]); }} accessibilityRole="button" accessibilityLabel="下一张图片">
               <Ionicons name="chevron-forward" size={32} color="#fff" />
             </TouchableOpacity>
           )}
@@ -474,11 +492,12 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  listViewport: { flex: 1, width: '100%', maxWidth: 960, alignSelf: 'center' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingBottom: 12,
   },
-  headerBtn: { padding: 4, width: 34, alignItems: 'center' },
+  headerBtn: { padding: 4, width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   headerCenter: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 18, fontWeight: '700' },
   filterBadge: { marginLeft: 8, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, maxWidth: 140 },

@@ -39,12 +39,21 @@ const USER_INFO_KEY = 'bbtalk_user_info';
 
 let currentUser: UserInfo | null = null;
 let refreshTimer: NodeJS.Timeout | null = null;
+let refreshPromise: Promise<boolean> | null = null;
 
 /**
  * 获取 API 基础 URL
  */
 function getApiBaseUrl(): string {
   return import.meta.env.VITE_API_BASE_URL || '';
+}
+
+export async function getAuthPolicy(signal?: AbortSignal): Promise<{ registration_enabled: boolean }> {
+  const response = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/auth/policy/`, { signal, cache: 'no-store' });
+  if (!response.ok) throw new Error('无法读取注册设置');
+  const policy = await response.json();
+  if (typeof policy.registration_enabled !== 'boolean') throw new Error('注册设置格式错误');
+  return policy;
 }
 
 /**
@@ -125,6 +134,12 @@ function parseJwt(token: string): { exp: number } | null {
  * 刷新 Access Token
  */
 export async function refreshAccessToken(): Promise<boolean> {
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = doRefresh().finally(() => { refreshPromise = null; });
+  return refreshPromise;
+}
+
+async function doRefresh(): Promise<boolean> {
   const refreshToken = getRefreshToken();
   if (!refreshToken) {
     console.error('[Auth] 没有 refresh token');
@@ -156,13 +171,17 @@ export async function refreshAccessToken(): Promise<boolean> {
       return true;
     } else {
       console.error('[Auth] Token 刷新失败:', response.status);
-      // Token 刷新失败，清除认证信息
-      clearAuth();
+      if (response.status === 401 || response.status === 403) {
+        clearAuth();
+      } else {
+        scheduleRefreshRetry();
+      }
       return false;
     }
   } catch (error) {
     console.error('[Auth] Token 刷新错误:', error);
-    clearAuth();
+    // 网络故障是暂时性的，保留现有登录态并稍后重试。
+    scheduleRefreshRetry();
     return false;
   }
 }
@@ -194,13 +213,26 @@ function startTokenRefresh(): void {
   if (delay > 0) {
     console.log(`[Auth] Token 将在 ${Math.round(delay / 1000 / 60)} 分钟后刷新`);
     refreshTimer = setTimeout(() => {
-      refreshAccessToken();
+      refreshAccessToken().then((success) => {
+        if (!success && getRefreshToken()) scheduleRefreshRetry();
+      });
     }, delay);
   } else {
     // Token 已经快过期了，立即刷新
     console.log('[Auth] Token 即将过期，立即刷新');
-    refreshAccessToken();
+    refreshAccessToken().then((success) => {
+      if (!success && getRefreshToken()) scheduleRefreshRetry();
+    });
   }
+}
+
+function scheduleRefreshRetry(): void {
+  if (refreshTimer) clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(() => {
+    refreshAccessToken().then((success) => {
+      if (!success && getRefreshToken()) scheduleRefreshRetry();
+    });
+  }, 30_000);
 }
 
 /**
@@ -281,6 +313,16 @@ export async function initAuth(): Promise<boolean> {
         console.log('[Auth] Token 已过期，尝试刷新');
         const refreshed = await refreshAccessToken();
         if (!refreshed) {
+          // 网络暂不可用时保留缓存用户，后台刷新任务会继续重试。
+          const saved = localStorage.getItem(USER_INFO_KEY);
+          if (saved) {
+            try {
+              currentUser = JSON.parse(saved);
+              return true;
+            } catch {
+              // 缓存损坏时按未登录处理
+            }
+          }
           return false;
         }
       } else {
@@ -316,7 +358,8 @@ export async function initAuth(): Promise<boolean> {
       return true;
     }
     
-    // Token 无效，清除认证
+    // 有缓存用户时，网络/服务端暂不可用不应被视为登出。
+    if (currentUser) return true;
     clearAuth();
     return false;
   } catch (error) {
@@ -486,7 +529,8 @@ export async function verifyPassword(password: string): Promise<{ success: boole
       storeAuth(data);
       return { success: true };
     } else {
-      return { success: false, error: '密码错误' };
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false, error: errorData.error || (response.status === 429 ? '请求过于频繁，请稍后重试' : '密码错误') };
     }
   } catch (error) {
     console.error('[Auth] 密码验证错误:', error);

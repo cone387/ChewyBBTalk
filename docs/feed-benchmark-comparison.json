@@ -1,0 +1,271 @@
+{
+  "environment": {
+    "python": "3.14.4",
+    "django": "6.0",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "database": "temporary SQLite",
+    "repeats": 10
+  },
+  "samples": [
+    {
+      "records": 1000,
+      "case": "first",
+      "variant": "before",
+      "p50_ms": 29.48,
+      "p95_ms": 37.64,
+      "sql_p50_ms": 7.99,
+      "queries": [
+        3
+      ],
+      "returned": 100,
+      "bytes": 115882
+    },
+    {
+      "records": 1000,
+      "case": "first",
+      "variant": "after",
+      "p50_ms": 24.34,
+      "p95_ms": 36.85,
+      "sql_p50_ms": 2.71,
+      "queries": [
+        3
+      ],
+      "returned": 100,
+      "bytes": 115882
+    },
+    {
+      "records": 1000,
+      "case": "last",
+      "variant": "before",
+      "p50_ms": 31.31,
+      "p95_ms": 43.08,
+      "sql_p50_ms": 8.66,
+      "queries": [
+        3
+      ],
+      "returned": 100,
+      "bytes": 115753
+    },
+    {
+      "records": 1000,
+      "case": "last",
+      "variant": "after",
+      "p50_ms": 25.28,
+      "p95_ms": 52.91,
+      "sql_p50_ms": 2.76,
+      "queries": [
+        3
+      ],
+      "returned": 100,
+      "bytes": 115753
+    },
+    {
+      "records": 1000,
+      "case": "content_search",
+      "variant": "before",
+      "p50_ms": 37.94,
+      "p95_ms": 46.03,
+      "sql_p50_ms": 13.78,
+      "queries": [
+        3
+      ],
+      "returned": 100,
+      "bytes": 116437
+    },
+    {
+      "records": 1000,
+      "case": "content_search",
+      "variant": "after",
+      "p50_ms": 28.81,
+      "p95_ms": 31.49,
+      "sql_p50_ms": 4.9,
+      "queries": [
+        3
+      ],
+      "returned": 100,
+      "bytes": 116437
+    },
+    {
+      "records": 1000,
+      "case": "tag_search",
+      "variant": "before",
+      "p50_ms": 48.24,
+      "p95_ms": 52.03,
+      "sql_p50_ms": 24.53,
+      "queries": [
+        3
+      ],
+      "returned": 100,
+      "bytes": 115895
+    },
+    {
+      "records": 1000,
+      "case": "tag_search",
+      "variant": "after",
+      "p50_ms": 28.67,
+      "p95_ms": 60.27,
+      "sql_p50_ms": 5.16,
+      "queries": [
+        3
+      ],
+      "returned": 100,
+      "bytes": 115895
+    },
+    {
+      "records": 1000,
+      "case": "tag_filter",
+      "variant": "before",
+      "p50_ms": 34.19,
+      "p95_ms": 36.79,
+      "sql_p50_ms": 9.37,
+      "queries": [
+        3
+      ],
+      "returned": 100,
+      "bytes": 115899
+    },
+    {
+      "records": 1000,
+      "case": "tag_filter",
+      "variant": "after",
+      "p50_ms": 28.15,
+      "p95_ms": 33.53,
+      "sql_p50_ms": 3.6,
+      "queries": [
+        3
+      ],
+      "returned": 100,
+      "bytes": 115899
+    },
+    {
+      "records": 10000,
+      "case": "first",
+      "variant": "before",
+      "p50_ms": 127.7,
+      "p95_ms": 139.74,
+      "sql_p50_ms": 104.42,
+      "queries": [
+        3
+      ],
+      "returned": 100,
+      "bytes": 116220
+    },
+    {
+      "records": 10000,
+      "case": "first",
+      "variant": "after",
+      "p50_ms": 49.82,
+      "p95_ms": 97.12,
+      "sql_p50_ms": 27.29,
+      "queries": [
+        3
+      ],
+      "returned": 100,
+      "bytes": 116220
+    },
+    {
+      "records": 10000,
+      "case": "last",
+      "variant": "before",
+      "p50_ms": 150.94,
+      "p95_ms": 170.97,
+      "sql_p50_ms": 121.21,
+      "queries": [
+        3
+      ],
+      "returned": 100,
+      "bytes": 115755
+    },
+    {
+      "records": 10000,
+      "case": "last",
+      "variant": "after",
+      "p50_ms": 70.72,
+      "p95_ms": 83.68,
+      "sql_p50_ms": 46.11,
+      "queries": [
+        3
+      ],
+      "returned": 100,
+      "bytes": 115755
+    },
+    {
+      "records": 10000,
+      "case": "content_search",
+      "variant": "before",
+      "p50_ms": 177.71,
+      "p95_ms": 192.3,
+      "sql_p50_ms": 152.98,
+      "queries": [
+        3
+      ],
+      "returned": 100,
+      "bytes": 116548
+    },
+    {
+      "records": 10000,
+      "case": "content_search",
+      "variant": "after",
+      "p50_ms": 77.67,
+      "p95_ms": 119.23,
+      "sql_p50_ms": 53.87,
+      "queries": [
+        3
+      ],
+      "returned": 100,
+      "bytes": 116548
+    },
+    {
+      "records": 10000,
+      "case": "tag_search",
+      "variant": "before",
+      "p50_ms": 293.61,
+      "p95_ms": 317.59,
+      "sql_p50_ms": 264.68,
+      "queries": [
+        3
+      ],
+      "returned": 100,
+      "bytes": 116233
+    },
+    {
+      "records": 10000,
+      "case": "tag_search",
+      "variant": "after",
+      "p50_ms": 74.0,
+      "p95_ms": 120.8,
+      "sql_p50_ms": 50.01,
+      "queries": [
+        3
+      ],
+      "returned": 100,
+      "bytes": 116233
+    },
+    {
+      "records": 10000,
+      "case": "tag_filter",
+      "variant": "before",
+      "p50_ms": 145.3,
+      "p95_ms": 159.34,
+      "sql_p50_ms": 117.07,
+      "queries": [
+        3
+      ],
+      "returned": 100,
+      "bytes": 116237
+    },
+    {
+      "records": 10000,
+      "case": "tag_filter",
+      "variant": "after",
+      "p50_ms": 67.99,
+      "p95_ms": 101.82,
+      "sql_p50_ms": 40.4,
+      "queries": [
+        3
+      ],
+      "returned": 100,
+      "bytes": 116237
+    }
+  ]
+}

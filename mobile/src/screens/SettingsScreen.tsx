@@ -118,6 +118,7 @@ export default function SettingsScreen({ onLogout }: Props) {
             onValueChange={(v) => { setShowTagTabs(v); AsyncStorage.setItem('show_tag_tabs', v ? 'true' : 'false'); }}
             trackColor={{ false: c.border, true: c.primary }}
             thumbColor="#fff"
+            accessibilityLabel="显示首页标签栏"
           />
         ) : (
           <Ionicons name="chevron-forward" size={18} color={c.textTertiary} />
@@ -192,7 +193,7 @@ export default function SettingsScreen({ onLogout }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scrollContent: { padding: 16, paddingTop: 12 },
+  scrollContent: { padding: 16, paddingTop: 12, width: '100%', maxWidth: 760, alignSelf: 'center' },
   userCard: {
     borderRadius: 16, padding: 18, marginBottom: 6,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,

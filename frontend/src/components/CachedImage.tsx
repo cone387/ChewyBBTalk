@@ -13,7 +13,7 @@ interface CachedImageProps {
   objectFit?: 'contain' | 'cover' | 'fill' | 'none' | 'scale-down'
 }
 
-export default function CachedImage({
+function CachedImageContent({
   src,
   alt = '',
   className = '',
@@ -28,6 +28,9 @@ export default function CachedImage({
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
   const [isVisible, setIsVisible] = useState(loading === 'eager') // eager 模式立即可见
+  const [attempt, setAttempt] = useState(0)
+  const callbacks = useRef({ onLoad, onError })
+  callbacks.current = { onLoad, onError }
   const objectUrlRef = useRef<string | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -72,7 +75,7 @@ export default function CachedImage({
         setHasError(false)
 
         // 从缓存或网络获取图片
-        const blob = await imageCacheService.getOrFetch(src)
+        const blob = await imageCacheService.getOrFetch(src, attempt > 0)
 
         if (cancelled) return
 
@@ -87,7 +90,7 @@ export default function CachedImage({
           objectUrlRef.current = url
           setImageUrl(url)
           setIsLoading(false)
-          onLoad?.()
+
         } else {
           throw new Error('Failed to load image')
         }
@@ -97,7 +100,7 @@ export default function CachedImage({
         // console.error('[CachedImage] 加载失败:', src, error)
         setHasError(true)
         setIsLoading(false)
-        onError?.()
+        callbacks.current.onError?.()
       }
     }
 
@@ -111,7 +114,7 @@ export default function CachedImage({
         objectUrlRef.current = null
       }
     }
-  }, [src, isVisible, onLoad, onError])
+  }, [src, isVisible, attempt])
 
   // 加载中状态
   if (isLoading || !isVisible) {
@@ -124,27 +127,17 @@ export default function CachedImage({
     )
   }
 
-  // 错误状态
+  // 自定义占位图也保留真正的重试入口。
   if (hasError) {
-    if (fallback) {
-      return <>{fallback}</>
-    }
-
     return (
-      <div 
-        className={`${className} bg-gray-100 flex flex-col items-center justify-center text-gray-400 cursor-pointer hover:bg-gray-200 transition-colors`}
-        onClick={() => {
-          // 点击重试加载
-          setHasError(false)
-          setIsLoading(true)
-          setIsVisible(true)
-        }}
-        title="点击重试"
-      >
-        <svg className="w-8 h-8 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-        </svg>
-        <span className="text-xs">加载失败，点击重试</span>
+      <div className="max-w-full flex flex-col items-center gap-2">
+        {fallback || <div className={`${className} bg-gray-100 flex items-center justify-center text-sm text-gray-600`}>图片加载失败</div>}
+        <button
+          type="button"
+          className="min-h-11 px-3 rounded-lg border border-gray-300 bg-white text-sm text-gray-700 hover:bg-gray-50"
+          aria-label={`重试加载图片${alt ? ` ${alt}` : ''}`}
+          onClick={() => { setHasError(false); setIsLoading(true); setAttempt(value => value + 1) }}
+        >重试加载图片</button>
       </div>
     )
   }
@@ -153,6 +146,8 @@ export default function CachedImage({
   return (
     <img
       src={imageUrl || ''}
+      onLoad={() => callbacks.current.onLoad?.()}
+      onError={() => { setHasError(true); callbacks.current.onError?.() }}
       alt={alt}
       className={className}
       onClick={onClick}
@@ -160,4 +155,9 @@ export default function CachedImage({
       style={{ objectFit }}
     />
   )
+}
+
+// 新资源从独立状态开始，避免显示旧图片或旧错误。
+export default function CachedImage(props: CachedImageProps) {
+  return <CachedImageContent key={props.src} {...props} />
 }

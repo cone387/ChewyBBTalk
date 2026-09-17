@@ -6,6 +6,7 @@
  * 2. app.json extra.apiBaseUrl（通过 expo-constants 读取）
  * 3. 开发环境本地地址（__DEV__ 模式）
  */
+import { clearSession } from './services/session';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
@@ -34,6 +35,7 @@ export function getApiBaseUrl(): string {
 
 export async function setApiBaseUrl(url: string): Promise<void> {
   const trimmed = url.replace(/\/+$/, ''); // 去掉末尾斜杠
+  if (trimmed !== _apiBaseUrl) clearSession();
   _apiBaseUrl = trimmed;
   await AsyncStorage.setItem(STORAGE_KEY, trimmed);
 }

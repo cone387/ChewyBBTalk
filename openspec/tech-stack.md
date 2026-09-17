@@ -8,7 +8,7 @@
                      ┌──────────────────────────┐
                      │   用户（多端访问）         │
                      │  iOS / Android / Web /    │
-                     │  PWA / 桌面浏览器          │
+                     │  Web / 桌面浏览器          │
                      └──────────────┬───────────┘
                                     │ HTTPS
                           ┌─────────▼─────────┐
@@ -21,7 +21,7 @@
      ┌────────▼────────┐                          ┌──────▼──────┐
      │ Vite Web 前端    │                          │ Expo 移动端  │
      │ React 18 + Redux │                          │ RN 0.81 + RN │
-     │ Tailwind + PWA   │                          │   Web 同源    │
+     │ Tailwind   │                          │   Web 同源    │
      └────────┬────────┘                          └──────┬──────┘
               │                                           │
               └─────────────────┬─────────────────────────┘
@@ -67,10 +67,11 @@
 
 ## 3. 跨端策略
 
-### 3.1 三端代码共享方案
-- **mobile/** 是主推方向：Expo SDK 同时支持 iOS / Android / Expo Web
-- **frontend/** 旧版 React Web 端仍在维护，但新功能优先在 mobile 落地
-- 长期目标：mobile 完全替代 frontend，统一前端代码库
+### 3.1 Web 与原生端分工
+- **frontend/** 是实际部署的 Web 主线，继续长期维护；Docker/Nginx 生产部署使用该前端
+- **mobile/** 使用 Expo + React Native，负责 iOS / Android 原生应用
+- Expo Web 仅用于开发验证，不纳入生产部署，也不替代 `frontend/`
+- 跨端优先共享 API 契约、类型和 service 逻辑，不强求 UI 代码统一
 
 ### 3.2 平台差异处理
 - 弹窗：[`crossAlert.ts`](../mobile/src/utils/crossAlert.ts) 抽象 + Web 端 iOS 风格自定义实现
@@ -162,7 +163,7 @@
 
 - **SQLite 默认**：单用户场景足够，避免运维负担
 - **附件直链**：S3 模式下前端直访 S3，不经后端
-- **PWA 缓存**：Web 端静态资源 service worker 缓存
+- **Web 缓存**：静态资源使用 HTTP 缓存；已移除 PWA，`sw.js` 仅用于历史客户端退场。
 - **移动端图片**：使用 `expo-image` 自动缓存与渐进式加载
 - **列表分页**：DRF 分页 + 移动端触底加载
 
@@ -171,7 +172,7 @@
 - [ ] 多用户协作（评论 / @ / 关注），目前评论仅作者可见
 - [ ] 全文搜索：当前依赖客户端过滤，可引入 Postgres FTS 或 Meilisearch
 - [ ] 实时同步：多端登录时的实时推送（WebSocket）
-- [ ] mobile 替换 frontend：完成端到端迁移后下线旧 Web 前端
+- [ ] Web 与原生端分工：持续维护 `frontend/` Web 主线与 `mobile/` 原生应用，按平台特性分别优化
 - [ ] OAuth 登录：Identity 表已预留字段，待接入
 
 ## 10. 引用规格

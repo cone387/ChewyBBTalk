@@ -4,6 +4,11 @@
  */
 import { getAccessToken, refreshAccessToken } from '../auth';
 import { getApiBaseUrl } from '../../config';
+import { getSession, isCurrentSession } from '../session';
+
+export class ApiError extends Error {
+  constructor(message: string, public status: number, public code?: string, public current?: unknown) { super(message); }
+}
 
 class ApiClient {
   private getBaseUrl(): string {
@@ -11,7 +16,13 @@ class ApiClient {
   }
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    const session = getSession();
+    const baseUrl = this.getBaseUrl();
+    const assertSession = () => {
+      if (!isCurrentSession(session) || baseUrl !== this.getBaseUrl()) throw new Error('会话已改变，请重新操作');
+    };
     const token = await getAccessToken();
+    assertSession();
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -27,7 +38,7 @@ class ApiClient {
 
     let response: Response;
     try {
-      response = await fetch(`${this.getBaseUrl()}${endpoint}`, {
+      response = await fetch(`${baseUrl}${endpoint}`, {
         ...options,
         headers,
         signal: controller.signal,
@@ -42,6 +53,7 @@ class ApiClient {
       clearTimeout(timeoutId);
     }
 
+    assertSession();
     // 401 -> 尝试刷新 token
     if (response.status === 401) {
       if (endpoint.includes('/auth/token/')) {
@@ -50,12 +62,14 @@ class ApiClient {
 
       try {
         const success = await refreshAccessToken();
+        assertSession();
         if (success) {
           const newToken = await getAccessToken();
+          assertSession();
           if (newToken) {
             headers['Authorization'] = `Bearer ${newToken}`;
             try {
-              response = await fetch(`${this.getBaseUrl()}${endpoint}`, {
+              response = await fetch(`${baseUrl}${endpoint}`, {
                 ...options,
                 headers,
               });
@@ -77,17 +91,21 @@ class ApiClient {
       }
     }
 
+    assertSession();
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       const serverMessage = errorData.error || errorData.message;
-      throw new Error(serverMessage || `服务器错误 (${response.status})，请稍后重试`);
+      assertSession();
+      throw new ApiError(serverMessage || `服务器错误 (${response.status})，请稍后重试`, response.status, errorData.code, errorData.current);
     }
 
     if (response.status === 204 || response.headers.get('content-length') === '0') {
       return undefined as T;
     }
 
-    return response.json();
+    const data = await response.json();
+    assertSession();
+    return data;
   }
 
   async get<T>(endpoint: string, params?: Record<string, any>): Promise<T> {
@@ -104,16 +122,18 @@ class ApiClient {
     return this.request<T>(url, { method: 'GET' });
   }
 
-  async post<T>(endpoint: string, data?: any): Promise<T> {
+  async post<T>(endpoint: string, data?: any, headers?: Record<string, string>): Promise<T> {
     return this.request<T>(endpoint, {
       method: 'POST',
+      headers,
       body: data ? JSON.stringify(data) : undefined,
     });
   }
 
-  async patch<T>(endpoint: string, data?: any): Promise<T> {
+  async patch<T>(endpoint: string, data?: any, headers?: Record<string, string>): Promise<T> {
     return this.request<T>(endpoint, {
       method: 'PATCH',
+      headers,
       body: data ? JSON.stringify(data) : undefined,
     });
   }

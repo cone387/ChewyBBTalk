@@ -3,22 +3,11 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
 
-// PWA Service Worker 注册
-import { registerSW } from 'virtual:pwa-register';
+import { retireLegacyPwa } from './services/retireLegacyPwa';
 
-// 注册 Service Worker
-const updateSW = registerSW({
-  onNeedRefresh() {
-    // 当有新版本可用时的处理
-    if (confirm('发现新版本，是否立即更新？')) {
-      updateSW(true);
-    }
-  },
-  onOfflineReady() {
-    // 当应用可以离线使用时的处理
-    console.log('应用已准备好离线使用');
-  },
-});
+if (!window.__POWERED_BY_WUJIE__) {
+  void retireLegacyPwa().catch(error => console.warn('旧离线缓存清理失败，下次访问将重试', error));
+}
 
 let root: ReactDOM.Root | null = null;
 

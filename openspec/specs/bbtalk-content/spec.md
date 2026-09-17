@@ -79,3 +79,18 @@ BBTalk 可关联零个或多个 Tag，关联通过中间表 `cb_bbtalk_tag_relat
 #### Scenario: 提交标签 uid 列表
 - **WHEN** 客户端提交 `tags: ["tag-uid-1", "tag-uid-2"]`
 - **THEN** 系统建立 M2M 关联；之前的关联被替换
+
+### Requirement: 搜索与筛选
+系统 SHALL 支持按关键词、标签、日历日期范围和是否包含附件筛选当前用户的 BBTalk，且同一条记录最多返回一次。
+
+#### Scenario: 关键词搜索
+- **WHEN** 用户请求 `GET /api/v1/bbtalk/?search=关键词`
+- **THEN** 系统在正文和标签名称中搜索并返回匹配结果
+
+#### Scenario: 组合筛选
+- **WHEN** 用户提交 `tags__name`、`create_date__gte`、`create_date__lte` 或 `has_attachments=true/false`
+- **THEN** 系统按所有条件组合过滤，日期范围按自然日（含首尾日期）计算
+
+#### Scenario: 关联标签命中去重
+- **WHEN** 同一 BBTalk 的正文或多个标签同时命中关键词
+- **THEN** 该 BBTalk 在结果中只出现一次

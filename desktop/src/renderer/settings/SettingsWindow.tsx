@@ -44,9 +44,14 @@ export function SettingsWindow() {
     setLoggedIn(false);
   };
 
-  const handleCheckUpdate = () => {
-    setUpdateStatus('检查中…');
-    setTimeout(() => setUpdateStatus('已是最新版本'), 2000);
+  const handleCheckUpdate = async () => {
+    setUpdateStatus('正在打开…');
+    try {
+      await window.desktop.shell.openExternal('https://github.com/cone387/ChewyBBTalk/releases');
+      setUpdateStatus('');
+    } catch {
+      setUpdateStatus('无法打开发布页，请稍后重试');
+    }
   };
 
   const handleClearLogs = () => {
@@ -169,9 +174,10 @@ export function SettingsWindow() {
               <div className="settings-about-logo">BBTalk</div>
               <div className="settings-about-version">Desktop v0.1.0</div>
               <div className="settings-about-desc">桌面悬浮球，快速记录碎碎念</div>
-              <button className="settings-update-btn" onClick={handleCheckUpdate} disabled={updateStatus === '检查中…'}>
-                {updateStatus || '检查更新'}
+              <button className="settings-update-btn" onClick={handleCheckUpdate} disabled={updateStatus === '正在打开…'}>
+                {updateStatus === '正在打开…' ? updateStatus : '查看发布版本'}
               </button>
+              {updateStatus && updateStatus !== '正在打开…' && <p role="alert">{updateStatus}</p>}
             </div>
           )}
         </div>

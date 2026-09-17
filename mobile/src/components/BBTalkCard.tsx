@@ -44,6 +44,8 @@ function renderFileAttachment(att: Attachment, colors: any): React.JSX.Element {
       style={[styles.fileCard, { backgroundColor: colors.borderLight, borderColor: colors.border }]}
       activeOpacity={0.7}
       onPress={() => Linking.openURL(att.url).catch(() => xAlert('提示', '无法打开此文件'))}
+      accessibilityRole="button"
+      accessibilityLabel={`打开附件 ${att.originalFilename || att.filename || '附件'}`}
     >
       <View style={[styles.fileIconWrap, { backgroundColor: iconColor + '18' }]}>
         <Ionicons name="document-outline" size={20} color={iconColor} />
@@ -124,6 +126,7 @@ const BBTalkCard = React.memo(function BBTalkCard({
         style={styles.moreBtn}
         hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         onPress={() => onMenu(item)}
+        accessibilityRole="button"
         accessibilityLabel="更多操作"
       >
         <Ionicons name="ellipsis-horizontal" size={18} color={c.textTertiary} />
@@ -158,7 +161,7 @@ const BBTalkCard = React.memo(function BBTalkCard({
       {images.length > 0 && (
         <View style={styles.imageRow}>
           {images.map((att, idx) => (
-            <TouchableOpacity key={att.uid} onPress={() => onImagePreview(images.map(i => i.url), idx)}>
+            <TouchableOpacity key={att.uid} onPress={() => onImagePreview(images.map(i => i.url), idx)} accessibilityRole="button" accessibilityLabel={`查看图片 ${idx + 1}`}>
               <Image source={buildImageSource(att.url)} style={[styles.thumbnail, { backgroundColor: c.borderLight }]} contentFit="cover" cachePolicy="disk" />
             </TouchableOpacity>
           ))}

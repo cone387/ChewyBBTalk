@@ -1,6 +1,8 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from rest_framework_simplejwt.views import TokenRefreshView
+from .auth_policy import LimitedTokenRefreshView, AuthPolicyView
+from .status_views import runtime_status
+from .backup_views import backups, download_backup
 from .views import (
     BBTalkViewSet, TagViewSet, PublicBBTalkViewSet,
     get_current_user, login_view, logout_view, register_view, 
@@ -19,9 +21,11 @@ router.register(r'public', PublicBBTalkViewSet, basename='bbtalk-public')
 router.register(r'', BBTalkViewSet)
 
 urlpatterns = [
+    path('settings/status/', runtime_status, name='runtime_status'),
+    path('auth/policy/', AuthPolicyView.as_view(), name='auth_policy'),
     # JWT Token 认证
     path('auth/token/', token_obtain_view, name='token_obtain'),  # 获取 Token
-    path('auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),  # 刷新 Token
+    path('auth/token/refresh/', LimitedTokenRefreshView.as_view(), name='token_refresh'),  # 刷新 Token
     path('auth/token/blacklist/', token_blacklist_view, name='token_blacklist'),  # Token 登出（黑名单）
     # Session 认证（传统方式）
     path('auth/login/', login_view, name='login'),  # Session 登录
@@ -44,6 +48,8 @@ urlpatterns = [
     path('data/export/', export_data, name='data_export'),
     path('data/import/', import_data, name='data_import'),
     path('data/validate/', validate_import, name='data_validate'),
+    path('data/backups/', backups, name='backups'),
+    path('data/backups/<str:filename>/', download_backup, name='backup_download'),
     # 存储迁移接口
     path('storage/migration/preview/', storage_migration_preview, name='storage_migration_preview'),
     path('storage/migration/execute/', storage_migration_execute, name='storage_migration_execute'),

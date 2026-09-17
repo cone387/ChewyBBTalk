@@ -21,6 +21,9 @@ export default function ThemeSettingsScreen() {
               style={[styles.card, { backgroundColor: c.cardBg, borderColor: active ? t.colors.primary : c.borderLight, borderWidth: active ? 2 : 1 }]}
               onPress={() => setThemeKey(t.key)}
               activeOpacity={0.7}
+              accessibilityRole="radio"
+              accessibilityLabel={`${t.name}主题`}
+              accessibilityState={{ selected: active }}
             >
               <View style={styles.row}>
                 <View style={[styles.preview, { borderColor: c.border }]}>
@@ -50,7 +53,7 @@ export default function ThemeSettingsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { padding: 16 },
+  content: { padding: 16, width: '100%', maxWidth: 760, alignSelf: 'center' },
   hint: { fontSize: 13, marginBottom: 12 },
   card: { borderRadius: 16, padding: 14, marginBottom: 10 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 14 },

@@ -3,21 +3,28 @@ import { bbtalkApi } from '../../services/api';
 import type { BBTalk, Attachment } from '../../types';
 
 interface BBTalkState {
+  activeRequestId?: string;
+  hiddenRecordIds: string[];
   bbtalks: BBTalk[];
   currentPage: number;
   hasMore: boolean;
   isLoading: boolean;
   error: string | null;
   totalCount: number;
+  hasLoadedFromNetwork: boolean;
+  isFiltered: boolean;
 }
 
 const initialState: BBTalkState = {
+  hiddenRecordIds: [],
   bbtalks: [],
   currentPage: 1,
   hasMore: true,
   isLoading: false,
   error: null,
   totalCount: 0,
+  hasLoadedFromNetwork: false,
+  isFiltered: false,
 };
 
 export const loadBBTalks = createAsyncThunk(
@@ -60,24 +67,24 @@ export const loadMoreBBTalks = createAsyncThunk(
 export const createBBTalkAsync = createAsyncThunk(
   'bbtalk/createBBTalk',
   async (data: {
-    content: string; tags?: string[]; attachments?: Attachment[];
+    content: string; submissionKey?: string; tags?: string[]; attachments?: Attachment[];
     visibility?: 'public' | 'private' | 'friends'; context?: Record<string, any>;
   }, { rejectWithValue }) => {
     try {
       return await bbtalkApi.createBBTalk(data);
     } catch (error: any) {
-      return rejectWithValue(error.message || '创建失败');
+      return rejectWithValue({ message: error.message || '创建失败', status: error.status, code: error.code });
     }
   }
 );
 
 export const updateBBTalkAsync = createAsyncThunk(
   'bbtalk/updateBBTalk',
-  async ({ id, data }: { id: string; data: Partial<BBTalk> }, { rejectWithValue }) => {
+  async ({ id, data, expectedUpdatedAt }: { id: string; data: Partial<BBTalk>; expectedUpdatedAt?: string }, { rejectWithValue }) => {
     try {
-      return await bbtalkApi.updateBBTalk(id, data);
+      return await bbtalkApi.updateBBTalk(id, data, expectedUpdatedAt);
     } catch (error: any) {
-      return rejectWithValue(error.message || '更新失败');
+      return rejectWithValue({ message: error.message || '更新失败', code: error.code, current: error.current });
     }
   }
 );
@@ -112,18 +119,20 @@ const bbtalkSlice = createSlice({
     clearError: (state) => { state.error = null; },
     setBBTalksFromCache: (state, action: PayloadAction<BBTalk[]>) => {
       // Only populate from cache if store is empty (avoid overwriting fresh API data)
-      if (state.bbtalks.length === 0) {
-        state.bbtalks = action.payload;
+      if (!state.hasLoadedFromNetwork && state.bbtalks.length === 0) {
+        state.bbtalks = action.payload.filter(item => !state.hiddenRecordIds.includes(item.id));
         state.totalCount = action.payload.length;
         state.hasMore = false; // Cache doesn't have pagination info
         state.isLoading = false;
       }
     },
     optimisticDelete: (state, action: PayloadAction<string>) => {
+      if (!state.hiddenRecordIds.includes(action.payload)) state.hiddenRecordIds.push(action.payload);
       state.bbtalks = state.bbtalks.filter(b => b.id !== action.payload);
       state.totalCount -= 1;
     },
     undoDelete: (state, action: PayloadAction<{ bbtalk: BBTalk; index: number }>) => {
+      state.hiddenRecordIds = state.hiddenRecordIds.filter(id => id !== action.payload.bbtalk.id);
       state.bbtalks.splice(action.payload.index, 0, action.payload.bbtalk);
       state.totalCount += 1;
     },
@@ -138,31 +147,45 @@ const bbtalkSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(loadBBTalks.pending, (state) => { state.isLoading = true; state.error = null; })
+      .addCase(loadBBTalks.pending, (state, action) => {
+        state.activeRequestId = action.meta.requestId; state.isLoading = true; state.error = null; })
       .addCase(loadBBTalks.fulfilled, (state, action) => {
+        if (state.activeRequestId !== action.meta.requestId) return;
+        state.activeRequestId = undefined;
         state.isLoading = false;
-        state.bbtalks = action.payload.bbtalks;
+        state.bbtalks = action.payload.bbtalks.filter(item => !state.hiddenRecordIds.includes(item.id));
+        state.hasLoadedFromNetwork = true;
+        state.isFiltered = !action.payload.isFullLoad;
         state.currentPage = action.payload.page;
         state.hasMore = action.payload.hasMore;
         if (action.payload.isFullLoad) state.totalCount = action.payload.totalCount;
       })
       .addCase(loadBBTalks.rejected, (state, action) => {
+        if (state.activeRequestId !== action.meta.requestId) return;
+        state.activeRequestId = undefined;
         state.isLoading = false; state.error = action.payload as string;
       })
-      .addCase(loadMoreBBTalks.pending, (state) => { state.isLoading = true; })
+      .addCase(loadMoreBBTalks.pending, (state, action) => {
+        state.activeRequestId = action.meta.requestId; state.isLoading = true; })
       .addCase(loadMoreBBTalks.fulfilled, (state, action) => {
+        if (state.activeRequestId !== action.meta.requestId) return;
+        state.activeRequestId = undefined;
         state.isLoading = false;
-        state.bbtalks = [...state.bbtalks, ...action.payload.bbtalks];
+        state.bbtalks = [...state.bbtalks, ...action.payload.bbtalks.filter(item => !state.hiddenRecordIds.includes(item.id))];
         state.currentPage = action.payload.page;
         state.hasMore = action.payload.hasMore;
       })
       .addCase(loadMoreBBTalks.rejected, (state, action) => {
+        if (state.activeRequestId !== action.meta.requestId) return;
+        state.activeRequestId = undefined;
         state.isLoading = false; state.error = action.payload as string;
         state.hasMore = false; // Stop retrying on error
       })
       .addCase(createBBTalkAsync.fulfilled, (state, action) => {
-        state.bbtalks.unshift(action.payload);
-        state.totalCount += 1;
+        if (!state.bbtalks.some(item => item.id === action.payload.id)) {
+          state.bbtalks.unshift(action.payload);
+          state.totalCount += 1;
+        }
       })
       .addCase(updateBBTalkAsync.fulfilled, (state, action) => {
         const idx = state.bbtalks.findIndex(b => b.id === action.payload.id);

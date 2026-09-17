@@ -1,6 +1,13 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { attachmentApi } from '../services/mediaApi'
+import { useAttachmentUploads } from '../hooks/useAttachmentUploads'
+import { usePersistentDraft } from '../hooks/usePersistentDraft'
+import { draftKey, type DraftData } from '../services/drafts'
+import { getCurrentUser } from '../services/auth'
+import { beginSubmission, readSubmission, confirmSubmission, forgetConfirmedSubmission, type SubmissionIntent } from '../services/submissions'
+import { bbtalkApi, transformBBTalk } from '../services/api/bbtalkApi'
+import { ApiError } from '../services/api/apiClient'
+import Modal from './ui/Modal'
 import { useAppSelector } from '../store/hooks'
 import CachedImage from './CachedImage'
 import Toast, { type ToastType } from './ui/Toast'
@@ -12,6 +19,8 @@ interface BBTalkEditorProps {
     tags: string[]
     attachments: Attachment[]
     visibility: 'public' | 'private' | 'friends'
+    submissionKey?: string
+    expectedUpdatedAt?: string
     context?: Record<string, any>
   }) => Promise<void>
   isPublishing?: boolean
@@ -19,27 +28,118 @@ interface BBTalkEditorProps {
   onCancelEdit?: () => void  // 取消编辑回调
 }
 
-interface UploadedFile {
-  uid: string
-  url: string
-  type: 'image' | 'video' | 'audio' | 'file'
-  name: string
-  mimeType?: string
-  fileSize?: number
+export default function BBTalkEditor(props: BBTalkEditorProps) {
+  const user = getCurrentUser()
+  const scope = user ? draftKey(import.meta.env.VITE_API_BASE_URL || '/', user.id, props.editing?.id) : null
+  return <BBTalkEditorContent key={scope ?? 'anonymous'} {...props} draftScope={scope} />
 }
 
-export default function BBTalkEditor({ onPublish, isPublishing = false, editing = null, onCancelEdit }: BBTalkEditorProps) {
+function BBTalkEditorContent({ onPublish, isPublishing = false, editing = null, onCancelEdit, draftScope }: BBTalkEditorProps & { draftScope: string | null }) {
   const [content, setContent] = useState('')
   const [tags, setTags] = useState<string[]>([])
-  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
+  const uploads = useAttachmentUploads()
+  const uploadedFiles = uploads.items.flatMap(item => item.attachment ? [{
+    ...item.attachment, name: item.file.name, uploadId: item.id,
+    type: /\.(jpe?g|png|gif|bmp|webp|svg|ico|tiff?)(?:\?|$)/i.test(item.attachment.url) ? 'image' as const : item.attachment.type,
+  }] : [])
+  const isUploading = uploads.items.some(item => item.status === 'uploading')
+  const hasUnfinishedUploads = uploads.items.some(item => item.status !== 'ready')
+  const [publishError, setPublishError] = useState<string | null>(null)
+  const submittingRef = useRef(false)
+  const [busy, setBusy] = useState(false)
+  const [intent, setIntent] = useState<SubmissionIntent>()
+  const [intentReady, setIntentReady] = useState(Boolean(editing))
+  const [conflict, setConflict] = useState<BBTalk | null>(null)
+  const assertIdentity = () => {
+    const user = getCurrentUser()
+    if (!user || draftKey(import.meta.env.VITE_API_BASE_URL || '/', user.id, editing?.id) !== draftScope) {
+      throw new Error('账号已切换，请在当前账号下重新操作')
+    }
+  }
+  useEffect(() => {
+    if (editing || !draftScope) return
+    let cancelled = false
+    readSubmission(draftScope).then(saved => {
+      if (!cancelled) { setIntent(saved); setIntentReady(true) }
+    }).catch(() => {
+      if (!cancelled) setPublishError('无法读取待确认发布，请刷新后重试；当前输入已保留。')
+    })
+    return () => { cancelled = true }
+  }, [draftScope, editing])
+  const recoverSubmission = async (retry: boolean) => {
+    if (!draftScope || !intent || submittingRef.current) return
+    submittingRef.current = true
+    setBusy(true)
+    setPublishError(null)
+    try {
+      assertIdentity()
+      await draft.verifyCurrent()
+      assertIdentity()
+      if (retry) await onPublish({ ...intent.payload, submissionKey: intent.key })
+      else await bbtalkApi.submissionStatus(intent.key)
+      assertIdentity()
+      await confirmSubmission(draftScope, intent.key)
+      setIntent({ ...intent, state: 'confirmed' })
+      setToast({ message: '已确认原提交发布成功，当前输入仍保留；可清除草稿或继续修改。', type: 'success' })
+      window.dispatchEvent(new Event('bbtalk-submission-resolved'))
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 410) {
+        await confirmSubmission(draftScope, intent.key).catch(() => {})
+        setIntent({ ...intent, state: 'confirmed' })
+        setPublishError('原提交对应的记录已删除，不会重新创建。当前输入仍保留。')
+      } else {
+        setPublishError(error instanceof ApiError && error.status === 404
+          ? '暂未查到原提交结果，可重试原提交；不会生成新的提交标识。'
+          : '核对或重试失败，原提交和当前输入已保留，请稍后重试。')
+      }
+    } finally { submittingRef.current = false; setBusy(false) }
+  }
   const [existingAttachments, setExistingAttachments] = useState<Attachment[]>([])  // 编辑模式下的现有附件
-  const [isUploading, setIsUploading] = useState(false)
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null)
   const [locationError, setLocationError] = useState<boolean>(false)  // 定位失败状态
   const [visibility, setVisibility] = useState<'public' | 'private' | 'friends'>('private')
   const [suggestedTag, setSuggestedTag] = useState<string | null>(null) // 建议创建的标签
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null) // Toast提示
   const [isDragOver, setIsDragOver] = useState(false) // 拖拽状态
+  const [confirmClear, setConfirmClear] = useState(false)
+  const [clearing, setClearing] = useState(false)
+  const [baseUpdatedAt, setBaseUpdatedAt] = useState(editing?.updatedAt)
+  const baseChanged = Boolean(editing && baseUpdatedAt !== editing.updatedAt)
+  const draftData = useMemo<DraftData>(() => ({
+    content, tags, visibility, attachments: existingAttachments, uploads: uploads.items,
+    location, baseUpdatedAt,
+  }), [content, tags, visibility, existingAttachments, uploads.items, location, baseUpdatedAt])
+  const draft = usePersistentDraft(draftScope, draftData, saved => {
+    setContent(saved.content)
+    setTags(saved.tags)
+    setVisibility(saved.visibility)
+    setExistingAttachments(saved.attachments)
+    setLocation(saved.location)
+    uploads.restore(saved.uploads)
+    setBaseUpdatedAt(saved.baseUpdatedAt)
+  })
+
+  const clearDraft = async () => {
+    setClearing(true)
+    try {
+      await draft.clear()
+      if (draftScope && intent?.state === 'confirmed') {
+        await forgetConfirmedSubmission(draftScope, intent.key)
+        setIntent(undefined)
+      }
+      const names = editing?.tags?.map(tag => tag.name) ?? []
+      setContent(editing ? `${names.map(name => `#${name} `).join('')}${editing.content}` : '')
+      setTags(names)
+      setVisibility(editing?.visibility ?? 'private')
+      setExistingAttachments(editing?.attachments?.filter(item => item?.uid?.trim()) ?? [])
+      uploads.reset()
+      setLocation(null)
+      setPublishError(null)
+      setBaseUpdatedAt(editing?.updatedAt)
+      setConfirmClear(false)
+    } catch { /* The draft status displays the storage error. */ }
+    finally { setClearing(false) }
+  }
   
   // 标签选择器状态
   const [showTagSelector, setShowTagSelector] = useState(false)
@@ -95,7 +195,7 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
       })
       setExistingAttachments(validAttachments)
       // 编辑模式下清空新上传文件列表
-      setUploadedFiles([])
+      uploads.reset()
       
       // 聚焦到输入框 - 移动端需要用户主动点击
       const isMobile = window.innerWidth < 768
@@ -103,7 +203,9 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
         textareaRef.current.focus()
       }
     }
-  }, [editing])
+    // Identity changes remount this editor. Background list refreshes must not
+    // replace the user's current input with a newly fetched record object.
+  }, [])
   
   // 首次进入页面时自动聚焦并获取位置
   useEffect(() => {
@@ -126,7 +228,7 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
           
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          setLocation({
+          setLocation(previous => previous ?? {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude
           })
@@ -300,67 +402,12 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
     }
   }, [content])
 
-  // 处理文件上传
-  const handleFileUpload = async (files: FileList | null, type: 'image' | 'attachment' = 'attachment') => {
-    if (!files || files.length === 0) return
-
-    setIsUploading(true)
-    try {
-      const uploadPromises = Array.from(files).map(async (file) => {
-        const response = await attachmentApi.upload(file, {
-          media_type: type === 'image' ? 'image' : 'auto'
-        })
-        console.log('上传成功:', response)
-        
-        // 辅助函数：判断是否为图片
-        const isImageFile = (mediaType: string, url: string | undefined) => {
-          if (mediaType === 'image') return true
-          if (!url) return false
-          
-          // 如果 mediaType 不可靠，检查 URL 扩展名
-          const urlLower = url.toLowerCase()
-          const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.ico', '.tif', '.tiff']
-          return imageExts.some(ext => {
-            const urlPath = urlLower.split('?')[0] // 移除查询参数
-            return urlPath.endsWith(ext)
-          })
-        }
-        
-        // 确定文件类型
-        const fileType = isImageFile(response.type, response.url) ? 'image' : response.type as any
-        
-        return {
-          uid: response.uid,
-          url: response.url,
-          type: fileType,
-          name: file.name,
-          mimeType: response.mimeType,
-          fileSize: response.fileSize,
-        }
-      })
-
-      const results = await Promise.all(uploadPromises)
-      console.log('所有文件上传完成:', results)
-      setUploadedFiles(prev => [...prev, ...results])
-    } catch (error: any) {
-      console.error('上传失败:', error)
-      // 优先使用后端返回的具体错误信息
-      const message = error?.message || (
-        error?.response?.status === 413
-          ? '文件太大，请压缩后重试'
-          : '上传失败，请重试'
-      )
-      setToast({ message, type: 'error' })
-    } finally {
-      setIsUploading(false)
-    }
+  // 文件输入、拖拽和粘贴共用独立上传状态。
+  const handleFileUpload = (files: FileList | null, type: 'image' | 'attachment' = 'attachment') => {
+    if (!files?.length || !draft.loaded || clearing || isPublishing || submittingRef.current) return
+    uploads.add(Array.from(files), type === 'image' ? 'image' : 'auto')
   }
 
-  // 移除已上传的文件
-  const handleRemoveFile = (uid: string) => {
-    setUploadedFiles(prev => prev.filter(f => f.uid !== uid))
-  }
-  
   // 移除现有附件文件（编辑模式）
   const handleRemoveExistingAttachment = (uid: string) => {
     setExistingAttachments(prev => prev.filter(a => a.uid !== uid))
@@ -443,7 +490,11 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
 
   // 处理发布/更新
   const handleSubmit = async () => {
-    if (!content.trim()) return
+    if (!content.trim() || !intentReady || !draft.loaded || clearing || isPublishing || submittingRef.current || hasUnfinishedUploads) return
+    submittingRef.current = true
+    setBusy(true)
+    setPublishError(null)
+    setShowTagSelector(false)
 
     const context: Record<string, any> = {
       source: {
@@ -473,25 +524,58 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
         }))
       ]
 
-      await onPublish({
-        content: cleanedContent,
-        tags,
-        attachments: allAttachments,
-        visibility,
-        context: Object.keys(context).length > 0 ? context : undefined
-      })
+      const payload = {
+        content: cleanedContent, tags, attachments: allAttachments, visibility,
+        context: Object.keys(context).length > 0 ? context : undefined,
+      }
+      assertIdentity()
+      let submission: SubmissionIntent | undefined
+      if (!editing) {
+        if (!draftScope) throw new Error('请先登录')
+        const revision = await draft.verifyCurrent()
+        submission = await beginSubmission(draftScope, payload, revision)
+        setIntent(submission)
+      }
+      assertIdentity()
+      await onPublish({ ...payload, submissionKey: submission?.key, expectedUpdatedAt: baseUpdatedAt })
+
+      // Keep the original key if local confirmation or cleanup fails.
+      try {
+        if (submission && draftScope) {
+          await confirmSubmission(draftScope, submission.key)
+          setIntent({ ...submission, state: 'confirmed' })
+        }
+        await draft.clear()
+        if (submission && draftScope) {
+          await forgetConfirmedSubmission(draftScope, submission.key)
+          setIntent(undefined)
+        }
+      } catch {
+        setToast({ message: '发布成功，但本地草稿清理失败，请刷新后核对并清除', type: 'error' })
+        return
+      }
 
       // 清空表单 (仅在新建模式下)
       if (!editing) {
         setContent('')
         setTags([])
-        setUploadedFiles([])
+        uploads.reset()
         setExistingAttachments([])
         setLocation(null)
         setVisibility('private')
       }
     } catch (error) {
       console.error(editing ? '更新失败:' : '发布失败:', error)
+      const detail = error as { message?: string; code?: string; current?: unknown }
+      if (detail?.code === 'edit_conflict' && detail.current) {
+        setConflict(transformBBTalk(detail.current))
+        setPublishError('记录已被其他设备修改，你的输入已保留，请核对最新版本。')
+      } else {
+        setPublishError(`${editing ? '更新' : '发布'}失败，内容已保留，请重试。${typeof error === 'string' ? error : detail?.message ?? ''}`)
+      }
+    } finally {
+      submittingRef.current = false
+      setBusy(false)
     }
   }
   
@@ -613,7 +697,7 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
     // Enter 键发布（Shift+Enter 换行）
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      if (content.trim() && !isPublishing && !isUploading) {
+      if (content.trim() && !isPublishing && !hasUnfinishedUploads) {
         handleSubmit()
       }
       return
@@ -645,6 +729,47 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
         </div>
       )}
       
+      <div className="flex flex-wrap items-center justify-between gap-x-3 px-4 pt-2 text-xs text-gray-600">
+        <span role={draft.error ? 'alert' : 'status'} className={draft.error ? 'text-red-700' : ''}>{draft.recovered ? '已恢复草稿 · ' : ''}{draft.status}</span>
+        <div className="flex items-center gap-2">
+          {draft.error && draft.canRetry && <button type="button" className="min-h-[44px] px-2 text-blue-700" onClick={() => { void draft.retry() }}>重试保存</button>}
+          <button type="button" disabled={busy || !draft.loaded || isPublishing || clearing} className="min-h-[44px] px-2 hover:text-red-700 disabled:opacity-50" onClick={() => setConfirmClear(true)}>清除草稿</button>
+        </div>
+      </div>
+      {!editing && intent && <section aria-label="原提交恢复" className="mx-4 my-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+        <p role="status">{intent.state === 'pending' ? '有一份发布结果待核对' : '原提交已处理，当前输入仍保留'}</p>
+        <details className="mt-2"><summary className="cursor-pointer">查看原提交内容</summary><p className="mt-2 whitespace-pre-wrap break-words">{intent.payload.content}</p></details>
+        {intent.state === 'pending' && <div className="mt-2 flex flex-wrap gap-2">
+          <button type="button" disabled={busy || isPublishing} className="min-h-[44px] rounded border border-amber-400 px-3 disabled:opacity-50" onClick={() => { void recoverSubmission(false) }}>核对发布结果</button>
+          <button type="button" disabled={busy || isPublishing} className="min-h-[44px] rounded border border-amber-400 px-3 disabled:opacity-50" onClick={() => { void recoverSubmission(true) }}>重试原提交</button>
+        </div>}
+      </section>}
+      <Modal visible={Boolean(conflict)} title="记录已有新版本" onClose={() => setConflict(null)}>
+        <p className="text-sm text-gray-700">你的修改仍保留。请核对服务器上的最新内容，再决定是否继续编辑。</p>
+        <div className="my-3 max-h-64 overflow-auto rounded border p-3 text-sm">
+          <p className="whitespace-pre-wrap break-words">{conflict?.content}</p>
+          <p className="mt-2">标签：{conflict?.tags.map(tag => tag.name).join('、') || '无'}</p>
+          <p>可见性：{conflict?.visibility === 'private' ? '私密' : conflict?.visibility === 'friends' ? '好友' : '公开'}</p>
+          <p>附件：{conflict?.attachments?.map(item => item.filename || item.uid).join('、') || '无'}</p>
+        </div>
+        <div className="flex flex-wrap justify-end gap-2">
+          <button type="button" className="min-h-[44px] px-3" onClick={() => setConflict(null)}>暂不处理</button>
+          <button type="button" className="min-h-[44px] rounded bg-blue-600 px-3 text-white" onClick={() => {
+            setBaseUpdatedAt(conflict?.updatedAt)
+            setConflict(null)
+            setPublishError('已核对最新版本。你的修改仍保留，可继续编辑后再次保存。')
+          }}>保留我的修改，继续编辑</button>
+        </div>
+      </Modal>
+      {baseChanged && <p role="alert" className="px-4 py-2 text-sm text-amber-800">已恢复草稿，但原记录已有更新。保存前请核对，避免覆盖其他修改。</p>}
+      <Modal visible={confirmClear} title="清除草稿" onClose={() => { if (!clearing) setConfirmClear(false) }}>
+        <p className="text-sm text-gray-700">将清除当前本地草稿和待上传文件。{editing ? '编辑内容将恢复为当前记录。' : '此操作无法撤销。'}</p>
+        <div className="mt-4 flex justify-end gap-3">
+          <button type="button" disabled={clearing} className="min-h-[44px] px-4" onClick={() => setConfirmClear(false)}>取消</button>
+          <button type="button" disabled={clearing} className="min-h-[44px] rounded bg-red-600 px-4 text-white disabled:opacity-50" onClick={() => { void clearDraft() }}>{clearing ? '正在清除…' : '确认清除'}</button>
+        </div>
+      </Modal>
+      <fieldset disabled={busy || isPublishing || !draft.loaded || clearing} className="min-w-0 border-0 p-0 m-0">
       {/* 主编辑区 */}
       <div className="p-4 pb-2 relative">
         <textarea
@@ -661,7 +786,8 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
           }}
           placeholder="你要BB什么？"
           className="w-full min-h-[56px] max-h-[400px] resize-none border-none outline-none text-gray-800 placeholder-gray-400 text-base leading-relaxed"
-          style={{ overflow: 'hidden' }}
+          style={{ overflowY: 'auto' }}
+          aria-label="记录内容"
           rows={2}
         />
 
@@ -754,8 +880,9 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
                   )}
                   <button
                     onClick={() => handleRemoveExistingAttachment(attachment.uid)}
-                    className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-red-600"
-                    title="删除"
+                    className="absolute top-0 right-0 min-w-11 min-h-11 bg-white border border-gray-200 text-gray-600 rounded-lg flex items-center justify-center hover:bg-red-50 hover:text-red-700"
+                    aria-label={`移除附件 ${attachment.originalFilename || attachment.filename || "附件"}`}
+                    title="移除附件"
                   >
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -796,9 +923,10 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
                   </div>
                 )}
                 <button
-                  onClick={() => handleRemoveFile(file.uid)}
-                  className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-red-600"
-                  title="删除"
+                  onClick={() => uploads.remove(file.uploadId)}
+                  className="absolute top-0 right-0 min-w-11 min-h-11 bg-white border border-gray-200 text-gray-600 rounded-lg flex items-center justify-center hover:bg-red-50 hover:text-red-700"
+                  aria-label={`移除附件 ${file.name}`}
+                  title="移除附件"
                 >
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -847,9 +975,28 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
         )}
       </div>
 
+      {uploads.items.some(item => item.status !== 'ready') && (
+        <div className="px-4 pb-3 space-y-2" aria-live="polite">
+          {uploads.items.filter(item => item.status !== 'ready').map(item => (
+            <div key={item.id} className="rounded-lg border border-gray-200 bg-gray-50 p-3" data-testid="upload-status">
+              <p className="text-sm font-medium text-gray-800 break-all">{item.file.name}</p>
+              <p className={`mt-1 text-sm break-words ${item.status === 'failed' ? 'text-red-700' : 'text-gray-600'}`}>
+                {item.status === 'uploading' ? '上传中…' : item.error}
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {item.status === 'failed' && <button onClick={() => uploads.retry(item.id)} className="min-h-11 px-3 rounded-lg bg-blue-600 text-white text-sm">重试上传</button>}
+                <button onClick={() => uploads.remove(item.id)} className="min-h-11 px-3 rounded-lg border border-gray-300 text-gray-700 text-sm">移除文件</button>
+              </div>
+            </div>
+          ))}
+          <p className="text-sm text-gray-600">请完成上传或移除失败文件后再发布。</p>
+        </div>
+      )}
+      {publishError && <p role="alert" className="mx-4 mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{publishError}</p>}
+
       {/* 工具栏 - 始终显示 */}
-      <div className="px-4 pb-3 pt-2 flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      <div className="px-4 pb-3 pt-2 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
             {/* 标签选择按钮 - 点击插入 # 触发选择器 */}
             <button
               onClick={() => {
@@ -874,7 +1021,7 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
                   textarea.setSelectionRange(newPos, newPos)
                 }, 0)
               }}
-              className="p-2 hover:bg-gray-50 rounded-lg transition-colors group"
+              className="min-w-11 min-h-11 p-2 hover:bg-gray-50 rounded-lg transition-colors group"
               title="添加标签"
             >
               <svg className="w-5 h-5 text-gray-600 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -886,7 +1033,7 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
             <button
               onClick={() => imageInputRef.current?.click()}
               disabled={isUploading}
-              className="p-2 hover:bg-gray-50 rounded-lg transition-colors group relative"
+              className="min-w-11 min-h-11 p-2 hover:bg-gray-50 rounded-lg transition-colors group relative"
               title="上传图片"
             >
               <svg className="w-5 h-5 text-gray-600 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -898,7 +1045,7 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
-              className="p-2 hover:bg-gray-50 rounded-lg transition-colors group"
+              className="min-w-11 min-h-11 p-2 hover:bg-gray-50 rounded-lg transition-colors group"
               title="上传附件"
             >
               <svg className="w-5 h-5 text-gray-600 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -909,7 +1056,7 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
             {/* 位置 */}
             <button
               onClick={handleGetLocation}
-              className={`p-2 rounded-lg transition-colors group ${
+              className={`min-w-11 min-h-11 p-2 rounded-lg transition-colors group ${
                 location ? 'bg-green-50' : locationError ? 'bg-red-50' : 'hover:bg-gray-50'
               }`}
               title={location ? '清除位置' : locationError ? '定位失败，点击重试' : '添加位置'}
@@ -925,7 +1072,7 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
             {/* 可见性切换 */}
             <button
               onClick={() => setVisibility(prev => prev === 'private' ? 'public' : 'private')}
-              className={`p-2 rounded-lg transition-colors group ${
+              className={`min-w-11 min-h-11 p-2 rounded-lg transition-colors group ${
                 visibility === 'public' ? 'bg-blue-50' : 'hover:bg-gray-50'
               }`}
               title={visibility === 'public' ? '公开可见' : '仅自己可见'}
@@ -947,23 +1094,21 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
           </div>
 
         {/* 右侧按钮 */}
-        <div className="flex items-center gap-3">
-            <span className="text-xs text-gray-400">
-              {content.length > 0 && `${content.length} 字`}
-            </span>
+        <div className="ml-auto flex shrink-0 items-center gap-3 whitespace-nowrap">
+            {content.length > 0 && <span className="text-xs text-gray-400">{content.length} 字</span>}
             {editing && (
               <button
                 onClick={handleCancel}
                 disabled={isPublishing}
-                className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+                className="min-h-11 shrink-0 px-4 sm:px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors text-sm font-medium"
               >
                 取消
               </button>
             )}
             <button
               onClick={handleSubmit}
-              disabled={!content.trim() || isPublishing || isUploading}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+              disabled={!content.trim() || isPublishing || hasUnfinishedUploads}
+              className="min-h-11 shrink-0 px-4 sm:px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors text-sm font-medium"
             >
               {isPublishing ? (editing ? '更新中...' : '发布中...') : (editing ? '保存' : '发布')}
             </button>
@@ -977,16 +1122,19 @@ export default function BBTalkEditor({ onPublish, isPublishing = false, editing 
         accept="image/*"
         multiple
         className="hidden"
-        onChange={(e) => handleFileUpload(e.target.files, 'image')}
+        aria-label="上传图片"
+        onChange={(e) => { handleFileUpload(e.target.files, 'image'); e.target.value = '' }}
       />
       <input
         ref={fileInputRef}
         type="file"
         multiple
         className="hidden"
-        onChange={(e) => handleFileUpload(e.target.files, 'attachment')}
+        aria-label="上传附件"
+        onChange={(e) => { handleFileUpload(e.target.files, 'attachment'); e.target.value = '' }}
       />
 
+      </fieldset>
       {/* Toast提示 */}
       {toast && (
         <Toast

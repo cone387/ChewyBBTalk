@@ -17,6 +17,10 @@ export interface ImportStats {
   bbtalks_created: number;
   bbtalks_skipped: number;
   storage_settings_created: number;
+  attachments_created: number;
+  attachments_skipped: number;
+  comments_created: number;
+  comments_skipped: number;
   errors: string[];
 }
 
@@ -29,6 +33,8 @@ export interface ValidationResult {
     tags_count: number;
     bbtalks_count: number;
     storage_settings_count: number;
+    attachments_count?: number;
+    comments_count?: number;
   };
   error: string | null;
 }
@@ -68,7 +74,7 @@ export const dataApi = {
   /**
    * 导入用户数据
    */
-  async importData(file: File, options: ImportOptions = {}): Promise<{ success: boolean; message: string; stats: ImportStats }> {
+  async importData(file: File, options: ImportOptions = {}): Promise<{ success: boolean; partial?: boolean; message: string; stats: ImportStats }> {
     const formData = new FormData();
     formData.append('file', file);
     
