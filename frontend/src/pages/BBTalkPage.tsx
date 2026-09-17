@@ -626,11 +626,11 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
       {/* 主内容区 */}
       <div className="h-full overflow-hidden">
       {/* 整体容器 - 左右内容作为整体居中 */}
-      <div className="h-full max-w-7xl w-full mx-auto px-4 relative">
+      <div className="h-full max-w-7xl w-full mx-auto px-3 sm:px-4 relative">
         <div className="h-full flex gap-3">
           {/* 左侧菜单块 - 窗口缩窄时隐藏，固定定位 */}
           <div className="hidden lg:block flex-shrink-0" style={{ width: '256px' }}>
-          <div className="fixed top-8 bottom-8 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col" style={{ width: '256px' }}>
+          <div className="feed-surface fixed top-8 bottom-8 bg-white rounded-2xl overflow-hidden flex flex-col" style={{ width: '256px' }}>
           {/* 搜索标题和搜索框 */}
           <div className="p-4 space-y-2">
             <div className="flex items-center gap-2 text-gray-600">
@@ -645,26 +645,32 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                 placeholder="搜索 BBTalk..."
                 value={searchKeyword}
                 onChange={(e) => setSearchKeyword(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-500 bg-white text-gray-800 text-sm transition-colors"
+                className="feed-field w-full pl-9 pr-3 py-3 rounded-xl text-gray-800 text-sm"
               />
-              <svg className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 text-gray-400 absolute left-3 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <label className="sr-only" htmlFor="desktop-attachment-filter">附件筛选</label>
-              <select id="desktop-attachment-filter" value={hasAttachments === undefined ? 'all' : hasAttachments ? 'yes' : 'no'} onChange={(e) => setHasAttachments(e.target.value === 'all' ? undefined : e.target.value === 'yes')} className="rounded-lg border border-gray-200 px-2 py-1.5 text-xs text-gray-700 focus:border-blue-500">
-                <option value="all">附件：全部</option>
-                <option value="yes">有附件</option>
-                <option value="no">无附件</option>
-              </select>
-              <label className="sr-only" htmlFor="desktop-date-from">开始日期</label>
-              <input id="desktop-date-from" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} aria-label="开始日期" className="rounded-lg border border-gray-200 px-2 py-1.5 text-xs text-gray-700 focus:border-blue-500" />
-              <label className="sr-only" htmlFor="desktop-date-to">结束日期</label>
-              <input id="desktop-date-to" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} aria-label="结束日期" className="rounded-lg border border-gray-200 px-2 py-1.5 text-xs text-gray-700 focus:border-blue-500" />
-              {activeFilters.length > 0 && (
-                <button type="button" onClick={clearFilters} className="rounded-lg px-2 py-1.5 text-xs text-blue-600 hover:bg-blue-50">清除筛选</button>
-              )}
+            <div className="mt-3 space-y-3">
+              <label className="block text-xs text-gray-500" htmlFor="desktop-attachment-filter">
+                附件
+                <select id="desktop-attachment-filter" aria-label="附件筛选" value={hasAttachments === undefined ? 'all' : hasAttachments ? 'yes' : 'no'} onChange={(e) => setHasAttachments(e.target.value === 'all' ? undefined : e.target.value === 'yes')} className="feed-field mt-1.5 min-h-11 w-full rounded-lg px-3 text-sm text-gray-700">
+                  <option value="all">附件：全部</option>
+                  <option value="yes">有附件</option>
+                  <option value="no">无附件</option>
+                </select>
+              </label>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-xs text-gray-500" htmlFor="desktop-date-from">
+                  <span className="shrink-0">从</span>
+                  <input id="desktop-date-from" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} aria-label="开始日期" className="feed-field min-h-11 min-w-0 flex-1 rounded-lg px-2 text-xs text-gray-700" />
+                </label>
+                <label className="flex items-center gap-2 text-xs text-gray-500" htmlFor="desktop-date-to">
+                  <span className="shrink-0">至</span>
+                  <input id="desktop-date-to" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} aria-label="结束日期" className="feed-field min-h-11 min-w-0 flex-1 rounded-lg px-2 text-xs text-gray-700" />
+                </label>
+              </div>
+              {activeFilters.length > 0 && <button type="button" onClick={clearFilters} className="min-h-11 w-full rounded-lg text-xs text-gray-600 hover:bg-gray-100">清除筛选</button>}
             </div>
           </div>
 
@@ -784,9 +790,9 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
           </div>
 
           {/* 右侧内容区 */}
-          <div ref={containerRef} className="flex-1 min-w-0 py-8 pb-20 lg:pb-8 overflow-y-auto overscroll-contain -webkit-overflow-scrolling-touch">
+          <div ref={containerRef} className="flex-1 min-w-0 pt-4 sm:pt-8 pb-24 lg:pb-8 overflow-y-auto overscroll-contain -webkit-overflow-scrolling-touch">
             {/* 滚动内容区 */}
-            <div className="w-full max-w-2xl mx-auto px-4">
+            <div className="w-full max-w-2xl mx-auto sm:px-4">
           {/* 编辑框 / 登录提示 */}
           {isPublic ? (
             /* 公开页面显示登录提示 */
@@ -827,13 +833,13 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
             </div>
           )}
 
-          {activeFilters.length > 0 && <section aria-label="当前筛选条件" className="mb-4 rounded-xl border border-blue-100 bg-blue-50/70 p-3">
+          {activeFilters.length > 0 && <section aria-label="当前筛选条件" className="mb-4 rounded-2xl bg-gray-100/80 p-3">
             <div className="flex items-center justify-between gap-3">
               <p className="text-sm font-medium text-gray-800">当前筛选 · {activeFilters.length}</p>
               <button type="button" onClick={clearFilters} className="min-h-11 px-2 text-sm text-blue-700 hover:underline">全部清除</button>
             </div>
             <div className="flex flex-wrap gap-2">
-              {activeFilters.map(filter => <button key={filter.key} type="button" aria-label={`移除${filter.label}`} onClick={filter.remove} className="flex min-h-11 max-w-full items-center gap-2 rounded-lg border border-blue-200 bg-white px-3 py-2 text-left text-sm text-blue-900 hover:bg-blue-100">
+              {activeFilters.map(filter => <button key={filter.key} type="button" aria-label={`移除${filter.label}`} onClick={filter.remove} className="flex min-h-11 max-w-full items-center gap-2 rounded-xl bg-white px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">
                 <span className="min-w-0 [overflow-wrap:anywhere]">{filter.label}</span><span aria-hidden="true" className="shrink-0">×</span>
               </button>)}
             </div>
@@ -846,8 +852,13 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                 {[0, 1, 2].map(i => <SkeletonCard key={i} />)}
               </div>
             ) : filteredBBTalks.length === 0 ? (
-              <div className="bg-white rounded-lg shadow p-6 text-center text-gray-600">
-                {activeFilters.length > 0 ? '没有找到匹配的碎碎念' : '暂无碎碎念'}
+              <div className="feed-surface rounded-2xl bg-white px-6 py-10 text-center">
+                <div aria-hidden="true" className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-50 text-gray-400">
+                  <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7h8M8 11h5M5 3h14a1 1 0 011 1v16a1 1 0 01-1 1H5a1 1 0 01-1-1V4a1 1 0 011-1z" /></svg>
+                </div>
+                <p className="font-medium text-gray-700">{activeFilters.length > 0 ? '没有找到匹配的碎碎念' : '暂无碎碎念'}</p>
+                <p className="mt-2 text-sm leading-6 text-gray-500">{activeFilters.length > 0 ? '试试其他关键词，或放宽筛选条件。' : isPublic ? '这里还没有公开的记录。' : '从今天的一件小事开始，写下第一条记录。'}</p>
+                {activeFilters.length > 0 && <button type="button" onClick={clearFilters} className="mt-4 min-h-11 rounded-xl bg-gray-100 px-5 text-sm text-gray-700 hover:bg-gray-200">清除条件，查看全部</button>}
               </div>
             ) : (
               filteredBBTalks.map((bbtalk) => {
@@ -911,7 +922,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                 const location = getLocation()
 
                 return (
-                  <div key={bbtalk.id} data-record-id={bbtalk.id} className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow relative bbtalk-item group">
+                  <div key={bbtalk.id} data-record-id={bbtalk.id} className="feed-surface bg-white rounded-2xl relative bbtalk-item group">
                     {/* 编辑模式 */}
                     {isEditing ? (
                       <div className="p-6">
@@ -1404,11 +1415,11 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
       {showMobileMenu && (
         <div className="lg:hidden fixed inset-0 bg-black/50 z-50" onClick={() => setShowMobileMenu(false)}>
           <div 
-            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[70vh] overflow-hidden"
+            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[85dvh] overflow-y-auto overscroll-contain safe-area-pb"
             onClick={e => e.stopPropagation()}
           >
             {/* 头部 */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-100">
+            <div className="sticky top-0 z-10 flex items-center justify-between bg-white p-4 border-b border-gray-100">
               <h3 className="font-medium text-gray-900">筛选记录</h3>
               <button onClick={() => setShowMobileMenu(false)} aria-label="关闭筛选" className="min-w-11 min-h-11 flex items-center justify-center">
                 <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1425,25 +1436,33 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                   placeholder="搜索 BBTalk..."
                   value={searchKeyword}
                   onChange={(e) => setSearchKeyword(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-500 bg-white text-gray-800 text-sm"
+                  className="feed-field w-full pl-9 pr-3 py-3 rounded-xl text-gray-800 text-sm"
                 />
                 <svg className="w-4 h-4 text-gray-400 absolute left-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </div>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <label className="sr-only" htmlFor="mobile-attachment-filter">附件筛选</label>
-                <select id="mobile-attachment-filter" value={hasAttachments === undefined ? 'all' : hasAttachments ? 'yes' : 'no'} onChange={(e) => setHasAttachments(e.target.value === 'all' ? undefined : e.target.value === 'yes')} className="rounded-lg border border-gray-200 px-2 py-2 text-xs text-gray-700 focus:border-blue-500">
+              <div className="mt-3 space-y-3">
+              <label className="block text-xs text-gray-500" htmlFor="mobile-attachment-filter">
+                附件
+                <select id="mobile-attachment-filter" aria-label="附件筛选" value={hasAttachments === undefined ? 'all' : hasAttachments ? 'yes' : 'no'} onChange={(e) => setHasAttachments(e.target.value === 'all' ? undefined : e.target.value === 'yes')} className="feed-field mt-1.5 min-h-11 w-full rounded-lg px-3 text-sm text-gray-700">
                   <option value="all">附件：全部</option>
                   <option value="yes">有附件</option>
                   <option value="no">无附件</option>
                 </select>
-                <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} aria-label="开始日期" className="rounded-lg border border-gray-200 px-2 py-2 text-xs text-gray-700 focus:border-blue-500" />
-                <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} aria-label="结束日期" className="rounded-lg border border-gray-200 px-2 py-2 text-xs text-gray-700 focus:border-blue-500" />
-                {activeFilters.length > 0 && (
-                  <button type="button" onClick={clearFilters} className="rounded-lg px-2 py-2 text-xs text-blue-600 hover:bg-blue-50">清除筛选</button>
-                )}
+              </label>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-xs text-gray-500" htmlFor="mobile-date-from">
+                  <span className="shrink-0">从</span>
+                  <input id="mobile-date-from" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} aria-label="开始日期" className="feed-field min-h-11 min-w-0 flex-1 rounded-lg px-2 text-xs text-gray-700" />
+                </label>
+                <label className="flex items-center gap-2 text-xs text-gray-500" htmlFor="mobile-date-to">
+                  <span className="shrink-0">至</span>
+                  <input id="mobile-date-to" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} aria-label="结束日期" className="feed-field min-h-11 min-w-0 flex-1 rounded-lg px-2 text-xs text-gray-700" />
+                </label>
               </div>
+              {activeFilters.length > 0 && <button type="button" onClick={clearFilters} className="min-h-11 w-full rounded-lg text-xs text-gray-600 hover:bg-gray-100">清除筛选</button>}
+            </div>
             </div>
             
             {/* 标签列表 */}

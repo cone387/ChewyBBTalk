@@ -707,11 +707,7 @@ function BBTalkEditorContent({ onPublish, isPublishing = false, editing = null, 
   return (
     <div
       ref={editorContainerRef}
-      className={`bg-white rounded-lg border shadow-sm hover:shadow-md transition-all relative ${
-        isDragOver 
-          ? 'border-blue-400 border-2 bg-blue-50/50' 
-          : 'border-gray-200'
-      }`}
+      className={`bbtalk-composer relative rounded-2xl bg-white ${isDragOver ? 'bbtalk-composer--dragging' : ''}`}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}
@@ -719,8 +715,8 @@ function BBTalkEditorContent({ onPublish, isPublishing = false, editing = null, 
     >
       {/* 拖拽提示遮罩 */}
       {isDragOver && (
-        <div className="absolute inset-0 bg-blue-50/80 rounded-lg flex items-center justify-center z-10 pointer-events-none">
-          <div className="flex flex-col items-center gap-2 text-blue-600">
+        <div className="absolute inset-0 bg-slate-100/90 rounded-2xl flex items-center justify-center z-10 pointer-events-none">
+          <div className="flex flex-col items-center gap-2 text-slate-600">
             <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
             </svg>
@@ -729,11 +725,11 @@ function BBTalkEditorContent({ onPublish, isPublishing = false, editing = null, 
         </div>
       )}
       
-      <div className="flex flex-wrap items-center justify-between gap-x-3 px-4 pt-2 text-xs text-gray-600">
-        <span role={draft.error ? 'alert' : 'status'} className={draft.error ? 'text-red-700' : ''}>{draft.recovered ? '已恢复草稿 · ' : ''}{draft.status}</span>
+      <div className="flex flex-wrap items-center justify-end gap-x-3 px-4 pt-2 text-xs text-gray-400 sm:px-5">
+        <span role={draft.error ? 'alert' : 'status'} className={draft.error ? 'flex-1 text-red-700' : 'sr-only'}>{draft.status}</span>
         <div className="flex items-center gap-2">
           {draft.error && draft.canRetry && <button type="button" className="min-h-[44px] px-2 text-blue-700" onClick={() => { void draft.retry() }}>重试保存</button>}
-          <button type="button" disabled={busy || !draft.loaded || isPublishing || clearing} className="min-h-[44px] px-2 hover:text-red-700 disabled:opacity-50" onClick={() => setConfirmClear(true)}>清除草稿</button>
+          <button type="button" disabled={busy || !draft.loaded || isPublishing || clearing} className="min-h-[44px] rounded-lg px-2 text-gray-500 hover:bg-gray-50 hover:text-red-700 transition-colors disabled:opacity-50" onClick={() => setConfirmClear(true)}>清除草稿</button>
         </div>
       </div>
       {!editing && intent && <section aria-label="原提交恢复" className="mx-4 my-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
@@ -771,7 +767,7 @@ function BBTalkEditorContent({ onPublish, isPublishing = false, editing = null, 
       </Modal>
       <fieldset disabled={busy || isPublishing || !draft.loaded || clearing} className="min-w-0 border-0 p-0 m-0">
       {/* 主编辑区 */}
-      <div className="p-4 pb-2 relative">
+      <div className="px-4 pt-1 pb-3 relative sm:px-5">
         <textarea
           ref={textareaRef}
           value={content}
@@ -785,7 +781,7 @@ function BBTalkEditorContent({ onPublish, isPublishing = false, editing = null, 
             setContent((e.target as HTMLTextAreaElement).value)
           }}
           placeholder="你要BB什么？"
-          className="w-full min-h-[56px] max-h-[400px] resize-none border-none outline-none text-gray-800 placeholder-gray-400 text-base leading-relaxed"
+          className="bbtalk-composer__input block w-full min-h-[96px] max-h-[400px] resize-none rounded-lg border-0 bg-transparent px-2 py-2 text-gray-800 placeholder-gray-400 text-base leading-7"
           style={{ overflowY: 'auto' }}
           aria-label="记录内容"
           rows={2}
@@ -995,7 +991,7 @@ function BBTalkEditorContent({ onPublish, isPublishing = false, editing = null, 
       {publishError && <p role="alert" className="mx-4 mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{publishError}</p>}
 
       {/* 工具栏 - 始终显示 */}
-      <div className="px-4 pb-3 pt-2 flex flex-wrap items-center justify-between gap-2">
+      <div className="mx-2 mb-2 rounded-xl bg-gray-50/80 px-2 py-2 flex flex-wrap items-center justify-between gap-2 sm:mx-3 sm:px-3">
         <div className="flex flex-wrap items-center gap-2">
             {/* 标签选择按钮 - 点击插入 # 触发选择器 */}
             <button

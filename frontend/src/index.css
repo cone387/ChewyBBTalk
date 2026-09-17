@@ -65,7 +65,7 @@ body {
 }
 
 /* Keyboard users need a focus indicator even where utility classes reset outlines. */
-:is(button, a, input, textarea, select, [role="button"], [tabindex]):focus-visible {
+:is(button, a, input, textarea, select, [role="button"], [tabindex]):not(.bbtalk-composer__input):not(.feed-field):focus-visible {
   outline: 2px solid #2563eb !important;
   outline-offset: 2px;
 }
@@ -79,4 +79,46 @@ body {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* The writing surface stays borderless, including mouse and keyboard focus. */
+.bbtalk-composer {
+  box-shadow: 0 2px 12px rgb(15 23 42 / 4%);
+}
+
+.bbtalk-composer__input,
+.bbtalk-composer__input:focus,
+.bbtalk-composer__input:focus-visible {
+  border: 0;
+  outline: none;
+  box-shadow: none;
+}
+
+.bbtalk-composer__input {
+  transition: background-color 160ms ease;
+}
+
+.bbtalk-composer__input:focus-visible {
+  background-color: #f8fafc;
+}
+
+.bbtalk-composer--dragging {
+  background-color: #f1f5f9;
+}
+
+.feed-surface {
+  box-shadow: 0 2px 12px rgb(15 23 42 / 4%);
+}
+
+.feed-field {
+  border: 0;
+  outline: none;
+  background-color: #f3f4f6;
+  transition: background-color 160ms ease;
+}
+
+.feed-field:focus-visible {
+  outline: none;
+  box-shadow: none;
+  background-color: #e5e7eb;
 }
