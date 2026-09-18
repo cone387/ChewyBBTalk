@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, TextInput, ActivityIndicator,
-  StyleSheet, Platform, Animated, Modal, Keyboard,
+  StyleSheet, Platform, Animated, Modal, Keyboard, KeyboardAvoidingView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { Theme } from '../theme/ThemeContext';
 import ComposeScreen from '../screens/ComposeScreen';
+import type { BiometricUnlockResult } from '../hooks/usePrivacyMode';
 
 export interface PrivacyLockOverlayProps {
   locked: boolean;
@@ -16,7 +17,7 @@ export interface PrivacyLockOverlayProps {
   lockKeyboardH: Animated.Value;
   onUnlockPasswordChange: (val: string) => void;
   onUnlock: () => Promise<void>;
-  onBiometricUnlock: () => Promise<void>;
+  onBiometricUnlock: () => Promise<BiometricUnlockResult>;
   onCompose: () => void;
   onVoiceRecord: () => void;
   bottomInset: number;
@@ -153,18 +154,50 @@ function PrivacyEntry(props: PrivacyLockOverlayProps) {
 
 function LockedComposer(props: PrivacyLockOverlayProps) {
   const [showUnlock, setShowUnlock] = useState(false);
-  const closeUnlock = () => { props.onUnlockPasswordChange(''); setShowUnlock(false); };
+  const authenticating = useRef(false);
+  const c = props.theme.colors;
+  const closeUnlock = () => {
+    if (props.unlocking) return;
+    Keyboard.dismiss(); props.onUnlockPasswordChange(''); setShowUnlock(false);
+  };
+  const requestUnlock = async () => {
+    if (authenticating.current) return;
+    Keyboard.dismiss();
+    if (!props.biometricAvailable) { setShowUnlock(true); return; }
+    authenticating.current = true;
+    try {
+      const result = await props.onBiometricUnlock();
+      if (result === 'password') setShowUnlock(true);
+    } finally { authenticating.current = false; }
+  };
   return (
     <View style={[StyleSheet.absoluteFillObject, { zIndex: 200, backgroundColor: props.theme.colors.background }]}>
-      <ComposeScreen lockedCapture onRequestUnlock={() => { Keyboard.dismiss(); setShowUnlock(true); }} />
-      <Modal visible={showUnlock} animationType="slide" onRequestClose={closeUnlock}>
-        <View style={{ flex: 1, backgroundColor: props.theme.colors.surfaceSecondary }}>
-          <PrivacyLockOverlay {...props} allowComposeWhenLocked={false} />
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="返回记录" onPress={closeUnlock}
-            style={{ position: 'absolute', bottom: props.bottomInset + 16, alignSelf: 'center', minHeight: 48, justifyContent: 'center', zIndex: 201 }}>
-            <Text style={{ color: props.theme.colors.primary }}>返回记录</Text>
-          </TouchableOpacity>
-        </View>
+      <ComposeScreen lockedCapture onRequestUnlock={requestUnlock} />
+      <Modal visible={showUnlock} transparent animationType="fade" onRequestClose={closeUnlock}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={[styles.passwordBackdrop, { backgroundColor: c.overlay }]}>
+          <View accessibilityViewIsModal style={[styles.passwordDialog, { backgroundColor: c.cardBg }]}>
+            <Text style={[styles.lockTitle, { color: c.text }]}>输入密码</Text>
+            <TextInput accessibilityLabel="解锁密码" autoFocus secureTextEntry
+              style={[styles.passwordInput, { color: c.text, borderColor: c.border }]}
+              placeholder="请输入密码" placeholderTextColor={c.textTertiary}
+              autoCapitalize="none" autoCorrect={false} textContentType="password"
+              value={props.unlockPassword} onChangeText={props.onUnlockPasswordChange}
+              editable={!props.unlocking} returnKeyType="done"
+              onSubmitEditing={() => { if (!props.unlocking) void props.onUnlock(); }} />
+            <View style={styles.passwordActions}>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="取消认证" disabled={props.unlocking}
+                onPress={closeUnlock} style={styles.passwordAction}>
+                <Text style={{ color: c.textSecondary }}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="密码解锁"
+                disabled={props.unlocking || !props.unlockPassword} onPress={props.onUnlock}
+                style={[styles.passwordAction, { opacity: props.unlocking || !props.unlockPassword ? 0.5 : 1 }]}>
+                {props.unlocking ? <ActivityIndicator color={c.primary} /> : <Text style={{ color: c.primary }}>解锁</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -173,6 +206,11 @@ function LockedComposer(props: PrivacyLockOverlayProps) {
 export default React.memo(PrivacyEntry);
 
 const styles = StyleSheet.create({
+  passwordBackdrop: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
+  passwordDialog: { width: '100%', maxWidth: 360, borderRadius: 16, padding: 24 },
+  passwordInput: { minHeight: 48, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, marginTop: 20, fontSize: 16 },
+  passwordActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 12 },
+  passwordAction: { minHeight: 44, minWidth: 64, alignItems: 'center', justifyContent: 'center' },
   lockOverlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center', alignItems: 'center', zIndex: 200,

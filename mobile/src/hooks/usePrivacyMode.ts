@@ -5,6 +5,8 @@ import * as LocalAuthentication from 'expo-local-authentication';
 
 import { logError } from '../utils/errorHandler';
 
+export type BiometricUnlockResult = 'unlocked' | 'cancelled' | 'password';
+
 export interface UsePrivacyModeReturn {
   settingsReady: boolean;
   // 状态
@@ -22,7 +24,7 @@ export interface UsePrivacyModeReturn {
   setLocked: (val: boolean) => void;
   setUnlockPassword: (val: string) => void;
   resetPrivacyTimer: () => void;
-  handleBiometricUnlock: () => Promise<void>;
+  handleBiometricUnlock: () => Promise<BiometricUnlockResult>;
   handleUnlock: () => Promise<void>;
   loadPrivacySettings: () => Promise<void>;
 }
@@ -107,29 +109,28 @@ export function usePrivacyMode(options: UsePrivacyModeOptions): UsePrivacyModeRe
     setSettingsReady(true);
   }, []);
 
-  const handleBiometricUnlock = useCallback(async () => {
+  const handleBiometricUnlock = useCallback(async (): Promise<BiometricUnlockResult> => {
     try {
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: '验证身份以解锁',
-        cancelLabel: '使用密码',
+        cancelLabel: '取消',
+        fallbackLabel: '使用密码',
         disableDeviceFallback: true,
       });
       if (result.success) {
         setLocked(false);
         setUnlockPassword('');
         lastActivity.current = Date.now();
-      } else if (result.error === 'not_enrolled') {
-        options.showError('提示', '设备未设置生物识别，请使用密码解锁');
-        setBiometricAvailable(false);
-      } else if (result.error !== 'user_cancel' && result.error !== 'system_cancel') {
-        options.showError('提示', '生物识别不可用（Expo Go 不支持 Face ID，需要独立构建），请使用密码解锁');
-        setBiometricAvailable(false);
+        return 'unlocked';
       }
-    } catch (e: any) {
+      if (['user_cancel', 'system_cancel', 'app_cancel'].includes(result.error)) return 'cancelled';
+      if (result.error !== 'user_fallback') setBiometricAvailable(false);
+      return 'password';
+    } catch {
       setBiometricAvailable(false);
-      options.showError('提示', '生物识别暂不可用，请使用密码解锁');
+      return 'password';
     }
-  }, [setLocked, options.showError]);
+  }, [setLocked]);
 
   const handleUnlock = useCallback(async () => {
     if (!unlockPassword) return;

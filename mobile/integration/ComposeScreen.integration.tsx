@@ -162,6 +162,8 @@ test('locked capture saves repeatedly without navigating or touching the regular
     (apiClient.post as jest.Mock).mockResolvedValueOnce({ ...wire, content });
     fireEvent.press(screen.getByText('保存'));
     await waitFor(() => expect(screen.getByPlaceholderText('你要BB什么？支持 Markdown，输入 # 添加标签').props.value).toBe(''));
+    expect(screen.getByText('已保存')).toBeTruthy();
+    expect(screen.queryByText(/仍受保护|仍然锁/)).toBeNull();
     expect(await AsyncStorage.getItem(key)).toBe('new note');
   }
   expect(apiClient.post).toHaveBeenCalledTimes(2);
@@ -187,12 +189,12 @@ test('unlock request preserves a separate draft and regular editor can recover i
   await regular.findByDisplayValue('capture draft');
 });
 
-test('privacy entry starts in compose, cancel unlock preserves input, and disabled capture shows the lock', async () => {
+test('privacy entry authenticates directly, password fallback stays in a dialog, and cancellation preserves input', async () => {
   const store = configureStore({ reducer: { bbtalk: bbtalkReducer, tag: tagReducer } });
   const props = {
-    locked: true, biometricAvailable: false, allowComposeWhenLocked: true,
+    locked: true, biometricAvailable: true, allowComposeWhenLocked: true,
     unlockPassword: '', unlocking: false, lockKeyboardH: new Animated.Value(0),
-    onUnlockPasswordChange: jest.fn(), onUnlock: jest.fn(), onBiometricUnlock: jest.fn(),
+    onUnlockPasswordChange: jest.fn(), onUnlock: jest.fn(), onBiometricUnlock: jest.fn().mockResolvedValue('cancelled'),
     onCompose: jest.fn(), onVoiceRecord: jest.fn(), bottomInset: 0, theme: THEMES[0],
   };
   const tree = (allowComposeWhenLocked: boolean) => <Provider store={store}><PrivacyLockOverlay {...props} allowComposeWhenLocked={allowComposeWhenLocked} /></Provider>;
@@ -201,10 +203,23 @@ test('privacy entry starts in compose, cancel unlock preserves input, and disabl
   expect(screen.queryByText('内容已锁定')).toBeNull();
   fireEvent.changeText(screen.getByPlaceholderText('你要BB什么？支持 Markdown，输入 # 添加标签'), 'keep this input');
   fireEvent.press(screen.getByLabelText('解锁查看历史'));
-  await screen.findByText('内容已锁定');
-  fireEvent.press(screen.getByLabelText('返回记录'));
+  await waitFor(() => expect(props.onBiometricUnlock).toHaveBeenCalledTimes(1));
+  expect(screen.queryByText('内容已锁定')).toBeNull();
+  expect(screen.queryByLabelText('解锁密码')).toBeNull();
+  expect(screen.getByDisplayValue('keep this input')).toBeTruthy();
+  props.onBiometricUnlock.mockResolvedValue('password');
+  fireEvent.press(screen.getByLabelText('解锁查看历史'));
+  await screen.findByLabelText('解锁密码');
+  expect(screen.queryByText('内容已锁定')).toBeNull();
+  fireEvent.press(screen.getByLabelText('取消认证'));
   expect(screen.getByDisplayValue('keep this input')).toBeTruthy();
   expect(props.onUnlock).not.toHaveBeenCalled();
+  props.biometricAvailable = false;
+  screen.rerender(tree(true));
+  fireEvent.press(screen.getByLabelText('解锁查看历史'));
+  await screen.findByLabelText('解锁密码');
+  expect(props.onBiometricUnlock).toHaveBeenCalledTimes(2);
+  fireEvent.press(screen.getByLabelText('取消认证'));
   screen.rerender(tree(false));
   expect(screen.getByText('内容已锁定')).toBeTruthy();
   expect(screen.queryByText('快速记录')).toBeNull();

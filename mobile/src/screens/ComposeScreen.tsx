@@ -403,7 +403,7 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
       if (lockedCapture) {
         setContent(''); setAttachments([]); setLocation(null); setVisibility('private');
         setCursorPos(0); setEditMode('edit'); setSubmission(undefined);
-        setSubmissionMessage('已保存，历史内容仍受保护');
+        setSubmissionMessage('已保存');
         inputRef.current?.focus();
       } else { publishedRef.current = true; navigation.goBack(); }
     } catch (error: any) {
