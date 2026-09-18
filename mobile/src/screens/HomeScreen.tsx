@@ -334,6 +334,18 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
 
   // --- Render ---
 
+  if (!privacy.settingsReady) return <View style={[styles.container, { backgroundColor: c.background }]} />;
+
+  if (privacy.locked) return (
+    <View style={[styles.container, { backgroundColor: c.background }]}>
+      <PrivacyLockOverlay locked={privacy.locked} biometricAvailable={privacy.biometricAvailable}
+        allowComposeWhenLocked={privacy.allowComposeWhenLocked} unlockPassword={privacy.unlockPassword} unlocking={privacy.unlocking}
+        lockKeyboardH={privacy.lockKeyboardH} onUnlockPasswordChange={privacy.setUnlockPassword} onUnlock={privacy.handleUnlock}
+        onBiometricUnlock={privacy.handleBiometricUnlock} onCompose={() => navigation.navigate('Compose')}
+        onVoiceRecord={() => setVoiceRecording(true)} bottomInset={insets.bottom} theme={theme} />
+    </View>
+  );
+
   return (
     <View style={[styles.container, { backgroundColor: c.background }]} onTouchStart={privacy.resetPrivacyTimer}>
       {batch.batchMode ? (
@@ -456,12 +468,6 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
           )}
         </View>
       </Modal>
-
-      <PrivacyLockOverlay locked={privacy.locked} biometricAvailable={privacy.biometricAvailable}
-        allowComposeWhenLocked={privacy.allowComposeWhenLocked} unlockPassword={privacy.unlockPassword} unlocking={privacy.unlocking}
-        lockKeyboardH={privacy.lockKeyboardH} onUnlockPasswordChange={privacy.setUnlockPassword} onUnlock={privacy.handleUnlock}
-        onBiometricUnlock={privacy.handleBiometricUnlock} onCompose={() => navigation.navigate('Compose')}
-        onVoiceRecord={() => setVoiceRecording(true)} bottomInset={insets.bottom} theme={theme} />
 
       <UndoToast visible={!!actions.pendingDelete} onUndo={actions.handleUndo} onDismiss={actions.handleDismiss} />
       <VoiceRecordingOverlay visible={voiceRecording && !batch.batchMode} onFinish={handleVoiceFinishAndClose} onCancel={() => setVoiceRecording(false)} />

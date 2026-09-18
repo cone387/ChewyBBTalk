@@ -4,6 +4,9 @@ import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ComposeScreen from '../src/screens/ComposeScreen';
+import PrivacyLockOverlay from '../src/components/PrivacyLockOverlay';
+import { Animated } from 'react-native';
+import { THEMES } from '../src/theme/ThemeContext';
 import bbtalkReducer from '../src/store/slices/bbtalkSlice';
 import tagReducer from '../src/store/slices/tagSlice';
 import { apiClient } from '../src/services/api/apiClient';
@@ -31,9 +34,9 @@ jest.mock('expo-location', () => ({}));
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) }));
 
 const wire = { uid: 'record-1', content: '原始内容', visibility: 'private', tags: [], attachments: [], update_time: '2026-09-07T09:00:00Z' };
-function mount() {
+function mount(props: React.ComponentProps<typeof ComposeScreen> = {}) {
   const store = configureStore({ reducer: { bbtalk: bbtalkReducer, tag: tagReducer } });
-  return { ...render(<Provider store={store}><ComposeScreen /></Provider>), store };
+  return { ...render(<Provider store={store}><ComposeScreen {...props} /></Provider>), store };
 }
 beforeEach(async () => {
   jest.clearAllMocks();
@@ -128,4 +131,81 @@ test('reopening under another account never exposes the previous pending submiss
   expect(second.queryByText('有一份发布结果待核对')).toBeNull();
   expect(second.queryByDisplayValue('账号一私密内容')).toBeNull();
   expect(await readSubmission()).toBeUndefined();
+});
+
+
+test('locked capture hides old drafts, edit parameters and pending submissions', async () => {
+  const { beginSubmission } = require('../src/services/submissions');
+  await beginSubmission({ content: 'old secret', tags: [], visibility: 'private', attachments: [] });
+  await AsyncStorage.setItem(`compose_draft:${getSession().scope}`, 'old secret');
+  mockParams = { editItem: { content: 'capture draft', tags: [], attachments: [] } };
+  const screen = mount({ lockedCapture: true });
+  await act(async () => {});
+  expect(screen.getByPlaceholderText('你要BB什么？支持 Markdown，输入 # 添加标签').props.value).toBe('');
+  expect(screen.queryByText('查看原提交内容')).toBeNull();
+  expect(screen.queryByText('更新')).toBeNull();
+  expect(apiClient.get).not.toHaveBeenCalled();
+  fireEvent.changeText(screen.getByPlaceholderText('你要BB什么？支持 Markdown，输入 # 添加标签'), 'new note');
+  fireEvent.press(screen.getByText('保存'));
+  await screen.findByText(/还有一份发布结果未确认/);
+  expect((await readSubmission())?.payload.content).toBe('old secret');
+  expect(screen.getByDisplayValue('new note')).toBeTruthy();
+});
+
+test('locked capture saves repeatedly without navigating or touching the regular draft', async () => {
+  const key = `compose_draft:${getSession().scope}`;
+  await AsyncStorage.setItem(key, 'new note');
+  const screen = mount({ lockedCapture: true });
+  await act(async () => {});
+  for (const content of ['first note', 'second note']) {
+    fireEvent.changeText(screen.getByPlaceholderText('你要BB什么？支持 Markdown，输入 # 添加标签'), content);
+    (apiClient.post as jest.Mock).mockResolvedValueOnce({ ...wire, content });
+    fireEvent.press(screen.getByText('保存'));
+    await waitFor(() => expect(screen.getByPlaceholderText('你要BB什么？支持 Markdown，输入 # 添加标签').props.value).toBe(''));
+    expect(await AsyncStorage.getItem(key)).toBe('new note');
+  }
+  expect(apiClient.post).toHaveBeenCalledTimes(2);
+  expect(mockNavigation.goBack).not.toHaveBeenCalled();
+  expect(await readSubmission()).toBeUndefined();
+});
+
+test('unlock request preserves a separate draft and regular editor can recover it', async () => {
+  const onRequestUnlock = jest.fn();
+  const screen = mount({ lockedCapture: true, onRequestUnlock });
+  await act(async () => {});
+  fireEvent.changeText(screen.getByPlaceholderText('你要BB什么？支持 Markdown，输入 # 添加标签'), 'capture draft');
+  fireEvent.press(screen.getByLabelText('解锁查看历史'));
+  await waitFor(() => expect(onRequestUnlock).toHaveBeenCalled());
+  const keys = await AsyncStorage.getAllKeys();
+  expect(keys.filter(k => k.includes(':locked:'))).toHaveLength(1);
+  screen.unmount();
+  const lockedAgain = mount({ lockedCapture: true });
+  await act(async () => {});
+  expect(lockedAgain.queryByDisplayValue('capture draft')).toBeNull();
+  lockedAgain.unmount();
+  const regular = mount();
+  await regular.findByDisplayValue('capture draft');
+});
+
+test('privacy entry starts in compose, cancel unlock preserves input, and disabled capture shows the lock', async () => {
+  const store = configureStore({ reducer: { bbtalk: bbtalkReducer, tag: tagReducer } });
+  const props = {
+    locked: true, biometricAvailable: false, allowComposeWhenLocked: true,
+    unlockPassword: '', unlocking: false, lockKeyboardH: new Animated.Value(0),
+    onUnlockPasswordChange: jest.fn(), onUnlock: jest.fn(), onBiometricUnlock: jest.fn(),
+    onCompose: jest.fn(), onVoiceRecord: jest.fn(), bottomInset: 0, theme: THEMES[0],
+  };
+  const tree = (allowComposeWhenLocked: boolean) => <Provider store={store}><PrivacyLockOverlay {...props} allowComposeWhenLocked={allowComposeWhenLocked} /></Provider>;
+  const screen = render(tree(true));
+  await act(async () => {});
+  expect(screen.queryByText('内容已锁定')).toBeNull();
+  fireEvent.changeText(screen.getByPlaceholderText('你要BB什么？支持 Markdown，输入 # 添加标签'), 'keep this input');
+  fireEvent.press(screen.getByLabelText('解锁查看历史'));
+  await screen.findByText('内容已锁定');
+  fireEvent.press(screen.getByLabelText('返回记录'));
+  expect(screen.getByDisplayValue('keep this input')).toBeTruthy();
+  expect(props.onUnlock).not.toHaveBeenCalled();
+  screen.rerender(tree(false));
+  expect(screen.getByText('内容已锁定')).toBeTruthy();
+  expect(screen.queryByText('快速记录')).toBeNull();
 });

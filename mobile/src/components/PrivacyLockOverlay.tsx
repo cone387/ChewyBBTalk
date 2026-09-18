@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, TextInput, ActivityIndicator,
-  StyleSheet, Platform, Animated,
+  StyleSheet, Platform, Animated, Modal, Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { Theme } from '../theme/ThemeContext';
+import ComposeScreen from '../screens/ComposeScreen';
 
 export interface PrivacyLockOverlayProps {
   locked: boolean;
@@ -143,7 +144,33 @@ function PrivacyLockOverlay({
   );
 }
 
-export default React.memo(PrivacyLockOverlay);
+function PrivacyEntry(props: PrivacyLockOverlayProps) {
+  if (!props.locked) return null;
+  return props.allowComposeWhenLocked
+    ? <LockedComposer {...props} />
+    : <PrivacyLockOverlay {...props} />;
+}
+
+function LockedComposer(props: PrivacyLockOverlayProps) {
+  const [showUnlock, setShowUnlock] = useState(false);
+  const closeUnlock = () => { props.onUnlockPasswordChange(''); setShowUnlock(false); };
+  return (
+    <View style={[StyleSheet.absoluteFillObject, { zIndex: 200, backgroundColor: props.theme.colors.background }]}>
+      <ComposeScreen lockedCapture onRequestUnlock={() => { Keyboard.dismiss(); setShowUnlock(true); }} />
+      <Modal visible={showUnlock} animationType="slide" onRequestClose={closeUnlock}>
+        <View style={{ flex: 1, backgroundColor: props.theme.colors.surfaceSecondary }}>
+          <PrivacyLockOverlay {...props} allowComposeWhenLocked={false} />
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="返回记录" onPress={closeUnlock}
+            style={{ position: 'absolute', bottom: props.bottomInset + 16, alignSelf: 'center', minHeight: 48, justifyContent: 'center', zIndex: 201 }}>
+            <Text style={{ color: props.theme.colors.primary }}>返回记录</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+export default React.memo(PrivacyEntry);
 
 const styles = StyleSheet.create({
   lockOverlay: {

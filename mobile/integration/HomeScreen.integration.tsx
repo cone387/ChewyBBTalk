@@ -11,7 +11,7 @@ import { apiClient } from '../src/services/api/apiClient';
 
 const mockFocus = new Set<() => void>();
 const mockNavigation = { navigate: jest.fn(), isFocused: () => true, addListener: (_event: string, callback: () => void) => { mockFocus.add(callback); return () => mockFocus.delete(callback); } };
-const mockPrivacy = { resetPrivacyTimer: jest.fn(), loadPrivacySettings: jest.fn(), locked: false };
+const mockPrivacy = { resetPrivacyTimer: jest.fn(), loadPrivacySettings: jest.fn(), locked: false, settingsReady: true };
 const mockCache = { isOffline: false, initCache: async () => {}, loadCachedData: async () => [], syncToCache: async () => {} };
 const mockBatch = { selectedIds: new Set(), batchMode: false };
 jest.mock('@react-navigation/native', () => ({ useNavigation: () => mockNavigation }));
@@ -53,10 +53,22 @@ function mount() {
 beforeEach(async () => {
   await AsyncStorage.clear();
   jest.clearAllMocks(); mockFocus.clear(); mockCache.isOffline = false;
+  mockPrivacy.locked = false; mockPrivacy.settingsReady = true;
   AppState.currentState = 'active';
   (apiClient.get as jest.Mock).mockImplementation((url: string) => Promise.resolve(url.includes('/tags/') ? [] : result('初始记录')));
 });
 afterEach(() => { cleanup(); jest.restoreAllMocks(); });
+
+test('history is absent while locked or privacy settings are loading', async () => {
+  const screen = mount();
+  await screen.findByText('初始记录');
+  mockPrivacy.locked = true;
+  screen.rerender(screen.tree());
+  expect(screen.queryByText('初始记录')).toBeNull();
+  mockPrivacy.locked = false; mockPrivacy.settingsReady = false;
+  screen.rerender(screen.tree());
+  expect(screen.queryByText('初始记录')).toBeNull();
+});
 
 test('foreground and network recovery preserve applied filters and unsubmitted search input', async () => {
   let active: (state: AppStateStatus) => void = () => {};

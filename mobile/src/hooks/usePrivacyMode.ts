@@ -6,6 +6,7 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import { logError } from '../utils/errorHandler';
 
 export interface UsePrivacyModeReturn {
+  settingsReady: boolean;
   // 状态
   locked: boolean;
   privacyEnabled: boolean;
@@ -33,6 +34,7 @@ interface UsePrivacyModeOptions {
 
 export function usePrivacyMode(options: UsePrivacyModeOptions): UsePrivacyModeReturn {
   const { showError } = options;
+  const [settingsReady, setSettingsReady] = useState(false);
 
   // --- State ---
   const [privacySeconds, setPrivacySeconds] = useState<number | null>(null);
@@ -102,6 +104,7 @@ export function usePrivacyMode(options: UsePrivacyModeOptions): UsePrivacyModeRe
     } else {
       lastActivity.current = Date.now();
     }
+    setSettingsReady(true);
   }, []);
 
   const handleBiometricUnlock = useCallback(async () => {
@@ -237,6 +240,7 @@ export function usePrivacyMode(options: UsePrivacyModeOptions): UsePrivacyModeRe
   useEffect(() => { onLockChangeRef.current?.(locked); }, [locked]);
 
   return {
+    settingsReady,
     locked,
     privacyEnabled,
     privacySeconds,

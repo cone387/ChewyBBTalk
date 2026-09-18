@@ -100,7 +100,7 @@ export default function PrivacySettingsScreen() {
         <View style={[styles.switchRow, !enabled && { opacity: 0.4 }]} pointerEvents={enabled ? 'auto' : 'none'}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.switchLabel, { color: c.text }]}>锁定时允许新建</Text>
-            <Text style={[styles.switchHint, { color: c.textTertiary }]}>防窥模式下仍可发布碎碎念</Text>
+            <Text style={[styles.switchHint, { color: c.textTertiary }]}>锁定后直接进入快速记录，查看历史需解锁</Text>
           </View>
           <Switch value={allowCompose} onValueChange={onAllowComposeChange}
             trackColor={{ false: c.border, true: c.primary }} thumbColor="#fff" />

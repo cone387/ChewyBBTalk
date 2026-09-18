@@ -113,9 +113,11 @@ const compactStyles = StyleSheet.create({
   label: { fontSize: 9 },
 });
 
-export default function ComposeScreen() {
+export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }: { lockedCapture?: boolean; onRequestUnlock?: () => void } = {}) {
   const session = useRef(getSession()).current;
-  const draftKey = `compose_draft:${session.scope ?? 'signed-out'}`;
+  const regularDraftKey = `compose_draft:${session.scope ?? 'signed-out'}`;
+  const captureId = useRef(`${Date.now()}_${Math.random().toString(36).slice(2)}`).current;
+  const [draftKey, setDraftKey] = useState(lockedCapture ? `${regularDraftKey}:locked:${captureId}` : regularDraftKey);
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const dispatch = useAppDispatch();
@@ -125,7 +127,7 @@ export default function ComposeScreen() {
   const { theme } = useTheme();
   const c = theme.colors;
 
-  const editItem: BBTalk | undefined = route.params?.editItem;
+  const editItem: BBTalk | undefined = lockedCapture ? undefined : route.params?.editItem;
   const isEditing = !!editItem;
 
   const [content, setContent] = useState(() => {
@@ -145,12 +147,12 @@ export default function ComposeScreen() {
   const publishedRef = useRef(false);
   const submittingRef = useRef(false);
   const [submission, setSubmission] = useState<SubmissionIntent>();
-  const [submissionReady, setSubmissionReady] = useState(isEditing);
-  const [draftReady, setDraftReady] = useState(isEditing);
+  const [submissionReady, setSubmissionReady] = useState(isEditing || lockedCapture);
+  const [draftReady, setDraftReady] = useState(isEditing || lockedCapture);
   const [submissionMessage, setSubmissionMessage] = useState('');
   const [baseUpdatedAt, setBaseUpdatedAt] = useState(editItem?.updatedAt);
   useEffect(() => {
-    if (isEditing) return;
+    if (isEditing || lockedCapture) return;
     let cancelled = false;
     readSubmission(session).then(saved => {
       if (!cancelled && isCurrentSession(session)) { setSubmission(saved); setSubmissionReady(true); }
@@ -199,14 +201,22 @@ export default function ComposeScreen() {
   }, [content, visibility, attachments, editItem, isEditing]);
 
   useEffect(() => {
-    if (existingTags.length === 0) dispatch(loadTags());
+    if (!lockedCapture && existingTags.length === 0) dispatch(loadTags());
     const s1 = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', (e) => setKeyboardH(e.endCoordinates.height));
     const s2 = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboardH(0));
 
     // 新建模式：加载草稿，兼容旧版纯正文。
     let cancelled = false;
-    if (!isEditing) {
-      AsyncStorage.getItem(draftKey).then(draft => {
+    if (!isEditing && !lockedCapture) {
+      (async () => {
+        const regular = await AsyncStorage.getItem(regularDraftKey);
+        if (regular) return regular;
+        // Recover locked captures only inside the regular, unlocked editor.
+        const keys = (await AsyncStorage.getAllKeys()).filter(key => key.startsWith(`${regularDraftKey}:locked:`)).sort();
+        if (!keys.length || cancelled || !isCurrentSession(session)) return null;
+        setDraftKey(keys[0]);
+        return AsyncStorage.getItem(keys[0]);
+      })().then(draft => {
         if (cancelled || !isCurrentSession(session)) return;
         if (draft) {
           let saved: any;
@@ -230,6 +240,7 @@ export default function ComposeScreen() {
   // 新建模式：离开时自动保存草稿（发布成功后不保存）
   // 编辑退出确认：有未保存修改时拦截返回操作
   useEffect(() => {
+    if (lockedCapture) return;
     const unsubscribe = navigation.addListener('beforeRemove', (e: any) => {
       if (!draftReady || !isCurrentSession(session)) return;
       if (submittingRef.current && !publishedRef.current) { e.preventDefault(); return; }
@@ -259,7 +270,19 @@ export default function ComposeScreen() {
       }, undefined, { confirmText: '放弃', cancelText: '继续编辑', destructive: true });
     });
     return unsubscribe;
-  }, [navigation, hasUnsavedChanges, content, visibility, attachments, location, isEditing, draftReady, session]);
+  }, [navigation, hasUnsavedChanges, content, visibility, attachments, location, isEditing, draftReady, session, draftKey, lockedCapture]);
+
+  const requestUnlock = async () => {
+    if (submittingRef.current || uploading || !isCurrentSession(session)) return;
+    try {
+      if (hasUnsavedChanges()) {
+        await AsyncStorage.setItem(draftKey, JSON.stringify({ version: 1, content, visibility, attachments, location }));
+      } else await AsyncStorage.removeItem(draftKey);
+      if (isCurrentSession(session)) onRequestUnlock?.();
+    } catch {
+      setSubmissionMessage('草稿保存失败，请重试；当前输入仍保留。');
+    }
+  };
 
   const parseTags = (t: string): string[] => [...new Set(Array.from(t.matchAll(/(?:^|\s)#([^\s#]+)\s/g)).map(m => m[1]))];
   const cleanContent = (t: string): string => t.replace(/(?:^|\s)#([^\s#]+)\s/g, ' ').trim();
@@ -377,7 +400,12 @@ export default function ComposeScreen() {
         setSubmissionMessage('发布成功，但本地清理失败。请核对原提交，避免重复发布。');
         return;
       }
-      publishedRef.current = true; navigation.goBack();
+      if (lockedCapture) {
+        setContent(''); setAttachments([]); setLocation(null); setVisibility('private');
+        setCursorPos(0); setEditMode('edit'); setSubmission(undefined);
+        setSubmissionMessage('已保存，历史内容仍受保护');
+        inputRef.current?.focus();
+      } else { publishedRef.current = true; navigation.goBack(); }
     } catch (error: any) {
       if (!isCurrentSession(session)) return;
       if (error.code === 'edit_conflict' && error.current) {
@@ -408,9 +436,13 @@ ${latest.content}
     <View pointerEvents={submitting ? 'none' : 'auto'} style={[styles.container, { paddingTop: insets.top, backgroundColor: c.background }]}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: c.headerBg, borderBottomColor: c.border }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()}><Text style={[styles.cancelText, { color: c.textSecondary }]}>取消</Text></TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={lockedCapture ? '解锁查看历史' : '取消'}
+          disabled={lockedCapture && uploading} style={{ minHeight: 44, justifyContent: 'center' }}
+          onPress={lockedCapture ? requestUnlock : () => navigation.goBack()}>
+          <Text style={[styles.cancelText, { color: c.textSecondary }]}>{lockedCapture ? '解锁查看历史' : '取消'}</Text>
+        </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={[styles.headerTitle, { color: c.text }]}>{isEditing ? '编辑' : '发碎碎念'}</Text>
+          <Text style={[styles.headerTitle, { color: c.text }]}>{lockedCapture ? '快速记录' : isEditing ? '编辑' : '发碎碎念'}</Text>
           <TouchableOpacity
             style={styles.modeToggleBtn}
             onPress={() => {
@@ -430,7 +462,7 @@ ${latest.content}
           </TouchableOpacity>
         </View>
         <TouchableOpacity style={[styles.publishBtn, { backgroundColor: c.primary }, !canSubmit && { opacity: 0.4 }]} onPress={handleSubmit} disabled={!canSubmit}>
-          {submitting ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.publishText}>{isEditing ? '更新' : '发布'}</Text>}
+          {submitting ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.publishText}>{lockedCapture ? '保存' : isEditing ? '更新' : '发布'}</Text>}
         </TouchableOpacity>
       </View>
 
@@ -525,7 +557,7 @@ ${latest.content}
 
       {/* 工具栏 */}
       <View style={[styles.toolbarWrap, { backgroundColor: c.surfaceSecondary, borderTopColor: c.border, paddingBottom: bottomPad, marginBottom: keyboardH }]}>
-        {showQuickTags && existingTags.length > 0 && (
+        {!lockedCapture && showQuickTags && existingTags.length > 0 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always" style={styles.quickTagBar} contentContainerStyle={{ paddingHorizontal: 12, gap: 8 }}>
             {existingTags.filter(t => !currentTags.includes(t.name)).slice(0, 15).map(tag => (
               <TouchableOpacity key={tag.id} style={[styles.quickTagChip, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => insertTag(tag.name)}><Text style={[styles.quickTagText, { color: c.textSecondary }]}>#{tag.name}</Text></TouchableOpacity>
