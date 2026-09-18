@@ -25,6 +25,7 @@ import { useTheme } from '../theme/ThemeContext';
 import type { Attachment, BBTalk } from '../types';
 import { buildImageSource } from '../utils/imageSource';
 import VoiceRecordingOverlay from '../components/VoiceRecordingOverlay';
+import { useHoldToRecord } from '../hooks/useHoldToRecord';
 import { xAlert, xConfirm } from '../utils/crossAlert';
 import { COMPOSE_TOOLBAR_LABELS } from '../utils/composeToolbarLabels';
 
@@ -143,6 +144,7 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
   const [showQuickTags, setShowQuickTags] = useState(false);
   const [keyboardH, setKeyboardH] = useState(0);
   const [voiceRecording, setVoiceRecording] = useState(false);
+  const holdRecording = useHoldToRecord(() => { Keyboard.dismiss(); setVoiceRecording(true); }, voiceRecording || uploading || submitting);
   const [editMode, setEditMode] = useState<'edit' | 'preview'>('edit');
   const publishedRef = useRef(false);
   const submittingRef = useRef(false);
@@ -575,7 +577,7 @@ ${latest.content}
             <TouchableOpacity style={styles.toolBtn} onPress={takePhoto} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.takePhoto}><Ionicons name="camera-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
             <TouchableOpacity style={styles.toolBtn} onPress={() => pickMedia('videos')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.addVideo}><Ionicons name="videocam-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
             <TouchableOpacity style={styles.toolBtn} onPress={pickFile} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.addFile}><Ionicons name="attach-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
-            <TouchableOpacity style={styles.toolBtn} onPress={() => { Keyboard.dismiss(); setVoiceRecording(true); }} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.recordAudio}><Ionicons name="mic-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
+            <TouchableOpacity style={styles.toolBtn} {...holdRecording.handlers} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.recordAudio}><Ionicons name="mic-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
             <TouchableOpacity style={styles.toolBtn} onPress={() => {
               if (showQuickTags) {
                 // 第二次点击：隐藏快速标签
@@ -611,6 +613,7 @@ ${latest.content}
 
       <VoiceRecordingOverlay
         visible={voiceRecording}
+        holdMode={holdRecording.holdMode} cancelHint={holdRecording.cancelHint} stopAction={holdRecording.stopAction}
         onFinish={handleVoiceFinish}
         onCancel={() => setVoiceRecording(false)}
       />

@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, Animated, TouchableOpacity,
+  View, Text, StyleSheet, Animated, TouchableOpacity, AppState, BackHandler,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -25,11 +25,14 @@ try {
 
 interface Props {
   visible: boolean;
+  holdMode?: boolean;
+  cancelHint?: boolean;
+  stopAction?: 'finish' | 'cancel';
   onFinish: (result: { text: string; audioUri: string | null; audioDuration: number }) => void;
   onCancel: () => void;
 }
 
-export default function VoiceRecordingOverlay({ visible, onFinish, onCancel }: Props) {
+export default function VoiceRecordingOverlay({ visible, holdMode = false, cancelHint = false, stopAction, onFinish, onCancel }: Props) {
   const { theme } = useTheme();
   const c = theme.colors;
   const [transcript, setTranscript] = useState('');
@@ -38,6 +41,9 @@ export default function VoiceRecordingOverlay({ visible, onFinish, onCancel }: P
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const transcriptRef = useRef('');
   const isRecordingRef = useRef(false);
+  const stopRef = useRef<(action: 'finish' | 'cancel') => void>(() => {});
+  const callbacks = useRef({ onFinish, onCancel });
+  callbacks.current = { onFinish, onCancel };
 
   const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const recorderState = useAudioRecorderState(audioRecorder);
@@ -46,12 +52,15 @@ export default function VoiceRecordingOverlay({ visible, onFinish, onCancel }: P
   useEffect(() => {
     if (!Voice) return;
     Voice.onSpeechResults = (e: any) => {
+      if (!isRecordingRef.current) return;
       const text = e.value?.[0] || '';
       transcriptRef.current = text;
       setTranscript(text);
       setPartialResult('');
     };
     Voice.onSpeechPartialResults = (e: any) => {
+      if (!isRecordingRef.current) return;
+      transcriptRef.current = e.value?.[0] || '';
       setPartialResult(e.value?.[0] || '');
     };
     Voice.onSpeechError = (e: any) => {
@@ -76,67 +85,80 @@ export default function VoiceRecordingOverlay({ visible, onFinish, onCancel }: P
   }, [visible]);
 
   useEffect(() => {
-    if (visible && !isRecordingRef.current) {
-      startRecording();
-    }
+    if (!visible) return;
+    let disposed = false;
+    let requested = stopAction;
+    let prepared = false;
+    let started = false;
+    let settling = false;
+    let modeChanged = false;
+    setTranscript(''); setPartialResult(''); transcriptRef.current = '';
+    const startup = (async () => {
+      try {
+        const status = await AudioModule.requestRecordingPermissionsAsync();
+        if (disposed || requested) return;
+        if (!status.granted) {
+          xAlert('权限不足', '需要麦克风权限才能录音');
+          requested = 'cancel'; return;
+        }
+        await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+        modeChanged = true;
+        if (disposed || requested) return;
+        await audioRecorder.prepareToRecordAsync();
+        prepared = true;
+        if (disposed || requested) return;
+        audioRecorder.record(); started = true; isRecordingRef.current = true;
+        // Do not make release wait on the native speech bridge.
+        if (Voice && sttAvailable) {
+          Voice.start('zh-CN').then(() => {
+            if (disposed || requested) Voice.stop().catch(() => {});
+          }).catch(() => { if (!disposed) setSttAvailable(false); });
+        }
+      } catch (e: any) {
+        if (!disposed && !requested) xAlert('录音失败', e.message || '无法启动录音');
+        requested = 'cancel';
+      }
+    })();
+    const finish = async () => {
+      if (settling) return;
+      settling = true;
+      await startup;
+      let duration = 0;
+      let audioUri: string | null = null;
+      try {
+        if (started) duration = audioRecorder.getStatus().durationMillis;
+        if (prepared) await audioRecorder.stop();
+        if (started) audioUri = audioRecorder.uri;
+      } catch {
+        if (!disposed && requested === 'finish') xAlert('录音失败', '无法保存录音，请重试');
+        requested = 'cancel';
+      }
+      isRecordingRef.current = false;
+      if (Voice && sttAvailable) Voice.stop().catch(() => {});
+      if (modeChanged) await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
+      if (disposed) return;
+      if (requested === 'finish' && started && duration >= 500 && audioUri) {
+        callbacks.current.onFinish({ text: transcriptRef.current, audioUri, audioDuration: Math.max(1, Math.round(duration / 1000)) });
+      } else {
+        if (requested === 'finish' && started && duration < 500) xAlert('录音太短', '请按住说话后再松手');
+        callbacks.current.onCancel();
+      }
+    };
+    stopRef.current = action => { requested = action; void finish(); };
+    void startup.then(() => { if (requested || disposed) void finish(); });
+    const appState = AppState.addEventListener('change', state => {
+      if (state !== 'active') stopRef.current('cancel');
+    });
+    const back = BackHandler.addEventListener('hardwareBackPress', () => { stopRef.current('cancel'); return true; });
+    return () => {
+      disposed = true; requested = 'cancel'; void finish();
+      appState.remove(); back.remove();
+    };
   }, [visible]);
 
-  const startRecording = async () => {
-    try {
-      setTranscript('');
-      setPartialResult('');
-      transcriptRef.current = '';
-
-      const status = await AudioModule.requestRecordingPermissionsAsync();
-      if (!status.granted) {
-        xAlert('权限不足', '需要麦克风权限才能录音');
-        onCancel();
-        return;
-      }
-
-      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
-      await audioRecorder.prepareToRecordAsync();
-      audioRecorder.record();
-      isRecordingRef.current = true;
-
-      // Start STT if available
-      if (Voice && sttAvailable) {
-        try { await Voice.start('zh-CN'); } catch { setSttAvailable(false); }
-      }
-    } catch (e: any) {
-      console.error('Failed to start recording:', e);
-      xAlert('录音失败', e.message || '无法启动录音');
-      onCancel();
-    }
-  };
-
-  const stopAndFinish = async () => {
-    isRecordingRef.current = false;
-    let audioUri: string | null = null;
-    try {
-      await audioRecorder.stop();
-      audioUri = audioRecorder.uri;
-    } catch {}
-
-    // 不等待 Voice.stop() 完成，避免 iOS 上卡住
-    if (Voice && sttAvailable) {
-      Voice.stop().catch(() => {});
-    }
-    setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
-
-    const dur = Math.round(recorderState.durationMillis / 1000);
-    // 立即返回结果，不阻塞 UI
-    onFinish({ text: transcriptRef.current, audioUri, audioDuration: dur });
-  };
-
-  const stopAndCancel = async () => {
-    isRecordingRef.current = false;
-    try { await audioRecorder.stop(); } catch {}
-    // 不等待 Voice.stop()
-    if (Voice && sttAvailable) { Voice.stop().catch(() => {}); }
-    setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
-    onCancel();
-  };
+  useEffect(() => {
+    if (visible && stopAction) stopRef.current(stopAction);
+  }, [visible, stopAction]);
 
   if (!visible) return null;
 
@@ -146,7 +168,7 @@ export default function VoiceRecordingOverlay({ visible, onFinish, onCancel }: P
   const secsPart = secs % 60;
 
   return (
-    <View style={styles.overlay}>
+    <View style={styles.overlay} pointerEvents={holdMode ? 'none' : 'auto'}>
       <View style={[styles.card, { backgroundColor: c.cardBg }]}>
         <Animated.View style={[styles.micCircle, { backgroundColor: c.danger + '20', transform: [{ scale: pulseAnim }] }]}>
           <View style={[styles.micInner, { backgroundColor: c.danger }]}>
@@ -159,7 +181,7 @@ export default function VoiceRecordingOverlay({ visible, onFinish, onCancel }: P
         </Text>
 
         <Text style={[styles.hint, { color: c.textTertiary }]}>
-          {recorderState.isRecording ? '点击下方按钮结束录音' : '正在准备...'}
+          {holdMode ? (cancelHint ? '松手取消录音' : recorderState.isRecording ? '松手结束，上滑取消' : '正在准备，请继续按住') : recorderState.isRecording ? '点击下方按钮结束录音' : '正在准备...'}
         </Text>
 
         {displayText ? (
@@ -172,17 +194,17 @@ export default function VoiceRecordingOverlay({ visible, onFinish, onCancel }: P
         ) : sttAvailable ? (
           <Text style={[styles.transcriptPlaceholder, { color: c.textTertiary }]}>语音识别中...</Text>
         ) : (
-          <Text style={[styles.transcriptPlaceholder, { color: c.textTertiary }]}>仅录音（语音识别需 dev build）</Text>
+          <Text style={[styles.transcriptPlaceholder, { color: c.textTertiary }]}>正在录制音频</Text>
         )}
 
-        <View style={styles.actionRow}>
-          <TouchableOpacity style={[styles.cancelBtn, { backgroundColor: c.borderLight }]} onPress={stopAndCancel}>
+        {!holdMode && <View style={styles.actionRow}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="取消录音" style={[styles.cancelBtn, { backgroundColor: c.borderLight }]} onPress={() => stopRef.current('cancel')}>
             <Ionicons name="close" size={22} color={c.textSecondary} />
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.stopBtn, { backgroundColor: c.primary }]} onPress={stopAndFinish}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="结束录音" style={[styles.stopBtn, { backgroundColor: c.primary }]} onPress={() => stopRef.current('finish')}>
             <Ionicons name="checkmark" size={28} color="#fff" />
           </TouchableOpacity>
-        </View>
+        </View>}
       </View>
     </View>
   );

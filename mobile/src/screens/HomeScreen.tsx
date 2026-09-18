@@ -14,6 +14,7 @@ import { loadTags } from '../store/slices/tagSlice';
 import type { BBTalk, Comment } from '../types';
 import { useTheme } from '../theme/ThemeContext';
 import VoiceRecordingOverlay from '../components/VoiceRecordingOverlay';
+import { useHoldToRecord } from '../hooks/useHoldToRecord';
 import UndoToast from '../components/UndoToast';
 import SkeletonCard from '../components/SkeletonCard';
 import ImageViewer from '../components/ImageViewer';
@@ -71,6 +72,8 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
   // --- Hooks ---
 
   const privacy = usePrivacyMode({ onLockChange, showError });
+
+  useEffect(() => { if (privacy.locked) setVoiceRecording(false); }, [privacy.locked]);
 
   const { isOffline, lastSyncTime, initCache, loadCachedData, syncToCache } = useOfflineCache();
 
@@ -334,6 +337,11 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
 
   // --- Render ---
 
+  const holdRecording = useHoldToRecord(() => {
+    if (guardOfflineWrite()) return false;
+    setVoiceRecording(true);
+  }, voiceRecording, () => { if (!guardOfflineWrite()) navigation.navigate('Compose'); });
+
   if (!privacy.settingsReady) return <View style={[styles.container, { backgroundColor: c.background }]} />;
 
   if (privacy.locked) return (
@@ -440,7 +448,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
 
       {!batch.batchMode && (
         <TouchableOpacity style={[styles.fab, { bottom: insets.bottom + 24, backgroundColor: c.primary, shadowColor: '#000' }]}
-          onPress={() => { if (guardOfflineWrite()) return; navigation.navigate('Compose'); }} onLongPress={() => { if (guardOfflineWrite()) return; setVoiceRecording(true); }} delayLongPress={300} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="新建碎碎念">
+          {...holdRecording.handlers} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="新建碎碎念">
           <Ionicons name="add" size={28} color="#fff" />
         </TouchableOpacity>
       )}
@@ -470,7 +478,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
       </Modal>
 
       <UndoToast visible={!!actions.pendingDelete} onUndo={actions.handleUndo} onDismiss={actions.handleDismiss} />
-      <VoiceRecordingOverlay visible={voiceRecording && !batch.batchMode} onFinish={handleVoiceFinishAndClose} onCancel={() => setVoiceRecording(false)} />
+      <VoiceRecordingOverlay visible={voiceRecording && !batch.batchMode} holdMode={holdRecording.holdMode} cancelHint={holdRecording.cancelHint} stopAction={holdRecording.stopAction} onFinish={handleVoiceFinishAndClose} onCancel={() => setVoiceRecording(false)} />
 
       <TagPickerModal
         visible={tagPickerVisible}
