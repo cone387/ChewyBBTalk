@@ -47,15 +47,14 @@ test('restores full draft and pending file bytes, then clears after successful p
   await expect(page.locator('.bbtalk-item').first()).toContainText('草稿标签')
 })
 
-test('explicit clear survives refresh and stale tabs cannot resurrect deleted draft', async ({ page, context }) => {
+test('publish clears draft across refresh and stale tabs cannot resurrect it', async ({ page, context }) => {
   await login(page)
   await page.getByLabel('记录内容').fill('待清除内容')
   await expect(page.getByRole('status')).toContainText('草稿已保存')
   const other = await context.newPage()
   await other.goto('/')
   await expect(other.getByLabel('记录内容')).toHaveValue('待清除内容')
-  await page.getByRole('button', { name: '清除草稿', exact: true }).click()
-  await page.getByRole('button', { name: '确认清除', exact: true }).click()
+  await page.getByRole('button', { name: '发布', exact: true }).click()
   await expect(page.getByLabel('记录内容')).toHaveValue('')
   await other.getByLabel('记录内容').fill('旧标签页修改')
   await expect(other.getByRole('alert')).toContainText('另一标签页')

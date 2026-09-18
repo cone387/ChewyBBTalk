@@ -255,9 +255,6 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
   const [editingBBTalk, setEditingBBTalk] = useState<typeof bbtalks[0] | null>(null)
   const [searchKeyword, setSearchKeyword] = useState('')
   const [selectedTags, setSelectedTags] = useState<string[]>([])
-  const [hasAttachments, setHasAttachments] = useState<boolean | undefined>(undefined)
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [isInitialLoad, setIsInitialLoad] = useState(true)
   const [copyTip, setCopyTip] = useState<{ show: boolean; id: string | null }>({ show: false, id: null })
@@ -350,25 +347,16 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
     return {
       search: searchKeyword.trim() || undefined,
       tags: tagNames,
-      hasAttachments,
-      dateFrom: dateFrom || undefined,
-      dateTo: dateTo || undefined,
     }
-  }, [dateFrom, dateTo, hasAttachments, searchKeyword, selectedTags, tags])
+  }, [searchKeyword, selectedTags, tags])
 
   const clearFilters = () => {
     setSearchKeyword('')
     setSelectedTags([])
-    setHasAttachments(undefined)
-    setDateFrom('')
-    setDateTo('')
   }
   const activeFilters = [
     ...(searchKeyword.trim() ? [{ key: 'search', label: `关键词：${searchKeyword.trim()}`, remove: () => setSearchKeyword('') }] : []),
     ...selectedTags.map(id => ({ key: `tag-${id}`, label: `标签：${tags.find(tag => tag.id === id)?.name ?? id}`, remove: () => setSelectedTags(previous => previous.filter(tag => tag !== id)) })),
-    ...(hasAttachments !== undefined ? [{ key: 'attachments', label: hasAttachments ? '有附件' : '无附件', remove: () => setHasAttachments(undefined) }] : []),
-    ...(dateFrom ? [{ key: 'from', label: `开始：${dateFrom}`, remove: () => setDateFrom('') }] : []),
-    ...(dateTo ? [{ key: 'to', label: `结束：${dateTo}`, remove: () => setDateTo('') }] : []),
   ]
 
   // 监听搜索与筛选条件，防抖后重新加载数据
@@ -652,27 +640,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </div>
-            <div className="mt-3 space-y-3">
-              <label className="block text-xs text-gray-500" htmlFor="desktop-attachment-filter">
-                附件
-                <select id="desktop-attachment-filter" aria-label="附件筛选" value={hasAttachments === undefined ? 'all' : hasAttachments ? 'yes' : 'no'} onChange={(e) => setHasAttachments(e.target.value === 'all' ? undefined : e.target.value === 'yes')} className="feed-field mt-1.5 min-h-11 w-full rounded-lg px-3 text-sm text-gray-700">
-                  <option value="all">附件：全部</option>
-                  <option value="yes">有附件</option>
-                  <option value="no">无附件</option>
-                </select>
-              </label>
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 text-xs text-gray-500" htmlFor="desktop-date-from">
-                  <span className="shrink-0">从</span>
-                  <input id="desktop-date-from" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} aria-label="开始日期" className="feed-field min-h-11 min-w-0 flex-1 rounded-lg px-2 text-xs text-gray-700" />
-                </label>
-                <label className="flex items-center gap-2 text-xs text-gray-500" htmlFor="desktop-date-to">
-                  <span className="shrink-0">至</span>
-                  <input id="desktop-date-to" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} aria-label="结束日期" className="feed-field min-h-11 min-w-0 flex-1 rounded-lg px-2 text-xs text-gray-700" />
-                </label>
-              </div>
-              {activeFilters.length > 0 && <button type="button" onClick={clearFilters} className="min-h-11 w-full rounded-lg text-xs text-gray-600 hover:bg-gray-100">清除筛选</button>}
-            </div>
+
           </div>
 
           {/* 分隔线 */}
@@ -1443,27 +1411,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </div>
-              <div className="mt-3 space-y-3">
-              <label className="block text-xs text-gray-500" htmlFor="mobile-attachment-filter">
-                附件
-                <select id="mobile-attachment-filter" aria-label="附件筛选" value={hasAttachments === undefined ? 'all' : hasAttachments ? 'yes' : 'no'} onChange={(e) => setHasAttachments(e.target.value === 'all' ? undefined : e.target.value === 'yes')} className="feed-field mt-1.5 min-h-11 w-full rounded-lg px-3 text-sm text-gray-700">
-                  <option value="all">附件：全部</option>
-                  <option value="yes">有附件</option>
-                  <option value="no">无附件</option>
-                </select>
-              </label>
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 text-xs text-gray-500" htmlFor="mobile-date-from">
-                  <span className="shrink-0">从</span>
-                  <input id="mobile-date-from" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} aria-label="开始日期" className="feed-field min-h-11 min-w-0 flex-1 rounded-lg px-2 text-xs text-gray-700" />
-                </label>
-                <label className="flex items-center gap-2 text-xs text-gray-500" htmlFor="mobile-date-to">
-                  <span className="shrink-0">至</span>
-                  <input id="mobile-date-to" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} aria-label="结束日期" className="feed-field min-h-11 min-w-0 flex-1 rounded-lg px-2 text-xs text-gray-700" />
-                </label>
-              </div>
-              {activeFilters.length > 0 && <button type="button" onClick={clearFilters} className="min-h-11 w-full rounded-lg text-xs text-gray-600 hover:bg-gray-100">清除筛选</button>}
-            </div>
+
             </div>
             
             {/* 标签列表 */}
