@@ -1,16 +1,20 @@
 /**
  * Login 窗口：独立的登录弹窗。
  */
-import { BrowserWindow, screen } from 'electron';
+import { BrowserWindow } from 'electron';
+import { initialWindowPosition, trackWindowPosition } from './windowPlacement';
+import { suspendBallForWindow } from './ballWindow';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { appIconPath } from '../icons';
+import { cancelBrowserLogin } from '../browserAuth';
 
 let loginWindow: BrowserWindow | null = null;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const LOGIN_WIDTH = 340;
-const LOGIN_HEIGHT = 360;
+const LOGIN_HEIGHT = 510;
 
 export function showLoginWindow(): void {
   if (loginWindow && !loginWindow.isDestroyed()) {
@@ -18,10 +22,8 @@ export function showLoginWindow(): void {
     return;
   }
 
-  const primary = screen.getPrimaryDisplay();
-  const wa = primary.workArea;
-  const x = Math.round(wa.x + (wa.width - LOGIN_WIDTH) / 2);
-  const y = Math.round(wa.y + (wa.height - LOGIN_HEIGHT) / 3);
+  const { x, y } = initialWindowPosition('login', LOGIN_WIDTH, LOGIN_HEIGHT);
+
 
   loginWindow = new BrowserWindow({
     x,
@@ -29,12 +31,14 @@ export function showLoginWindow(): void {
     width: LOGIN_WIDTH,
     height: LOGIN_HEIGHT,
     frame: false,
-    transparent: false,
+    transparent: true,
+    ...(process.platform === 'win32' ? { thickFrame: false } : {}),
     resizable: false,
-    alwaysOnTop: true,
+    alwaysOnTop: false,
+    icon: appIconPath(),
     skipTaskbar: false,
     show: false,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#00000000',
     roundedCorners: true,
     webPreferences: {
       preload: resolve(__dirname, '../preload/index.cjs'),
@@ -44,12 +48,15 @@ export function showLoginWindow(): void {
     },
   });
 
+  trackWindowPosition(loginWindow, 'login');
+  suspendBallForWindow(loginWindow);
   loginWindow.once('ready-to-show', () => {
     loginWindow?.show();
     loginWindow?.focus();
   });
 
   loginWindow.on('closed', () => {
+    cancelBrowserLogin();
     loginWindow = null;
   });
 

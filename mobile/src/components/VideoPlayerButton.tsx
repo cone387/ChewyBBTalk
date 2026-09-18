@@ -2,6 +2,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import type { Attachment } from '../types';
+import { buildImageSource } from '../utils/imageSource';
 
 interface Props {
   attachment: Attachment;
@@ -13,7 +14,7 @@ interface Props {
  * 不再预下载整个视频文件。
  */
 export default function VideoPlayerButton({ attachment }: Props) {
-  const player = useVideoPlayer(attachment.url);
+  const player = useVideoPlayer(buildImageSource(attachment.url));
 
   return (
     <View style={styles.videoWrap}>

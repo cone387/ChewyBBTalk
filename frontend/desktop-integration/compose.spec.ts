@@ -66,19 +66,19 @@ test('real Electron restart, lost response retry and wake account isolation', as
     await login(page, username)
     await page.getByPlaceholder('你要BB什么？').fill('桌面原始内容 #桌面标签 ')
     await page.getByRole('button', { name: /^发布/ }).click()
-    await expect(page.getByRole('status')).toContainText('有一份发布结果待核对')
+    await expect(page.locator('.submission-recovery').getByRole('status')).toContainText('有一份发布结果待核对')
     const pending = await page.evaluate(() => (window as any).desktop.compose.submissionSnapshot())
     expect(pending.intent.state).toBe('pending')
     await application!.close(); application = undefined
     page = await launch()
-    await expect(page.getByRole('status')).toContainText('有一份发布结果待核对')
+    await expect(page.locator('.submission-recovery').getByRole('status')).toContainText('有一份发布结果待核对')
     await expect(page.getByRole('button', { name: '重试原提交' })).toBeInViewport({ ratio: 1 })
     await expect(page.getByRole('button', { name: /^发布/ })).toBeInViewport({ ratio: 1 })
     await expect.poll(async () => (await page.getByPlaceholder('你要BB什么？').boundingBox())!.height).toBeGreaterThanOrEqual(42)
     await capture('desktop-pending.png')
     await page.getByPlaceholder('你要BB什么？').fill('后来输入的新草稿')
     await page.getByRole('button', { name: '重试原提交' }).click()
-    await expect(page.getByRole('status')).toContainText('原提交已确认')
+    await expect(page.locator('.submission-recovery').getByRole('status')).toContainText('原提交已确认')
     expect(submissionKeys).toEqual([pending.intent.key, pending.intent.key])
     await expect(page.getByPlaceholder('你要BB什么？')).toHaveValue('后来输入的新草稿')
     const records = await request.get(backend + '/api/v1/bbtalk/', { headers: { Authorization: `Bearer ${owner.access}` } })
@@ -91,7 +91,7 @@ test('real Electron restart, lost response retry and wake account isolation', as
     const ownerSnapshot = await page.evaluate(() => (window as any).desktop.compose.submissionSnapshot())
     await login(page, otherName)
     await expect(page.getByPlaceholder('你要BB什么？')).toHaveValue('')
-    await expect(page.getByRole('status')).toHaveCount(0)
+    await expect(page.locator('.submission-recovery').getByRole('status')).toHaveCount(0)
     const stale = await page.evaluate(async previous => {
       try { await (window as any).desktop.compose.recoverSubmission(previous.session, true); return 'accepted' }
       catch { return 'rejected' }
@@ -101,14 +101,14 @@ test('real Electron restart, lost response retry and wake account isolation', as
     await expect(page.getByPlaceholder('你要BB什么？')).toHaveValue('后来输入的新草稿')
     hideReceipt = false
     await page.evaluate(() => window.dispatchEvent(new Event('online')))
-    await expect(page.getByRole('status')).toContainText('原提交已确认')
+    await expect(page.locator('.submission-recovery').getByRole('status')).toContainText('原提交已确认')
     await capture('desktop-confirmed.png')
     // Wake a pending original receipt, including a long expanded recovery panel.
     dropResponse = true
     hideReceipt = true
     await page.getByPlaceholder('你要BB什么？').fill(Array.from({ length: 20 }, (_, index) => `唤醒核对第 ${index + 1} 行`).join('\n'))
     await page.getByRole('button', { name: /^发布/ }).click()
-    await expect(page.getByRole('status')).toContainText('有一份发布结果待核对')
+    await expect(page.locator('.submission-recovery').getByRole('status')).toContainText('有一份发布结果待核对')
     await page.getByText('查看原提交内容', { exact: true }).click()
     await page.getByRole('button', { name: '重试原提交' }).scrollIntoViewIfNeeded()
     await expect(page.getByRole('button', { name: '重试原提交' })).toBeInViewport({ ratio: 1 })
@@ -118,7 +118,7 @@ test('real Electron restart, lost response retry and wake account isolation', as
     hideReceipt = false
     const requestsBeforeWake = submissionKeys.length
     await page.evaluate(() => window.dispatchEvent(new Event('online')))
-    await expect(page.getByRole('status')).toContainText('原提交已确认')
+    await expect(page.locator('.submission-recovery').getByRole('status')).toContainText('原提交已确认')
     expect(submissionKeys).toHaveLength(requestsBeforeWake)
     const afterWake = await request.get(backend + '/api/v1/bbtalk/', { headers: { Authorization: `Bearer ${owner.access}` } })
     expect((await afterWake.json()).count).toBe(2)

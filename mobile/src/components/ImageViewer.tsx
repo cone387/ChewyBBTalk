@@ -1,4 +1,5 @@
 import React, { useRef, useMemo } from 'react';
+import { buildImageSource } from '../utils/imageSource';
 import {
   Animated,
   Dimensions,
@@ -178,7 +179,7 @@ export default function ImageViewer({ imageUrl, onClose }: ImageViewerProps) {
         ]}
       >
         <Image
-          source={imageUrl}
+          source={buildImageSource(imageUrl)}
           style={styles.image}
           contentFit="contain"
           cachePolicy="disk"

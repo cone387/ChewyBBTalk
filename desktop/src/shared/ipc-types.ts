@@ -1,3 +1,25 @@
+export interface UpdateState {
+  status: 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'installing' | 'current' | 'error' | 'unsupported' | 'unpublished';
+  version?: string;
+  percent?: number;
+  message?: string;
+}
+export interface AuthState {
+  status: 'restoring' | 'authenticated' | 'offline' | 'expired' | 'signed-out';
+  username: string;
+  apiUrl: string;
+  persistent: boolean;
+}
+export interface UploadItem {
+  id: string;
+  uid?: string;
+  name: string;
+  mimeType: string;
+  fileSize: number;
+  type: 'image' | 'video' | 'audio' | 'file';
+  status: 'queued' | 'uploading' | 'uploaded' | 'failed';
+  error?: string;
+}
 export interface SubmissionSession { scope: string; generation: number }
 export interface SubmissionPayload {
   content: string;
@@ -36,6 +58,8 @@ export interface OverlayInfo {
 }
 
 export interface BallApi {
+  getSuspended(): Promise<boolean>;
+  onSuspensionChanged(cb: (suspended: boolean) => void): () => void;
   /** 点透开关 */
   setIgnoreMouseEvents(ignore: boolean): Promise<void>;
   /** 拉取 overlay 初始信息 */
@@ -51,6 +75,17 @@ export interface ShellApi {
 }
 
 export interface ComposeApi {
+  onFocusRequested(cb: () => void): () => void;
+  getPinned(): Promise<boolean>;
+  setPinned(value: boolean): Promise<void>;
+  onBeforeClose(cb: () => Promise<void>): () => void;
+  listUploads(session: SubmissionSession): Promise<UploadItem[]>;
+  stageUpload(session: SubmissionSession, file: { name: string; mimeType: string; bytes: Uint8Array }): Promise<UploadItem>;
+  retryUpload(session: SubmissionSession, id: string): Promise<void>;
+  removeUpload(session: SubmissionSession, id: string): Promise<void>;
+  clearUploads(session: SubmissionSession): Promise<void>;
+  previewUpload(session: SubmissionSession, id: string): Promise<{ bytes: Uint8Array; mimeType: string }>;
+  onUploadsChanged(cb: (scope: string) => void): () => void;
   show(ballScreenX?: number, ballScreenY?: number): Promise<void>;
   hide(): Promise<void>;
   toggle(ballScreenX?: number, ballScreenY?: number): Promise<void>;
@@ -69,6 +104,11 @@ export interface ComposeApi {
 }
 
 export interface AuthApi {
+  browserLogin(apiUrl?: string): Promise<{ ok: boolean; error?: string }>;
+  cancelBrowserLogin(): Promise<void>;
+  getState(): Promise<AuthState>;
+  restore(): Promise<boolean>;
+  onStateChanged(cb: (state: AuthState) => void): () => void;
   login(username: string, password: string, apiUrl?: string): Promise<{ ok: boolean; error?: string }>;
   logout(): Promise<void>;
   getAccessToken(): Promise<string | null>;
@@ -77,6 +117,13 @@ export interface AuthApi {
 }
 
 export interface DesktopApi {
+  updates: {
+    getState(): Promise<UpdateState>;
+    check(): Promise<UpdateState>;
+    download(): Promise<UpdateState>;
+    install(): Promise<UpdateState>;
+    onChanged(cb: (state: UpdateState) => void): () => void;
+  };
   ball: BallApi;
   compose: ComposeApi;
   auth: AuthApi;
@@ -92,6 +139,8 @@ export interface LoginApi {
 }
 
 export interface SettingsApi {
+  getVersion(): Promise<string>;
+  saveServer(apiUrl: string): Promise<void>;
   show(): Promise<void>;
   hide(): Promise<void>;
 }

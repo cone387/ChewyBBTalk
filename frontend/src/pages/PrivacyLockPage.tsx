@@ -20,6 +20,11 @@ import type { BBTalkFormData } from '../types'
 
 const PRIVACY_STATE_KEY = 'bbtalk_privacy_mode'
 
+function unlockDestination() {
+  const next = new URLSearchParams(window.location.search).get('next')
+  return next?.startsWith('/desktop/authorize?') ? next : '/'
+}
+
 export default function PrivacyLockPage() {
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
@@ -47,7 +52,7 @@ export default function PrivacyLockPage() {
   useEffect(() => {
     const isLocked = localStorage.getItem(PRIVACY_STATE_KEY) === 'true'
     if (!isLocked) {
-      navigate('/', { replace: true })
+      navigate(unlockDestination(), { replace: true })
     }
   }, [navigate])
   
@@ -72,7 +77,7 @@ export default function PrivacyLockPage() {
     localStorage.removeItem(PRIVACY_STATE_KEY)
     localStorage.removeItem('bbtalk_privacy_timestamp')
     // 跳转回首页
-    navigate('/', { replace: true })
+    navigate(unlockDestination(), { replace: true })
   }
   
   // 密码验证解锁

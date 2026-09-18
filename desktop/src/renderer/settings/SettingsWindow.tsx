@@ -2,6 +2,8 @@
  * 独立设置窗口 — 左侧导航 + 右侧内容（参考 ChouYu 项目）
  */
 import { useEffect, useState } from 'react';
+import type { AuthState, UpdateState } from '../../shared/ipc-types';
+import logoUrl from '../../../resources/icon.png';
 
 type NavKey = 'general' | 'account' | 'logs' | 'about';
 
@@ -16,12 +18,24 @@ export function SettingsWindow() {
   const [apiUrl, setApiUrl] = useState('');
   const [loggedIn, setLoggedIn] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [updateStatus, setUpdateStatus] = useState('');
+  const [saveError, setSaveError] = useState('');
+  const [authState, setAuthState] = useState<AuthState | null>(null);
+  const [version, setVersion] = useState('');
+  const [updateState, setUpdateState] = useState<UpdateState>({ status: 'idle' });
   const [logs, setLogs] = useState<LogEntry[]>([]);
 
   useEffect(() => {
+    const off = window.desktop.updates.onChanged(setUpdateState);
+    void window.desktop.updates.getState().then(setUpdateState);
+    return off;
+  }, []);
+
+  useEffect(() => {
     window.desktop.compose.getApiUrl().then(setApiUrl);
-    window.desktop.auth.isLoggedIn().then(setLoggedIn);
+    void window.desktop.settings.getVersion().then(setVersion);
+    const update = (state: AuthState) => { setAuthState(state); setLoggedIn(state.status === 'authenticated' || state.status === 'offline'); };
+    void window.desktop.auth.getState().then(update);
+    return window.desktop.auth.onStateChanged(update);
   }, []);
 
   // Load logs when logs tab is active
@@ -34,9 +48,10 @@ export function SettingsWindow() {
     }
   }, [activeNav]);
 
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  const handleSave = async () => {
+    setSaveError(''); setSaved(false);
+    try { await window.desktop.settings.saveServer(apiUrl); setApiUrl(await window.desktop.compose.getApiUrl()); setSaved(true); }
+    catch (e) { setSaveError(e instanceof Error ? e.message : '保存失败'); }
   };
 
   const handleLogout = async () => {
@@ -45,12 +60,12 @@ export function SettingsWindow() {
   };
 
   const handleCheckUpdate = async () => {
-    setUpdateStatus('正在打开…');
     try {
-      await window.desktop.shell.openExternal('https://github.com/cone387/ChewyBBTalk/releases');
-      setUpdateStatus('');
+      if (updateState.status === 'downloaded') await window.desktop.updates.install();
+      else if (updateState.status === 'available') await window.desktop.updates.download();
+      else await window.desktop.updates.check();
     } catch {
-      setUpdateStatus('无法打开发布页，请稍后重试');
+      setUpdateState({ status: 'error', message: '更新操作失败，请重试。' });
     }
   };
 
@@ -104,7 +119,7 @@ export function SettingsWindow() {
               <circle cx="7" cy="7" r="5.5" />
               <path d="M7 4v3M7 9.5v.5" />
             </svg>
-            <span>关于</span>
+            <span>{updateState.status === 'downloaded' ? '关于 · 可更新' : '关于'}</span>
           </button>
         </nav>
 
@@ -126,6 +141,8 @@ export function SettingsWindow() {
               <button className="settings-save-btn" onClick={handleSave}>
                 {saved ? '已保存 ✓' : '保存设置'}
               </button>
+              {saveError && <p role="alert">{saveError}</p>}
+              <p className="settings-help">更换服务器后需要重新登录，原服务器草稿会保留。</p>
             </div>
           )}
 
@@ -135,9 +152,10 @@ export function SettingsWindow() {
                 <label className="settings-label">登录状态</label>
                 <div className="settings-status-row">
                   <span className={`settings-dot ${loggedIn ? 'active' : ''}`} />
-                  <span>{loggedIn ? '已登录' : '未登录'}</span>
+                  <span>{authState?.status === 'offline' ? '离线 · 会话已保留' : authState?.status === 'restoring' ? '恢复登录中…' : loggedIn ? `已登录 · ${authState?.username || ''}` : '未登录'}</span>
                 </div>
               </div>
+              {authState && !authState.persistent && <p role="status" className="settings-help">系统安全存储不可用，本次登录仅保留到退出应用。</p>}
               {loggedIn ? (
                 <button className="settings-danger-btn" onClick={handleLogout}>退出登录</button>
               ) : (
@@ -171,13 +189,17 @@ export function SettingsWindow() {
 
           {activeNav === 'about' && (
             <div className="settings-pane settings-about">
-              <div className="settings-about-logo">BBTalk</div>
-              <div className="settings-about-version">Desktop v0.1.0</div>
+              <img src={logoUrl} alt="ChewyBBTalk" width="48" height="48" />
+              <div className="settings-about-version">Desktop {version && `v${version}`}</div>
               <div className="settings-about-desc">桌面悬浮球，快速记录碎碎念</div>
-              <button className="settings-update-btn" onClick={handleCheckUpdate} disabled={updateStatus === '正在打开…'}>
-                {updateStatus === '正在打开…' ? updateStatus : '查看发布版本'}
+              <button className="settings-update-btn" onClick={handleCheckUpdate} disabled={['checking', 'downloading', 'installing', 'unsupported'].includes(updateState.status)}>
+                {updateState.status === 'downloaded' ? '保存草稿并重启安装' : updateState.status === 'available' ? '下载更新' : updateState.status === 'checking' ? '正在检查…' : updateState.status === 'downloading' ? '正在下载…' : updateState.status === 'installing' ? '正在保存并安装…' : '检查更新'}
               </button>
-              {updateStatus && updateStatus !== '正在打开…' && <p role="alert">{updateStatus}</p>}
+              <p role="status" className="settings-help">
+                {updateState.message || (updateState.status === 'current' ? '当前已是最新版本' : updateState.status === 'downloaded' ? `v${updateState.version} 已就绪，安装后将重新打开应用。` : updateState.status === 'downloading' ? `v${updateState.version} · ${Math.floor(updateState.percent || 0)}%` : '启动后自动检查并下载更新，安装前会征求你的操作。')}
+              </p>
+              {updateState.status === 'downloading' && <progress aria-label="更新下载进度" value={updateState.percent || 0} max={100} />}
+              <button className="settings-clear-btn" onClick={() => { void window.desktop.shell.openExternal('https://github.com/cone387/ChewyBBTalk/releases/tag/desktop-stable'); }}>打开桌面发布页</button>
             </div>
           )}
         </div>

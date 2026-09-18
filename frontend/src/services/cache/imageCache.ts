@@ -1,4 +1,5 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb'
+import { apiClient } from '../api/apiClient'
 
 // 定义图片缓存数据库Schema
 interface ImageCacheDB extends DBSchema {
@@ -293,6 +294,13 @@ class ImageCacheService {
    * 获取图片（优先从缓存，缓存未命中则下载）
    */
   async getOrFetch(url: string, refresh = false): Promise<Blob | null> {
+    // Attachment API blobs may be private. Never reuse a public URL-only disk
+    // cache across accounts, and only send credentials to our configured API.
+    const target = new URL(url, window.location.origin)
+    const api = new URL(import.meta.env.VITE_API_BASE_URL || window.location.origin)
+    if (target.origin === api.origin && target.pathname.startsWith('/api/v1/attachments/')) {
+      return apiClient.download(target.pathname + target.search)
+    }
     // 先尝试从缓存获取
     if (refresh) await this.delete(url)
     const cached = refresh ? null : await this.get(url)

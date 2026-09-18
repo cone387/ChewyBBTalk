@@ -3,6 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .auth_policy import LimitedTokenRefreshView, AuthPolicyView
 from .status_views import runtime_status
 from .backup_views import backups, download_backup
+from . import desktop_auth
 from .views import (
     BBTalkViewSet, TagViewSet, PublicBBTalkViewSet,
     get_current_user, login_view, logout_view, register_view, 
@@ -21,6 +22,8 @@ router.register(r'public', PublicBBTalkViewSet, basename='bbtalk-public')
 router.register(r'', BBTalkViewSet)
 
 urlpatterns = [
+    path('auth/desktop/authorize/', desktop_auth.authorize, name='desktop_authorize'),
+    path('auth/desktop/exchange/', desktop_auth.exchange, name='desktop_exchange'),
     path('settings/status/', runtime_status, name='runtime_status'),
     path('auth/policy/', AuthPolicyView.as_view(), name='auth_policy'),
     # JWT Token 认证

@@ -7,6 +7,11 @@ const SAVED_USERNAME_KEY = 'bbtalk_saved_username';
 const PRIVACY_STATE_KEY = 'bbtalk_privacy_mode';
 const PRIVACY_TIMESTAMP_KEY = 'bbtalk_privacy_timestamp';
 
+function loginDestination() {
+  const next = new URLSearchParams(window.location.search).get('next');
+  return next?.startsWith('/desktop/authorize?') ? next : '/';
+}
+
 export default function LoginPage() {
   const [isLogin, setIsLogin] = useState(true); // true: 登录, false: 注册
   const [username, setUsername] = useState('');
@@ -81,7 +86,7 @@ export default function LoginPage() {
           setSuccess('登录成功！');
           // 延迟跳转，确保认证状态生效
           setTimeout(() => {
-            window.location.href = '/';
+            window.location.href = loginDestination();
           }, 800);
         } else {
           setError(result.error || '登录失败');
@@ -98,7 +103,7 @@ export default function LoginPage() {
           setSuccess('注册成功！');
           // 延迟跳转
           setTimeout(() => {
-            window.location.href = '/';
+            window.location.href = loginDestination();
           }, 800);
         } else {
           setError(result.error || '注册失败');

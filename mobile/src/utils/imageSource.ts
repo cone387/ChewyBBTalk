@@ -12,7 +12,11 @@ export function buildImageSource(url: string | undefined | null): string | { uri
   const apiBase = getApiBaseUrl();
 
   // 判断是否是后端 API URL（需要 auth header）
-  const isApiUrl = url.startsWith(apiBase) || url.includes('/api/v1/attachments/');
+  let isApiUrl = false;
+  try {
+    const target = new URL(url);
+    isApiUrl = target.origin === new URL(apiBase).origin && target.pathname.startsWith('/api/');
+  } catch { /* Local files and external media never receive credentials. */ }
 
   if (isApiUrl) {
     const token = getAccessTokenSync();

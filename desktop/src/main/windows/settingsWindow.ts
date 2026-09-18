@@ -1,16 +1,19 @@
 /**
  * Settings 窗口：独立的设置弹窗。
  */
-import { BrowserWindow, screen } from 'electron';
+import { BrowserWindow } from 'electron';
+import { initialWindowPosition, trackWindowPosition } from './windowPlacement';
+import { suspendBallForWindow } from './ballWindow';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { appIconPath } from '../icons';
 
 let settingsWindow: BrowserWindow | null = null;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const SETTINGS_WIDTH = 420;
-const SETTINGS_HEIGHT = 300;
+const SETTINGS_HEIGHT = 380;
 
 export function showSettingsWindow(): void {
   if (settingsWindow && !settingsWindow.isDestroyed()) {
@@ -18,10 +21,8 @@ export function showSettingsWindow(): void {
     return;
   }
 
-  const primary = screen.getPrimaryDisplay();
-  const wa = primary.workArea;
-  const x = Math.round(wa.x + (wa.width - SETTINGS_WIDTH) / 2);
-  const y = Math.round(wa.y + (wa.height - SETTINGS_HEIGHT) / 3);
+  const { x, y } = initialWindowPosition('settings', SETTINGS_WIDTH, SETTINGS_HEIGHT);
+
 
   settingsWindow = new BrowserWindow({
     x,
@@ -29,12 +30,14 @@ export function showSettingsWindow(): void {
     width: SETTINGS_WIDTH,
     height: SETTINGS_HEIGHT,
     frame: false,
-    transparent: false,
+    transparent: true,
+    ...(process.platform === 'win32' ? { thickFrame: false } : {}),
     resizable: false,
-    alwaysOnTop: true,
+    alwaysOnTop: false,
+    icon: appIconPath(),
     skipTaskbar: false,
     show: false,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#00000000',
     roundedCorners: true,
     webPreferences: {
       preload: resolve(__dirname, '../preload/index.cjs'),
@@ -44,6 +47,8 @@ export function showSettingsWindow(): void {
     },
   });
 
+  trackWindowPosition(settingsWindow, 'settings');
+  suspendBallForWindow(settingsWindow);
   settingsWindow.once('ready-to-show', () => {
     settingsWindow?.show();
     settingsWindow?.focus();

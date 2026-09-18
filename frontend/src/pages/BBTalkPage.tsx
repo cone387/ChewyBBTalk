@@ -8,6 +8,7 @@ import { loadTags, updateTagAsync } from '../store/slices/tagSlice'
 import BBTalkEditor from '../components/BBTalkEditor'
 import CachedImage from '../components/CachedImage'
 import ImagePreview from '../components/ImagePreview'
+import { AttachmentVideo, AttachmentDownload } from '../components/AuthenticatedMedia'
 import { usePrivacyMode } from '../hooks/usePrivacyMode'
 import { getCurrentUser } from '../services/auth'
 import {
@@ -1073,7 +1074,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                                 <div className="flex flex-wrap gap-3 mb-3">
                                   {videos.map((attachment) => (
                                     <div key={attachment.uid || attachment.url} className="relative group max-w-md">
-                                      <video
+                                      <AttachmentVideo
                                         src={attachment.url}
                                         controls
                                         preload="metadata"
@@ -1081,7 +1082,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                                         playsInline
                                       >
                                         您的浏览器不支持视频播放
-                                      </video>
+                                      </AttachmentVideo>
                                       {attachment.originalFilename && (
                                         <div className="mt-1 text-xs text-gray-500 truncate">
                                           {attachment.originalFilename}
@@ -1122,7 +1123,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                                     }
                                     
                                     return (
-                                      <a
+                                      <AttachmentDownload
                                         key={attachment.uid || attachment.url}
                                         href={attachment.url}
                                         download={attachment.originalFilename}
@@ -1142,7 +1143,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                                         <svg className="w-4 h-4 text-gray-400 group-hover:text-blue-500 transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                         </svg>
-                                      </a>
+                                      </AttachmentDownload>
                                     )
                                   })}
                                 </div>

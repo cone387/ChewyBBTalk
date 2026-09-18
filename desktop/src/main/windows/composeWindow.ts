@@ -1,13 +1,19 @@
 /**
- * Compose 窗口：每次打开都重新创建（销毁式），彻底避免 Windows DPI 缩小 bug。
+ * Compose 窗口：关闭时保存草稿并销毁，重复打开仅聚焦。
  * 草稿通过 electron-store 持久化。
  */
-import { BrowserWindow, screen } from 'electron';
+import { BrowserWindow, screen, ipcMain, dialog } from 'electron';
+import { randomUUID } from 'node:crypto';
+import { store } from '../store';
+import { appIconPath } from '../icons';
+import { composePosition } from './placement';
+import { initialWindowPosition, trackWindowPosition, shouldCenterWindow } from './windowPlacement';
+import { suspendBallForWindow } from './ballWindow';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
 let composeWindow: BrowserWindow | null = null;
-let resizeTimer: ReturnType<typeof setInterval> | null = null;
+
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -16,39 +22,12 @@ const DEFAULT_HEIGHT = 160;
 
 function createComposeWindow(ballScreenX?: number, ballScreenY?: number): BrowserWindow {
   if (composeWindow && !composeWindow.isDestroyed()) {
-    composeWindow.destroy();
-    composeWindow = null;
+    composeWindow.show(); composeWindow.focus(); composeWindow.webContents.focus();
+    composeWindow.webContents.send('compose:focus-input');
+    return composeWindow;
   }
 
-  const primary = screen.getPrimaryDisplay();
-  const wa = primary.workArea;
-  let x: number, y: number;
-
-  if (typeof ballScreenX === 'number' && typeof ballScreenY === 'number') {
-    // 智能选角：优先左上，空间不够则其他角
-    x = ballScreenX - DEFAULT_WIDTH - 12;
-    y = ballScreenY - DEFAULT_HEIGHT - 12;
-
-    // 左上不够 → 右上
-    if (x < wa.x) {
-      x = ballScreenX + 68;
-    }
-    // 上面不够 → 下面
-    if (y < wa.y) {
-      y = ballScreenY + 68;
-    }
-    // 右边溢出 → 拉回
-    if (x + DEFAULT_WIDTH > wa.x + wa.width) {
-      x = wa.x + wa.width - DEFAULT_WIDTH - 8;
-    }
-    // 下面溢出 → 拉回
-    if (y + DEFAULT_HEIGHT > wa.y + wa.height) {
-      y = wa.y + wa.height - DEFAULT_HEIGHT - 8;
-    }
-  } else {
-    x = Math.round(wa.x + (wa.width - DEFAULT_WIDTH) / 2);
-    y = Math.round(wa.y + (wa.height - DEFAULT_HEIGHT) / 3);
-  }
+  const { x, y } = initialWindowPosition('compose', DEFAULT_WIDTH, DEFAULT_HEIGHT);
 
   composeWindow = new BrowserWindow({
     x,
@@ -58,12 +37,15 @@ function createComposeWindow(ballScreenX?: number, ballScreenY?: number): Browse
     minHeight: 160,
     maxHeight: 500,
     frame: false,
-    transparent: false,
+    // Avoid invisible frame insets changing bounds during programmatic resize on Windows.
+    ...(process.platform === 'win32' ? { thickFrame: false } : {}),
+    transparent: true,
     resizable: false,
-    alwaysOnTop: true,
+    alwaysOnTop: store.get('compose.pinned') ?? false,
+    icon: appIconPath(),
     skipTaskbar: false,
     show: false,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#00000000',
     roundedCorners: true,
     ...(process.platform === 'darwin' ? { vibrancy: 'hud' as const } : {}),
     webPreferences: {
@@ -74,9 +56,18 @@ function createComposeWindow(ballScreenX?: number, ballScreenY?: number): Browse
     },
   });
 
+  trackWindowPosition(composeWindow, 'compose');
+  suspendBallForWindow(composeWindow);
   composeWindow.once('ready-to-show', () => {
     composeWindow?.show();
     composeWindow?.focus();
+    composeWindow?.webContents.focus();
+    composeWindow?.webContents.send('compose:focus-input');
+  });
+
+  composeWindow.on('close', event => {
+    event.preventDefault();
+    hideComposeWindow();
   });
 
   // 关闭 = 销毁
@@ -100,11 +91,25 @@ export function showComposeWindow(ballScreenX?: number, ballScreenY?: number): v
 
 /** 关闭（销毁）Compose */
 export function hideComposeWindow(): void {
-  if (composeWindow && !composeWindow.isDestroyed()) {
-    composeWindow.destroy();
-    composeWindow = null;
-  }
+  const win = composeWindow;
+  if (!win || win.isDestroyed() || closing) return;
+  closing = true;
+  const id = randomUUID();
+  const cleanup = () => { clearTimeout(timer); ipcMain.off('compose:close-ready', ready); ipcMain.off('compose:close-error', failed); closing = false; };
+  const destroy = () => { cleanup(); if (!win.isDestroyed()) win.destroy(); };
+  const ready = (event: Electron.IpcMainEvent, value: string) => { if (event.sender === win.webContents && value === id) destroy(); };
+  const failed = (event: Electron.IpcMainEvent, value: string, message: string) => {
+    if (event.sender !== win.webContents || value !== id) return;
+    cleanup(); void dialog.showMessageBox(win, { type: 'error', message: '草稿尚未保存，窗口保持打开', detail: message });
+  };
+  const timer = setTimeout(() => {
+    cleanup();
+    if (!win.isDestroyed()) void dialog.showMessageBox(win, { type: 'warning', message: '编辑器仍在保存，请稍后关闭。' });
+  }, 15_000);
+  ipcMain.on('compose:close-ready', ready); ipcMain.on('compose:close-error', failed);
+  win.webContents.send('compose:before-close', id);
 }
+let closing = false;
 
 /** Compose 是否正在显示 */
 export function isComposeVisible(): boolean {
@@ -115,36 +120,20 @@ export function getComposeWindow(): BrowserWindow | null {
   return composeWindow;
 }
 
-/** Smoothly resize the compose window to the target dimensions. */
+/** Apply one final geometry, without intermediate layout/resize feedback. */
 export function resizeComposeWindow(width: number, height: number): void {
-  if (!composeWindow || composeWindow.isDestroyed()) return;
-
-  if (resizeTimer) { clearInterval(resizeTimer); resizeTimer = null; }
-  const [currentW, currentH] = composeWindow.getSize();
-  if (currentW === width && currentH === height) return;
-
-  if (process.platform === 'darwin') {
-    // macOS supports animated resize natively
-    composeWindow.setSize(width, height, true);
-  } else {
-    // Windows/Linux: step-based animation over ~150ms
-    const steps = 8;
-    const dw = (width - currentW) / steps;
-    const dh = (height - currentH) / steps;
-    let step = 0;
-    resizeTimer = setInterval(() => {
-      step++;
-      if (step >= steps || !composeWindow || composeWindow.isDestroyed()) {
-        if (resizeTimer) clearInterval(resizeTimer);
-        resizeTimer = null;
-        if (composeWindow && !composeWindow.isDestroyed()) {
-          composeWindow.setSize(width, height);
-        }
-        return;
-      }
-      const w = Math.round(currentW + dw * step);
-      const h = Math.round(currentH + dh * step);
-      composeWindow!.setSize(w, h);
-    }, 18);
-  }
+  const win = composeWindow;
+  if (!win || win.isDestroyed() || !Number.isFinite(width) || !Number.isFinite(height)) return;
+  const bounds = win.getBounds();
+  const area = screen.getDisplayMatching(bounds).workArea;
+  const targetWidth = Math.min(440, area.width);
+  const targetHeight = Math.min(Math.max(160, Math.ceil(height)), 500, area.height);
+  const position = composePosition(area, targetWidth, targetHeight, shouldCenterWindow(win) ? undefined : bounds);
+  const next = {
+    width: targetWidth,
+    height: targetHeight,
+    ...position,
+  };
+  if (Object.entries(next).every(([key, value]) => bounds[key as keyof typeof bounds] === value)) return;
+  win.setBounds(next, false);
 }

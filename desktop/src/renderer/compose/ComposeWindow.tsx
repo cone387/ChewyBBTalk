@@ -6,7 +6,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { parseTags, parseAndClean } from './tagParser';
 import { nextVisibility, visibilityLabel, Visibility } from './visibilityCycle';
-import { uploadFiles, removeFileFromList, UploadedFile } from './uploadManager';
+import { AttachmentPreview } from './AttachmentPreview';
+import type { UploadItem, AuthState } from '../../shared/ipc-types';
 import type { SubmissionSnapshot } from '../../shared/ipc-types';
 import logoUrl from '../../../resources/icon.png';
 
@@ -22,18 +23,36 @@ export function ComposeWindow() {
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
 
   // Upload / visibility / tags state
-  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadItem[]>([]);
+  const [staging, setStaging] = useState(false);
+  const isUploading = staging || uploadedFiles.some(item => item.status !== 'uploaded');
+  const stagingTasks = useRef(new Set<Promise<void>>());
+  const contentRef = useRef(content);
+  contentRef.current = content;
+  const [authState, setAuthState] = useState<AuthState | null>(null);
+  const [pinned, setPinned] = useState(false);
   const [visibility, setVisibility] = useState<Visibility>('private');
   const [tags, setTags] = useState<string[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const lastWindowHeight = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const toastTimerRef = useRef<number | null>(null);
   const isComposingRef = useRef(false);
   const mountedRef = useRef(false);
+
+  useEffect(() => {
+    const focusInput = () => {
+      const textarea = textareaRef.current;
+      if (textarea && !textarea.disabled) textarea.focus({ preventScroll: true });
+    };
+    focusInput();
+    const unsubscribe = window.desktop.compose.onFocusRequested(focusInput);
+    window.addEventListener('focus', focusInput);
+    return () => { unsubscribe(); window.removeEventListener('focus', focusInput); };
+  }, []);
 
   // Refresh session and pending receipt when the window returns to the foreground.
   useEffect(() => {
@@ -46,9 +65,10 @@ export function ComposeWindow() {
         if (next?.session.scope !== snapshotRef.current?.session.scope) {
           const draft = next ? await window.desktop.compose.getDraft(next.session) : '';
           if (disposed || id !== refreshId.current) return;
-          setContent(draft); setUploadedFiles([]); setTags([]);
+          setContent(draft); contentRef.current = draft; setUploadedFiles([]); setTags([]);
         }
         snapshotRef.current = next; setSnapshot(next); setLoggedIn(Boolean(next)); mountedRef.current = true;
+        if (next) setUploadedFiles(await window.desktop.compose.listUploads(next.session));
         if (next?.intent?.state === 'pending' && !operationRef.current) {
           try {
             const intent = await window.desktop.compose.recoverSubmission(next.session, false);
@@ -66,10 +86,27 @@ export function ComposeWindow() {
       }
     };
     void refresh();
+    void window.desktop.auth.getState().then(setAuthState);
+    void window.desktop.compose.getPinned().then(setPinned);
+    const unsubscribe = window.desktop.auth.onStateChanged(state => {
+      setAuthState(state);
+      if (state.status === 'authenticated' || state.status === 'signed-out' || state.status === 'expired') void refresh();
+    });
+    const uploadsChanged = window.desktop.compose.onUploadsChanged(scope => {
+      const current = snapshotRef.current;
+      if (current?.session.scope === scope) void window.desktop.compose.listUploads(current.session).then(items => {
+        if (!disposed && snapshotRef.current?.session.scope === scope) setUploadedFiles(items);
+      }).catch(() => {});
+    });
+    const beforeClose = window.desktop.compose.onBeforeClose(async () => {
+      await Promise.all(stagingTasks.current);
+      const current = snapshotRef.current;
+      if (current) await window.desktop.compose.saveDraft(contentRef.current, current.session);
+    });
     window.addEventListener('focus', refresh);
     window.addEventListener('online', refresh);
     window.desktop.compose.getVisibility().then(v => setVisibility(v === 'public' ? 'public' : 'private'));
-    return () => { disposed = true; window.removeEventListener('focus', refresh); window.removeEventListener('online', refresh); };
+    return () => { disposed = true; unsubscribe(); uploadsChanged(); beforeClose(); window.removeEventListener('focus', refresh); window.removeEventListener('online', refresh); };
   }, []);
 
   useEffect(() => {
@@ -78,7 +115,7 @@ export function ComposeWindow() {
       window.desktop.compose.saveDraft(content, snapshot.session).catch(error => {
         setToast({ kind: 'error', text: error instanceof Error ? error.message : '草稿保存失败' });
       });
-    }, 500);
+    }, 0);
     return () => window.clearTimeout(timer);
   }, [content, snapshot?.session.scope, snapshot?.session.generation, submitting]);
 
@@ -88,31 +125,31 @@ export function ComposeWindow() {
     const root = textarea?.closest('.compose-root');
     if (!textarea || !root) return;
     let frame = 0;
-    let lastHeight = 0;
     const resize = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
         const fixedHeight = Array.from(root.children)
           .filter(element => !element.classList.contains('compose-body') && !element.classList.contains('compose-toast'))
-          .filter(element => getComputedStyle(element).position !== 'absolute')
+          .filter(element => !['absolute', 'fixed'].includes(getComputedStyle(element).position))
           .reduce((height, element) => height + element.getBoundingClientRect().height, 0);
+        textarea.style.overflowY = 'hidden';
         textarea.style.height = '0px';
         const natural = textarea.scrollHeight;
         const textHeight = Math.max(42, Math.min(Math.max(63, natural), 300, 500 - fixedHeight - 20));
         textarea.style.height = `${textHeight}px`;
         textarea.style.overflowY = natural > textHeight ? 'auto' : 'hidden';
         const height = Math.max(160, Math.min(500, Math.ceil(fixedHeight + textHeight + 20)));
-        if (height !== lastHeight) {
-          lastHeight = height;
+        if (height !== lastWindowHeight.current) {
+          lastWindowHeight.current = height;
           void window.desktop.compose.resize(440, height);
         }
       });
     };
     const observer = new ResizeObserver(resize);
-    root.querySelectorAll('.submission-recovery, .file-preview-area, .tag-pills').forEach(element => observer.observe(element));
+    root.querySelectorAll('.submission-recovery, .file-preview-area, .tag-pills, .session-notice').forEach(element => observer.observe(element));
     resize();
     return () => { observer.disconnect(); cancelAnimationFrame(frame); };
-  }, [content, tags, uploadedFiles, snapshot?.intent?.state, loggedIn]);
+  }, [content, tags, uploadedFiles, snapshot?.intent?.state, loggedIn, authState?.status]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -165,28 +202,22 @@ export function ComposeWindow() {
   };
 
   // File upload helper
-  const handleUploadFiles = async (files: File[]) => {
-    const expected = snapshotRef.current?.session;
-    if (files.length === 0 || operationRef.current || !expected) return;
-    const assertUploadSession = async () => {
-      const current = await window.desktop.compose.submissionSnapshot();
-      if (current?.session.scope !== expected.scope || current.session.generation !== expected.generation) {
-        throw new Error('账号已切换，附件未加入当前编辑器');
+  const handleUploadFiles = (files: File[]) => {
+    const session = snapshotRef.current?.session;
+    if (!session || operationRef.current || !files.length) return;
+    setStaging(true);
+    const task = (async () => {
+      for (const file of files) {
+        try {
+          await window.desktop.compose.stageUpload(session, {
+            name: file.name || 'screenshot.png', mimeType: file.type,
+            bytes: new Uint8Array(await file.arrayBuffer()),
+          });
+        } catch (error) { showToastMsg('error', error instanceof Error ? error.message : '附件保存失败'); }
       }
-    };
-    setIsUploading(true);
-    try {
-      const [apiUrl] = JSON.parse(expected.scope) as [string, string];
-      const token = await window.desktop.auth.getValidAccessToken();
-      await assertUploadSession();
-      const uploaded = await uploadFiles(files, apiUrl, token);
-      await assertUploadSession();
-      setUploadedFiles((prev) => [...prev, ...uploaded]);
-    } catch (err: unknown) {
-      showToastMsg('error', err instanceof Error ? err.message : '上传失败');
-    } finally {
-      setIsUploading(false);
-    }
+    })();
+    stagingTasks.current.add(task);
+    void task.finally(() => { stagingTasks.current.delete(task); setStaging(stagingTasks.current.size > 0); });
   };
 
   const handleAttachClick = () => { fileInputRef.current?.click(); };
@@ -238,14 +269,14 @@ export function ComposeWindow() {
 
   // Textarea keydown: Enter = publish, Shift+Enter = newline
   const handleTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && !isComposingRef.current && !e.nativeEvent.isComposing && e.keyCode !== 229) {
       e.preventDefault();
       publish();
     }
   };
 
   const handleRemoveFile = (uid: string) => {
-    setUploadedFiles((prev) => removeFileFromList(prev, uid));
+    if (snapshot) void window.desktop.compose.removeUpload(snapshot.session, uid).catch(error => showToastMsg('error', error.message));
   };
 
   const recover = async (retry: boolean) => {
@@ -268,7 +299,7 @@ export function ComposeWindow() {
       const { tags: parsedTags, cleanedContent } = parseAndClean(content);
       const intent = await window.desktop.compose.publishSubmission(snapshot.session, {
         content: cleanedContent, post_tags: parsedTags.join(','),
-        attachments: uploadedFiles.map(f => ({ uid: f.uid })), visibility,
+        attachments: uploadedFiles.filter(f => f.uid).map(f => ({ uid: f.uid! })), visibility,
         context: { source: { client: 'Desktop', platform: navigator.platform } },
       });
       const updated = { ...snapshot, intent };
@@ -276,6 +307,7 @@ export function ComposeWindow() {
       if (intent.deleted) { showToastMsg('info', '原提交已删除，不会重新创建。当前输入仍保留。'); return; }
       try {
         await window.desktop.compose.clearDraft(snapshot.session);
+        await window.desktop.compose.clearUploads(snapshot.session);
         await window.desktop.compose.forgetSubmission(snapshot.session, intent.key);
       } catch {
         showToastMsg('error', '发布成功，但本地清理失败，请核对原提交。');
@@ -284,7 +316,7 @@ export function ComposeWindow() {
       snapshotRef.current = { ...snapshot, intent: undefined };
       setSnapshot(snapshotRef.current);
       showToastMsg('success', '已发布');
-      setContent(''); setUploadedFiles([]); setTags([]);
+      setContent(''); contentRef.current = ''; setUploadedFiles([]); setTags([]);
       setTimeout(() => textareaRef.current?.focus(), 100);
     } catch (error) {
       showToastMsg('error', error instanceof Error ? error.message : '发布失败，内容已保留');
@@ -311,6 +343,9 @@ export function ComposeWindow() {
       <header className="compose-titlebar">
         <img className="titlebar-logo" src={logoUrl} alt="" width="16" height="16" draggable={false} />
         <div className="titlebar-spacer" />
+        <button className="titlebar-btn pin-btn" aria-label="固定置顶" aria-pressed={pinned} title={pinned ? '取消置顶' : '固定置顶'} onClick={() => {
+          void window.desktop.compose.setPinned(!pinned).then(() => setPinned(!pinned));
+        }}>{pinned ? '已置顶' : '置顶'}</button>
         <button className="titlebar-btn" onClick={() => window.desktop.settings.show()} title="设置" aria-label="设置">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="3" />
@@ -324,13 +359,16 @@ export function ComposeWindow() {
         </button>
       </header>
 
+      {authState?.status === 'offline' && <div className="session-notice" role="status">当前离线，草稿已保留 <button onClick={() => { void window.desktop.auth.restore(); }}>重新连接</button></div>}
+      {(authState?.status === 'expired' || authState?.status === 'signed-out') && <div className="session-notice" role="status">{authState.status === 'expired' ? '登录已过期' : '登录后继续记录'} <button onClick={() => window.desktop.login.show()}>登录</button></div>}
       <main className="compose-body">
         <textarea
+          autoFocus
           disabled={submitting}
           ref={textareaRef}
           className="compose-textarea"
           value={content}
-          onChange={(e) => setContent(e.target.value)}
+          onChange={(e) => { contentRef.current = e.target.value; setContent(e.target.value); }}
           onKeyDown={handleTextareaKeyDown}
           onPaste={handlePaste}
           onCompositionStart={() => { isComposingRef.current = true; }}
@@ -345,18 +383,19 @@ export function ComposeWindow() {
       {uploadedFiles.length > 0 && (
         <div className="file-preview-area">
           {uploadedFiles.map((file) => (
-            <div key={file.uid} className="file-preview-item">
-              <button className="file-preview-remove" onClick={() => handleRemoveFile(file.uid)} aria-label={`移除 ${file.name}`}>
+            <div key={file.id} className="file-preview-item">
+              <button className="file-preview-remove" onClick={() => handleRemoveFile(file.id)} aria-label={`移除 ${file.name}`}>
                 <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M1 1l6 6M7 1l-6 6" /></svg>
               </button>
-              {file.type === 'image' ? (
-                <img src={file.url} alt={file.name} className="file-preview-img" onClick={() => setPreviewImage(file.url)} />
-              ) : (
-                <div className="file-preview-file">
-                  <svg className="file-preview-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"><path d="M9 1H4a1 1 0 00-1 1v12a1 1 0 001 1h8a1 1 0 001-1V5L9 1z" /><path d="M9 1v4h4" /></svg>
-                  <span className="file-preview-name">{file.name}</span>
-                </div>
-              )}
+              {snapshot && <AttachmentPreview item={file} session={snapshot.session} onPreview={setPreviewImage} />}
+              <span className="file-preview-name" title={file.name}>{file.name}</span>
+              <div className={`upload-status upload-${file.status}`} role="status">
+                {file.status === 'uploaded' ? '已上传' : file.status === 'uploading' ? '上传中…' : file.status === 'queued' ? '等待上传' : '上传失败'}
+              </div>
+              {file.status === 'failed' && <button className="upload-retry" title={file.error} onClick={() => {
+                if (snapshot) void window.desktop.compose.retryUpload(snapshot.session, file.id).catch(error => showToastMsg('error', error.message));
+              }}>重试</button>}
+              {file.error && <span className="upload-error" title={file.error}>{file.error}</span>}
             </div>
           ))}
         </div>
@@ -388,10 +427,10 @@ export function ComposeWindow() {
         <button className="tool-btn" title="上传图片" onClick={handleAttachClick} disabled={isUploading}>
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="12" height="10" rx="1.5" /><circle cx="5.5" cy="6.5" r="1.5" /><path d="M14 11l-3-3-2 2-2-2-5 5" /></svg>
         </button>
-        <button className="tool-btn" title="上传附件" onClick={handleAttachClick} disabled={isUploading}>
+        <button className="tool-btn" title="上传附件" onClick={handleAttachClick} disabled={staging}>
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"><path d="M14 8.5l-5.5 5.5a3.5 3.5 0 01-5-5l6-6a2.5 2.5 0 013.5 3.5l-5.5 5.5a1 1 0 01-1.5-1.5L11 5.5" /></svg>
         </button>
-        {isUploading && <span className="uploading-indicator">上传中…</span>}
+        {isUploading && <span className="uploading-indicator" role="progressbar" aria-label="附件上传进度" aria-valuemin={0} aria-valuemax={Math.max(1, uploadedFiles.length)} aria-valuenow={uploadedFiles.filter(item => item.status === 'uploaded').length}>{uploadedFiles.some(item => item.status === 'failed') ? '附件待重试' : `已上传 ${uploadedFiles.filter(item => item.status === 'uploaded').length}/${uploadedFiles.length || 1}`}</span>}
         <div className="toolbar-spacer" />
         {content.length > 0 && <span className="char-count">{content.length} 字</span>}
         {loggedIn ? (

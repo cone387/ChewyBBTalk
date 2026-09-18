@@ -10,11 +10,42 @@
  * 这样拖动 = 改 CSS transform，完全不调 setPosition，
  * 就能做到 60fps 丝滑，也不会有"跨屏消失"、"点不到别处"等 Electron 透明窗口的老坑。
  */
-import { BrowserWindow, screen } from 'electron';
+import { app, BrowserWindow, screen } from 'electron';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
 let ballWindow: BrowserWindow | null = null;
+let requestedIgnoreMouse = true;
+const foregroundWindows = new Set<BrowserWindow>();
+export function setBallMousePassthrough(ignore: boolean) {
+  requestedIgnoreMouse = ignore;
+  if (!isBallSuspended()) ballWindow?.setIgnoreMouseEvents(ignore, { forward: ignore });
+}
+/** Do not keep a full-screen mouse-forwarding overlay above an active editor. */
+export function suspendBallForWindow(win: BrowserWindow) {
+  const suspend = () => {
+    foregroundWindows.add(win);
+    // Stop the global mouse-forwarding hook as well as hiding the compositor surface.
+    ballWindow?.setIgnoreMouseEvents(true, { forward: false });
+    // Keep an already-visible native surface alive: hide/show can replay DWM animations.
+    ballWindow?.setOpacity(0);
+    ballWindow?.webContents.send('ball:suspension-changed', true);
+  };
+  const resume = () => {
+    foregroundWindows.delete(win);
+    if (!(app as any)._isQuitting && foregroundWindows.size === 0 && ballWindow && !ballWindow.isDestroyed()) {
+      ballWindow.setIgnoreMouseEvents(requestedIgnoreMouse, { forward: requestedIgnoreMouse });
+      ballWindow.webContents.send('ball:suspension-changed', false);
+      ballWindow.setOpacity(1);
+      if (!ballWindow.isVisible()) ballWindow.showInactive();
+    }
+  };
+  suspend();
+  win.on('minimize', resume);
+  win.on('restore', suspend);
+  win.once('closed', resume);
+}
+export function isBallSuspended() { return foregroundWindows.size > 0; }
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -70,7 +101,7 @@ export function createBallWindow(): BrowserWindow {
   console.log('[Ball] overlay created', bounds);
 
   ballWindow.once('ready-to-show', () => {
-    ballWindow?.show();
+    if (!isBallSuspended()) { ballWindow?.setOpacity(1); ballWindow?.showInactive(); }
   });
 
   ballWindow.webContents.on('did-fail-load', (_, code, desc, url) => {

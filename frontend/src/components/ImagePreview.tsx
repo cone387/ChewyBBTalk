@@ -17,7 +17,9 @@ export default function ImagePreview({ src, alt, onClose }: ImagePreviewProps) {
   const [position, setPosition] = useState({ x: 0, y: 0 })
   const [isDragging, setIsDragging] = useState(false)
   const [showUI, setShowUI] = useState(true)
-  const [imageSrc, setImageSrc] = useState(src)
+  const [imageSrc, setImageSrc] = useState('')
+  const [loadError, setLoadError] = useState(false)
+  const [attempt, setAttempt] = useState(0)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const dragStartRef = useRef({ x: 0, y: 0 })
@@ -30,14 +32,16 @@ export default function ImagePreview({ src, alt, onClose }: ImagePreviewProps) {
   // 从缓存加载图片，避免重复网络请求
   useEffect(() => {
     let cancelled = false
-    imageCacheService.get(src).then(blob => {
+    setImageSrc('')
+    setLoadError(false)
+    imageCacheService.getOrFetch(src, attempt > 0).then(blob => {
       if (cancelled) return
       if (blob) {
         const url = URL.createObjectURL(blob)
         objectUrlRef.current = url
         setImageSrc(url)
-      }
-    })
+      } else { setLoadError(true) }
+    }).catch(() => { if (!cancelled) setLoadError(true) })
     return () => {
       cancelled = true
       if (objectUrlRef.current) {
@@ -45,7 +49,7 @@ export default function ImagePreview({ src, alt, onClose }: ImagePreviewProps) {
         objectUrlRef.current = null
       }
     }
-  }, [src])
+  }, [src, attempt])
 
   // 锁定 body 滚动
   useEffect(() => {
@@ -217,8 +221,10 @@ export default function ImagePreview({ src, alt, onClose }: ImagePreviewProps) {
         onTouchEnd={handleTouchEnd}
         style={{ cursor: isDragging ? 'grabbing' : scale > 1 ? 'grab' : 'default' }}
       >
-        <img
-          src={imageSrc}
+        {!imageSrc && !loadError && <span role="status" className="text-white">加载图片…</span>}
+        {loadError && <button className="rounded-lg bg-white px-4 py-3 text-gray-900" onClick={e => { e.stopPropagation(); setAttempt(value => value + 1) }}>加载失败，重试</button>}
+        {imageSrc && <img
+          src={imageSrc || undefined}
           alt={alt}
           className="w-full h-full object-contain select-none"
           style={{
@@ -227,7 +233,7 @@ export default function ImagePreview({ src, alt, onClose }: ImagePreviewProps) {
             willChange: 'transform',
           }}
           draggable={false}
-        />
+        />}
       </div>
 
       {/* 提示 - 自动消失 */}

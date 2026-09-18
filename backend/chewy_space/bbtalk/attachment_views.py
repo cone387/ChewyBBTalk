@@ -85,6 +85,15 @@ class AttachmentViewSet(BaseAttachmentViewSet):
     重写存储引擎方法，在上传和读取/预览时自动使用用户的 S3 配置
     """
     
+    def _serve_file(self, instance, disposition):
+        # django-storages inherits Storage.path even when it raises
+        # NotImplementedError; hasattr(path) cannot distinguish S3 from disk.
+        from django.core.files.storage import FileSystemStorage
+        storage = self.get_storage_engine(instance.storage_config_id)
+        if isinstance(storage, DjangoStorageEngine) and not isinstance(storage.storage, FileSystemStorage):
+            return HttpResponseRedirect(storage.get_file_url(instance.storage_path))
+        return super()._serve_file(instance, disposition)
+
     def get_storage_engine(self, storage_config_id=None):
         """根据 config_id 获取存储引擎（用于读取/预览/下载）"""
         if storage_config_id:
@@ -114,7 +123,6 @@ class AttachmentViewSet(BaseAttachmentViewSet):
             
             settings_obj = UserStorageSettings.objects.filter(
                 id=config_id,
-                is_active=True
             ).first()
             
             if not settings_obj or not settings_obj.is_s3_configured():
@@ -158,6 +166,10 @@ class AttachmentViewSet(BaseAttachmentViewSet):
         uploaded_file = serializer.validated_data["file"]
         is_public = serializer.validated_data.get("is_public", False)
         storage_config_id = serializer.validated_data.get("storage_config_id")
+        if storage_config_id:
+            from .models import UserStorageSettings
+            if not UserStorageSettings.objects.filter(pk=storage_config_id, user=request.user).exists():
+                return Response({'detail': '无权使用此存储配置'}, status=status.HTTP_403_FORBIDDEN)
         
         # 如果用户没有指定 storage_config_id，尝试自动获取用户的配置
         if not storage_config_id and request.user.is_authenticated:

@@ -8,6 +8,7 @@ const BBTalkPage = lazy(() => import('./pages/BBTalkPage'))
 const PublicBBTalkPage = lazy(() => import('./pages/PublicBBTalkPage'))
 const BBTalkDetailPage = lazy(() => import('./pages/BBTalkDetailPage'))
 const LoginPage = lazy(() => import('./pages/LoginPage'))
+const DesktopAuthorizePage = lazy(() => import('./pages/DesktopAuthorizePage'))
 const PrivacyLockPage = lazy(() => import('./pages/PrivacyLockPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 const PrivacySettingsPage = lazy(() => import('./pages/PrivacySettingsPage'))
@@ -44,7 +45,8 @@ function PrivacyModeChecker({ children }: { children: React.ReactNode }) {
     const currentPath = window.location.pathname
     if (isLocked && currentPath !== '/locked' && currentPath !== '/login') {
       console.log('[App] 检测到防窥模式，跳转到锁定页面')
-      navigate('/locked', { replace: true })
+      const next = currentPath === '/desktop/authorize' ? `?next=${encodeURIComponent(currentPath + window.location.search)}` : ''
+      navigate('/locked' + next, { replace: true })
     }
   }, [navigate])
   
@@ -153,6 +155,7 @@ export default function App({ basename = '/' }: AppProps) {
           <Routes>
             {/* 登录页面 */}
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/desktop/authorize" element={<DesktopAuthorizePage />} />
             
             {/* 防窥锁定页面 - 不要求认证状态，因为长时间不活动后 token 可能已过期 */}
             {/* 用户通过密码解锁时会重新获取 token */}

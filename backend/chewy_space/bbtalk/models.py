@@ -70,6 +70,19 @@ class User(models.Model):
         return self.is_superuser or self.is_staff
 
 
+class DesktopAuthorization(models.Model):
+    """Short-lived single-use grant. Only a hash of the browser code is stored."""
+    code_hash = models.CharField(max_length=64, primary_key=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    challenge = models.CharField(max_length=43)
+    redirect_uri = models.CharField(max_length=200)
+    expires_at = models.DateTimeField(db_index=True)
+    consumed = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = 'cb_desktop_authorizations'
+
+
 class Identity(models.Model):
     """
     身份模型：代表一种登录认证方式

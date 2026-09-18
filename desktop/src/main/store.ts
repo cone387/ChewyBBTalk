@@ -4,7 +4,7 @@
  * 结构对齐 design.md "数据模型" 章节的 schema。
  */
 import Store from 'electron-store';
-import type { SubmissionIntent } from '../shared/ipc-types';
+import type { SubmissionIntent, UploadItem } from '../shared/ipc-types';
 import type { Edge } from '../shared/constants';
 import type { PreferredSnapPoint } from './ball/snap';
 
@@ -18,11 +18,14 @@ export interface BallState {
 }
 
 export interface SettingsSchema {
-  auth: { apiUrl: string; username: string };
+  windows?: Partial<Record<'compose' | 'settings' | 'login', { x: number; y: number }>>;
+  auth: { apiUrl: string; username: string; userId?: string; refreshToken?: string; encryptedRefreshToken?: string };
   ball: BallState;
   general: { autoStart: boolean; notifyOnPublish: boolean; webUrl: string };
   hotkey: { toggleBall: string; newBBTalk: string };
   compose: {
+    pinned?: boolean;
+    uploads?: Record<string, UploadItem[]>;
     draft: string;
     visibility: 'public' | 'private';
     lastSize: { width: number; height: number } | null;

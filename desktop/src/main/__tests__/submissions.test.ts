@@ -12,6 +12,7 @@ vi.mock('../auth', () => ({
   getSubmissionSession: () => state.session,
   getValidAccessToken: async () => 'test-token',
   tryRestoreSession: async () => true,
+  authenticatedFetch: (path: string, init: RequestInit) => fetch(state.session.apiUrl + path, init),
 }));
 const payload = { content: 'original', post_tags: 'tag', attachments: [{ uid: 'file' }], visibility: 'private' as const, context: {} };
 beforeEach(() => {

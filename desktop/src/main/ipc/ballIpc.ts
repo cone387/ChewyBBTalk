@@ -5,7 +5,7 @@
  * 主进程不再管 setPosition / drag loop / snap animation。
  */
 import { ipcMain, screen, shell, app } from 'electron';
-import { computeOverlayBounds, getBallWindow, resizeOverlayToDisplays } from '../windows/ballWindow';
+import { computeOverlayBounds, getBallWindow, resizeOverlayToDisplays, setBallMousePassthrough, isBallSuspended } from '../windows/ballWindow';
 import { getBallState, setBallPosition } from '../store';
 
 export interface OverlayInfo {
@@ -37,11 +37,10 @@ function broadcastOverlayInfo() {
 }
 
 export function registerBallIpc() {
+  ipcMain.handle('ball:get-suspended', isBallSuspended);
   // 点透开关：渲染侧根据鼠标是否在 Ball 圆内调用
   ipcMain.handle('ball:set-ignore-mouse-events', (_, ignore: boolean) => {
-    const win = getBallWindow();
-    if (!win || win.isDestroyed()) return;
-    win.setIgnoreMouseEvents(ignore, { forward: true });
+    setBallMousePassthrough(Boolean(ignore));
   });
 
   // 初始信息拉取

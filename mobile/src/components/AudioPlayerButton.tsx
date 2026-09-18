@@ -5,6 +5,12 @@ import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-au
 import * as FileSystem from 'expo-file-system/legacy';
 import type { Attachment } from '../types';
 import { useTheme } from '../theme/ThemeContext';
+import { buildImageSource } from '../utils/imageSource';
+
+function downloadHeaders(url: string) {
+  const source = buildImageSource(url);
+  return typeof source === 'string' ? undefined : source.headers;
+}
 
 interface Props {
   attachment: Attachment;
@@ -14,7 +20,7 @@ interface Props {
 function PlayerCard({ uri, attachment }: { uri: string; attachment: Attachment }) {
   const { theme } = useTheme();
   const c = theme.colors;
-  const player = useAudioPlayer(uri);
+  const player = useAudioPlayer(buildImageSource(uri));
   const status = useAudioPlayerStatus(player);
 
   const toggle = () => {
@@ -73,7 +79,7 @@ export default function AudioPlayerButton({ attachment }: Props) {
             setLocalUri(dest);
           } else {
             setDownloading(true);
-            const result = await FileSystem.downloadAsync(attachment.url, dest);
+            const result = await FileSystem.downloadAsync(attachment.url, dest, { headers: downloadHeaders(attachment.url) });
             setLocalUri(result.uri);
           }
         } catch {
@@ -95,7 +101,7 @@ export default function AudioPlayerButton({ attachment }: Props) {
         setDownloading(true);
         const ext = (attachment.filename || 'm4a').split('.').pop();
         const dest = FileSystem.cacheDirectory + `audio_${attachment.uid}.${ext}`;
-        FileSystem.downloadAsync(attachment.url, dest)
+        FileSystem.downloadAsync(attachment.url, dest, { headers: downloadHeaders(attachment.url) })
           .then(r => setLocalUri(r.uri))
           .catch(() => setLocalUri(attachment.url))
           .finally(() => setDownloading(false));

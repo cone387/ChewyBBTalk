@@ -1,182 +1,156 @@
-/**
- * JWT 认证管理。
- *
- * - access token 保存在主进程内存（不落盘）
- * - refresh token 保存在 electron-store（后续可改 keytar）
- * - 距过期 < 5 分钟自动 refresh
- */
+﻿import { EventEmitter } from 'node:events';
 import { store } from './store';
-
-interface TokenPair {
-  access: string;
-  refresh: string;
-}
+import { readRefreshToken, saveRefreshToken, persistentCredentialsAvailable } from './credentials';
+import type { AuthState } from '../shared/ipc-types';
 
 let sessionGeneration = 0;
 let accessToken: string | null = null;
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 let refreshPromise: Promise<boolean> | null = null;
+let status: AuthState['status'] = 'restoring';
+export const authEvents = new EventEmitter();
 
-function parseJwtExp(token: string): number | null {
-  try {
-    const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString());
-    return payload.exp ?? null;
-  } catch {
-    return null;
+function payload(token: string) {
+  try { return JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString()); } catch { return {}; }
+}
+export function normalizeServer(value: string): string {
+  const url = new URL(value.trim());
+  if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password || url.search || url.hash || url.pathname !== '/') {
+    throw new Error('请输入有效的服务器地址，例如 https://bbtalk.example.com');
   }
+  return url.origin;
 }
-
-function getApiUrl(): string {
-  return store.get('auth.apiUrl') ?? 'https://bbtalk.cone387.top';
+export function getApiUrl(): string { return store.get('auth.apiUrl') || 'https://bbtalk.cone387.top'; }
+export function getAuthState(): AuthState {
+  return { status, username: store.get('auth.username') || '', apiUrl: getApiUrl(), persistent: persistentCredentialsAvailable() };
 }
-
-function scheduleRefresh(token: string) {
+let lastNotification = '';
+function notify(next: AuthState['status']) {
+  status = next;
+  const state = getAuthState();
+  const key = JSON.stringify([state, sessionGeneration]);
+  if (key !== lastNotification) { lastNotification = key; authEvents.emit('change', state); }
+}
+function schedule(delay: number) {
   if (refreshTimer) clearTimeout(refreshTimer);
-  const exp = parseJwtExp(token);
-  if (!exp) return;
-  const delay = exp * 1000 - Date.now() - 5 * 60 * 1000;
-  if (delay > 0) {
-    refreshTimer = setTimeout(() => refreshAccessToken(), delay);
-  } else {
-    refreshAccessToken();
-  }
+  refreshTimer = setTimeout(() => { void refreshAccessToken(); }, Math.max(30_000, delay));
+  refreshTimer.unref?.();
 }
-
-function scheduleRefreshRetry() {
-  if (refreshTimer) clearTimeout(refreshTimer);
-  refreshTimer = setTimeout(async () => {
-    const success = await refreshAccessToken();
-    if (!success && (store.get('auth') as any)?.refreshToken) scheduleRefreshRetry();
-  }, 30_000);
+export function getSessionGeneration() { return sessionGeneration; }
+export function acceptTokens(data: { access: string; refresh: string; username?: string }, apiUrl: string, generation: number): void {
+  if (generation !== sessionGeneration) throw new Error('会话已改变，请重新登录');
+  const info = payload(data.access);
+  if (!info.exp || info.exp * 1000 <= Date.now() || !data.refresh) throw new Error('服务器返回了无效会话');
+  store.set('auth.apiUrl', normalizeServer(apiUrl));
+  store.set('auth.username', data.username || store.get('auth.username') || '');
+  if (info.user_id !== undefined) store.set('auth.userId', String(info.user_id));
+  saveRefreshToken(data.refresh);
+  accessToken = data.access;
+  schedule(info.exp * 1000 - Date.now() - 5 * 60_000);
+  notify('authenticated');
 }
-
-export async function login(
-  username: string,
-  password: string,
-  apiUrl?: string,
-): Promise<{ ok: boolean; error?: string }> {
-  const url = apiUrl || getApiUrl();
-  const generation = ++sessionGeneration;
+export function beginLogin(): number {
+  sessionGeneration++;
   refreshPromise = null;
   if (refreshTimer) clearTimeout(refreshTimer);
-
+  return sessionGeneration;
+}
+export async function login(username: string, password: string, apiUrl?: string): Promise<{ ok: boolean; error?: string }> {
+  const generation = beginLogin();
   try {
+    const url = normalizeServer(apiUrl || getApiUrl());
     const res = await fetch(`${url}/api/v1/bbtalk/auth/token/`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }), signal: AbortSignal.timeout(20_000),
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      return { ok: false, error: err.error || err.detail || `HTTP ${res.status}` };
-    }
-    const data: TokenPair & { user?: unknown } = await res.json();
-    if (generation !== sessionGeneration) return { ok: false, error: '会话已改变，请重新操作' };
-    store.set('auth.apiUrl', url);
-    accessToken = data.access;
-    store.set('auth.username', username);
-    // 简单存 refresh（后续可改 keytar）
-    store.set('auth' as any, { ...store.get('auth'), refreshToken: data.refresh });
-    scheduleRefresh(data.access);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || data.detail || `登录失败 (${res.status})`);
+    acceptTokens({ ...data, username }, url, generation);
     return { ok: true };
-  } catch (e: unknown) {
-    return { ok: false, error: e instanceof Error ? e.message : '网络错误' };
+  } catch (error) {
+    if (generation === sessionGeneration && readRefreshToken()) schedule(30_000);
+    return { ok: false, error: error instanceof Error ? error.message : '登录失败' };
   }
 }
-
 export async function refreshAccessToken(): Promise<boolean> {
   if (refreshPromise) return refreshPromise;
   const pending = doRefresh().finally(() => { if (refreshPromise === pending) refreshPromise = null; });
   refreshPromise = pending;
   return pending;
 }
-
 async function doRefresh(): Promise<boolean> {
-  const auth = store.get('auth') as any;
-  const refreshToken = auth?.refreshToken;
+  const token = readRefreshToken();
+  if (!token) { notify('signed-out'); return false; }
   const generation = sessionGeneration;
   const apiUrl = getApiUrl();
-  const current = () => generation === sessionGeneration && apiUrl === getApiUrl()
-    && (store.get('auth') as any)?.refreshToken === refreshToken;
-  if (!refreshToken) return false;
-
+  const current = () => generation === sessionGeneration && apiUrl === getApiUrl();
+  if (!accessToken) notify('restoring');
   try {
     const res = await fetch(`${apiUrl}/api/v1/bbtalk/auth/token/refresh/`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh: refreshToken }),
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh: token }), signal: AbortSignal.timeout(20_000),
     });
     if (!current()) return false;
     if (!res.ok) {
-      if (res.status === 401 || res.status === 403) {
-        accessToken = null;
-        store.set('auth' as any, { ...auth, refreshToken: undefined });
-      } else {
-        scheduleRefreshRetry();
-      }
+      if (res.status === 401 || res.status === 403) { logout(); notify('expired'); }
+      else { schedule(30_000); notify('offline'); }
       return false;
     }
     const data = await res.json();
     if (!current()) return false;
-    accessToken = data.access;
-    if (data.refresh) {
-      store.set('auth' as any, { ...store.get('auth'), refreshToken: data.refresh });
-    }
-    scheduleRefresh(data.access);
+    acceptTokens({ ...data, refresh: data.refresh || token }, apiUrl, generation);
     return true;
   } catch {
-    if (!current()) return false;
-    // Network failures are transient; keep the session and retry later.
-    scheduleRefreshRetry();
+    if (current()) { schedule(30_000); notify('offline'); }
     return false;
   }
 }
-
-/** Return an access token suitable for an API request, refreshing near expiry. */
 export async function getValidAccessToken(): Promise<string | null> {
-  if (!accessToken) return null;
   const generation = sessionGeneration;
-  const exp = parseJwtExp(accessToken);
-  if (exp && exp * 1000 - Date.now() < 60_000) {
-    await refreshAccessToken();
-  }
-  return generation === sessionGeneration ? accessToken : null;
-}
-
-export function getAccessToken(): string | null {
+  if (!accessToken || payload(accessToken).exp * 1000 - Date.now() < 60_000) await refreshAccessToken();
+  if (generation !== sessionGeneration || !accessToken || payload(accessToken).exp * 1000 <= Date.now()) return null;
   return accessToken;
 }
-
-export function isLoggedIn(): boolean {
-  return !!accessToken;
-}
-
+export function getAccessToken() { return accessToken; }
+export function isLoggedIn() { return !!accessToken && payload(accessToken).exp * 1000 > Date.now(); }
 export function logout(): void {
-  sessionGeneration += 1;
-  refreshPromise = null;
-  accessToken = null;
-  if (refreshTimer) clearTimeout(refreshTimer);
-  const auth = store.get('auth') as any;
-  if (auth) {
-    delete auth.refreshToken;
-    store.set('auth', auth);
-  }
+  beginLogin(); accessToken = null; saveRefreshToken(); notify('signed-out');
 }
-
-/** 启动时尝试用 refresh token 恢复登录态 */
-export async function tryRestoreSession(): Promise<boolean> {
-  const auth = store.get('auth') as any;
-  if (!auth?.refreshToken) return false;
-  return refreshAccessToken();
-}
-
-/** Identity used to scope durable submissions; tokens never leave this snapshot. */
+export async function tryRestoreSession(): Promise<boolean> { return refreshAccessToken(); }
 export function getSubmissionSession(): { scope: string; generation: number; apiUrl: string } | null {
-  if (!accessToken) return null;
-  try {
-    const payload = JSON.parse(Buffer.from(accessToken.split('.')[1], 'base64url').toString());
-    if (payload.user_id === undefined || payload.user_id === null) return null;
-    const apiUrl = getApiUrl().replace(/\/+$/, '');
-    return { scope: JSON.stringify([apiUrl, String(payload.user_id)]), generation: sessionGeneration, apiUrl };
-  } catch { return null; }
+  const userId = accessToken ? payload(accessToken).user_id : store.get('auth.userId');
+  if (userId === undefined || userId === null || (!accessToken && !readRefreshToken())) return null;
+  const apiUrl = getApiUrl().replace(/\/+$/, '');
+  return { scope: JSON.stringify([apiUrl, String(userId)]), generation: sessionGeneration, apiUrl };
+}
+/** Only API-relative paths receive credentials. Replays stay within one session. */
+export async function authenticatedFetch(path: string, init: RequestInit = {}, expectedGeneration = sessionGeneration): Promise<Response> {
+  if (!path.startsWith('/api/') || path.startsWith('//')) throw new Error('无效的 API 路径');
+  const server = getApiUrl();
+  const check = () => { if (expectedGeneration !== sessionGeneration || server !== getApiUrl()) throw new Error('账号或服务器已切换'); };
+  let token = await getValidAccessToken(); check();
+  if (!token) throw new Error(status === 'offline' ? '当前离线，请联网后重试' : '登录已失效，请重新登录');
+  const send = async () => {
+    try {
+      const response = await fetch(`${server}${path}`, {
+        ...init, headers: { ...Object.fromEntries(new Headers(init.headers)), Authorization: `Bearer ${token}` },
+        signal: init.signal || AbortSignal.timeout(60_000),
+      });
+      check();
+      if (response.ok) notify('authenticated');
+      return response;
+    } catch (error) {
+      check(); schedule(30_000); notify('offline'); throw error;
+    }
+  };
+  let response = await send(); check();
+  if (response.status === 401) {
+    if (accessToken !== token || await refreshAccessToken()) {
+      check(); token = await getValidAccessToken(); check();
+      if (token) response = await send();
+    }
+  }
+  check();
+  if (response.status === 401) { logout(); notify('expired'); }
+  return response;
 }

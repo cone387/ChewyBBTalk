@@ -1,15 +1,24 @@
 /**
  * 认证相关 IPC。
  */
-import { ipcMain } from 'electron';
-import { login, logout, getAccessToken, getValidAccessToken, isLoggedIn } from '../auth';
+import { ipcMain, BrowserWindow } from 'electron';
+import { login, logout, getAccessToken, getValidAccessToken, isLoggedIn, getAuthState, authEvents, tryRestoreSession } from '../auth';
+import { browserLogin, cancelBrowserLogin } from '../browserAuth';
 
 export function registerAuthIpc() {
+  ipcMain.handle('auth:browser-login', (_, apiUrl?: string) => browserLogin(apiUrl));
+  ipcMain.handle('auth:cancel-browser-login', () => cancelBrowserLogin());
+  ipcMain.handle('auth:state', () => getAuthState());
+  ipcMain.handle('auth:restore', () => tryRestoreSession());
+  authEvents.on('change', state => {
+    for (const win of BrowserWindow.getAllWindows()) win.webContents.send('auth:state-changed', state);
+  });
   ipcMain.handle('auth:login', async (_, username: string, password: string, apiUrl?: string) => {
     return login(username, password, apiUrl);
   });
 
   ipcMain.handle('auth:logout', () => {
+    cancelBrowserLogin();
     logout();
   });
 

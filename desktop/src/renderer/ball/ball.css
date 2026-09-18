@@ -29,11 +29,10 @@ html, body, #root {
   left: 0;
   width: 56px;
   height: 56px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 30% 30%, #3B82F6 0%, #2563EB 100%);
+  border-radius: 24%;
+  background: transparent;
   box-shadow:
-    0 0 0 2px rgba(255, 255, 255, 0.25) inset,
-    0 8px 24px rgba(59, 130, 246, 0.35),
+    0 8px 24px rgba(250, 82, 104, 0.2),
     0 2px 6px rgba(0, 0, 0, 0.12);
   display: grid;
   place-items: center;
@@ -52,9 +51,9 @@ html, body, #root {
   transition: transform 100ms ease-out;
 }
 
-/* 吸边 / 落位时的弹性动画，由 JS 添加/移除 */
+/* 吸边 / 落位时平滑过渡，不超过目标位置 */
 .ball.animating {
-  transition: transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: transform 180ms ease-out;
 }
 
 .ball-plus {

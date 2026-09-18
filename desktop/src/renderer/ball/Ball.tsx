@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { OverlayInfo, DisplayInfo } from '../../shared/ipc-types';
 import { BallMenu } from './BallMenu';
+import logoUrl from '../../../resources/icon.png';
 
 const BALL_DIAMETER = 56;
 const DRAG_THRESHOLD_PX = 4;
@@ -200,6 +201,26 @@ export function Ball() {
     if (!ready) return;
     let ignoring = true;
     let hoverTimer: number | null = null;
+    let suspended = false;
+    let waitForMovement = false;
+    let resumePoint: { x: number; y: number } | null = null;
+    const setSuspended = (value: boolean) => {
+      suspended = value;
+      if (!value) return;
+      waitForMovement = true;
+      resumePoint = null;
+      if (hoverTimer != null) { window.clearTimeout(hoverTimer); hoverTimer = null; }
+      setMenuVisible(false);
+      ballRef.current?.classList.remove('pressed', 'dragging', 'animating');
+      // Finish any peek/snap movement while hidden, never when the overlay reappears.
+      applyVisualOnly(posRef.current.x, posRef.current.y, false);
+      ignoring = true;
+      void window.desktop.ball.setIgnoreMouseEvents(true);
+    };
+    let suspensionRevision = 0;
+    const unsubscribe = window.desktop.ball.onSuspensionChanged(value => { suspensionRevision++; setSuspended(value); });
+    let disposed = false;
+    void window.desktop.ball.getSuspended().then(value => { if (!disposed && suspensionRevision === 0) setSuspended(value); });
     window.desktop.ball.setIgnoreMouseEvents(true);
 
     const radius = BALL_DIAMETER / 2;
@@ -208,6 +229,7 @@ export function Ball() {
     const PEEK_COLLAPSE_MS = 400;
 
     const check = (e: MouseEvent) => {
+      if (suspended) return;
       if (draggingRef.current || pressedRef.current) return;
       // When menu is open, keep ignore off so menu items are clickable
       if (menuVisibleRef.current) return;
@@ -236,6 +258,11 @@ export function Ball() {
       }
 
       // 吸边展开 / 收回逻辑
+      if (waitForMovement) {
+        if (!resumePoint) { resumePoint = { x: e.clientX, y: e.clientY }; return; }
+        if (resumePoint.x === e.clientX && resumePoint.y === e.clientY) return;
+        waitForMovement = false;
+      }
       const info = overlayInfoRef.current;
       if (!info) return;
       // 用"实际位置"判断是否处于隐藏态
@@ -274,6 +301,8 @@ export function Ball() {
 
     window.addEventListener('mousemove', check);
     return () => {
+      disposed = true;
+      unsubscribe();
       window.removeEventListener('mousemove', check);
       if (hoverTimer != null) window.clearTimeout(hoverTimer);
       window.desktop.ball.setIgnoreMouseEvents(false);
@@ -396,10 +425,7 @@ export function Ball() {
             role="button"
             aria-label="ChewyBBTalk"
           >
-            <svg className="ball-plus" viewBox="0 0 24 24">
-              <line x1="12" y1="6" x2="12" y2="18" />
-              <line x1="6" y1="12" x2="18" y2="12" />
-            </svg>
+            <img src={logoUrl} alt="" draggable={false} style={{ width: '100%', height: '100%', pointerEvents: 'none' }} />
           </div>
           <BallMenu
             visible={menuVisible}

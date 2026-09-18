@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { store } from './store';
-import { getSubmissionSession, getValidAccessToken, tryRestoreSession } from './auth';
+import { getSubmissionSession, getValidAccessToken, tryRestoreSession, authenticatedFetch } from './auth';
 import type { SubmissionIntent, SubmissionPayload, SubmissionSession, SubmissionSnapshot } from '../shared/ipc-types';
 
 export function assertSession(expected: SubmissionSession) {
@@ -27,21 +27,20 @@ export async function submissionSnapshot(): Promise<SubmissionSnapshot | null> {
   if (!getSubmissionSession()) await tryRestoreSession();
   const session = getSubmissionSession();
   if (!session) return null;
-  await getValidAccessToken();
   assertSession(session);
   return { session: { scope: session.scope, generation: session.generation }, intent: read(session.scope) };
 }
 async function request(expected: SubmissionSession, intent: SubmissionIntent, retry: boolean) {
   const token = await getValidAccessToken();
-  const session = assertSession(expected);
+  assertSession(expected);
   if (!token) throw new Error('请先登录');
-  const response = await fetch(retry
-    ? `${session.apiUrl}/api/v1/bbtalk/`
-    : `${session.apiUrl}/api/v1/bbtalk/submission-status/?key=${encodeURIComponent(intent.key)}`, {
+  const response = await authenticatedFetch(retry
+    ? '/api/v1/bbtalk/'
+    : `/api/v1/bbtalk/submission-status/?key=${encodeURIComponent(intent.key)}`, {
     method: retry ? 'POST' : 'GET',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'Idempotency-Key': intent.key },
+    headers: { 'Content-Type': 'application/json', 'Idempotency-Key': intent.key },
     ...(retry ? { body: JSON.stringify(intent.payload) } : {}),
-  });
+  }, expected.generation);
   const data = await response.json().catch(() => ({}));
   assertSession(expected);
   if (response.status === 410) {

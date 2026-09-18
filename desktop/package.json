@@ -1,6 +1,6 @@
 {
   "name": "chewybbtalk-desktop",
-  "version": "0.1.0",
+  "version": "0.2.4",
   "private": true,
   "author": "cone387",
   "description": "ChewyBBTalk 桌面悬浮球 —— 一个始终悬浮的圆形入口，快速记录碎碎念",
@@ -20,16 +20,22 @@
     "package:mac": "electron-vite build && electron-builder --mac",
     "package:all": "electron-vite build && electron-builder --mac --win",
     "publish": "electron-vite build && electron-builder --mac --win --publish always",
-    "build:integration": "npm run build && node integration/build.mjs"
+    "build:integration": "npm run build && node integration/build.mjs",
+    "icons": "node scripts/generate-icon.cjs",
+    "prebuild": "npm run icons",
+    "prepackage": "npm run icons",
+    "prepackage:win": "npm run icons",
+    "prepackage:mac": "npm run icons",
+    "prepackage:all": "npm run icons"
   },
   "dependencies": {
     "electron-store": "^10.0.0",
     "electron-updater": "^6.3.9",
-    "keytar": "^7.9.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "@types/node": "^22.9.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
@@ -38,6 +44,8 @@
     "electron-builder": "^25.1.8",
     "electron-vite": "^2.3.0",
     "fast-check": "^3.23.1",
+    "js-yaml": "^5.4.2",
+    "semver": "^7.8.5",
     "typescript": "^5.6.3",
     "vite": "^5.4.10",
     "vitest": "^2.1.4"

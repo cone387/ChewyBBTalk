@@ -1,15 +1,27 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
+.pin-btn { width: auto !important; padding: 0 7px; font-size: 12px; }
+.pin-btn[aria-pressed="true"] { color: #1d4ed8; background: #eff6ff; }
+.session-notice { padding: 8px 12px; background: #fffbeb; color: #854d0e; font-size: 12px; flex-shrink: 0; }
+.session-notice button, .upload-retry, .preview-retry { border: 0; background: transparent; color: #1d4ed8; cursor: pointer; padding: 5px; }
+.upload-status { font-size: 11px; color: #475569; padding-top: 3px; }
+.upload-failed, .upload-error { color: #b91c1c; }
+.upload-error { display: block; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.file-preview-item { height: auto !important; min-height: 64px; padding-bottom: 4px; }
+button:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 
 html, body, #root {
   width: 100%;
   height: 100%;
   overflow: hidden;
   font-family: -apple-system, "Segoe UI", "PingFang SC", system-ui, sans-serif;
-  background: #FFFFFF;
+  background: transparent;
   color: #1F2937;
 }
 
 .compose-root {
+  background: #FFFFFF;
+  box-shadow: inset 0 0 0 1px #e5e7eb;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -28,7 +40,7 @@ html, body, #root {
   -webkit-app-region: drag;
   flex-shrink: 0;
   background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(20px);
+
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   gap: 2px;
 }
@@ -110,6 +122,8 @@ html, body, #root {
 }
 
 .compose-textarea {
+  flex-shrink: 0;
+  scrollbar-gutter: stable;
   width: 100%;
   min-height: 0;
   border: none;
@@ -152,11 +166,12 @@ html, body, #root {
 
 /* File preview area */
 .file-preview-area {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 6px 16px;
-  max-height: 96px;
+  max-height: 172px;
   overflow-x: auto;
   overflow-y: hidden;
   flex-shrink: 0;
@@ -174,6 +189,10 @@ html, body, #root {
 .file-preview-item {
   position: relative;
   flex-shrink: 0;
+  width: 112px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
 .file-preview-remove {
@@ -200,10 +219,14 @@ html, body, #root {
 }
 
 .file-preview-img {
+  display: block;
+  width: 104px;
+  height: 68px;
+  background: #f1f5f9;
   max-height: 80px;
   max-width: 120px;
   border-radius: 6px;
-  object-fit: cover;
+  object-fit: contain;
   cursor: pointer;
   transition: opacity 150ms;
 }
@@ -243,7 +266,7 @@ html, body, #root {
   padding: 0 12px;
   flex-shrink: 0;
   background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(20px);
+
   border-top: 1px solid rgba(0, 0, 0, 0.06);
   gap: 4px;
 }

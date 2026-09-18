@@ -1,4 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+vi.mock('electron', () => ({ safeStorage: {
+  isEncryptionAvailable: () => true,
+  encryptString: (value: string) => Buffer.from(`encrypted:${value}`),
+  decryptString: (value: Buffer) => value.toString().replace('encrypted:', ''),
+} }));
 
 const storeState: Record<string, unknown> = {
   'auth.apiUrl': 'https://example.test',
@@ -92,4 +97,36 @@ it('a delayed login cannot override a newer login or persist its server', async 
   expect(storeState['auth.apiUrl']).toBe('https://new.test');
   auth.logout();
   vi.clearAllTimers(); vi.useRealTimers(); vi.unstubAllGlobals();
+});
+
+it('never returns an expired access token after an offline refresh and keeps encrypted credentials', async () => {
+  vi.resetModules(); vi.useFakeTimers();
+  storeState.auth = { apiUrl: 'https://example.test', username: '' };
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ access: token(), refresh: 'secret' }))).mockRejectedValue(new Error('offline')));
+  const auth = await import('../auth');
+  expect((await auth.login('alice', 'password')).ok).toBe(true);
+  expect((storeState.auth as any).refreshToken).toBeUndefined();
+  expect((storeState.auth as any).encryptedRefreshToken).toBeTruthy();
+  vi.setSystemTime(Date.now() + 2 * 3600_000);
+  expect(await auth.getValidAccessToken()).toBeNull();
+  expect(auth.getAuthState().status).toBe('offline');
+  expect((storeState.auth as any).encryptedRefreshToken).toBeTruthy();
+  auth.logout(); vi.clearAllTimers(); vi.useRealTimers(); vi.unstubAllGlobals();
+});
+
+it('refreshes once on a 401 and replays the request with the new token', async () => {
+  vi.resetModules(); vi.useFakeTimers();
+  storeState.auth = { apiUrl: 'https://example.test', username: '' };
+  const fresh = token(Math.floor(Date.now() / 1000) + 7200);
+  vi.stubGlobal('fetch', vi.fn()
+    .mockResolvedValueOnce(new Response(JSON.stringify({ access: token(), refresh: 'secret' })))
+    .mockResolvedValueOnce(new Response('{}', { status: 401 }))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ access: fresh, refresh: 'rotated' })))
+    .mockResolvedValueOnce(new Response('{}')));
+  const auth = await import('../auth');
+  await auth.login('alice', 'password');
+  expect((await auth.authenticatedFetch('/api/v1/bbtalk/')).status).toBe(200);
+  expect(vi.mocked(fetch)).toHaveBeenCalledTimes(4);
+  expect((vi.mocked(fetch).mock.calls[3][1]?.headers as any).Authorization).toBe(`Bearer ${fresh}`);
+  auth.logout(); vi.clearAllTimers(); vi.useRealTimers(); vi.unstubAllGlobals();
 });

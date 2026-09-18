@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from rest_framework.request import Request
-from .models import BBTalk, Tag, generate_tag_color, User, UserStorageSettings, Comment
+from .models import BBTalk, Tag, generate_tag_color, User, UserStorageSettings, Comment, Attachment
+from rest_framework.reverse import reverse
+from .attachment_policy import attachment_ids
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -21,6 +23,37 @@ class TagSerializer(serializers.ModelSerializer):
 
 
 class BBTalkSerializer(serializers.ModelSerializer):
+    def validate_attachments(self, value):
+        if not isinstance(value, list) or any(not isinstance(item, dict) for item in value):
+            raise serializers.ValidationError('附件必须为列表')
+        ids = attachment_ids(value)
+        user = self.context['request'].user
+        if Attachment.objects.filter(pk__in=ids).exclude(owner_id=str(user.pk)).exists():
+            raise serializers.ValidationError('不能引用其他用户的附件')
+        return value
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        items = data.get('attachments') or []
+        ids = attachment_ids(items)
+        files = {str(file.pk): file for file in Attachment.objects.filter(pk__in=ids, owner_id=str(instance.user_id))}
+        result = []
+        for item in items:
+            file = files.get(str(item.get('uid') or item.get('id') or '')) if isinstance(item, dict) else None
+            if file:
+                mime = file.mime_type or ''
+                kind = mime.split('/')[0]
+                result.append({
+                    'uid': str(file.pk), 'url': reverse('attachment-preview', kwargs={'pk': file.pk}),
+                    'type': kind if kind in ('image', 'audio', 'video') else 'file',
+                    'filename': file.original_name, 'mime_type': mime, 'file_size': file.size,
+                    'is_public': file.is_public,
+                })
+            else:
+                result.append(item)
+        data['attachments'] = result
+        return data
+
     # 嵌套显示标签
     tags = TagSerializer(many=True, read_only=True)
     # attachments 字段用于存储附件元信息列表

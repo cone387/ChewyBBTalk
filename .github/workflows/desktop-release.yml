@@ -1,54 +1,66 @@
-name: Desktop Build & Release
+name: Desktop Release
 
 on:
   push:
-    tags:
-      - 'desktop-v*'
+    tags: ['desktop-v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-stable-release
+  cancel-in-progress: false
 
 jobs:
-  build-macos:
-    runs-on: macos-latest
-    permissions:
-      contents: write
-    defaults:
-      run:
-        working-directory: desktop
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: desktop/package-lock.json
-
-      - run: npm ci
-
-      - name: Build & Publish
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_IDENTITY_AUTO_DISCOVERY: false
-        run: npm run build && npx electron-builder --mac --publish always
-
-  build-windows:
+  windows:
     runs-on: windows-latest
-    permissions:
-      contents: write
     defaults:
       run:
         working-directory: desktop
+        shell: pwsh
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: desktop/package-lock.json
-
       - run: npm ci
-
-      - name: Build & Publish
+      - name: Verify release version
+        run: |
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw 'Stable desktop version required' }
+          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne "desktop-v$version") { throw 'Tag and package version differ' }
+          "DESKTOP_VERSION=$version" >> $env:GITHUB_ENV
+      - run: npm run typecheck
+      - run: npm test
+      - run: node scripts/test-updater.cjs
+      - run: npm run package:win -- --publish never
+      - name: Verify update manifest and checksums
+        run: node scripts/verify-update.cjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-windows-${{ env.DESKTOP_VERSION }}
+          path: |
+            desktop/dist/*.exe
+            desktop/dist/*.blockmap
+            desktop/dist/latest.yml
+      - name: Publish binaries before update manifest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run build && npx electron-builder --win --publish always
+        run: |
+          node scripts/check-published-version.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'Published version verification failed' }
+          $repo = $env:GITHUB_REPOSITORY
+          gh release view desktop-stable --repo $repo *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create desktop-stable --repo $repo --target $env:GITHUB_SHA --title 'ChewyBBTalk Desktop' --notes 'Windows desktop stable update channel. Download the latest versioned installer below.' --prerelease
+            if ($LASTEXITCODE -ne 0) { throw 'Cannot create desktop release' }
+          }
+          # Keep old versioned binaries: clients may have fetched the previous manifest.
+          $assets = @(Get-ChildItem dist/*.exe, dist/*.blockmap | ForEach-Object FullName)
+          gh release upload desktop-stable @assets --repo $repo --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot upload installers' }
+          gh release upload desktop-stable dist/latest.yml --repo $repo --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot upload update manifest' }
