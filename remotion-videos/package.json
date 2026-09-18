@@ -1,0 +1,23 @@
+{
+  "name": "chewybbtalk-intro-video",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ChewyBBTalk 项目介绍视频（Remotion）",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "dev": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts chewybbtalk-intro ../videos/chewybbtalk-intro-30s.mp4 --video-image-format=png",
+    "still": "remotion still src/index.ts chewybbtalk-intro out/still.png"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "remotion": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "18.3.12",
+    "@types/react-dom": "18.3.1",
+    "typescript": "5.6.3"
+  }
+}

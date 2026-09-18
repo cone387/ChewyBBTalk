@@ -1,0 +1,11 @@
+Music Attribution / 背景音乐署名
+
+Title: Straight To The Light
+Artist: AlexBeroza
+Source: https://ccmixter.org/files/AlexBeroza/29630
+License: Creative Commons Attribution 3.0 Unported (CC BY 3.0)
+https://creativecommons.org/licenses/by/3.0/
+
+bgm-30s.m4a 使用原曲第 14–44 秒的片段。
+项目视频对该片段应用淡入淡出和音量调整。
+对外发布包含此音乐的视频时，请保留以上署名、来源及许可信息。

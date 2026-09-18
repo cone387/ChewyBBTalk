@@ -76,6 +76,7 @@ videos/
 *.mp4
 
 # AI Agent skills (managed by tools, not committed)
+.workbuddy/
 .agents/
 .claude/skills/
 .kiro/skills/
