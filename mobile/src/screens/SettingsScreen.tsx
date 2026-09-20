@@ -26,13 +26,13 @@ const SECTIONS: MenuSection[] = [
   {
     title: '账号',
     items: [
-      { key: 'account', title: '账号与安全', subtitle: '账号信息、删除账号', icon: 'person-circle', bgColor: '#EF4444' },
+      { key: 'account', title: '账号与安全', subtitle: '账号信息、密码与账号恢复', icon: 'person-circle', bgColor: '#EF4444' },
     ],
   },
   {
     title: '个性化',
     items: [
-      { key: 'theme', title: '主题设置', subtitle: '切换多种主题风格', icon: 'color-palette', bgColor: '#8B5CF6' },
+      { key: 'theme', title: '外观', subtitle: '跟随系统、浅色与深色', icon: 'color-palette', bgColor: '#8B5CF6' },
       { key: 'tagTabs', title: '首页标签栏', subtitle: '在首页顶部显示标签快捷切换', icon: 'pricetags', bgColor: '#6366F1', type: 'switch' },
     ],
   },
@@ -45,21 +45,21 @@ const SECTIONS: MenuSection[] = [
   {
     title: '数据与存储',
     items: [
-      { key: 'storage', title: '存储设置', subtitle: '服务器存储、S3 云存储配置', icon: 'server', bgColor: '#059669' },
-      { key: 'data', title: '数据管理', subtitle: '导入导出数据，跨服务器迁移', icon: 'swap-horizontal', bgColor: '#EA580C' },
-      { key: 'cache', title: '缓存管理', subtitle: '查看和清理已下载的媒体文件', icon: 'folder-open', bgColor: '#0EA5E9' },
+      { key: 'data', title: '备份与导出', subtitle: '导出记录，保留自己的副本', icon: 'swap-horizontal', bgColor: '#EA580C' },
+      { key: 'advanced', title: '高级设置', subtitle: '自定义存储与缓存管理', icon: 'options-outline', bgColor: '#64748B' },
     ],
   },
   {
     title: '其他',
     items: [
-      { key: 'about', title: '关于', subtitle: '版本信息、检查更新', icon: 'information-circle', bgColor: '#6366F1' },
+      { key: 'about', title: '帮助与关于', subtitle: '联系支持、隐私政策、版本信息', icon: 'information-circle', bgColor: '#6366F1' },
     ],
   },
 ];
 
 const ROUTES: Record<string, string> = {
   account: 'AccountSecurity',
+  advanced: 'AdvancedSettings',
   theme: 'ThemeSettings',
   privacy: 'PrivacySettings',
   storage: 'StorageSettings',

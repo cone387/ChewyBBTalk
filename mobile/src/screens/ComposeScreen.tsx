@@ -1,3 +1,4 @@
+import DraftStatus from '../components/DraftStatus';
 import { beginSubmission, readSubmission, confirmSubmission, forgetConfirmedSubmission, type SubmissionIntent } from '../services/submissions';
 import { bbtalkApi, transformBBTalk } from '../services/api/bbtalkApi';
 import { getSession, isCurrentSession } from '../services/session';
@@ -15,7 +16,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as Location from 'expo-location';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, usePreventRemove } from '@react-navigation/native';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { createBBTalkAsync, updateBBTalkAsync } from '../store/slices/bbtalkSlice';
 import { loadTags } from '../store/slices/tagSlice';
@@ -26,7 +27,11 @@ import type { Attachment, BBTalk } from '../types';
 import { buildImageSource } from '../utils/imageSource';
 import VoiceRecordingOverlay from '../components/VoiceRecordingOverlay';
 import { useHoldToRecord } from '../hooks/useHoldToRecord';
-import { xAlert, xConfirm } from '../utils/crossAlert';
+import { xAlert, xConfirm, xActionSheet } from '../utils/crossAlert';
+import { useDraftAutosave } from '../hooks/useDraftAutosave';
+import { readDraft, writeDraft } from '../services/drafts';
+import { retainMedia, uploadRetainedMedia, pruneRetainedMedia, type PendingMedia } from '../services/pendingMedia';
+import { confirmPublicVisibility } from '../utils/confirmPublicVisibility';
 import { COMPOSE_TOOLBAR_LABELS } from '../utils/composeToolbarLabels';
 
 // expo-audio hook — 在 native 端使用，web 端返回 null
@@ -118,7 +123,6 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
   const session = useRef(getSession()).current;
   const regularDraftKey = `compose_draft:${session.scope ?? 'signed-out'}`;
   const captureId = useRef(`${Date.now()}_${Math.random().toString(36).slice(2)}`).current;
-  const [draftKey, setDraftKey] = useState(lockedCapture ? `${regularDraftKey}:locked:${captureId}` : regularDraftKey);
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const dispatch = useAppDispatch();
@@ -130,6 +134,13 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
 
   const editItem: BBTalk | undefined = lockedCapture ? undefined : route.params?.editItem;
   const isEditing = !!editItem;
+  useEffect(() => { void pruneRetainedMedia(session); }, [session]);
+  const [draftKey, setDraftKey] = useState(lockedCapture ? `${regularDraftKey}:locked:${captureId}` : editItem ? `${regularDraftKey}:edit:${editItem.id}` : regularDraftKey);
+  const [pendingMedia, setPendingMedia] = useState<PendingMedia[]>([]);
+  const [uploadError, setUploadError] = useState('');
+  const uploadBusy = useRef(false);
+  const [showMoreTools, setShowMoreTools] = useState(false);
+  const leavingRef = useRef(false);
 
   const [content, setContent] = useState(() => {
     if (!editItem) return '';
@@ -140,17 +151,17 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
   const [attachments, setAttachments] = useState<Attachment[]>(editItem?.attachments || []);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>((editItem?.context?.location as { latitude: number; longitude: number }) || null);
   const [showQuickTags, setShowQuickTags] = useState(false);
   const [keyboardH, setKeyboardH] = useState(0);
   const [voiceRecording, setVoiceRecording] = useState(false);
-  const holdRecording = useHoldToRecord(() => { Keyboard.dismiss(); setVoiceRecording(true); }, voiceRecording || uploading || submitting);
+  const holdRecording = useHoldToRecord(() => { Keyboard.dismiss(); setVoiceRecording(true); }, voiceRecording || uploading || submitting, () => { Keyboard.dismiss(); setVoiceRecording(true); });
   const [editMode, setEditMode] = useState<'edit' | 'preview'>('edit');
   const publishedRef = useRef(false);
   const submittingRef = useRef(false);
   const [submission, setSubmission] = useState<SubmissionIntent>();
   const [submissionReady, setSubmissionReady] = useState(isEditing || lockedCapture);
-  const [draftReady, setDraftReady] = useState(isEditing || lockedCapture);
+  const [draftReady, setDraftReady] = useState(lockedCapture);
   const [submissionMessage, setSubmissionMessage] = useState('');
   const [baseUpdatedAt, setBaseUpdatedAt] = useState(editItem?.updatedAt);
   useEffect(() => {
@@ -169,7 +180,7 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
     submittingRef.current = true; setSubmitting(true);
     try {
       // Persist the current editor separately before resolving the original submission.
-      await AsyncStorage.setItem(draftKey, JSON.stringify({ version: 1, content, visibility, attachments, location }));
+      await writeDraft(draftKey, { version: 1, content, visibility, attachments, location, pendingMedia, baseUpdatedAt }, session);
       if (!isCurrentSession(session)) return;
       if (retry) await dispatch(createBBTalkAsync({ ...submission.payload, submissionKey: submission.key })).unwrap();
       else await bbtalkApi.submissionStatus(submission.key);
@@ -191,16 +202,20 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
     } finally { submittingRef.current = false; setSubmitting(false); }
   };
 
+  const draftValue = React.useMemo(() => isEditing || content.trim() || attachments.length || pendingMedia.length ? { version: 1, content, visibility, attachments, location, pendingMedia, baseUpdatedAt } : null, [content, visibility, attachments, location, pendingMedia, baseUpdatedAt, isEditing]);
+  const latestDraft = useRef(draftValue); latestDraft.current = draftValue;
+  const autosave = useDraftAutosave(draftKey, draftValue, draftReady, session);
+
   // 判断是否有未保存修改
   const hasUnsavedChanges = useCallback(() => {
     if (isEditing && editItem) {
       const originalContent = editItem.tags.map(t => `#${t.name} `).join('') + editItem.content;
       return content !== originalContent ||
              visibility !== editItem.visibility ||
-             JSON.stringify(attachments.map(a => a.uid)) !== JSON.stringify(editItem.attachments.map(a => a.uid));
+             JSON.stringify(attachments.map(a => a.uid)) !== JSON.stringify(editItem.attachments.map(a => a.uid)) || pendingMedia.length > 0 || JSON.stringify(location) !== JSON.stringify(editItem.context?.location || null);
     }
-    return content.trim().length > 0 || attachments.length > 0;
-  }, [content, visibility, attachments, editItem, isEditing]);
+    return content.trim().length > 0 || attachments.length > 0 || pendingMedia.length > 0;
+  }, [content, visibility, attachments, editItem, isEditing, pendingMedia, location]);
 
   useEffect(() => {
     if (!lockedCapture && existingTags.length === 0) dispatch(loadTags());
@@ -209,15 +224,15 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
 
     // 新建模式：加载草稿，兼容旧版纯正文。
     let cancelled = false;
-    if (!isEditing && !lockedCapture) {
+    if (!lockedCapture) {
       (async () => {
-        const regular = await AsyncStorage.getItem(regularDraftKey);
-        if (regular) return regular;
+        const regular = await readDraft(draftKey);
+        if (regular || isEditing) return regular;
         // Recover locked captures only inside the regular, unlocked editor.
         const keys = (await AsyncStorage.getAllKeys()).filter(key => key.startsWith(`${regularDraftKey}:locked:`)).sort();
         if (!keys.length || cancelled || !isCurrentSession(session)) return null;
         setDraftKey(keys[0]);
-        return AsyncStorage.getItem(keys[0]);
+        return readDraft(keys[0]);
       })().then(draft => {
         if (cancelled || !isCurrentSession(session)) return;
         if (draft) {
@@ -228,6 +243,8 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
             setVisibility(saved.visibility === 'public' ? 'public' : 'private');
             setAttachments(saved.attachments);
             setLocation(saved.location || null);
+            setPendingMedia(Array.isArray(saved.pendingMedia) ? saved.pendingMedia.filter((item: any) => typeof item?.id === 'string' && typeof item?.uri === 'string' && typeof item?.name === 'string' && typeof item?.mime === 'string') : []);
+            if (saved.baseUpdatedAt) setBaseUpdatedAt(saved.baseUpdatedAt);
           } else setContent(draft);
         }
         setDraftReady(true);
@@ -239,47 +256,26 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
     return () => { cancelled = true; s1.remove(); s2.remove(); };
   }, []);
 
-  // 新建模式：离开时自动保存草稿（发布成功后不保存）
-  // 编辑退出确认：有未保存修改时拦截返回操作
-  useEffect(() => {
-    if (lockedCapture) return;
-    const unsubscribe = navigation.addListener('beforeRemove', (e: any) => {
-      if (!draftReady || !isCurrentSession(session)) return;
-      if (submittingRef.current && !publishedRef.current) { e.preventDefault(); return; }
-      // 已发布成功，跳过确认，清理草稿
-      if (publishedRef.current) return;
-
-      // 无未保存修改，保存/清理草稿后直接返回
-      if (!hasUnsavedChanges()) {
-        if (!isEditing) {
-          AsyncStorage.removeItem(draftKey);
-        }
-        return;
-      }
-
-      // 有未保存修改，拦截返回并显示确认对话框
-      e.preventDefault();
-      xConfirm('放弃编辑？', '你有未保存的内容，确定要放弃吗？', () => {
-            // 新建模式下放弃时保存草稿
-            if (!isEditing) {
-              if (content.trim() || attachments.length) {
-                AsyncStorage.setItem(draftKey, JSON.stringify({ version: 1, content, visibility, attachments, location }));
-              } else {
-                AsyncStorage.removeItem(draftKey);
-              }
-            }
-            navigation.dispatch(e.data.action);
-      }, undefined, { confirmText: '放弃', cancelText: '继续编辑', destructive: true });
-    });
-    return unsubscribe;
-  }, [navigation, hasUnsavedChanges, content, visibility, attachments, location, isEditing, draftReady, session, draftKey, lockedCapture]);
+  usePreventRemove(!lockedCapture && (submitting || uploading || hasUnsavedChanges()), ({ data }) => {
+    if (publishedRef.current || leavingRef.current || !isCurrentSession(session)) { navigation.dispatch(data.action); return; }
+    if (submittingRef.current || uploadBusy.current) return;
+    xActionSheet('离开编辑器', [{ text: '保存草稿并退出' }, { text: '丢弃修改', destructive: true }], async index => {
+      if (index === 2 || !isCurrentSession(session)) return;
+      try {
+        if (index === 0) await autosave.save();
+        else await autosave.clear();
+        leavingRef.current = true;
+        navigation.dispatch(data.action);
+      } catch { xAlert('草稿保存失败', '当前内容仍保留，请重试后再退出。'); }
+    }, '继续编辑');
+  });
 
   const requestUnlock = async () => {
     if (submittingRef.current || uploading || !isCurrentSession(session)) return;
     try {
       if (hasUnsavedChanges()) {
-        await AsyncStorage.setItem(draftKey, JSON.stringify({ version: 1, content, visibility, attachments, location }));
-      } else await AsyncStorage.removeItem(draftKey);
+        await writeDraft(draftKey, { version: 1, content, visibility, attachments, location, pendingMedia, baseUpdatedAt }, session);
+      } else await writeDraft(draftKey, null, session);
       if (isCurrentSession(session)) onRequestUnlock?.();
     } catch {
       setSubmissionMessage('草稿保存失败，请重试；当前输入仍保留。');
@@ -290,28 +286,60 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
   const cleanContent = (t: string): string => t.replace(/(?:^|\s)#([^\s#]+)\s/g, ' ').trim();
   const currentTags = parseTags(content + ' ');
 
+  const uploadPending = async (items: PendingMedia[] = pendingMedia) => {
+    if (uploadBusy.current || !isCurrentSession(session)) return;
+    uploadBusy.current = true; setUploading(true); setUploadError('');
+    try {
+      for (const item of items) {
+        const att = await uploadRetainedMedia(item, session);
+        if (!isCurrentSession(session)) return;
+        const snapshot = latestDraft.current;
+        if (!snapshot) throw new Error('草稿不可用');
+        const next = { ...snapshot, attachments: [...snapshot.attachments, att], pendingMedia: snapshot.pendingMedia.filter(p => p.id !== item.id) };
+        await writeDraft(draftKey, next, session);
+        latestDraft.current = next;
+        setAttachments(next.attachments);
+        setPendingMedia(next.pendingMedia);
+      }
+    } catch { setUploadError('上传未完成，附件已保留在本机。联网后可重试。'); }
+    finally { uploadBusy.current = false; setUploading(false); }
+  };
+  const addMedia = async (assets: { uri: string; name: string; mime: string }[]) => {
+    if (uploadBusy.current) return;
+    uploadBusy.current = true; setUploading(true);
+    const retained: PendingMedia[] = [];
+    try {
+      for (const asset of assets) {
+        const item = await retainMedia(asset.uri, asset.name, asset.mime, session);
+        retained.push(item);
+        const next = { ...latestDraft.current, version: 1, content: latestDraft.current?.content ?? content, visibility, attachments: latestDraft.current?.attachments || attachments, location, pendingMedia: [...pendingMedia, ...retained], baseUpdatedAt };
+        latestDraft.current = next;
+        setPendingMedia(next.pendingMedia);
+        await writeDraft(draftKey, next, session);
+      }
+    } catch (error: any) { setUploadError(error.message || '无法保存附件，请重试'); return; }
+    finally { uploadBusy.current = false; setUploading(false); }
+    if (retained.length) await uploadPending(retained);
+  };
   const pickMedia = async (type: 'images' | 'videos') => {
-    const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: type === 'images' ? ['images'] : ['videos'], allowsMultipleSelection: true, quality: 0.8 });
-    if (r.canceled || !r.assets.length) return; setUploading(true);
-    try { for (const a of r.assets) { const att = await attachmentApi.upload(a.uri, a.fileName || `m${Date.now()}.jpg`, a.mimeType || 'image/jpeg'); setAttachments(p => [...p, att]); } }
-    catch (e: any) { xAlert('上传失败', e.message); } finally { setUploading(false); }
+    try {
+      const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: type === 'images' ? ['images'] : ['videos'], allowsMultipleSelection: true, quality: 0.8 });
+      if (!r.canceled && r.assets.length) await addMedia(r.assets.map(a => ({ uri: a.uri, name: a.fileName || `media_${Date.now()}.${type === 'images' ? 'jpg' : 'mp4'}`, mime: a.mimeType || (type === 'images' ? 'image/jpeg' : 'video/mp4') })));
+    } catch { xAlert('无法打开相册', '请检查照片权限后重试'); }
   };
   const takePhoto = async () => {
-    const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) { xAlert('提示', '需要相机权限才能拍照'); return; }
-    const r = await ImagePicker.launchCameraAsync({ quality: 0.8 });
-    if (r.canceled || !r.assets.length) return;
-    setUploading(true);
     try {
-      const a = r.assets[0];
-      const att = await attachmentApi.upload(a.uri, a.fileName || `photo_${Date.now()}.jpg`, a.mimeType || 'image/jpeg');
-      setAttachments(p => [...p, att]);
-    } catch (e: any) { xAlert('上传失败', e.message); } finally { setUploading(false); }
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) { xAlert('需要相机权限', '可在系统设置中允许相机访问，也可以从相册添加照片。'); return; }
+      const r = await ImagePicker.launchCameraAsync({ quality: 0.8 });
+      if (!r.canceled) await addMedia(r.assets.map(a => ({ uri: a.uri, name: a.fileName || `photo_${Date.now()}.jpg`, mime: a.mimeType || 'image/jpeg' })));
+    } catch { xAlert('无法拍照', '请稍后重试'); }
   };
   const pickFile = async () => {
-    try { const r = await DocumentPicker.getDocumentAsync({ multiple: true }); if (r.canceled || !r.assets?.length) return; setUploading(true);
-      for (const a of r.assets) { const att = await attachmentApi.upload(a.uri, a.name, a.mimeType || 'application/octet-stream'); setAttachments(p => [...p, att]); }
-    } catch (e: any) { xAlert('上传失败', e.message); } finally { setUploading(false); }
+    try {
+      const r = await DocumentPicker.getDocumentAsync({ multiple: true, copyToCacheDirectory: true });
+      if (!r.canceled) await addMedia(r.assets.map(a => ({ uri: a.uri, name: a.name, mime: a.mimeType || 'application/octet-stream' })));
+    } catch { xAlert('无法打开文件', '请重新选择文件'); }
   };
   const getLocation = async () => {
     if (location) { setLocation(null); return; }
@@ -351,38 +379,29 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
       setContent(prev => prev + sep + text);
     }
 
-    // Upload audio as attachment
     if (audioUri) {
-      setUploading(true);
-      try {
-        const ext = Platform.OS === 'ios' ? 'm4a' : (Platform.OS === 'web' ? 'webm' : '3gp');
-        const mime = Platform.OS === 'ios' ? 'audio/mp4' : (Platform.OS === 'web' ? 'audio/webm' : 'audio/3gpp');
-        let att: Attachment;
-        if (Platform.OS === 'web') {
-          const blob = await (await fetch(audioUri)).blob();
-          const file = new File([blob], `voice_${Date.now()}.${ext}`, { type: mime });
-          att = await attachmentApi.uploadFile(file);
-        } else {
-          att = await attachmentApi.upload(audioUri, `voice_${Date.now()}.${ext}`, mime);
-        }
-        setAttachments(prev => [...prev, att]);
-      } catch (e: any) {
-        xAlert('上传失败', e.message || '音频上传失败');
-      } finally {
-        setUploading(false);
-      }
+      const ext = Platform.OS === 'ios' ? 'm4a' : Platform.OS === 'web' ? 'webm' : '3gp';
+      await addMedia([{ uri: audioUri, name: `voice_${Date.now()}.${ext}`, mime: Platform.OS === 'ios' ? 'audio/mp4' : Platform.OS === 'web' ? 'audio/webm' : 'audio/3gpp' }]);
     }
   };
 
+  const incomingVoice = useRef(false);
+  useEffect(() => {
+    if (!draftReady || lockedCapture || incomingVoice.current || !route.params?.voiceResult) return;
+    incomingVoice.current = true;
+    void handleVoiceFinish(route.params.voiceResult).then(() => navigation.setParams?.({ voiceResult: undefined }));
+  }, [draftReady]);
+
   const handleSubmit = async () => {
-    if (submittingRef.current || uploading || !submissionReady || !draftReady || !isCurrentSession(session)) return;
-    const cleaned = cleanContent(content); if (!cleaned) { xAlert('提示', '请输入内容'); return; }
+    if (submittingRef.current || uploading || pendingMedia.length > 0 || !submissionReady || !draftReady || !isCurrentSession(session)) return;
+    const cleaned = cleanContent(content) || (attachments.length ? '附件记录' : ''); if (!cleaned) { xAlert('提示', '请输入内容'); return; }
     submittingRef.current = true; Keyboard.dismiss(); setSubmitting(true);
     try {
-      const ctx: Record<string, any> = { source: { client: 'ChewyBBTalk Mobile', version: '1.0', platform: 'mobile' } }; if (location) ctx.location = location;
+      await autosave.save();
+      const ctx: Record<string, any> = { ...editItem?.context, source: { client: 'ChewyBBTalk Mobile', version: '1.0', platform: 'mobile' } }; if (location) ctx.location = location; else delete ctx.location;
       let intent: SubmissionIntent | undefined;
       if (isEditing && editItem) {
-        await dispatch(updateBBTalkAsync({ id: editItem.id, expectedUpdatedAt: baseUpdatedAt, data: { content: cleaned, tags: currentTags.map(n => ({ id: '', name: n, color: '', sortOrder: 0, bbtalkCount: 0 })), visibility, attachments } })).unwrap();
+        await dispatch(updateBBTalkAsync({ id: editItem.id, expectedUpdatedAt: baseUpdatedAt, data: { content: cleaned, tags: currentTags.map(n => ({ id: '', name: n, color: '', sortOrder: 0, bbtalkCount: 0 })), visibility, attachments, context: ctx } })).unwrap();
       } else {
         intent = await beginSubmission({ content: cleaned, tags: currentTags, visibility, attachments, context: ctx }, session);
         setSubmission(intent);
@@ -396,14 +415,14 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
           await confirmSubmission(intent.key, session);
           setSubmission({ ...intent, state: 'confirmed' });
         }
-        if (!isEditing) await AsyncStorage.removeItem(draftKey);
+        await autosave.clear();
         if (intent) await forgetConfirmedSubmission(intent.key, session);
       } catch {
         setSubmissionMessage('发布成功，但本地清理失败。请核对原提交，避免重复发布。');
         return;
       }
       if (lockedCapture) {
-        setContent(''); setAttachments([]); setLocation(null); setVisibility('private');
+        setContent(''); setAttachments([]); setPendingMedia([]); autosave.resume(); setLocation(null); setVisibility('private');
         setCursorPos(0); setEditMode('edit'); setSubmission(undefined);
         setSubmissionMessage('已保存');
         inputRef.current?.focus();
@@ -428,7 +447,7 @@ ${latest.content}
     } finally { submittingRef.current = false; setSubmitting(false); }
   };
 
-  const canSubmit = cleanContent(content).length > 0 && submissionReady && draftReady && !submitting && !uploading;
+  const canSubmit = (cleanContent(content).length > 0 || attachments.length > 0) && pendingMedia.length === 0 && submissionReady && draftReady && !submitting && !uploading;
 
   // 计算工具栏高度（大约）
   const toolbarHeight = 44 + (showQuickTags ? 40 : 0) + (location ? 28 : 0) + 36; // main + tags + location + md
@@ -444,7 +463,7 @@ ${latest.content}
           <Text style={[styles.cancelText, { color: c.textSecondary }]}>{lockedCapture ? '解锁查看历史' : '取消'}</Text>
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={[styles.headerTitle, { color: c.text }]}>{lockedCapture ? '快速记录' : isEditing ? '编辑' : '发碎碎念'}</Text>
+          <Text style={[styles.headerTitle, { color: c.text }]}>{lockedCapture ? '快速记录' : isEditing ? '编辑记录' : '写一条'}</Text>
           <TouchableOpacity
             style={styles.modeToggleBtn}
             onPress={() => {
@@ -464,7 +483,7 @@ ${latest.content}
           </TouchableOpacity>
         </View>
         <TouchableOpacity style={[styles.publishBtn, { backgroundColor: c.primary }, !canSubmit && { opacity: 0.4 }]} onPress={handleSubmit} disabled={!canSubmit}>
-          {submitting ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.publishText}>{lockedCapture ? '保存' : isEditing ? '更新' : '发布'}</Text>}
+          {submitting ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.publishText}>{lockedCapture ? '保存' : isEditing ? '更新' : visibility === 'private' ? '保存' : '发布'}</Text>}
         </TouchableOpacity>
       </View>
 
@@ -482,11 +501,14 @@ ${latest.content}
           </TouchableOpacity>
         </View>}
       </View>}
+      <DraftStatus visibility={visibility} onVisibility={() => visibility === 'public' ? setVisibility('private') : confirmPublicVisibility(() => { if (isCurrentSession(session)) setVisibility('public'); })}
+        status={autosave.status} onSave={() => { void autosave.save().catch(() => {}); }} pending={pendingMedia} uploading={uploading} error={uploadError}
+        onRetry={() => { void uploadPending(); }} onRemove={id => { setPendingMedia(prev => prev.filter(item => item.id !== id)); setUploadError(''); }} />
       {/* 编辑区 / 预览区 */}
       {editMode === 'edit' ? (
         <View style={[styles.editorArea, { backgroundColor: c.surface }]}>
           <TextInput ref={inputRef} style={[styles.textInput, { color: c.text }]}
-            placeholder="你要BB什么？支持 Markdown，输入 # 添加标签" placeholderTextColor={c.textTertiary}
+            placeholder="此刻，有什么想记下来的？" placeholderTextColor={c.textTertiary}
             editable={!submitting && draftReady} value={content} onChangeText={setContent} multiline textAlignVertical="top" autoFocus
             onSelectionChange={(e) => setCursorPos(e.nativeEvent.selection.start)}
             scrollEnabled={true} />
@@ -574,10 +596,7 @@ ${latest.content}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always"
             contentContainerStyle={styles.toolbarRow}>
             <TouchableOpacity style={styles.toolBtn} onPress={() => pickMedia('images')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.addImage}><Ionicons name="image-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
-            <TouchableOpacity style={styles.toolBtn} onPress={takePhoto} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.takePhoto}><Ionicons name="camera-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
-            <TouchableOpacity style={styles.toolBtn} onPress={() => pickMedia('videos')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.addVideo}><Ionicons name="videocam-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
-            <TouchableOpacity style={styles.toolBtn} onPress={pickFile} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.addFile}><Ionicons name="attach-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
-            <TouchableOpacity style={styles.toolBtn} {...holdRecording.handlers} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.recordAudio}><Ionicons name="mic-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
+            <View style={[styles.toolBtn, { opacity: holdRecording.pressed ? 0.2 : 1 }]} {...holdRecording.handlers} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.recordAudio}><Ionicons name="mic-outline" size={21} color={c.textSecondary} /></View>
             <TouchableOpacity style={styles.toolBtn} onPress={() => {
               if (showQuickTags) {
                 // 第二次点击：隐藏快速标签
@@ -595,8 +614,16 @@ ${latest.content}
               }
               setTimeout(() => inputRef.current?.focus(), 30);
             }} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.insertTag}><Ionicons name="pricetag-outline" size={19} color={showQuickTags ? c.primary : c.textSecondary} /></TouchableOpacity>
+            <TouchableOpacity style={styles.toolBtn} onPress={() => setShowMoreTools(!showMoreTools)} accessibilityRole="button" accessibilityLabel="更多工具" accessibilityState={{ expanded: showMoreTools }}><Ionicons name="ellipsis-horizontal" size={22} color={c.textSecondary} /></TouchableOpacity>
+          </ScrollView>
+        </View>
+        {showMoreTools && <View>
+          <Text style={{ color: c.textSecondary, fontSize: 12, paddingHorizontal: 16 }}>附件与文字格式</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always" contentContainerStyle={styles.toolbarRow}>
+            <TouchableOpacity style={styles.toolBtn} onPress={takePhoto} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.takePhoto}><Ionicons name="camera-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
+            <TouchableOpacity style={styles.toolBtn} onPress={() => pickMedia('videos')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.addVideo}><Ionicons name="videocam-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
+            <TouchableOpacity style={styles.toolBtn} onPress={pickFile} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.addFile}><Ionicons name="attach-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
             <TouchableOpacity style={styles.toolBtn} onPress={getLocation} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.addLocation}><Ionicons name="location-outline" size={19} color={location ? '#10B981' : c.textSecondary} /></TouchableOpacity>
-            <TouchableOpacity style={styles.toolBtn} onPress={() => setVisibility(v => v === 'private' ? 'public' : 'private')} accessibilityRole="button" accessibilityLabel={visibility === 'private' ? COMPOSE_TOOLBAR_LABELS.toggleVisibility : '切换为私密'}><Ionicons name={visibility === 'private' ? 'lock-closed-outline' : 'globe-outline'} size={19} color={visibility === 'public' ? c.primary : c.textSecondary} /></TouchableOpacity>
             <View style={[styles.toolDivider, { backgroundColor: c.border }]} />
             <TouchableOpacity style={[styles.mdBtn, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => mdInsert('bold')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.bold}><Text style={[styles.mdBold, { color: c.text }]}>B</Text></TouchableOpacity>
             <TouchableOpacity style={[styles.mdBtn, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => mdInsert('italic')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.italic}><Text style={[styles.mdItalic, { color: c.text }]}>I</Text></TouchableOpacity>
@@ -606,7 +633,7 @@ ${latest.content}
             <TouchableOpacity style={[styles.mdBtn, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => mdInsert('code')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.code}><Ionicons name="code-slash" size={15} color={c.textSecondary} /></TouchableOpacity>
             <TouchableOpacity style={[styles.mdBtn, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => mdInsert('link')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.link}><Ionicons name="link-outline" size={15} color={c.textSecondary} /></TouchableOpacity>
           </ScrollView>
-        </View>
+        </View>}
       </View>
         </>
       )}

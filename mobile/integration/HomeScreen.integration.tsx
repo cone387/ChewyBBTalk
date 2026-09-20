@@ -71,8 +71,9 @@ test('history is absent while locked or privacy settings are loading', async () 
 });
 
 test('foreground and network recovery preserve applied filters and unsubmitted search input', async () => {
-  let active: (state: AppStateStatus) => void = () => {};
-  jest.spyOn(AppState, 'addEventListener').mockImplementation((_event, callback) => { active = callback; return { remove: jest.fn() }; });
+  const listeners = new Set<(state: AppStateStatus) => void>();
+  const active = (state: AppStateStatus) => listeners.forEach(listener => listener(state));
+  jest.spyOn(AppState, 'addEventListener').mockImplementation((_event, callback) => { listeners.add(callback); return { remove: () => listeners.delete(callback) }; });
   let now = 10000;
   jest.spyOn(Date, 'now').mockImplementation(() => now);
   (apiClient.get as jest.Mock).mockImplementation((url: string) => Promise.resolve(url.includes('/tags/') ? [{ uid: 'tag-1', name: '工作' }] : result('初始记录')));

@@ -132,16 +132,11 @@ const BBTalkCard = React.memo(function BBTalkCard({
         <Ionicons name="ellipsis-horizontal" size={18} color={c.textTertiary} />
       </TouchableOpacity>
 
-      {/* Content area — tap to edit */}
+      {/* Content area — tap to read */}
       <TouchableOpacity activeOpacity={0.8} onPress={() => onEdit(item)} accessibilityRole="button" accessibilityLabel={`碎碎念：${item.content.slice(0, 50)}${item.content.length > 50 ? '…' : ''}`}>
-        {item.isPinned && (
-          <View style={styles.pinBadge}>
-            <Ionicons name="pin" size={12} color="#F59E0B" />
-            <Text style={styles.pinText}>置顶</Text>
-          </View>
-        )}
 
-        <Markdown style={getMarkdownStyles(c)}>
+
+        <Markdown style={{ ...getMarkdownStyles(c), body: { ...getMarkdownStyles(c).body, paddingRight: 28 } }}>
           {item.content}
         </Markdown>
       </TouchableOpacity>
@@ -176,6 +171,7 @@ const BBTalkCard = React.memo(function BBTalkCard({
       {/* Footer: tag pill + time | location, comment, visibility */}
       <View style={styles.footer}>
         <View style={styles.footerLeft}>
+          {item.isPinned && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}><Ionicons name="pin-outline" size={12} color={c.textSecondary} /><Text style={{ color: c.textSecondary, fontSize: 12 }}>置顶</Text></View>}
           <Text style={[styles.time, { color: c.textTertiary }]}>{formatTime(item.createdAt)}</Text>
         </View>
         <View style={styles.footerRight}>
@@ -212,7 +208,7 @@ export default BBTalkCard;
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 16, padding: 16, marginTop: 16,
+    borderRadius: 16, padding: 16, marginTop: 12,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03, shadowRadius: 10, elevation: 2,
   },

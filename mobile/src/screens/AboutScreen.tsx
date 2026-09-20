@@ -70,6 +70,9 @@ export default function AboutScreen() {
         </View>
       </TouchableOpacity>
 
+      <TouchableOpacity accessibilityRole="button" style={[styles.actionCard, { backgroundColor: c.cardBg }]} onPress={() => Linking.openURL(`${getApiBaseUrl()}/support/`).catch(() => xAlert('无法打开帮助页面', '请检查网络后重试'))}>
+        <View style={styles.actionRow}><Ionicons name="help-circle-outline" size={28} color={c.primary} /><View style={[styles.actionInfo, { marginLeft: 16 }]}><Text style={[styles.actionTitle, { color: c.text }]}>联系支持</Text><Text style={[styles.actionSub, { color: c.textSecondary }]}>账号问题、使用帮助与意见反馈</Text></View><Ionicons name="chevron-forward" size={18} color={c.textSecondary} /></View>
+      </TouchableOpacity>
       <TouchableOpacity style={[styles.actionCard, { backgroundColor: c.cardBg }]} activeOpacity={0.7}
         onPress={() => Linking.openURL('https://github.com/cone387/ChewyBBTalk')}>
         <View style={styles.actionRow}>

@@ -1,7 +1,7 @@
 // Feature: mobile-ui-appstore-ready, Property 4: Theme color contrast meets WCAG AA
 import * as fc from 'fast-check';
 import { validateThemeContrast, getContrastRatio, hexToLuminance } from '../../src/utils/contrastValidator';
-import { THEMES } from '../../src/theme/ThemeContext';
+import { THEMES } from '../../src/theme/themes';
 
 describe('Property 4: Theme color contrast meets WCAG AA', () => {
   it('all 5 themes pass WCAG AA contrast requirements', () => {

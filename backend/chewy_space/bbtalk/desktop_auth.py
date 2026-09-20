@@ -11,7 +11,7 @@ from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes, authentication_classes, throttle_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework_simplejwt.tokens import RefreshToken
+from .versioned_tokens import VersionedRefreshToken as RefreshToken
 from .auth_policy import LoginThrottle
 from .models import DesktopAuthorization
 

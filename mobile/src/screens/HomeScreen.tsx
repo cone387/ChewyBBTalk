@@ -1,3 +1,4 @@
+import { setHistoryLocked, onHistoryActivity } from '../services/historyPrivacy';
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
@@ -72,6 +73,8 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
   // --- Hooks ---
 
   const privacy = usePrivacyMode({ onLockChange, showError });
+  useEffect(() => { setHistoryLocked(!privacy.settingsReady || privacy.locked); }, [privacy.settingsReady, privacy.locked]);
+  useEffect(() => onHistoryActivity(privacy.resetPrivacyTimer), [privacy.resetPrivacyTimer]);
 
   useEffect(() => { if (privacy.locked) setVoiceRecording(false); }, [privacy.locked]);
 
@@ -87,7 +90,6 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
   }, [isOffline]);
 
   const onNavigateCompose = useCallback((item?: BBTalk) => {
-    if (guardOfflineWrite()) return;
     navigation.navigate('Compose', item ? { editItem: item } : undefined);
   }, [navigation, guardOfflineWrite]);
 
@@ -306,8 +308,8 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
 
   const handleVoiceFinishAndClose = useCallback(async (result: { text: string; audioUri: string | null; audioDuration: number }) => {
     setVoiceRecording(false);
-    await actions.handleVoiceFinish(result);
-  }, [actions.handleVoiceFinish]);
+    if (result.text || result.audioUri) navigation.navigate('Compose', { voiceResult: result });
+  }, [navigation]);
 
   // --- Offline Banner as ListHeaderComponent ---
   const listHeaderComponent = useCallback(() => (
@@ -320,7 +322,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
       onDelete={handleDeleteGuarded}
       onTogglePin={onTogglePin}
       onMenu={actions.showMenu}
-      onEdit={onNavigateCompose}
+      onEdit={item => navigation.navigate('RecordDetail', { item })}
       onToggleVisibility={actions.toggleVisibility}
       onImagePreview={handleImagePreview}
       onLocationPress={showLocation}
@@ -338,9 +340,8 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
   // --- Render ---
 
   const holdRecording = useHoldToRecord(() => {
-    if (guardOfflineWrite()) return false;
     setVoiceRecording(true);
-  }, voiceRecording, () => { if (!guardOfflineWrite()) navigation.navigate('Compose'); });
+  }, voiceRecording, () => navigation.navigate('Compose'));
 
   if (!privacy.settingsReady) return <View style={[styles.container, { backgroundColor: c.background }]} />;
 
@@ -424,7 +425,9 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
               <EmptyState
                 icon="chatbubble-ellipses-outline"
                 title="写下你的第一条碎碎念"
-                hint={'点击右下角 + 按钮开始记录\n长按可以语音输入'}
+                hint={'一句心情、一张照片，都值得留下。\n记录默认仅自己可见。'}
+                actionLabel="写下第一条" onAction={() => navigation.navigate('Compose')}
+                secondaryActionLabel="录一段语音" onSecondaryAction={() => setVoiceRecording(true)}
               />
             )
           ) : null}
@@ -447,10 +450,10 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
       )}
 
       {!batch.batchMode && (
-        <TouchableOpacity style={[styles.fab, { bottom: insets.bottom + 24, backgroundColor: c.primary, shadowColor: '#000' }]}
-          {...holdRecording.handlers} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="新建碎碎念">
+        <View style={[styles.fab, { bottom: insets.bottom + 24, backgroundColor: c.primary, shadowColor: '#000', opacity: holdRecording.pressed ? 0.85 : 1 }]}
+          {...holdRecording.handlers} accessibilityRole="button" accessibilityLabel="新建碎碎念">
           <Ionicons name="add" size={28} color="#fff" />
-        </TouchableOpacity>
+        </View>
       )}
 
       <Modal visible={!!previewImage} transparent animationType="fade" onRequestClose={() => setPreviewImage(null)}>

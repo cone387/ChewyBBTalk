@@ -1,3 +1,4 @@
+from .password_recovery import ChangePasswordView, RecoveryRequestView, RecoveryConfirmView
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .auth_policy import LimitedTokenRefreshView, AuthPolicyView
@@ -22,6 +23,9 @@ router.register(r'public', PublicBBTalkViewSet, basename='bbtalk-public')
 router.register(r'', BBTalkViewSet)
 
 urlpatterns = [
+    path('user/change-password/', ChangePasswordView.as_view()),
+    path('auth/password/request/', RecoveryRequestView.as_view()),
+    path('auth/password/confirm/', RecoveryConfirmView.as_view()),
     path('auth/desktop/authorize/', desktop_auth.authorize, name='desktop_authorize'),
     path('auth/desktop/exchange/', desktop_auth.exchange, name='desktop_exchange'),
     path('settings/status/', runtime_status, name='runtime_status'),

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 import { useTheme } from '../theme/ThemeContext';
 
 interface EmptyStateProps {
@@ -10,21 +11,25 @@ interface EmptyStateProps {
   hint?: string;
   actionLabel?: string;
   onAction?: () => void;
+  secondaryActionLabel?: string;
+  onSecondaryAction?: () => void;
 }
 
-export default function EmptyState({ icon, iconColor, title, hint, actionLabel, onAction }: EmptyStateProps) {
+export default function EmptyState({ icon, iconColor, title, hint, actionLabel, onAction, secondaryActionLabel, onSecondaryAction }: EmptyStateProps) {
   const { theme } = useTheme();
   const c = theme.colors;
+  const reducedMotion = useReducedMotion();
   const anim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    if (reducedMotion) { anim.setValue(1); return; }
     Animated.spring(anim, {
       toValue: 1,
       speed: 12,
       bounciness: 6,
       useNativeDriver: true,
     }).start();
-  }, []);
+  }, [reducedMotion]);
 
   const color = iconColor || c.primary;
 
@@ -46,6 +51,7 @@ export default function EmptyState({ icon, iconColor, title, hint, actionLabel, 
           <Text style={[styles.actionText, { color: c.primary }]}>{actionLabel}</Text>
         </TouchableOpacity>
       )}
+      {secondaryActionLabel && onSecondaryAction && <TouchableOpacity accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center' }} onPress={onSecondaryAction}><Text style={{ color: c.primary }}>{secondaryActionLabel}</Text></TouchableOpacity>}
     </Animated.View>
   );
 }
@@ -53,7 +59,7 @@ export default function EmptyState({ icon, iconColor, title, hint, actionLabel, 
 const styles = StyleSheet.create({
   container: {
     borderRadius: 16,
-    padding: 40,
+    padding: 24,
     marginTop: 40,
     alignItems: 'center',
     gap: 10,
@@ -77,6 +83,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingHorizontal: 20,
     paddingVertical: 10,
+    minHeight: 44,
     borderRadius: 20,
   },
   actionText: { fontSize: 14, fontWeight: '600' },

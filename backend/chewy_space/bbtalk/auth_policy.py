@@ -34,7 +34,7 @@ class AuthPolicyView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
     def get(self, request):
-        response = Response({'registration_enabled': settings.REGISTRATION_ENABLED})
+        response = Response({'registration_enabled': settings.REGISTRATION_ENABLED, 'password_recovery_enabled': settings.PASSWORD_RECOVERY_ENABLED})
         response['Cache-Control'] = 'no-store'
         return response
 

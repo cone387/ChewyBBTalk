@@ -1,3 +1,4 @@
+import { getSession, isCurrentSession } from '../session';
 import { Platform } from 'react-native';
 import { getAccessToken } from '../auth';
 import { getApiBaseUrl } from '../../config';
@@ -48,6 +49,22 @@ function transformAttachment(data: any): Attachment {
   };
 }
 
+async function uploadRequest(formData: FormData): Promise<Response> {
+  const session = getSession(); const base = getApiBaseUrl();
+  const token = await getAccessToken();
+  if (!isCurrentSession(session) || base !== getApiBaseUrl()) throw new Error('账号已切换');
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 60000);
+  try {
+    const response = await fetch(`${base}/api/v1/attachments/files/`, { method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : {}, body: formData, signal: controller.signal });
+    if (!isCurrentSession(session) || base !== getApiBaseUrl()) throw new Error('账号已切换');
+    return response;
+  } catch (error: any) {
+    if (error.name === 'AbortError') throw new Error('上传超时，附件仍保留，可稍后重试');
+    throw error;
+  } finally { clearTimeout(timer); }
+}
+
 export const attachmentApi = {
   async upload(uri: string, fileName: string, mimeType: string): Promise<Attachment> {
     // Web 平台：RN 风格的 { uri, name, type } 对象不被浏览器 FormData 识别，
@@ -59,7 +76,6 @@ export const attachmentApi = {
       return this.uploadFile(file);
     }
 
-    const token = await getAccessToken();
     const formData = new FormData();
 
     formData.append('file', {
@@ -69,13 +85,7 @@ export const attachmentApi = {
     } as any);
     formData.append('is_public', 'true');
 
-    const response = await fetch(`${getApiBaseUrl()}/api/v1/attachments/files/`, {
-      method: 'POST',
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: formData,
-    });
+    const response = await uploadRequest(formData);
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
@@ -88,18 +98,11 @@ export const attachmentApi = {
 
   /** Web-only: upload a File/Blob object directly */
   async uploadFile(file: File): Promise<Attachment> {
-    const token = await getAccessToken();
     const formData = new FormData();
     formData.append('file', file, file.name || 'upload');
     formData.append('is_public', 'true');
 
-    const response = await fetch(`${getApiBaseUrl()}/api/v1/attachments/files/`, {
-      method: 'POST',
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: formData,
-    });
+    const response = await uploadRequest(formData);
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));

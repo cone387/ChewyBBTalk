@@ -232,6 +232,7 @@ export function webActionSheet(
   title: string,
   options: { text: string; destructive?: boolean }[],
   onSelect: (index: number) => void,
+  cancelText = '取消',
 ): void {
   const p = palette();
   const root = mkOverlay(p, () => dismiss(root));
@@ -271,7 +272,7 @@ export function webActionSheet(
   // Cancel group
   const cg = document.createElement('div');
   css(cg, { backgroundColor: p.bg, borderRadius: '14px', overflow: 'hidden', fontFamily: FONT });
-  cg.appendChild(mkBtn('取消', p, { bold: true, onClick: () => dismiss(root) }));
+  cg.appendChild(mkBtn(cancelText, p, { bold: true, onClick: () => dismiss(root) }));
   wrap.appendChild(cg);
 
   root.appendChild(wrap);

@@ -48,7 +48,7 @@ function PlayerCard({ uri, attachment }: { uri: string; attachment: Attachment }
       </View>
       <View style={styles.info}>
         <Text style={[styles.name, { color: c.text }]} numberOfLines={1}>
-          {attachment.originalFilename || attachment.filename || '语音录音'}
+          {/^voice_\d+/.test(attachment.originalFilename || attachment.filename || '') ? '语音记录' : attachment.originalFilename || attachment.filename || '语音记录'}
         </Text>
         <View style={styles.progressRow}>
           <View style={[styles.progressBg, { backgroundColor: c.border }]}>
@@ -112,7 +112,7 @@ export default function AudioPlayerButton({ attachment }: Props) {
       </View>
       <View style={styles.info}>
         <Text style={[styles.name, { color: c.text }]} numberOfLines={1}>
-          {attachment.originalFilename || attachment.filename || '语音录音'}
+          {/^voice_\d+/.test(attachment.originalFilename || attachment.filename || '') ? '语音记录' : attachment.originalFilename || attachment.filename || '语音记录'}
         </Text>
         <Text style={[styles.meta, { color: c.textTertiary }]}>
           {downloading ? '加载中...' : `音频${attachment.fileSize ? ` · ${(attachment.fileSize / 1024).toFixed(0)}KB` : ''}`}
@@ -133,5 +133,5 @@ const styles = StyleSheet.create({
   progressRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 3 },
   progressBg: { flex: 1, height: 3, borderRadius: 1.5, overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: 1.5 },
-  meta: { fontSize: 11 },
+  meta: { fontSize: 12 },
 });

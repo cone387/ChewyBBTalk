@@ -37,6 +37,15 @@ class User(models.Model):
     last_login = models.DateTimeField(null=True, blank=True, verbose_name="最后登录")
 
     # Django 认证系统要求的属性
+    credential_version = models.PositiveIntegerField(default=0)
+
+    def get_session_auth_hash(self):
+        from django.utils.crypto import salted_hmac
+        return salted_hmac('bbtalk.session', str(self.credential_version)).hexdigest()
+
+    def get_session_auth_fallback_hash(self):
+        return iter(())
+
     USERNAME_FIELD = 'username'
     REQUIRED_FIELDS = ['email']
 
@@ -446,3 +455,14 @@ class Attachment(AttachmentBase):
         app_label = 'bbtalk'
         verbose_name = "附件"
         verbose_name_plural = "附件"
+
+
+class PasswordRecovery(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    code_hash = models.CharField(max_length=64)
+    email = models.EmailField()
+    credential_version = models.PositiveIntegerField()
+    expires_at = models.DateTimeField()
+
+    class Meta:
+        db_table = 'cb_password_recovery'

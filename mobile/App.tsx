@@ -1,3 +1,6 @@
+import AdvancedSettingsScreen from './src/screens/AdvancedSettingsScreen';
+import RecordDetailScreen from './src/screens/RecordDetailScreen';
+import PasswordRecoveryScreen from './src/screens/PasswordRecoveryScreen';
 import { getSession, onSessionChange } from './src/services/session';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ActivityIndicator, View, Animated, Dimensions, TouchableOpacity, StyleSheet, PanResponder, Platform, AppState } from 'react-native';
@@ -189,7 +192,10 @@ function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
         Login: 'login',
         Home: 'app',
         Compose: 'compose',
+        RecordDetail: 'record',
+        PasswordRecovery: 'password-recovery',
         Settings: 'settings',
+        AdvancedSettings: 'settings/advanced',
         AccountSecurity: 'settings/account',
         ProfileEdit: 'settings/profile',
         ThemeSettings: 'settings/theme',
@@ -211,6 +217,7 @@ function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
           <Stack.Screen name="Home" options={{ headerShown: false }}>
             {() => <HomeWithDrawer onLogout={onLogout} />}
           </Stack.Screen>
+          <Stack.Screen name="RecordDetail" component={RecordDetailScreen} options={{ title: '记录', ...headerOptions }} />
           <Stack.Screen name="Compose" component={ComposeScreen}
             options={{ headerShown: false, presentation: 'modal', animation: 'slide_from_bottom', gestureEnabled: true }} />
           <Stack.Screen name="Settings" options={{ title: '设置', ...headerOptions }}>
@@ -225,6 +232,7 @@ function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
             options={{ title: '主题设置', ...headerOptions }} />
           <Stack.Screen name="PrivacySettings" component={PrivacySettingsScreen}
             options={{ title: '防窥设置', ...headerOptions }} />
+          <Stack.Screen name="AdvancedSettings" component={AdvancedSettingsScreen} options={{ title: '高级设置', ...headerOptions }} />
           <Stack.Screen name="StorageSettings" component={StorageSettingsScreen}
             options={{ title: '存储设置', ...headerOptions }} />
           <Stack.Screen name="DataManagement" component={DataManagementScreen}
@@ -245,6 +253,7 @@ function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
               {(props) => <LandingScreen {...props} />}
             </Stack.Screen>
           )}
+          <Stack.Screen name="PasswordRecovery" component={PasswordRecoveryScreen} options={{ title: '找回密码', ...headerOptions }} />
           <Stack.Screen name="Login" options={{ headerShown: false }}>
             {() => <LoginScreen onLoginSuccess={onLoginSuccess} />}
           </Stack.Screen>

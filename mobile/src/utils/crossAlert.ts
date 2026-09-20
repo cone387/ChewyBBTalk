@@ -55,11 +55,12 @@ export function xActionSheet(
   title: string,
   options: ActionSheetOption[],
   onSelect: (index: number) => void,
+  cancelText = '取消',
 ): void {
   if (canUseWebDialog()) {
-    webActionSheet(title, options, onSelect);
+    webActionSheet(title, options, onSelect, cancelText);
   } else if (getPlatformOS() === 'ios') {
-    const labels = [...options.map(o => o.text), '取消'];
+    const labels = [...options.map(o => o.text), cancelText];
     const destructiveIndex = options.findIndex(o => o.destructive);
     ActionSheetIOS.showActionSheetWithOptions(
       {
@@ -83,7 +84,7 @@ export function xActionSheet(
           style: (o.destructive ? 'destructive' : 'default') as 'destructive' | 'default',
           onPress: () => onSelect(i),
         })),
-        { text: '取消', style: 'cancel' as const },
+        { text: cancelText, style: 'cancel' as const },
       ],
     );
   }

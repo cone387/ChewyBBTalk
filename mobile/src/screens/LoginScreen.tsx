@@ -1,3 +1,5 @@
+import { useNavigation } from '@react-navigation/native';
+import { publicAuthRequest } from '../services/passwordRecovery';
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
@@ -20,6 +22,9 @@ interface Props { onLoginSuccess: () => void; }
 export default function LoginScreen({ onLoginSuccess }: Props) {
   const { theme } = useTheme();
   const c = theme.colors;
+  const navigation = useNavigation<any>();
+  const [advanced, setAdvanced] = useState(false);
+  const [registrationEnabled, setRegistrationEnabled] = useState<boolean | null>(null);
 
   const [isLogin, setIsLogin] = useState(true);
   const [username, setUsername] = useState('');
@@ -48,6 +53,12 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
       setSelectedServer(getApiBaseUrl());
     })();
   }, []);
+
+  useEffect(() => {
+    let active = true; setRegistrationEnabled(null);
+    publicAuthRequest('policy').then(p => { if (active) setRegistrationEnabled(!!p.registration_enabled); }).catch(() => {});
+    return () => { active = false; };
+  }, [selectedServer]);
 
   const saveServers = async (list: ServerItem[]) => {
     setServers(list);
@@ -79,6 +90,7 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
   };
 
   const handleSubmit = async () => {
+    if (!isLogin && registrationEnabled === false) { xAlert('暂未开放注册', '当前服务暂未开放新用户注册，请联系服务提供方。'); return; }
     if (!username || !password) { xAlert('提示', '请输入用户名和密码'); return; }
     setLoading(true);
     try {
@@ -101,9 +113,10 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
           <View style={styles.logoWrap}>
             <View style={[styles.logo, { backgroundColor: c.accent }]}><Ionicons name="chatbubbles" size={32} color="#fff" /></View>
             <Text style={[styles.title, { color: c.text }]}>{isLogin ? '欢迎回来' : '创建账户'}</Text>
-            <Text style={[styles.subtitle, { color: c.textSecondary }]}>{isLogin ? '登录您的 ChewyBBTalk 账户' : '开始您的碎碎念之旅'}</Text>
+            <Text style={[styles.subtitle, { color: c.textSecondary }]}>{isLogin ? '随手记下生活，默认仅自己可见' : '创建账号，让记录在设备间同步'}</Text>
           </View>
 
+          {advanced && <>
           {/* 服务器选择下拉 */}
           <Text style={[styles.label, { color: c.text }]}>服务地址</Text>
           <TouchableOpacity style={[styles.serverSelector, { borderColor: c.border, backgroundColor: c.borderLight }]} onPress={() => setShowServerPicker(true)} activeOpacity={0.7}>
@@ -112,11 +125,12 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
             <Ionicons name="chevron-down" size={16} color={c.textTertiary} />
           </TouchableOpacity>
 
+          </>}
           {/* 用户名 */}
           <Text style={[styles.label, { color: c.text }]}>用户名</Text>
           <View style={[styles.inputWrap, { borderColor: c.border, backgroundColor: c.surface }]}>
             <Ionicons name="person-outline" size={18} color={c.textTertiary} />
-            <TextInput style={[styles.input, { color: c.text }]} placeholder="请输入用户名" placeholderTextColor={c.textTertiary}
+            <TextInput style={[styles.input, { color: c.text }]} accessibilityLabel="用户名" textContentType="username" autoCorrect={false} placeholder="请输入用户名" placeholderTextColor={c.textTertiary}
               value={username} onChangeText={setUsername} autoCapitalize="none" editable={!loading} />
           </View>
 
@@ -126,8 +140,8 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
             <Ionicons name="lock-closed-outline" size={18} color={c.textTertiary} />
             <TextInput style={[styles.input, { color: c.text }]} placeholder="请输入密码" placeholderTextColor={c.textTertiary}
               value={password} onChangeText={setPassword} secureTextEntry={!showPassword} editable={!loading}
-              autoCapitalize="none" autoCorrect={false} keyboardType="ascii-capable" textContentType="password" />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={{ padding: 4 }}>
+              autoCapitalize="none" autoCorrect={false} keyboardType="ascii-capable" textContentType={isLogin ? 'password' : 'newPassword'} />
+            <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }} accessibilityRole="button" accessibilityLabel={showPassword ? '隐藏密码' : '显示密码'}>
               <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={18} color={c.textTertiary} />
             </TouchableOpacity>
           </View>
@@ -153,6 +167,7 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
             {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>{isLogin ? '登录  →' : '注册  →'}</Text>}
           </TouchableOpacity>
 
+          {isLogin && <TouchableOpacity accessibilityRole="button" onPress={() => navigation.navigate('PasswordRecovery')} style={{ minHeight: 44, justifyContent: 'center', alignItems: 'flex-end' }}><Text style={{ color: c.primary }}>忘记密码？</Text></TouchableOpacity>}
           {!isLogin && (
             <Text style={[styles.privacyText, { color: c.textTertiary }]}>
               注册即表示同意{' '}
@@ -164,10 +179,11 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
 
           <View style={styles.divider}><View style={[styles.dividerLine, { backgroundColor: c.border }]} /><Text style={[styles.dividerText, { color: c.textTertiary }]}>{isLogin ? '新用户？' : '已有账户？'}</Text><View style={[styles.dividerLine, { backgroundColor: c.border }]} /></View>
 
-          <TouchableOpacity style={[styles.switchBtn, { borderColor: c.border }]} onPress={() => setIsLogin(!isLogin)} disabled={loading} activeOpacity={0.7}>
-            <Text style={[styles.switchText, { color: c.text }]}>{isLogin ? '创建新账户' : '登录已有账户'}</Text>
+          <TouchableOpacity style={[styles.switchBtn, { borderColor: c.border }]} onPress={() => setIsLogin(!isLogin)} disabled={loading || (isLogin && registrationEnabled === false)} activeOpacity={0.7}>
+            <Text style={[styles.switchText, { color: c.text }]}>{isLogin ? registrationEnabled === false ? '当前服务暂未开放注册' : '创建新账户' : '登录已有账户'}</Text>
           </TouchableOpacity>
         </View>
+        <TouchableOpacity accessibilityRole="button" accessibilityState={{ expanded: advanced }} onPress={() => setAdvanced(!advanced)} style={{ minHeight: 48, justifyContent: 'center', alignItems: 'center' }}><Text style={{ color: c.textSecondary }}>{advanced ? '收起服务设置' : selectedServer !== DEFAULT_URL ? `当前使用：${currentLabel} · 切换服务` : '使用自建服务'}</Text></TouchableOpacity>
         <Text style={[styles.footer, { color: c.textTertiary }]}>ChewyBBTalk - 记录生活的点滴</Text>
       </ScrollView>
 

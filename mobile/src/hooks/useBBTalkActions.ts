@@ -1,3 +1,4 @@
+import { confirmPublicVisibility } from '../utils/confirmPublicVisibility';
 import { getSession, isCurrentSession } from '../services/session';
 import { useCallback, useRef, useState } from 'react';
 import { Platform } from 'react-native';
@@ -78,10 +79,12 @@ export function useBBTalkActions({ showError, onNavigateCompose }: UseBBTalkActi
 
   const toggleVisibility = useCallback((item: BBTalk) => {
     const newVis = item.visibility === 'public' ? 'private' : 'public';
-    xConfirm('切换可见性', `确定设为${newVis === 'public' ? '公开' : '私密'}？`, () => {
+    const apply = () => {
       if (!isCurrentSession(session)) return;
-      dispatch(updateBBTalkAsync({ id: item.id, data: { visibility: newVis } as any }));
-    });
+      dispatch(updateBBTalkAsync({ id: item.id, data: { visibility: newVis } as any })).unwrap().catch(() => showError('修改失败', '可见性未更新，请重试'));
+    };
+    if (newVis === 'public') confirmPublicVisibility(apply);
+    else xConfirm('设为仅自己可见？', '更改后，公开页面将无法继续查看这条记录。', apply);
   }, [dispatch]);
 
   const handleVoiceFinish = useCallback(async (result: { text: string; audioUri: string | null; audioDuration: number }) => {

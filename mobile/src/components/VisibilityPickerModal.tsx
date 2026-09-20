@@ -1,3 +1,4 @@
+import { confirmPublicVisibility } from '../utils/confirmPublicVisibility';
 import React, { useCallback } from 'react';
 import {
   View,
@@ -38,7 +39,8 @@ function VisibilityPickerModal({ visible, onConfirm, onClose, theme }: Visibilit
   const c = theme.colors;
 
   const handleSelect = useCallback((key: 'public' | 'private' | 'friends') => {
-    onConfirm(key);
+    if (key === 'public') confirmPublicVisibility(() => onConfirm(key));
+    else onConfirm(key);
   }, [onConfirm]);
 
   return (

@@ -239,7 +239,7 @@ AUTH_REFRESH_RATE = os.getenv('AUTH_REFRESH_RATE', '120/minute')
 REST_FRAMEWORK = {
     'EXCEPTION_HANDLER': 'bbtalk.auth_policy.auth_exception_handler',
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',  # JWT 认证（主要）
+        'bbtalk.versioned_tokens.VersionedJWTAuthentication',  # JWT 认证（主要）
         'bbtalk.authentication.SessionAuthentication',  # Session 认证（备用）
     ],
     'DEFAULT_PERMISSION_CLASSES': [
@@ -259,6 +259,7 @@ REST_FRAMEWORK = {
 
 # SimpleJWT 配置
 SIMPLE_JWT = {
+    'TOKEN_REFRESH_SERIALIZER': 'bbtalk.versioned_tokens.VersionedTokenRefreshSerializer',
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),  # Access Token 有效期 1 小时
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),  # Refresh Token 有效期 7 天
     'ROTATE_REFRESH_TOKENS': True,  # 刷新时轮换 Refresh Token
@@ -404,3 +405,16 @@ LOGGING = {
         },
     },
 }
+
+# 邮件找回需显式启用；凭证只通过部署环境提供。
+PASSWORD_RECOVERY_ENABLED = os.getenv('PASSWORD_RECOVERY_ENABLED', 'false').lower() in ('1', 'true', 'yes')
+PASSWORD_RECOVERY_RATE = os.getenv('PASSWORD_RECOVERY_RATE', '5/minute')
+EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
+EMAIL_HOST = os.getenv('EMAIL_HOST', '')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'true').lower() in ('1', 'true', 'yes')
+EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'false').lower() in ('1', 'true', 'yes')
+EMAIL_TIMEOUT = 10
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@example.invalid')
