@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 interface ErrorFallbackProps {
   onRetry: () => void;
@@ -11,12 +12,13 @@ interface ErrorFallbackProps {
  * Shows a user-friendly Chinese message and a retry button.
  */
 export default function ErrorFallback({ onRetry, errorMessage }: ErrorFallbackProps) {
+  const [showDetails, setShowDetails] = useState(false);
   return (
     <View style={styles.container} accessibilityRole="alert" accessibilityLabel="应用出现错误">
-      <Text style={styles.emoji}>😵</Text>
+      <Ionicons name="alert-circle-outline" size={48} color="#2563EB" style={{ marginBottom: 16 }} />
       <Text style={styles.title}>出了点问题</Text>
       <Text style={styles.message}>
-        {errorMessage || '应用遇到了意外错误，请尝试重试'}
+        页面暂时无法显示，请尝试重新加载。
       </Text>
       <TouchableOpacity
         style={styles.retryButton}
@@ -25,8 +27,13 @@ export default function ErrorFallback({ onRetry, errorMessage }: ErrorFallbackPr
         accessibilityLabel="重试"
         activeOpacity={0.7}
       >
-        <Text style={styles.retryText}>重试</Text>
+        <Text style={styles.retryText}>重新加载</Text>
       </TouchableOpacity>
+      {!!errorMessage && <TouchableOpacity accessibilityRole="button" accessibilityState={{ expanded: showDetails }}
+        onPress={() => setShowDetails(value => !value)} style={{ minHeight: 44, justifyContent: 'center', marginTop: 12 }}>
+        <Text style={{ color: '#71717A' }}>{showDetails ? '收起错误详情' : '查看错误详情'}</Text>
+      </TouchableOpacity>}
+      {showDetails && <Text selectable style={styles.message}>{errorMessage}</Text>}
     </View>
   );
 }
@@ -38,10 +45,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FAFAFA',
     padding: 32,
-  },
-  emoji: {
-    fontSize: 48,
-    marginBottom: 16,
   },
   title: {
     fontSize: 20,

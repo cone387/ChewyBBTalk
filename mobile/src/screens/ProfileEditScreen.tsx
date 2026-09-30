@@ -1,16 +1,16 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Platform } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Platform, ScrollView, KeyboardAvoidingView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, usePreventRemove } from '@react-navigation/native';
 import { buildImageSource } from '../utils/imageSource';
 import { getCurrentUser, updateCachedUser } from '../services/auth';
 import { userApi } from '../services/api/userApi';
 import { attachmentApi } from '../services/api/mediaApi';
 import { useTheme } from '../theme/ThemeContext';
-import { xAlert } from '../utils/crossAlert';
+import { xAlert, xConfirm } from '../utils/crossAlert';
 
 export default function ProfileEditScreen() {
   const currentUser = getCurrentUser();
@@ -25,6 +25,16 @@ export default function ProfileEditScreen() {
   const [saving, setSaving] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(currentUser?.avatar || null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const savingRef = useRef(false);
+  const savedRef = useRef(false);
+  const [error, setError] = useState('');
+  const changed = displayName !== (currentUser?.display_name || '') || bio !== (currentUser?.bio || '') ||
+    email !== (currentUser?.email || '') || avatarUrl !== (currentUser?.avatar || null);
+  usePreventRemove(changed, ({ data }) => {
+    if (savedRef.current) { navigation.dispatch(data.action); return; }
+    xConfirm('放弃修改？', '个人信息还没有保存。', () => navigation.dispatch(data.action), undefined,
+      { confirmText: '放弃修改', cancelText: '继续编辑' });
+  });
 
   const pickAvatar = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -56,37 +66,39 @@ export default function ProfileEditScreen() {
   };
 
   const handleSave = async () => {
+    if (savingRef.current || uploadingAvatar) return;
     if (!displayName.trim()) {
       xAlert('提示', '显示名称不能为空');
       return;
     }
-    setSaving(true);
+    savingRef.current = true;
+    setSaving(true); setError('');
     try {
       const data: Record<string, string> = {
         display_name: displayName.trim(),
+        bio: bio.trim(),
+        email: email.trim(),
       };
-      if (bio.trim()) data.bio = bio.trim();
-      if (email.trim()) data.email = email.trim();
       if (avatarUrl) data.avatar = avatarUrl;
       const updated = await userApi.updateProfile(data);
       await updateCachedUser(updated);
-      xAlert('成功', '个人信息已更新');
+      savedRef.current = true;
       navigation.goBack();
     } catch (e: any) {
-      xAlert('保存失败', e.message || '请稍后重试');
+      setError(e.message || '保存失败，请稍后重试');
     } finally {
-      setSaving(false);
+      savingRef.current = false; setSaving(false);
     }
   };
 
   if (!currentUser) return null;
 
   return (
-    <View style={[styles.container, { backgroundColor: c.surfaceSecondary }]}>
-      <View style={[styles.content, { paddingBottom: insets.bottom + 20 }]}>
+    <KeyboardAvoidingView style={[styles.container, { backgroundColor: c.surfaceSecondary }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}>
         {/* Avatar */}
         <View style={styles.avatarSection}>
-          <TouchableOpacity onPress={pickAvatar} activeOpacity={0.7} disabled={uploadingAvatar}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="更换头像" onPress={pickAvatar} activeOpacity={0.7} disabled={uploadingAvatar || saving}>
             {avatarUrl ? (
               <Image source={buildImageSource(avatarUrl)} style={styles.avatar} contentFit="cover" />
             ) : (
@@ -113,6 +125,7 @@ export default function ProfileEditScreen() {
           <TextInput
             style={[styles.input, { borderColor: c.border, color: c.text }]}
             value={displayName}
+            accessibilityLabel="显示名称" editable={!saving}
             onChangeText={setDisplayName}
             placeholder="输入显示名称"
             placeholderTextColor={c.textTertiary}
@@ -122,6 +135,7 @@ export default function ProfileEditScreen() {
           <TextInput
             style={[styles.input, { borderColor: c.border, color: c.text }]}
             value={email}
+            accessibilityLabel="邮箱" editable={!saving}
             onChangeText={setEmail}
             placeholder="输入邮箱"
             placeholderTextColor={c.textTertiary}
@@ -133,6 +147,7 @@ export default function ProfileEditScreen() {
           <TextInput
             style={[styles.input, styles.bioInput, { borderColor: c.border, color: c.text }]}
             value={bio}
+            accessibilityLabel="个人简介" editable={!saving}
             onChangeText={setBio}
             placeholder="输入个人简介"
             placeholderTextColor={c.textTertiary}
@@ -141,10 +156,11 @@ export default function ProfileEditScreen() {
           />
         </View>
 
-        <TouchableOpacity
-          style={[styles.saveBtn, { backgroundColor: c.primary, opacity: saving ? 0.6 : 1 }]}
+        {!!error && <Text accessibilityRole="alert" style={{ color: c.danger, lineHeight: 22, marginTop: 12 }}>{error}</Text>}
+        <TouchableOpacity accessibilityRole="button"
+          style={[styles.saveBtn, { backgroundColor: c.primary, opacity: saving || uploadingAvatar || !changed ? 0.5 : 1 }]}
           onPress={handleSave}
-          disabled={saving}
+          disabled={saving || uploadingAvatar || !changed}
           activeOpacity={0.8}
         >
           {saving ? (
@@ -153,14 +169,14 @@ export default function ProfileEditScreen() {
             <Text style={styles.saveBtnText}>保存</Text>
           )}
         </TouchableOpacity>
-      </View>
-    </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { flex: 1, padding: 16 },
+  content: { padding: 16, width: '100%', maxWidth: 600, alignSelf: 'center' },
   avatarSection: { alignItems: 'center', marginVertical: 24 },
   avatar: {
     width: 72, height: 72, borderRadius: 36,
@@ -183,7 +199,7 @@ const styles = StyleSheet.create({
   label: { fontSize: 13, fontWeight: '500', marginBottom: 6, marginTop: 12 },
   input: {
     borderWidth: 1, borderRadius: 10,
-    paddingHorizontal: 12, paddingVertical: 10, fontSize: 15,
+    paddingHorizontal: 12, paddingVertical: 10, fontSize: 16,
   },
   bioInput: { minHeight: 80 },
   saveBtn: {

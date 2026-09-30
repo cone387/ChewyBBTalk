@@ -20,10 +20,11 @@ npx expo start
 
 ```
 mobile/
-├── App.tsx                    # 入口：导航、侧滑抽屉、主题
+├── App.tsx                    # 入口：页面导航、主题
 ├── src/
 │   ├── config.ts              # API 地址配置（支持多服务器）
 │   ├── types/index.ts         # 类型定义
+│   ├── navigation/MainTabs.tsx # 底部导航：记录、日历、我的
 │   ├── theme/
 │   │   └── ThemeContext.tsx    # 多主题系统（5套主题）
 │   ├── components/
@@ -48,7 +49,7 @@ mobile/
 │       ├── LoginScreen.tsx           # 登录/注册 + 服务器选择
 │       ├── HomeScreen.tsx            # 首页列表 + 防窥 + 搜索
 │       ├── ComposeScreen.tsx         # 发布/编辑（Markdown + 附件 + 语音）
-│       ├── DrawerContent.tsx         # 侧滑抽屉（日历 + 标签筛选）
+│       ├── CalendarScreen.tsx        # 日历回顾，选择日期查看记录
 │       ├── SettingsScreen.tsx        # 设置主页
 │       ├── ProfileEditScreen.tsx     # 个人信息编辑
 │       ├── ThemeSettingsScreen.tsx    # 主题切换
@@ -108,12 +109,11 @@ mobile/
 - 主题选择持久化到 AsyncStorage
 - 可视化预览选择
 
-### 侧滑抽屉
-- 日历热力图（按月浏览，按日期聚合 BBTalk 数量）
-- 日期可点击筛选对应日期的 BBTalk
-- 标签列表（可折叠，带颜色圆点和计数）
-- 底部用户信息 + 设置入口
-- 左边缘滑动手势打开
+### 底部导航
+- 记录：列表、搜索、标签快捷筛选与新建记录
+- 日历：按月回顾，选择有记录的日期筛选对应记录
+- 我的：个人信息、标签管理及分组设置
+- 切换页面保留记录位置；防窥锁定后隐藏导航，解锁后恢复
 
 ### 设置
 - 个人信息编辑（独立页面，API 对接）

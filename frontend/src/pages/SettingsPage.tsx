@@ -1,32 +1,55 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser, logout } from '../services/auth';
+import { useActionFeedback } from '../hooks/useActionFeedback';
 
 export default function SettingsPage() {
   const navigate = useNavigate();
   const [currentUser] = useState(getCurrentUser());
+  const feedback = useActionFeedback();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      {feedback.feedback}
       <header className="bg-white/80 backdrop-blur-sm border-b border-gray-100 sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center gap-4">
           <button
             onClick={() => navigate('/')}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            aria-label="返回记录"
+            className="min-h-[44px] min-w-[44px] p-2 hover:bg-gray-100 rounded-lg transition-colors"
           >
             <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <h1 className="text-xl font-semibold text-gray-900">设置</h1>
+          <h1 className="text-xl font-semibold text-gray-900">我的</h1>
         </div>
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-8 space-y-4">
+        {currentUser && <div className="bg-white rounded-2xl border border-gray-100 p-5">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-semibold flex-shrink-0">
+                {currentUser.avatar ? (
+                  <img src={currentUser.avatar} alt={currentUser.display_name || currentUser.username} className="w-full h-full rounded-full object-cover" />
+                ) : (
+                  <span className="text-xl">{(currentUser.display_name || currentUser.username).charAt(0).toUpperCase()}</span>
+                )}
+              </div>
+              <div className="flex-1">
+                <div className="text-base font-semibold text-gray-900">
+                  {currentUser.display_name || currentUser.username}
+                </div>
+                <div className="text-sm text-gray-500">
+                  {currentUser.email || `@${currentUser.username}`}
+                </div>
+              </div>
+            </div>
+        </div>}
         {/* 防窥设置 */}
         <button
           onClick={() => navigate('/settings/privacy')}
-          className="w-full p-5 bg-white rounded-2xl shadow-lg border border-gray-100 hover:border-gray-300 transition-all text-left"
+          className="w-full p-5 bg-white rounded-2xl shadow-sm border border-gray-100 hover:border-gray-300 transition-all text-left"
         >
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -47,7 +70,7 @@ export default function SettingsPage() {
         {/* 存储设置 */}
         <button
           onClick={() => navigate('/settings/storage')}
-          className="w-full p-5 bg-white rounded-2xl shadow-lg border border-gray-100 hover:border-gray-300 transition-all text-left"
+          className="w-full p-5 bg-white rounded-2xl shadow-sm border border-gray-100 hover:border-gray-300 transition-all text-left"
         >
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-teal-600 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -68,7 +91,7 @@ export default function SettingsPage() {
         {/* 数据管理 */}
         <button
           onClick={() => navigate('/settings/data')}
-          className="w-full p-5 bg-white rounded-2xl shadow-lg border border-gray-100 hover:border-gray-300 transition-all text-left"
+          className="w-full p-5 bg-white rounded-2xl shadow-sm border border-gray-100 hover:border-gray-300 transition-all text-left"
         >
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-600 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -87,33 +110,16 @@ export default function SettingsPage() {
         </button>
 
         <button onClick={() => navigate('/settings/status')}
-          className="w-full p-5 bg-white rounded-2xl shadow-lg border border-gray-100 hover:border-gray-300 transition-all text-left">
+          className="w-full p-5 bg-white rounded-2xl shadow-sm border border-gray-100 hover:border-gray-300 transition-all text-left">
           <div className="text-base font-semibold text-gray-900">运行状态</div>
           <p className="text-sm text-gray-500 mt-1">服务连接、当前存储与最近备份</p>
         </button>
 
         {/* 用户信息 & 退出 */}
         {currentUser && (
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mt-8">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-semibold flex-shrink-0">
-                {currentUser.avatar ? (
-                  <img src={currentUser.avatar} alt={currentUser.display_name || currentUser.username} className="w-full h-full rounded-full object-cover" />
-                ) : (
-                  <span className="text-xl">{(currentUser.display_name || currentUser.username).charAt(0).toUpperCase()}</span>
-                )}
-              </div>
-              <div className="flex-1">
-                <div className="text-base font-semibold text-gray-900">
-                  {currentUser.display_name || currentUser.username}
-                </div>
-                <div className="text-sm text-gray-500">
-                  {currentUser.email || `@${currentUser.username}`}
-                </div>
-              </div>
-            </div>
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mt-8">
             <button
-              onClick={() => logout()}
+              onClick={() => feedback.confirm({ title: '退出登录', message: '确定退出当前账号？', confirmLabel: '退出登录', action: async () => { await logout(); } })}
               className="w-full px-4 py-2.5 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors text-sm font-medium flex items-center justify-center gap-2"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

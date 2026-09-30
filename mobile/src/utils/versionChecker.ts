@@ -38,12 +38,14 @@ async function setCooldown(): Promise<void> {
 }
 
 /** Check for OTA updates via expo-updates */
-async function checkOTAUpdate(): Promise<boolean> {
+type UpdateStatus = 'updated' | 'current' | 'unavailable' | 'error' | 'skipped';
+async function checkOTAUpdate(): Promise<UpdateStatus> {
   // expo-updates doesn't work in dev mode
-  if (__DEV__) return false;
+  if (__DEV__ || Platform.OS === 'web') return 'unavailable';
 
   try {
     const Updates = await import('expo-updates');
+    if (!Updates.isEnabled) return 'unavailable';
     const update = await Updates.checkForUpdateAsync();
     if (update.isAvailable) {
       await Updates.fetchUpdateAsync();
@@ -54,55 +56,59 @@ async function checkOTAUpdate(): Promise<boolean> {
         undefined,
         { confirmText: '立即重启', cancelText: '稍后' },
       );
-      return true;
+      return 'updated';
     }
   } catch (e) {
     console.warn('[VersionChecker] OTA 检查失败:', e);
+    return 'error';
   }
-  return false;
+  return 'current';
 }
 
 /** Check App Store / Google Play for a newer version */
-async function checkStoreUpdate(): Promise<{ hasUpdate: boolean; version?: string; url?: string }> {
+async function checkStoreUpdate(): Promise<{ status: UpdateStatus; version?: string; url?: string }> {
   const currentVersion = Constants.expoConfig?.version || '1.0.0';
   const bundleId = Constants.expoConfig?.ios?.bundleIdentifier || 'com.chewy.bbtalk';
 
   if (Platform.OS === 'ios') {
     try {
       const response = await fetch(`https://itunes.apple.com/lookup?bundleId=${bundleId}`);
+      if (!response.ok) return { status: 'error' };
       const data = await response.json();
       if (data.resultCount > 0) {
         const storeVersion = data.results[0].version;
         const storeUrl = data.results[0].trackViewUrl;
         if (compareVersions(storeVersion, currentVersion) > 0) {
-          return { hasUpdate: true, version: storeVersion, url: storeUrl };
+          return { status: 'updated', version: storeVersion, url: storeUrl };
         }
+        return { status: 'current' };
       }
     } catch (e) {
       console.warn('[VersionChecker] App Store 版本检查失败:', e);
+      return { status: 'error' };
     }
   } else if (Platform.OS === 'android') {
     // Android: use Google Play link (simplified — full implementation would scrape or use an API)
     const playUrl = `https://play.google.com/store/apps/details?id=${bundleId}`;
-    return { hasUpdate: false, url: playUrl };
+    return { status: 'unavailable', url: playUrl };
   }
 
-  return { hasUpdate: false };
+  return { status: 'unavailable' };
 }
 
 /** Main entry point: run the full version check flow */
-export async function checkForUpdates(): Promise<void> {
+export async function checkForUpdates(manual = false): Promise<UpdateStatus> {
   try {
     // Check OTA first
     const hadOTA = await checkOTAUpdate();
-    if (hadOTA) return; // OTA update found, no need to check store
+    if (hadOTA === 'updated') return 'updated';
 
     // Check cooldown before store check
-    if (await isInCooldown()) return;
+    if (!manual && await isInCooldown()) return 'skipped';
 
     // Check store version
     const storeResult = await checkStoreUpdate();
-    if (storeResult.hasUpdate && storeResult.version && storeResult.url) {
+    if (storeResult.status === 'updated' && storeResult.version && storeResult.url) {
       const url = storeResult.url;
       xConfirm(
         '发现新版本',
@@ -111,8 +117,14 @@ export async function checkForUpdates(): Promise<void> {
         () => setCooldown(),
         { confirmText: '前往更新', cancelText: '稍后提醒' },
       );
+      return 'updated';
     }
+    if (hadOTA === 'error' || storeResult.status === 'error') return 'error';
+    if (storeResult.status === 'current') return 'current';
+    // OTA checks don't establish whether a newer store binary exists.
+    return 'unavailable';
   } catch (e) {
     console.warn('[VersionChecker] 版本检测失败:', e);
+    return 'error';
   }
 }

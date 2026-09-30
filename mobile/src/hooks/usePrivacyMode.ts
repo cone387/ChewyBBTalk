@@ -238,7 +238,7 @@ export function usePrivacyMode(options: UsePrivacyModeOptions): UsePrivacyModeRe
   }, []);
 
   // 通知父组件锁定状态变化
-  useEffect(() => { onLockChangeRef.current?.(locked); }, [locked]);
+  useEffect(() => { if (settingsReady) onLockChangeRef.current?.(locked); }, [locked, settingsReady]);
 
   return {
     settingsReady,

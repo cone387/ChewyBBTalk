@@ -2,8 +2,8 @@ import AdvancedSettingsScreen from './src/screens/AdvancedSettingsScreen';
 import RecordDetailScreen from './src/screens/RecordDetailScreen';
 import PasswordRecoveryScreen from './src/screens/PasswordRecoveryScreen';
 import { getSession, onSessionChange } from './src/services/session';
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ActivityIndicator, View, Animated, Dimensions, TouchableOpacity, StyleSheet, PanResponder, Platform, AppState } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { ActivityIndicator, View, Platform, AppState } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -23,7 +23,7 @@ if (Platform.OS === 'web') {
 }
 
 import LoginScreen from './src/screens/LoginScreen';
-import HomeScreen from './src/screens/HomeScreen';
+import MainTabs from './src/navigation/MainTabs';
 import ComposeScreen from './src/screens/ComposeScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import PrivacySettingsScreen from './src/screens/PrivacySettingsScreen';
@@ -36,132 +36,18 @@ import CacheManagementScreen from './src/screens/CacheManagementScreen';
 import TagManagementScreen from './src/screens/TagManagementScreen';
 import AboutScreen from './src/screens/AboutScreen';
 import AccountSecurityScreen from './src/screens/AccountSecurityScreen';
-import DrawerContent from './src/screens/DrawerContent';
 import LandingScreen from './src/screens/LandingScreen';
 import {
   startWidgetAutoSync,
   stopWidgetAutoSync,
   setWidgetAuthState,
   clearWidget,
-  syncWidget,
 } from './src/services/widget';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import AppBackgroundBlur from './src/components/AppBackgroundBlur';
 import ScreenCaptureProtection from './src/components/ScreenCaptureProtection';
-import { useReducedMotion } from './src/hooks/useReducedMotion';
 
 const Stack = createNativeStackNavigator();
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const DRAWER_WIDTH = SCREEN_WIDTH * 0.78;
-
-function HomeWithDrawer({ onLogout }: { onLogout: () => void }) {
-  const [selectedTag, setSelectedTag] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [drawerVisible, setDrawerVisible] = useState(false);
-  const [isLocked, setIsLocked] = useState(false);
-  const isLockedRef = useRef(false);
-  const reducedMotion = useReducedMotion();
-  const reducedMotionRef = useRef(reducedMotion);
-  reducedMotionRef.current = reducedMotion;
-  const isOpen = useRef(false);
-  const translateX = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
-  const overlayOpacity = useRef(new Animated.Value(0)).current;
-
-  const openDrawer = useCallback(() => {
-    if (isOpen.current || isLockedRef.current) return;
-    isOpen.current = true;
-    setDrawerVisible(true);
-    if (reducedMotionRef.current) {
-      translateX.setValue(0);
-      overlayOpacity.setValue(1);
-      return;
-    }
-    Animated.parallel([
-      Animated.spring(translateX, { toValue: 0, useNativeDriver: true, speed: 20, bounciness: 0 }),
-      Animated.spring(overlayOpacity, { toValue: 1, useNativeDriver: true, speed: 20, bounciness: 0 }),
-    ]).start();
-  }, [overlayOpacity, translateX]);
-
-  const closeDrawer = useCallback(() => {
-    if (!isOpen.current) return;
-    isOpen.current = false;
-    if (reducedMotionRef.current) {
-      translateX.setValue(-DRAWER_WIDTH);
-      overlayOpacity.setValue(0);
-      setDrawerVisible(false);
-      return;
-    }
-    Animated.parallel([
-      Animated.spring(translateX, { toValue: -DRAWER_WIDTH, useNativeDriver: true, speed: 20, bounciness: 0 }),
-      Animated.spring(overlayOpacity, { toValue: 0, useNativeDriver: true, speed: 20, bounciness: 0 }),
-    ]).start(() => setDrawerVisible(false));
-  }, [overlayOpacity, translateX]);
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: (evt) => {
-        return !isOpen.current && !isLockedRef.current && evt.nativeEvent.pageX < 20;
-      },
-      onMoveShouldSetPanResponder: (evt, gesture) => {
-        return !isOpen.current && !isLockedRef.current && evt.nativeEvent.pageX < 40 && gesture.dx > 15 && Math.abs(gesture.dy) < 30;
-      },
-      onPanResponderMove: (_, gesture) => {
-        const x = Math.min(0, Math.max(-DRAWER_WIDTH, -DRAWER_WIDTH + gesture.dx));
-        translateX.setValue(x);
-        overlayOpacity.setValue(Math.max(0, (DRAWER_WIDTH + x) / DRAWER_WIDTH));
-        if (x > -DRAWER_WIDTH + 10) setDrawerVisible(true);
-      },
-      onPanResponderRelease: (_, gesture) => {
-        if (gesture.dx > DRAWER_WIDTH * 0.3 || gesture.vx > 0.3) {
-          openDrawer();
-        } else {
-          closeDrawer();
-        }
-      },
-    })
-  ).current;
-
-  const handleLockChange = useCallback((v: boolean) => {
-    setIsLocked(v);
-    isLockedRef.current = v;
-    if (v && isOpen.current) closeDrawer();
-    setWidgetAuthState({ locked: v });
-    if (v) {
-      void clearWidget('locked');
-    } else {
-      void syncWidget({ authenticated: true, locked: false });
-    }
-  }, [closeDrawer]);
-
-  const handleSelectTag = useCallback((id: string | null) => {
-    setSelectedTag(id);
-    setSelectedDate(null);
-  }, []);
-
-  const handleSelectDate = useCallback((date: string | null) => {
-    setSelectedDate(date);
-    setSelectedTag(null);
-  }, []);
-
-  return (
-    <View style={{ flex: 1 }} {...panResponder.panHandlers}>
-      <HomeScreen selectedTag={selectedTag} selectedDate={selectedDate} onOpenDrawer={openDrawer} onLockChange={handleLockChange} onSelectTag={handleSelectTag} />
-      <Animated.View style={[styles.overlay, { opacity: overlayOpacity }]} pointerEvents={drawerVisible ? 'auto' : 'none'}>
-        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={closeDrawer} />
-      </Animated.View>
-      <Animated.View style={[styles.drawer, { transform: [{ translateX }] }]} pointerEvents={drawerVisible ? 'auto' : 'none'}>
-        <DrawerContent
-          selectedTag={selectedTag}
-          selectedDate={selectedDate}
-          onSelectTag={handleSelectTag}
-          onSelectDate={handleSelectDate}
-          onClose={closeDrawer}
-        />
-      </Animated.View>
-    </View>
-  );
-}
-
 function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
   isAuthenticated: boolean; onLoginSuccess: () => void; onLogout: () => void;
 }) {
@@ -187,10 +73,11 @@ function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
   const linking = Platform.OS === 'web' ? {
     prefixes: [typeof window !== 'undefined' ? window.location.origin : ''],
     config: {
+      initialRouteName: isAuthenticated ? 'Home' : 'Login',
       screens: {
         Landing: '',
         Login: 'login',
-        Home: 'app',
+        Home: { path: 'app', screens: { Records: '', Calendar: 'calendar', Mine: 'me' } },
         Compose: 'compose',
         RecordDetail: 'record',
         PasswordRecovery: 'password-recovery',
@@ -215,7 +102,7 @@ function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
       {isAuthenticated ? (
         <Stack.Navigator>
           <Stack.Screen name="Home" options={{ headerShown: false }}>
-            {() => <HomeWithDrawer onLogout={onLogout} />}
+            {() => <MainTabs onLogout={onLogout} />}
           </Stack.Screen>
           <Stack.Screen name="RecordDetail" component={RecordDetailScreen} options={{ title: '记录', ...headerOptions }} />
           <Stack.Screen name="Compose" component={ComposeScreen}
@@ -315,11 +202,3 @@ export default function App() {
     </ErrorBoundary>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.4)', zIndex: 100 },
-  drawer: {
-    position: 'absolute', top: 0, bottom: 0, left: 0, width: DRAWER_WIDTH, zIndex: 101,
-    shadowColor: '#000', shadowOffset: { width: 4, height: 0 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 10,
-  },
-});

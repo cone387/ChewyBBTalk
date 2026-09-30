@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, TextInput,
   ScrollView, LayoutAnimation, UIManager, Platform,
@@ -31,10 +31,15 @@ export default function TagManagementScreen() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editColor, setEditColor] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
-    try { setTags(await tagApi.getTags()); } catch {}
+    setError('');
+    try { setTags(await tagApi.getTags()); }
+    catch (e: any) { setError(e.message || '标签加载失败，请重试'); }
     if (!silent) setLoading(false);
   }, []);
 
@@ -42,28 +47,34 @@ export default function TagManagementScreen() {
 
   const startEdit = (tag: Tag) => { setEditingId(tag.id); setEditName(tag.name); setEditColor(tag.color); };
   const cancelEdit = () => { setEditingId(null); };
+  const mutate = async (action: () => Promise<void>) => {
+    if (busyRef.current) return;
+    busyRef.current = true; setBusy(true);
+    try { await action(); }
+    finally { busyRef.current = false; setBusy(false); }
+  };
 
-  const saveEdit = async () => {
+  const saveEdit = () => mutate(async () => {
     if (!editingId || !editName.trim()) return;
     try {
       await tagApi.updateTag(editingId, { name: editName.trim(), color: editColor });
       cancelEdit(); await load(true); dispatch(loadTags());
     } catch (e: any) { xAlert('保存失败', e.message); }
-  };
+  });
 
   const deleteTag = (tag: Tag) => {
     const options: { text: string; action: () => void; destructive?: boolean }[] = [
-      { text: '仅删除标签', action: async () => {
+      { text: '仅删除标签，保留记录', action: () => mutate(async () => {
         try { await tagApi.deleteTag(tag.id, false); await load(true); dispatch(loadTags()); }
         catch (e: any) { xAlert('删除失败', e.message); }
-      }},
+      })},
     ];
     if (tag.bbtalkCount && tag.bbtalkCount > 0) {
       options.push({ text: '同时删除碎碎念', destructive: true, action: () => {
-        xConfirm('二次确认', `将永久删除「${tag.name}」及其关联的碎碎念，不可恢复！`, async () => {
+        xConfirm('删除标签和记录', `将永久删除「${tag.name}」及其关联的 ${tag.bbtalkCount} 条记录，不可恢复！`, () => mutate(async () => {
           try { await tagApi.deleteTag(tag.id, true); await load(true); dispatch(loadTags()); }
           catch (e: any) { xAlert('删除失败', e.message); }
-        }, undefined, { confirmText: '确认删除', destructive: true });
+        }), undefined, { confirmText: '确认删除', destructive: true });
       }});
     }
     xActionSheet(`删除「${tag.name}」？（关联 ${tag.bbtalkCount || 0} 条碎碎念）`, options, (index) => {
@@ -71,7 +82,7 @@ export default function TagManagementScreen() {
     });
   };
 
-  const moveTag = async (index: number, direction: 'up' | 'down') => {
+  const moveTag = (index: number, direction: 'up' | 'down') => mutate(async () => {
     const swapIdx = direction === 'up' ? index - 1 : index + 1;
     if (swapIdx < 0 || swapIdx >= tags.length) return;
     const newTags = [...tags];
@@ -80,8 +91,8 @@ export default function TagManagementScreen() {
     try {
       await tagApi.reorder(newTags.map((t, i) => ({ uid: t.id, sort_order: i })));
       dispatch(loadTags());
-    } catch {}
-  };
+    } catch (e: any) { setTags(tags); xAlert('排序失败', e.message || '顺序没有保存，请重试'); }
+  });
 
   if (loading) {
     return <View style={[styles.container, { backgroundColor: c.surfaceSecondary }]}><LoadingPlaceholder /></View>;
@@ -92,7 +103,11 @@ export default function TagManagementScreen() {
       contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 20 }}
       keyboardShouldPersistTaps="handled">
 
-      {tags.length === 0 && (
+      {!!error && <View style={{ marginBottom: 16 }}>
+        <Text accessibilityRole="alert" style={{ color: c.danger }}>{error}</Text>
+        <TouchableOpacity accessibilityRole="button" onPress={() => load()} style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: c.primary }}>重新加载</Text></TouchableOpacity>
+      </View>}
+      {!error && tags.length === 0 && (
         <EmptyState
           icon="pricetags-outline"
           iconColor={c.textTertiary}
@@ -108,22 +123,22 @@ export default function TagManagementScreen() {
               <View style={styles.editRow}>
                 <View style={[styles.colorDot, { backgroundColor: editColor }]} />
                 <TextInput style={[styles.editInput, { borderColor: c.border, color: c.text }]}
-                  value={editName} onChangeText={setEditName} autoFocus />
+                  value={editName} onChangeText={setEditName} autoFocus accessibilityLabel="标签名称" editable={!busy} />
               </View>
               <View style={styles.colorPicker}>
                 {PRESET_COLORS.map(color => (
-                  <TouchableOpacity key={color} onPress={() => setEditColor(color)}
+                  <TouchableOpacity key={color} onPress={() => setEditColor(color)} disabled={busy} accessibilityRole="button" accessibilityLabel={`标签颜色 ${color}`} accessibilityState={{ selected: editColor === color }}
                     style={[styles.colorOption, { backgroundColor: color }, editColor === color && styles.colorSelected]}>
                     {editColor === color && <Ionicons name="checkmark" size={14} color="#fff" />}
                   </TouchableOpacity>
                 ))}
               </View>
               <View style={styles.editActions}>
-                <TouchableOpacity style={[styles.editBtn, { backgroundColor: c.borderLight }]} onPress={cancelEdit}>
+                <TouchableOpacity disabled={busy} style={[styles.editBtn, { backgroundColor: c.borderLight }]} onPress={cancelEdit}>
                   <Text style={[styles.editBtnText, { color: c.textSecondary }]}>取消</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.editBtn, { backgroundColor: c.primary }]} onPress={saveEdit}>
-                  <Text style={[styles.editBtnText, { color: '#fff' }]}>保存</Text>
+                <TouchableOpacity disabled={busy || !editName.trim()} style={[styles.editBtn, { backgroundColor: c.primary, opacity: busy || !editName.trim() ? 0.5 : 1 }]} onPress={saveEdit}>
+                  <Text style={[styles.editBtnText, { color: '#fff' }]}>{busy ? '保存中…' : '保存'}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -131,21 +146,23 @@ export default function TagManagementScreen() {
             <View style={styles.tagRow}>
               <View style={styles.sortBtns}>
                 <TouchableOpacity onPress={() => moveTag(index, 'up')}
-                  style={[styles.sortBtn, { opacity: index === 0 ? 0.15 : 1 }]} hitSlop={{ top: 8, bottom: 4, left: 8, right: 8 }}>
+                  disabled={busy || index === 0} accessibilityRole="button" accessibilityLabel={`上移标签 ${tag.name}`}
+                  style={[styles.sortBtn, { opacity: index === 0 || busy ? 0.3 : 1 }]}>
                   <Ionicons name="chevron-up" size={18} color={c.textTertiary} />
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => moveTag(index, 'down')}
-                  style={[styles.sortBtn, { opacity: index === tags.length - 1 ? 0.15 : 1 }]} hitSlop={{ top: 4, bottom: 8, left: 8, right: 8 }}>
+                  disabled={busy || index === tags.length - 1} accessibilityRole="button" accessibilityLabel={`下移标签 ${tag.name}`}
+                  style={[styles.sortBtn, { opacity: index === tags.length - 1 || busy ? 0.3 : 1 }]}>
                   <Ionicons name="chevron-down" size={18} color={c.textTertiary} />
                 </TouchableOpacity>
               </View>
               <View style={[styles.colorDot, { backgroundColor: tag.color || '#3B82F6' }]} />
               <Text style={[styles.tagName, { color: c.text }]}>{tag.name}</Text>
               <Text style={[styles.tagCount, { color: c.textTertiary }]}>{tag.bbtalkCount || 0}</Text>
-              <TouchableOpacity onPress={() => startEdit(tag)} style={styles.tagAction} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}>
+              <TouchableOpacity disabled={busy} accessibilityRole="button" accessibilityLabel={`编辑标签 ${tag.name}`} onPress={() => startEdit(tag)} style={styles.tagAction}>
                 <Ionicons name="create-outline" size={18} color={c.textTertiary} />
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => deleteTag(tag)} style={styles.tagAction} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}>
+              <TouchableOpacity disabled={busy} accessibilityRole="button" accessibilityLabel={`删除标签 ${tag.name}`} onPress={() => deleteTag(tag)} style={styles.tagAction}>
                 <Ionicons name="trash-outline" size={18} color={c.danger} />
               </TouchableOpacity>
             </View>
@@ -164,17 +181,17 @@ const styles = StyleSheet.create({
   },
   tagRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   sortBtns: { alignItems: 'center', marginRight: 2 },
-  sortBtn: { padding: 1 },
+  sortBtn: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
   colorDot: { width: 12, height: 12, borderRadius: 6 },
   tagName: { flex: 1, fontSize: 15, fontWeight: '500' },
   tagCount: { fontSize: 13, marginRight: 4 },
-  tagAction: { padding: 4 },
+  tagAction: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
   editRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  editInput: { flex: 1, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, height: 38, fontSize: 15 },
+  editInput: { flex: 1, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, height: 44, fontSize: 16 },
   colorPicker: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
-  colorOption: { width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+  colorOption: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
   colorSelected: { borderWidth: 2, borderColor: '#fff', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.3, shadowRadius: 2, elevation: 3 },
   editActions: { flexDirection: 'row', gap: 8, marginTop: 12 },
-  editBtn: { flex: 1, borderRadius: 8, height: 36, justifyContent: 'center', alignItems: 'center' },
+  editBtn: { flex: 1, borderRadius: 8, height: 44, justifyContent: 'center', alignItems: 'center' },
   editBtnText: { fontSize: 14, fontWeight: '500' },
 });

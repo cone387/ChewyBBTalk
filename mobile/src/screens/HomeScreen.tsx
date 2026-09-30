@@ -1,4 +1,4 @@
-import { setHistoryLocked, onHistoryActivity } from '../services/historyPrivacy';
+import { setHistoryLocked, setHistoryPrivacyReady, onHistoryActivity } from '../services/historyPrivacy';
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
@@ -39,9 +39,9 @@ import { xAlert, xConfirm } from '../utils/crossAlert';
 
 if (Platform.OS === 'android') UIManager.setLayoutAnimationEnabledExperimental?.(true);
 
-interface Props { selectedTag: string | null; selectedDate: string | null; onOpenDrawer: () => void; onLockChange?: (locked: boolean) => void; onSelectTag?: (tagId: string | null) => void; }
+interface Props { selectedTag: string | null; selectedDate: string | null; onLockChange?: (locked: boolean) => void; onSelectTag?: (tagId: string | null) => void; }
 
-export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, onLockChange, onSelectTag }: Props) {
+export default function HomeScreen({ selectedTag, selectedDate, onLockChange, onSelectTag }: Props) {
   const navigation = useNavigation<any>();
   const dispatch = useAppDispatch();
   const insets = useSafeAreaInsets();
@@ -65,7 +65,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
   const [previewImages, setPreviewImages] = useState<string[]>([]);
   const [previewIndex, setPreviewIndex] = useState(0);
   const [voiceRecording, setVoiceRecording] = useState(false);
-  const [showTagTabs, setShowTagTabs] = useState(false);
+  const [showTagTabs, setShowTagTabs] = useState(true);
   const [commentTargetId, setCommentTargetId] = useState<string | null>(null);
   const [lastAddedComment, setLastAddedComment] = useState<{ bbtalkId: string; comment: Comment } | null>(null);
   const wasLoadingRef = useRef(false);
@@ -73,7 +73,10 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
   // --- Hooks ---
 
   const privacy = usePrivacyMode({ onLockChange, showError });
-  useEffect(() => { setHistoryLocked(!privacy.settingsReady || privacy.locked); }, [privacy.settingsReady, privacy.locked]);
+  useEffect(() => {
+    setHistoryLocked(!privacy.settingsReady || privacy.locked);
+    setHistoryPrivacyReady(privacy.settingsReady);
+  }, [privacy.settingsReady, privacy.locked]);
   useEffect(() => onHistoryActivity(privacy.resetPrivacyTimer), [privacy.resetPrivacyTimer]);
 
   useEffect(() => { if (privacy.locked) setVoiceRecording(false); }, [privacy.locked]);
@@ -189,13 +192,13 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
 
   useEffect(() => {
     AsyncStorage.getItem('search_history').then(v => { if (v) try { setSearchHistory(JSON.parse(v)); } catch (e) { logError(e, 'parse search history'); } });
-    AsyncStorage.getItem('show_tag_tabs').then(v => { if (v === 'true') setShowTagTabs(true); });
+    AsyncStorage.getItem('show_tag_tabs').then(v => { setShowTagTabs(v !== 'false'); });
   }, []);
 
   useEffect(() => {
     const unsub = navigation.addListener('focus', () => {
       privacy.resetPrivacyTimer(); privacy.loadPrivacySettings();
-      AsyncStorage.getItem('show_tag_tabs').then(v => setShowTagTabs(v === 'true'));
+      AsyncStorage.getItem('show_tag_tabs').then(v => setShowTagTabs(v !== 'false'));
     });
     return unsub;
   }, [navigation, privacy.resetPrivacyTimer, privacy.loadPrivacySettings]);
@@ -372,13 +375,13 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
         />
       ) : (
         <View style={[styles.header, { paddingTop: insets.top + 8, backgroundColor: c.background }]}>
-          <TouchableOpacity onPress={onOpenDrawer} style={styles.headerBtn} accessibilityRole="button" accessibilityLabel="打开菜单">
-            <Ionicons name="menu-outline" size={26} color={c.text} />
+          <TouchableOpacity onPress={() => setShowTagTabs(value => !value)} style={styles.headerBtn} accessibilityRole="button" accessibilityLabel="标签筛选" accessibilityState={{ expanded: showTagTabs }}>
+            <Ionicons name="options-outline" size={24} color={selectedTag ? c.primary : c.text} />
           </TouchableOpacity>
           {searchVisible ? (
             <SearchInput searchText={searchText} onSearchTextChange={setSearchText} onSubmit={saveSearchHistory} theme={theme} />
           ) : (
-            <View style={styles.headerCenter} />
+            <View style={[styles.headerCenter, { alignItems: 'center' }]}><Text style={{ fontSize: 22, fontWeight: '700', color: c.text }}>记录</Text></View>
           )}
           <TouchableOpacity onPress={() => {
             if (searchVisible) {
@@ -398,6 +401,16 @@ export default function HomeScreen({ selectedTag, selectedDate, onOpenDrawer, on
       <SearchBar visible={searchVisible} searchText={searchText} searchHistory={searchHistory}
         onSearchTextChange={setSearchText} onSubmit={saveSearchHistory} onClearHistory={clearSearchHistory}
         onHistoryItemPress={setSearchText} onClose={() => setSearchVisible(false)} theme={theme} />
+
+      {selectedDate && (
+        <TouchableOpacity onPress={() => handleSelectTag(null)} accessibilityRole="button"
+          accessibilityLabel={`清除日期筛选：${selectedDate}`}
+          style={{ minHeight: 44, marginHorizontal: 16, marginBottom: 8, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Ionicons name="calendar-outline" size={18} color={c.primary} />
+          <Text style={{ color: c.primary, flex: 1 }}>{selectedDate} 的记录</Text>
+          <Ionicons name="close-circle-outline" size={20} color={c.primary} />
+        </TouchableOpacity>
+      )}
 
       {showTagTabs && !searchVisible && tags.length > 0 && (
         <TagTabs tags={tags} selectedTag={selectedTag} selectedDate={selectedDate}

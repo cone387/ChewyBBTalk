@@ -20,10 +20,12 @@ export default function AboutScreen() {
     if (checking) return;
     setChecking(true);
     try {
-      await checkForUpdates();
-      xAlert('检查完成', '当前已是最新版本');
+      const result = await checkForUpdates(true);
+      if (result === 'current') xAlert('检查完成', '当前已是最新版本');
+      else if (result === 'error') xAlert('检查失败', '暂时无法获取版本信息，请检查网络后重试');
+      else if (result === 'unavailable') xAlert('暂时无法检查版本', '此版本无法自动确认商店更新，请前往应用下载渠道查看。');
     } catch {
-      xAlert('检查完成', '当前已是最新版本');
+      xAlert('检查失败', '暂时无法获取版本信息，请稍后重试');
     } finally {
       setChecking(false);
     }
@@ -57,7 +59,7 @@ export default function AboutScreen() {
       </TouchableOpacity>
 
       <TouchableOpacity style={[styles.actionCard, { backgroundColor: c.cardBg }]} activeOpacity={0.7}
-        onPress={() => Linking.openURL(`${getApiBaseUrl()}/privacy-policy/`)}>
+        onPress={() => Linking.openURL(`${getApiBaseUrl()}/privacy-policy/`).catch(() => xAlert('无法打开隐私政策', '请检查网络后重试'))}>
         <View style={styles.actionRow}>
           <View style={[styles.actionIcon, { backgroundColor: '#0EA5E9' }]}>
             <Ionicons name="shield-checkmark" size={20} color="#fff" />
@@ -74,7 +76,7 @@ export default function AboutScreen() {
         <View style={styles.actionRow}><Ionicons name="help-circle-outline" size={28} color={c.primary} /><View style={[styles.actionInfo, { marginLeft: 16 }]}><Text style={[styles.actionTitle, { color: c.text }]}>联系支持</Text><Text style={[styles.actionSub, { color: c.textSecondary }]}>账号问题、使用帮助与意见反馈</Text></View><Ionicons name="chevron-forward" size={18} color={c.textSecondary} /></View>
       </TouchableOpacity>
       <TouchableOpacity style={[styles.actionCard, { backgroundColor: c.cardBg }]} activeOpacity={0.7}
-        onPress={() => Linking.openURL('https://github.com/cone387/ChewyBBTalk')}>
+        onPress={() => Linking.openURL('https://github.com/cone387/ChewyBBTalk').catch(() => xAlert('无法打开仓库', '请检查网络后重试'))}>
         <View style={styles.actionRow}>
           <View style={[styles.actionIcon, { backgroundColor: '#1F2937' }]}>
             <Ionicons name="logo-github" size={20} color="#fff" />

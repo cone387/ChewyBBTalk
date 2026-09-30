@@ -508,6 +508,7 @@ ${latest.content}
       {editMode === 'edit' ? (
         <View style={[styles.editorArea, { backgroundColor: c.surface }]}>
           <TextInput ref={inputRef} style={[styles.textInput, { color: c.text }]}
+            accessibilityLabel="记录内容"
             placeholder="此刻，有什么想记下来的？" placeholderTextColor={c.textTertiary}
             editable={!submitting && draftReady} value={content} onChangeText={setContent} multiline textAlignVertical="top" autoFocus
             onSelectionChange={(e) => setCursorPos(e.nativeEvent.selection.start)}

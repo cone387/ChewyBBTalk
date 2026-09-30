@@ -1,6 +1,6 @@
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { Provider } from 'react-redux'
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState, useRef } from 'react'
 import { store } from './store'
 import { initAuth } from './services/auth'
 
@@ -25,6 +25,13 @@ interface AppProps {
 let authPromise: Promise<{ ready: boolean; authenticated: boolean; error: string | null }> | null = null;
 
 const PRIVACY_STATE_KEY = 'bbtalk_privacy_mode'
+
+function RouteViewport({ children }: { children: React.ReactNode }) {
+  const { pathname } = useLocation()
+  const viewport = useRef<HTMLDivElement>(null)
+  useEffect(() => { viewport.current?.scrollTo(0, 0) }, [pathname])
+  return <div ref={viewport} className="h-full overflow-y-auto" data-testid="route-viewport">{children}</div>
+}
 
 function RouteLoading() {
   return (
@@ -151,6 +158,7 @@ export default function App({ basename = '/' }: AppProps) {
         }}
       >
         <PrivacyModeChecker>
+          <RouteViewport>
           <Suspense fallback={<RouteLoading />}>
           <Routes>
             {/* 登录页面 */}
@@ -228,6 +236,7 @@ export default function App({ basename = '/' }: AppProps) {
             <Route path="/settings/status" element={isAuthenticated ? <StatusPage /> : <Navigate to="/login" replace />} />
           </Routes>
           </Suspense>
+          </RouteViewport>
         </PrivacyModeChecker>
       </BrowserRouter>
     </Provider>

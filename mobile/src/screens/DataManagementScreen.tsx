@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Paths, File as FSFile, Directory } from 'expo-file-system/next';
@@ -37,8 +37,8 @@ async function saveAndShare(blob: Blob, fileName: string, mimeType: string) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = fileName; a.click();
-    URL.revokeObjectURL(url);
-    return;
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    return '已开始下载，请在浏览器下载列表查看文件';
   }
 
   // 写文件
@@ -56,19 +56,24 @@ async function saveAndShare(blob: Blob, fileName: string, mimeType: string) {
 
   if (await Sharing.isAvailableAsync()) {
     await Sharing.shareAsync(file.uri, { mimeType, dialogTitle: '导出数据' });
+    return '文件已生成，请在分享面板中保存或发送';
   }
+  return `文件已保存至：${file.uri}`;
 }
 
 export default function DataManagementScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const c = theme.colors;
-  const [exporting, setExporting] = useState(false);
+  const [exporting, setExporting] = useState<'json' | 'zip' | null>(null);
   const [importing, setImporting] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const busyRef = useRef(false);
+  const busy = !!exporting || importing || clearing;
 
   const handleExport = async (format: 'json' | 'zip') => {
-    setExporting(true);
+    if (busyRef.current) return;
+    busyRef.current = true; setExporting(format);
     try {
       const token = await getAccessToken();
       const res = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/data/export/?export_format=${format}`, {
@@ -79,24 +84,26 @@ export default function DataManagementScreen() {
       const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
       const ext = format === 'zip' ? 'zip' : 'json';
       const mime = format === 'zip' ? 'application/zip' : 'application/json';
-      await saveAndShare(blob, `bbtalk_export_${ts}.${ext}`, mime);
-      xAlert('导出成功', '文件已准备好');
+      const message = await saveAndShare(blob, `bbtalk_export_${ts}.${ext}`, mime);
+      xAlert('导出文件已生成', message);
     } catch (e: any) { xAlert('导出失败', e.message); }
-    finally { setExporting(false); }
+    finally { busyRef.current = false; setExporting(null); }
   };
 
   const handleImport = async () => {
+    if (busyRef.current) return;
+    busyRef.current = true; setImporting(true);
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: ['application/json', 'application/zip', 'application/octet-stream', '*/*'],
       });
       if (result.canceled || !result.assets?.length) return;
       const picked = result.assets[0];
-      setImporting(true);
+      if (!/\.(json|zip)$/i.test(picked.name)) { xAlert('文件格式不支持', '请选择本应用导出的 JSON 或 ZIP 文件'); return; }
 
       let mimeType = picked.mimeType || 'application/octet-stream';
-      if (picked.name.endsWith('.json')) mimeType = 'application/json';
-      else if (picked.name.endsWith('.zip')) mimeType = 'application/zip';
+      if (picked.name.toLowerCase().endsWith('.json')) mimeType = 'application/json';
+      else if (picked.name.toLowerCase().endsWith('.zip')) mimeType = 'application/zip';
 
       const token = await getAccessToken();
 
@@ -108,6 +115,7 @@ export default function DataManagementScreen() {
         const res = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/data/import/`, {
           method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData,
         });
+        if (!res.ok) throw new Error(`导入失败，服务器返回 ${res.status}`);
         var data = await res.json();
       } else {
         // Native: 用 fetch + FormData，RN fetch 原生支持 file:// URI
@@ -118,6 +126,7 @@ export default function DataManagementScreen() {
           headers: { Authorization: `Bearer ${token}` },
           body: formData,
         });
+        if (!res.ok) throw new Error(`导入失败，服务器返回 ${res.status}`);
         var data = await res.json();
       }
       if (data.success) {
@@ -131,11 +140,13 @@ export default function DataManagementScreen() {
         xAlert('导入失败', data.error || '未知错误');
       }
     } catch (e: any) { xAlert('导入失败', e.message); }
-    finally { setImporting(false); }
+    finally { busyRef.current = false; setImporting(false); }
   };
 
   const handleClearCache = () => {
     xConfirm('清除离线缓存', '确定要清除所有离线缓存数据吗？', async () => {
+          if (busyRef.current) return;
+          busyRef.current = true;
           setClearing(true);
           try {
             await clearCache();
@@ -143,6 +154,7 @@ export default function DataManagementScreen() {
           } catch (e: any) {
             xAlert('清除失败', e.message);
           } finally {
+            busyRef.current = false;
             setClearing(false);
           }
     }, undefined, { confirmText: '确定', destructive: true });
@@ -156,11 +168,11 @@ export default function DataManagementScreen() {
           <View><Text style={[styles.headerTitle, { color: c.text }]}>导出数据</Text><Text style={[styles.headerSub, { color: c.textSecondary }]}>导出你的碎碎念和标签数据</Text></View>
         </View>
         <View style={styles.cardBody}>
-          <TouchableOpacity style={[styles.exportBtn, { borderColor: c.primary }]} onPress={() => handleExport('json')} disabled={exporting}>
-            {exporting ? <ActivityIndicator size="small" color={c.primary} /> : <><Ionicons name="document-text-outline" size={18} color={c.primary} /><Text style={[styles.exportBtnText, { color: c.primary }]}>导出 JSON</Text></>}
+          <TouchableOpacity style={[styles.exportBtn, { borderColor: c.primary, opacity: busy ? 0.5 : 1 }]} onPress={() => handleExport('json')} disabled={busy}>
+            {exporting === 'json' ? <ActivityIndicator size="small" color={c.primary} /> : <><Ionicons name="document-text-outline" size={18} color={c.primary} /><Text style={[styles.exportBtnText, { color: c.primary }]}>导出 JSON（不含附件文件）</Text></>}
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.exportBtn, { borderColor: c.primary }]} onPress={() => handleExport('zip')} disabled={exporting}>
-            {exporting ? <ActivityIndicator size="small" color={c.primary} /> : <><Ionicons name="archive-outline" size={18} color={c.primary} /><Text style={[styles.exportBtnText, { color: c.primary }]}>导出 ZIP（含附件）</Text></>}
+          <TouchableOpacity style={[styles.exportBtn, { borderColor: c.primary, opacity: busy ? 0.5 : 1 }]} onPress={() => handleExport('zip')} disabled={busy}>
+            {exporting === 'zip' ? <ActivityIndicator size="small" color={c.primary} /> : <><Ionicons name="archive-outline" size={18} color={c.primary} /><Text style={[styles.exportBtnText, { color: c.primary }]}>导出 ZIP（含附件）</Text></>}
           </TouchableOpacity>
         </View>
       </View>
@@ -171,7 +183,7 @@ export default function DataManagementScreen() {
           <View><Text style={[styles.headerTitle, { color: c.text }]}>导入数据</Text><Text style={[styles.headerSub, { color: c.textSecondary }]}>从 JSON 或 ZIP 文件导入数据</Text></View>
         </View>
         <View style={styles.cardBody}>
-          <TouchableOpacity style={[styles.exportBtn, { borderColor: '#EA580C' }]} onPress={handleImport} disabled={importing}>
+          <TouchableOpacity style={[styles.exportBtn, { borderColor: '#EA580C', opacity: busy ? 0.5 : 1 }]} onPress={handleImport} disabled={busy}>
             {importing ? <ActivityIndicator size="small" color="#EA580C" /> : <><Ionicons name="push-outline" size={18} color="#EA580C" /><Text style={[styles.exportBtnText, { color: '#EA580C' }]}>选择文件导入</Text></>}
           </TouchableOpacity>
         </View>
@@ -183,7 +195,7 @@ export default function DataManagementScreen() {
           <View><Text style={[styles.headerTitle, { color: c.text }]}>离线缓存</Text><Text style={[styles.headerSub, { color: c.textSecondary }]}>清除本地缓存的碎碎念数据</Text></View>
         </View>
         <View style={styles.cardBody}>
-          <TouchableOpacity style={[styles.exportBtn, { borderColor: '#DC2626' }]} onPress={handleClearCache} disabled={clearing}>
+          <TouchableOpacity style={[styles.exportBtn, { borderColor: '#DC2626', opacity: busy ? 0.5 : 1 }]} onPress={handleClearCache} disabled={busy}>
             {clearing ? <ActivityIndicator size="small" color="#DC2626" /> : <><Ionicons name="trash-bin-outline" size={18} color="#DC2626" /><Text style={[styles.exportBtnText, { color: '#DC2626' }]}>清除离线缓存</Text></>}
           </TouchableOpacity>
         </View>

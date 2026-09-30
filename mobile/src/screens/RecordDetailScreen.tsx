@@ -27,7 +27,7 @@ export default function RecordDetailScreen() {
   const insets = useSafeAreaInsets();
   const [imageIndex, setImageIndex] = useState<number | null>(null);
   if (locked) return <View style={{ flex: 1, padding: 24, backgroundColor: c.background, justifyContent: 'center', alignItems: 'center' }}><Ionicons name="lock-closed-outline" size={36} color={c.primary} /><Text style={{ color: c.text, marginVertical: 16 }}>记录已锁定</Text><TouchableOpacity accessibilityRole="button" onPress={() => navigation.popToTop()} style={{ minHeight: 48, justifyContent: 'center' }}><Text style={{ color: c.primary }}>返回首页解锁</Text></TouchableOpacity></View>;
-  if (!item) return <View style={{ flex: 1, padding: 24, backgroundColor: c.background }}><Text style={{ color: c.text }}>请从首页打开一条记录。</Text></View>;
+  if (!item) return <View style={{ flex: 1, padding: 24, backgroundColor: c.background, justifyContent: 'center', alignItems: 'center' }}><Text style={{ color: c.text }}>请从记录列表选择一条记录。</Text><TouchableOpacity accessibilityRole="button" onPress={() => navigation.navigate('Home', { screen: 'Records' })} style={{ minHeight: 48, justifyContent: 'center' }}><Text style={{ color: c.primary }}>查看记录</Text></TouchableOpacity></View>;
   const images = item.attachments.filter(a => a.type === 'image');
   return <View style={{ flex: 1, backgroundColor: c.background }}>
     <ScrollView onTouchStart={recordHistoryActivity} onScrollBeginDrag={recordHistoryActivity} contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 32, maxWidth: 760, width: '100%', alignSelf: 'center' }}>

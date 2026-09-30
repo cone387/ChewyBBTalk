@@ -12,13 +12,17 @@ export default function AudioPlayScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const c = theme.colors;
-  const { url, name } = route.params as { url: string; name: string };
+  const { url, name = '音频' } = (route.params || {}) as { url?: string; name?: string };
 
   const [localUri, setLocalUri] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
 
   // Download file first on native (AVPlayer needs Range support which our server lacks)
   useEffect(() => {
+    setError(null);
+    setLocalUri(null);
+    if (!url) { setError('请从记录中选择一段音频播放'); return; }
     if (Platform.OS === 'web') {
       setLocalUri(url);
       return;
@@ -29,13 +33,14 @@ export default function AudioPlayScreen() {
         const ext = name.split('.').pop() || 'm4a';
         const dest = FileSystem.cacheDirectory + `audio_${Date.now()}.${ext}`;
         const result = await FileSystem.downloadAsync(url, dest);
+        if (result.status < 200 || result.status >= 300) throw new Error('音频下载失败，请重试');
         if (!cancelled) setLocalUri(result.uri);
       } catch (e: any) {
         if (!cancelled) setError(e.message || '下载失败');
       }
     })();
     return () => { cancelled = true; };
-  }, [url]);
+  }, [url, name, attempt]);
 
   if (error) {
     return (
@@ -43,6 +48,9 @@ export default function AudioPlayScreen() {
         <View style={styles.content}>
           <Ionicons name="alert-circle" size={48} color={c.danger} />
           <Text style={[styles.name, { color: c.danger, marginTop: 16 }]}>{error}</Text>
+          {!!url && <TouchableOpacity accessibilityRole="button" onPress={() => setAttempt(v => v + 1)} style={{ padding: 14 }}>
+            <Text style={{ color: c.primary }}>重新加载</Text>
+          </TouchableOpacity>}
         </View>
       </View>
     );
@@ -109,7 +117,8 @@ function AudioPlayerUI({ uri, name }: { uri: string; name: string }) {
           <Text style={[styles.time, { color: c.textTertiary }]}>{formatTime(status.duration || 0)}</Text>
         </View>
 
-        <TouchableOpacity style={[styles.playBtn, { backgroundColor: c.primary }]} onPress={toggle} activeOpacity={0.8}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={status.playing ? '暂停音频' : '播放音频'} disabled={!status.isLoaded}
+          style={[styles.playBtn, { backgroundColor: c.primary, opacity: status.isLoaded ? 1 : 0.4 }]} onPress={toggle} activeOpacity={0.8}>
           <Ionicons name={status.playing ? 'pause' : 'play'} size={36} color="#fff" />
         </TouchableOpacity>
 

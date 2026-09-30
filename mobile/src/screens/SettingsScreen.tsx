@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Switch, Linking, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -9,7 +9,7 @@ import { getCurrentUser, logout } from '../services/auth';
 import { useTheme } from '../theme/ThemeContext';
 import { getApiBaseUrl } from '../config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { xConfirm } from '../utils/crossAlert';
+import { xConfirm, xAlert } from '../utils/crossAlert';
 
 interface Props { onLogout: () => void; }
 
@@ -32,8 +32,9 @@ const SECTIONS: MenuSection[] = [
   {
     title: '个性化',
     items: [
+      { key: 'tags', title: '标签管理', subtitle: '整理标签、调整顺序与颜色', icon: 'pricetags-outline', bgColor: '#6366F1' },
       { key: 'theme', title: '外观', subtitle: '跟随系统、浅色与深色', icon: 'color-palette', bgColor: '#8B5CF6' },
-      { key: 'tagTabs', title: '首页标签栏', subtitle: '在首页顶部显示标签快捷切换', icon: 'pricetags', bgColor: '#6366F1', type: 'switch' },
+      { key: 'tagTabs', title: '记录页标签栏', subtitle: '在记录页顶部显示标签快捷切换', icon: 'pricetags', bgColor: '#6366F1', type: 'switch' },
     ],
   },
   {
@@ -61,6 +62,7 @@ const ROUTES: Record<string, string> = {
   account: 'AccountSecurity',
   advanced: 'AdvancedSettings',
   theme: 'ThemeSettings',
+  tags: 'TagManagement',
   privacy: 'PrivacySettings',
   storage: 'StorageSettings',
   data: 'DataManagement',
@@ -74,7 +76,16 @@ export default function SettingsScreen({ onLogout }: Props) {
   const navigation = useNavigation<any>();
   const { theme } = useTheme();
   const c = theme.colors;
-  const [showTagTabs, setShowTagTabs] = useState(false);
+  const [showTagTabs, setShowTagTabs] = useState(true);
+  const [savingTags, setSavingTags] = useState(true);
+  const savingTagsRef = useRef(false);
+  const saveTagTabs = async (value: boolean) => {
+    if (savingTagsRef.current) return;
+    savingTagsRef.current = true; setSavingTags(true);
+    try { await AsyncStorage.setItem('show_tag_tabs', String(value)); setShowTagTabs(value); }
+    catch { xAlert('保存失败', '标签栏设置未生效，请重试'); }
+    finally { savingTagsRef.current = false; setSavingTags(false); }
+  };
 
   // 页面获得焦点时刷新用户信息（从 ProfileEdit 返回后头像等即时更新）
   useFocusEffect(useCallback(() => {
@@ -82,7 +93,7 @@ export default function SettingsScreen({ onLogout }: Props) {
   }, []));
 
   useEffect(() => {
-    AsyncStorage.getItem('show_tag_tabs').then(v => setShowTagTabs(v === 'true'));
+    AsyncStorage.getItem('show_tag_tabs').then(v => setShowTagTabs(v !== 'false')).catch(() => xAlert('读取设置失败', '请稍后重试')).finally(() => setSavingTags(false));
   }, []);
 
   const handleLogout = () => {
@@ -115,10 +126,11 @@ export default function SettingsScreen({ onLogout }: Props) {
         {isSwitch ? (
           <Switch
             value={showTagTabs}
-            onValueChange={(v) => { setShowTagTabs(v); AsyncStorage.setItem('show_tag_tabs', v ? 'true' : 'false'); }}
+            onValueChange={saveTagTabs}
+            disabled={savingTags}
             trackColor={{ false: c.border, true: c.primary }}
             thumbColor="#fff"
-            accessibilityLabel="显示首页标签栏"
+            accessibilityLabel="显示记录页标签栏"
           />
         ) : (
           <Ionicons name="chevron-forward" size={18} color={c.textTertiary} />
@@ -139,10 +151,11 @@ export default function SettingsScreen({ onLogout }: Props) {
 
   return (
     <View style={[styles.container, { backgroundColor: c.surfaceSecondary }]}>
-      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 80 }]}>
+      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 24 }]}>
         {/* 用户信息卡 */}
         {currentUser && (
           <TouchableOpacity
+            accessibilityRole="button" accessibilityLabel="编辑个人信息"
             style={[styles.userCard, { backgroundColor: c.cardBg }]}
             activeOpacity={0.7}
             onPress={() => navigation.navigate('ProfileEdit')}
@@ -179,14 +192,13 @@ export default function SettingsScreen({ onLogout }: Props) {
             </View>
           </View>
         ))}
-      </ScrollView>
-
-      <View style={[styles.logoutBar, { paddingBottom: insets.bottom + 12, backgroundColor: c.surfaceSecondary }]}>
-        <TouchableOpacity style={[styles.logoutBtn, { backgroundColor: c.dangerBg }]} onPress={handleLogout} activeOpacity={0.7}>
+      <View style={styles.logoutBar}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="退出登录" style={[styles.logoutBtn, { backgroundColor: c.cardBg }]} onPress={handleLogout} activeOpacity={0.7}>
           <Ionicons name="log-out-outline" size={18} color={c.danger} />
           <Text style={[styles.logoutText, { color: c.danger }]}>退出登录</Text>
         </TouchableOpacity>
       </View>
+      </ScrollView>
     </View>
   );
 }
@@ -215,7 +227,7 @@ const styles = StyleSheet.create({
   menuInfo: { flex: 1 },
   menuTitle: { fontSize: 15, fontWeight: '600' },
   menuSubtitle: { fontSize: 12, marginTop: 2 },
-  logoutBar: { paddingHorizontal: 16, paddingTop: 8 },
+  logoutBar: { marginTop: 24 },
   logoutBtn: {
     flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6,
     borderRadius: 14, paddingVertical: 14,

@@ -22,7 +22,7 @@ jest.mock('../src/services/api/mediaApi', () => ({ attachmentApi: {} }));
 jest.mock('../src/hooks/usePrivacyMode', () => ({ usePrivacyMode: () => mockPrivacy }));
 jest.mock('../src/hooks/useOfflineCache', () => ({ useOfflineCache: () => mockCache }));
 jest.mock('../src/hooks/useBatchMode', () => ({ useBatchMode: () => mockBatch }));
-jest.mock('../src/hooks/useTagSwipe', () => ({ useTagSwipe: () => ({}) }));
+jest.mock('../src/hooks/useTagSwipe', () => ({ useTagSwipe: () => ({ listSlideAnim: 0, panResponder: { panHandlers: {} } }) }));
 jest.mock('../src/hooks/useBBTalkActions', () => ({ useBBTalkActions: () => ({}) }));
 jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Icon' }));
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) }));
@@ -47,7 +47,7 @@ const tag = { id: 'tag-1', name: '工作', color: '#123456', sortOrder: 0, bbtal
 function result(content: string) { return { count: 1, next: null, results: [{ uid: 'record', content, tags: [], attachments: [] }] }; }
 function mount() {
   const store = configureStore({ reducer: { bbtalk: bbtalkReducer, tag: tagReducer }, preloadedState: { tag: { tags: [tag], isLoading: false, error: null } } });
-  const tree = () => <Provider store={store}><HomeScreen selectedTag="tag-1" selectedDate="2026-09-07" onOpenDrawer={() => {}} /></Provider>;
+  const tree = () => <Provider store={store}><HomeScreen selectedTag="tag-1" selectedDate="2026-09-07" /></Provider>;
   return { ...render(tree()), tree };
 }
 beforeEach(async () => {

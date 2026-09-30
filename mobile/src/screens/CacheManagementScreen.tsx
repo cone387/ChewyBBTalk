@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -28,28 +28,24 @@ async function scanCacheDir(): Promise<CacheInfo> {
   const cacheDir = FileSystem.cacheDirectory;
   if (!cacheDir) return info;
 
-  try {
-    const files = await FileSystem.readDirectoryAsync(cacheDir);
-    for (const file of files) {
-      // Only count our own cached files
-      if (!file.startsWith('audio_') && !file.startsWith('video_') && !file.startsWith('voice_')) continue;
-      try {
-        const fInfo = await FileSystem.getInfoAsync(cacheDir + file);
-        if (fInfo.exists && !fInfo.isDirectory && fInfo.size) {
-          info.fileCount++;
-          info.total += fInfo.size;
-          const ext = file.split('.').pop()?.toLowerCase() || '';
-          if (['m4a', 'mp3', 'aac', 'wav', 'ogg', 'webm', '3gp', 'flac'].includes(ext)) {
-            info.audio += fInfo.size;
-          } else if (['mp4', 'mov', 'avi', 'mkv'].includes(ext)) {
-            info.video += fInfo.size;
-          } else {
-            info.other += fInfo.size;
-          }
-        }
-      } catch {}
+  const files = await FileSystem.readDirectoryAsync(cacheDir);
+  for (const file of files) {
+    // Only count our own cached files
+    if (!file.startsWith('audio_') && !file.startsWith('video_')) continue;
+    const fInfo = await FileSystem.getInfoAsync(cacheDir + file);
+    if (fInfo.exists && !fInfo.isDirectory && fInfo.size) {
+      info.fileCount++;
+      info.total += fInfo.size;
+      const ext = file.split('.').pop()?.toLowerCase() || '';
+      if (['m4a', 'mp3', 'aac', 'wav', 'ogg', 'webm', '3gp', 'flac'].includes(ext)) {
+        info.audio += fInfo.size;
+      } else if (['mp4', 'mov', 'avi', 'mkv'].includes(ext)) {
+        info.video += fInfo.size;
+      } else {
+        info.other += fInfo.size;
+      }
     }
-  } catch {}
+  }
   return info;
 }
 
@@ -60,23 +56,28 @@ export default function CacheManagementScreen() {
   const [cacheInfo, setCacheInfo] = useState<CacheInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [clearing, setClearing] = useState(false);
+  const [error, setError] = useState('');
+  const clearingRef = useRef(false);
 
   const loadCache = useCallback(async () => {
     setLoading(true);
-    const info = await scanCacheDir();
-    setCacheInfo(info);
-    setLoading(false);
+    setError('');
+    try { setCacheInfo(await scanCacheDir()); }
+    catch (e: any) { setError(e.message || '无法读取缓存大小，请重试'); }
+    finally { setLoading(false); }
   }, []);
 
   useFocusEffect(useCallback(() => { loadCache(); }, []));
 
   // Only delete our own cached media files, not Expo system caches
   const isOurCacheFile = (name: string) => {
-    return name.startsWith('audio_') || name.startsWith('video_') || name.startsWith('voice_');
+    return name.startsWith('audio_') || name.startsWith('video_');
   };
 
   const clearCache = () => {
     xConfirm('清理缓存', '将删除所有已下载的音频、视频缓存，不会影响服务器上的数据。', async () => {
+        if (clearingRef.current) return;
+        clearingRef.current = true;
         setClearing(true);
         try {
           const cacheDir = FileSystem.cacheDirectory;
@@ -84,7 +85,7 @@ export default function CacheManagementScreen() {
             const files = await FileSystem.readDirectoryAsync(cacheDir);
             for (const file of files) {
               if (isOurCacheFile(file)) {
-                try { await FileSystem.deleteAsync(cacheDir + file, { idempotent: true }); } catch {}
+                await FileSystem.deleteAsync(cacheDir + file, { idempotent: true });
               }
             }
           }
@@ -92,7 +93,9 @@ export default function CacheManagementScreen() {
           xAlert('完成', '缓存已清理');
         } catch (e: any) {
           xAlert('清理失败', e.message);
+          await loadCache();
         } finally {
+          clearingRef.current = false;
           setClearing(false);
         }
     }, undefined, { confirmText: '清理', destructive: true });
@@ -112,6 +115,9 @@ export default function CacheManagementScreen() {
       <View style={[styles.totalCard, { backgroundColor: c.cardBg }]}>
         {loading ? (
           <ActivityIndicator size="large" color={c.primary} />
+        ) : error ? (
+          <><Text accessibilityRole="alert" style={{ color: c.danger }}>{error}</Text>
+            <TouchableOpacity accessibilityRole="button" onPress={loadCache} style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: c.primary }}>重新读取</Text></TouchableOpacity></>
         ) : (
           <>
             <Text style={[styles.totalSize, { color: c.text }]}>{formatSize(cacheInfo?.total || 0)}</Text>
@@ -134,7 +140,7 @@ export default function CacheManagementScreen() {
       ))}
 
       {/* Clear button */}
-      {!loading && (cacheInfo?.total || 0) > 0 && (
+      {!loading && !error && (cacheInfo?.total || 0) > 0 && (
         <TouchableOpacity
           style={[styles.clearBtn, { backgroundColor: c.dangerBg }]}
           onPress={clearCache}
@@ -153,7 +159,7 @@ export default function CacheManagementScreen() {
       )}
 
       <Text style={[styles.hint, { color: c.textTertiary }]}>
-        缓存包括已下载的音频、视频等媒体文件，清理后再次播放时会重新下载
+        仅清理已下载的音频、视频缓存，草稿和待发布的录音会保留。再次播放时会重新下载。
       </Text>
     </ScrollView>
   );

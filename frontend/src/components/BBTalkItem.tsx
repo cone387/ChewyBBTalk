@@ -5,6 +5,7 @@ import MarkdownRenderer from './MarkdownRenderer'
 import CachedImage from './CachedImage'
 import { AttachmentVideo, AttachmentDownload } from './AuthenticatedMedia'
 import { useActionFeedback } from '../hooks/useActionFeedback'
+import { useHref } from 'react-router-dom'
 
 // 内联评论按钮与列表组件
 function InlineCommentSection({
@@ -12,11 +13,13 @@ function InlineCommentSection({
   commentCount: initialCount,
   inputVisible,
   onToggleInput,
+  onCountChange,
 }: {
   bbtalkId: string
   commentCount: number
   inputVisible: boolean
   onToggleInput: () => void
+  onCountChange: (count: number) => void
 }) {
   const feedback = useActionFeedback()
   const [comments, setComments] = useState<Comment[]>([])
@@ -26,8 +29,10 @@ function InlineCommentSection({
   const [newComment, setNewComment] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const sendingRef = useRef(false)
+  const attemptedFor = useRef<string | null>(null)
   const commentValueRef = useRef(newComment)
   commentValueRef.current = newComment
+  useEffect(() => { if (loaded) onCountChange(comments.length) }, [loaded, comments, onCountChange])
 
   const loadComments = useCallback(async () => {
     setLoading(true)
@@ -41,7 +46,8 @@ function InlineCommentSection({
   }, [bbtalkId])
 
   useEffect(() => {
-    if (initialCount > 0 && !loaded && !loading) {
+    if (initialCount > 0 && !loaded && !loading && attemptedFor.current !== bbtalkId) {
+      attemptedFor.current = bbtalkId
       void loadComments().catch(() => feedback.report('评论加载失败', loadComments))
     }
   }, [bbtalkId, initialCount, loaded, loading, loadComments, feedback])
@@ -197,7 +203,11 @@ const BBTalkItem: React.FC<BBTalkItemProps> = React.memo(function BBTalkItem({
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [commentInputVisible, setCommentInputVisible] = useState(false)
+  const [commentCount, setCommentCount] = useState(bbtalk.commentCount ?? 0)
+  useEffect(() => { setCommentCount(bbtalk.commentCount ?? 0) }, [bbtalk.id, bbtalk.commentCount])
   const menuRef = useRef<HTMLDivElement>(null)
+  const shareFeedback = useActionFeedback()
+  const detailPath = useHref(`/detail/${bbtalk.id}`)
 
   // 点击外部关闭更多菜单
   useEffect(() => {
@@ -255,13 +265,14 @@ const BBTalkItem: React.FC<BBTalkItemProps> = React.memo(function BBTalkItem({
   const location = getLocation()
 
   // 复制分享链接（统一为 /detail/:id）
-  const handleCopyLink = () => {
-    const shareUrl = `${window.location.origin}/detail/${bbtalk.id}`
-    navigator.clipboard.writeText(shareUrl).then(() => {
-      onShareSuccess?.(bbtalk.id)
-      setMenuOpen(false)
-    })
+  const copyLink = async () => {
+    const shareUrl = new URL(detailPath, window.location.origin).href
+    if (!navigator.clipboard) throw new Error('浏览器暂不支持复制，请打开记录详情后复制地址栏中的链接')
+    await navigator.clipboard.writeText(shareUrl)
+    onShareSuccess?.(bbtalk.id)
+    setMenuOpen(false)
   }
+  const handleCopyLink = () => { void copyLink().catch(() => shareFeedback.report('复制失败，请检查浏览器剪贴板权限后重试', copyLink)) }
 
   // 区分附件类型
   const isImageAttachment = (attachment: Attachment) => {
@@ -316,6 +327,7 @@ const BBTalkItem: React.FC<BBTalkItemProps> = React.memo(function BBTalkItem({
 
   return (
     <div data-record-id={bbtalk.id} className="feed-surface bg-white rounded-2xl relative bbtalk-item group">
+      {shareFeedback.feedback}
       <div className="p-6">
         {/* 右上角更多操作菜单 */}
         <div className="absolute top-4 right-4" ref={menuOpen ? menuRef : null}>
@@ -551,14 +563,15 @@ const BBTalkItem: React.FC<BBTalkItemProps> = React.memo(function BBTalkItem({
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
             </svg>
-            {(bbtalk as any).commentCount > 0 && <span>{(bbtalk as any).commentCount}</span>}
+            {commentCount > 0 && <span>{commentCount}</span>}
           </button>
         </div>
 
         {/* 内联评论列表与输入框 */}
         <InlineCommentSection
           bbtalkId={bbtalk.id}
-          commentCount={(bbtalk as any).commentCount ?? 0}
+          commentCount={commentCount}
+          onCountChange={setCommentCount}
           inputVisible={commentInputVisible}
           onToggleInput={() => setCommentInputVisible(false)}
         />

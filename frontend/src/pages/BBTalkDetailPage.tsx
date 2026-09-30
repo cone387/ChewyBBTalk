@@ -15,8 +15,10 @@ export default function BBTalkDetailPage() {
   const [previewImage, setPreviewImage] = useState<{ src: string; alt: string } | null>(null)
   const [copyTip, setCopyTip] = useState(false)
   const currentUser = getCurrentUser()
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
+    let active = true
     const loadBBTalk = async () => {
       if (!id) {
         setError('无效的 BBTalk ID')
@@ -32,23 +34,25 @@ export default function BBTalkDetailPage() {
         if (currentUser) {
           try {
             data = await bbtalkApi.getBBTalk(id)
-          } catch {
+          } catch (error: any) {
+            if (![401, 403, 404].includes(error.status)) throw error
             data = await bbtalkApi.getPublicBBTalk(id)
           }
         } else {
           data = await bbtalkApi.getPublicBBTalk(id)
         }
-        setBBTalk(data)
+        if (active) setBBTalk(data)
       } catch (err: any) {
         console.error('加载 BBTalk 失败:', err)
-        setError(err.message || '加载失败')
+        if (active) setError(err.message || '加载失败，请检查网络后重试')
       } finally {
-        setIsLoading(false)
+        if (active) setIsLoading(false)
       }
     }
 
     loadBBTalk()
-  }, [id, currentUser])
+    return () => { active = false }
+  }, [id, currentUser, attempt])
 
   if (isLoading) {
     return (
@@ -70,9 +74,10 @@ export default function BBTalkDetailPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
           </div>
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">BBTalk 不存在或无访问权限</h2>
-          <p className="text-gray-500 text-sm mb-6">该记录可能已被删除、设为私密或需要登录查看</p>
+          <h2 className="text-xl font-semibold text-gray-800 mb-2">暂时无法打开记录</h2>
+          <p role="alert" className="text-gray-500 text-sm mb-6">{error || '该记录可能已被删除、设为私密或需要登录查看'}</p>
           <div className="flex gap-3 justify-center">
+            <button onClick={() => setAttempt(v => v + 1)} className="min-h-[44px] px-4 text-sm text-blue-700 rounded-xl bg-blue-50">重新加载</button>
             <Link
               to={currentUser ? '/' : '/public'}
               className="px-4 py-2 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
