@@ -1,0 +1,35 @@
+{
+  "mobile": {
+    "report": "mobile/coverage/unit/coverage-summary.json",
+    "minimum": { "lines": 33, "branches": 24 },
+    "files": {
+      "services/api/apiClient.ts": { "lines": 99, "branches": 95 },
+      "hooks/useDraftAutosave.ts": { "lines": 99, "branches": 90 },
+      "services/historyPrivacy.ts": { "lines": 99, "branches": 99 }
+    }
+  },
+  "frontend": {
+    "report": "frontend/coverage/coverage-summary.json",
+    "minimum": { "lines": 22, "branches": 79 },
+    "files": {
+      "services/api/apiClient.ts": { "lines": 99, "branches": 99 },
+      "services/auth.ts": { "lines": 80, "branches": 75 }
+    }
+  },
+  "desktop": {
+    "report": "desktop/coverage/coverage-summary.json",
+    "minimum": { "lines": 23, "branches": 73 },
+    "files": {
+      "main/uploads.ts": { "lines": 99, "branches": 85 },
+      "main/submissions.ts": { "lines": 95, "branches": 80 }
+    }
+  },
+  "backend": {
+    "report": "backend/coverage/coverage.json",
+    "minimum": { "lines": 80, "branches": 64 },
+    "files": {
+      "bbtalk/data_import.py": { "lines": 90, "branches": 80 },
+      "bbtalk/storage_migration.py": { "lines": 90, "branches": 65 }
+    }
+  }
+}

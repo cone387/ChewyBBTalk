@@ -4,7 +4,7 @@ module.exports = {
     '^.+\\.(ts|tsx)$': ['babel-jest', {
       configFile: './babel.config.js',
       // Resolve lazy imports through Jest so native module mocks also cover OTA/auth flows.
-      plugins: ['@babel/plugin-transform-dynamic-import'],
+      plugins: ['@babel/plugin-transform-modules-commonjs', '@babel/plugin-transform-dynamic-import'],
     }],
   },
   transformIgnorePatterns: [
@@ -14,4 +14,7 @@ module.exports = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
+  collectCoverageFrom: ['src/**/*.{ts,tsx}', '!src/**/*.d.ts'],
+  coverageDirectory: 'coverage/unit',
+  coverageReporters: ['text-summary', 'json-summary', 'json', 'lcov', 'html'],
 };

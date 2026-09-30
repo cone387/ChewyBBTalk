@@ -37,7 +37,28 @@ jobs:
         run: uv sync --frozen
 
       - name: Run Django tests
-        run: uv run python chewy_space/manage.py test bbtalk
+        run: |
+          uv run coverage run chewy_space/manage.py test bbtalk
+          uv run coverage json
+          uv run coverage xml
+          uv run coverage html
+          uv run coverage report
+
+      - name: Set up Node for coverage gate
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Check backend coverage baseline
+        run: node ../scripts/check-coverage.mjs backend
+
+      - name: Upload backend coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-backend
+          path: backend/coverage/
+          retention-days: 14
 
   mobile:
     name: Mobile tests and types
@@ -60,7 +81,18 @@ jobs:
         run: npm ci
 
       - name: Run Jest tests
-        run: npm test -- --runInBand --silent
+        run: npm run test:coverage
+
+      - name: Check mobile coverage baseline
+        run: node ../scripts/check-coverage.mjs mobile
+
+      - name: Upload mobile coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-mobile
+          path: mobile/coverage/
+          retention-days: 14
 
       - name: Mobile screen integration
         run: npm run test:integration
@@ -89,7 +121,18 @@ jobs:
         run: npm ci
 
       - name: Run Vitest tests
-        run: npm test -- --run
+        run: npm run test:coverage
+
+      - name: Check desktop coverage baseline
+        run: node ../scripts/check-coverage.mjs desktop
+
+      - name: Upload desktop coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-desktop
+          path: desktop/coverage/
+          retention-days: 14
 
       - name: Typecheck
         run: npm run typecheck
@@ -118,7 +161,18 @@ jobs:
         run: npm ci
 
       - name: Web regression tests
-        run: npm test
+        run: npm run test:coverage
+
+      - name: Check Web coverage baseline
+        run: node ../scripts/check-coverage.mjs frontend
+
+      - name: Upload Web coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-web
+          path: frontend/coverage/
+          retention-days: 14
 
       - name: Lint Web client
         run: npm run lint

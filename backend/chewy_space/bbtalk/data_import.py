@@ -286,15 +286,16 @@ class DataImporter:
         """导入评论并关联到本次导入的 BBTalk。"""
         for comment_data in comments_data:
             try:
-                bbtalk_uid = str(comment_data.get('bbtalk_uid') or '')
-                bbtalk = self.uid_mapping.get(bbtalk_uid)
-                content = str(comment_data.get('content') or '').strip()
-                if not bbtalk or not content:
-                    self.stats['comments_skipped'] += 1
-                    continue
-                comment = Comment.objects.create(user=self.user, bbtalk=bbtalk, content=content)
-                restore_timestamps(comment, comment_data)
-                self.stats['comments_created'] += 1
+                with transaction.atomic():
+                    bbtalk_uid = str(comment_data.get('bbtalk_uid') or '')
+                    bbtalk = self.uid_mapping.get(bbtalk_uid)
+                    content = str(comment_data.get('content') or '').strip()
+                    if not bbtalk or not content:
+                        self.stats['comments_skipped'] += 1
+                        continue
+                    comment = Comment.objects.create(user=self.user, bbtalk=bbtalk, content=content)
+                    restore_timestamps(comment, comment_data)
+                    self.stats['comments_created'] += 1
             except Exception as e:
                 error_msg = f"导入评论失败: {e}"
                 logger.error(error_msg)
@@ -317,35 +318,36 @@ class DataImporter:
         """导入标签"""
         for tag_data in tags_data:
             try:
-                old_uid = tag_data['uid']
-                name = tag_data['name']
+                with transaction.atomic():
+                    old_uid = tag_data['uid']
+                    name = tag_data['name']
                 
-                # 检查是否已存在同名标签
-                existing_tag = Tag.objects.filter(user=self.user, name=name).first()
+                    # 检查是否已存在同名标签
+                    existing_tag = Tag.objects.filter(user=self.user, name=name).first()
                 
-                if existing_tag:
-                    if self.options.get('overwrite_tags'):
-                        # 更新已有标签
-                        existing_tag.color = tag_data.get('color', existing_tag.color)
-                        existing_tag.sort_order = tag_data.get('sort_order', existing_tag.sort_order)
-                        existing_tag.save()
-                        self.tag_mapping[old_uid] = existing_tag
-                        self.stats['tags_skipped'] += 1
+                    if existing_tag:
+                        if self.options.get('overwrite_tags'):
+                            # 更新已有标签
+                            existing_tag.color = tag_data.get('color', existing_tag.color)
+                            existing_tag.sort_order = tag_data.get('sort_order', existing_tag.sort_order)
+                            existing_tag.save()
+                            self.tag_mapping[old_uid] = existing_tag
+                            self.stats['tags_skipped'] += 1
+                        else:
+                            # 复用已有标签
+                            self.tag_mapping[old_uid] = existing_tag
+                            self.stats['tags_skipped'] += 1
                     else:
-                        # 复用已有标签
-                        self.tag_mapping[old_uid] = existing_tag
-                        self.stats['tags_skipped'] += 1
-                else:
-                    # 创建新标签
-                    new_tag = Tag.objects.create(
-                        user=self.user,
-                        name=name,
-                        color=tag_data.get('color', ''),
-                        sort_order=tag_data.get('sort_order', 0),
-                    )
-                    self.tag_mapping[old_uid] = new_tag
-                    restore_timestamps(new_tag, tag_data)
-                    self.stats['tags_created'] += 1
+                        # 创建新标签
+                        new_tag = Tag.objects.create(
+                            user=self.user,
+                            name=name,
+                            color=tag_data.get('color', ''),
+                            sort_order=tag_data.get('sort_order', 0),
+                        )
+                        restore_timestamps(new_tag, tag_data)
+                        self.tag_mapping[old_uid] = new_tag
+                        self.stats['tags_created'] += 1
                 
             except Exception as e:
                 error_msg = f"导入标签失败 ({tag_data.get('name', 'unknown')}): {e}"
@@ -356,44 +358,45 @@ class DataImporter:
         """导入 BBTalk 内容"""
         for bbtalk_data in bbtalks_data:
             try:
-                old_uid = bbtalk_data['uid']
-                content = bbtalk_data['content']
+                with transaction.atomic():
+                    old_uid = bbtalk_data['uid']
+                    content = bbtalk_data['content']
                 
-                # 检查是否跳过重复内容
-                if self.options.get('skip_duplicates'):
-                    # 检查是否有相同内容
-                    if BBTalk.objects.filter(user=self.user, content=content).exists():
-                        existing = BBTalk.objects.filter(user=self.user, content=content).first()
-                        if existing:
-                            self.uid_mapping[old_uid] = existing
-                        self.stats['bbtalks_skipped'] += 1
-                        continue
+                    # 检查是否跳过重复内容
+                    if self.options.get('skip_duplicates'):
+                        # 检查是否有相同内容
+                        if BBTalk.objects.filter(user=self.user, content=content).exists():
+                            existing = BBTalk.objects.filter(user=self.user, content=content).first()
+                            if existing:
+                                self.uid_mapping[old_uid] = existing
+                            self.stats['bbtalks_skipped'] += 1
+                            continue
                 
-                # 检查 UID 是否冲突
-                new_uid = old_uid
-                if BBTalk.objects.filter(uid=new_uid).exists():
-                    new_uid = generate_uid()
-                    logger.info(f"UID 冲突，生成新 UID: {old_uid} -> {new_uid}")
+                    # 检查 UID 是否冲突
+                    new_uid = old_uid
+                    if BBTalk.objects.filter(uid=new_uid).exists():
+                        new_uid = generate_uid()
+                        logger.info(f"UID 冲突，生成新 UID: {old_uid} -> {new_uid}")
                 
-                # 创建 BBTalk
-                new_bbtalk = BBTalk.objects.create(
-                    uid=new_uid,
-                    user=self.user,
-                    content=content,
-                    visibility=bbtalk_data.get('visibility', 'private'),
-                    is_pinned=bbtalk_data.get('is_pinned', False),
-                    attachments=self._rewrite_attachment_refs(bbtalk_data.get('attachments', [])),
-                    context=bbtalk_data.get('context', {}),
-                )
+                    # 创建 BBTalk
+                    new_bbtalk = BBTalk.objects.create(
+                        uid=new_uid,
+                        user=self.user,
+                        content=content,
+                        visibility=bbtalk_data.get('visibility', 'private'),
+                        is_pinned=bbtalk_data.get('is_pinned', False),
+                        attachments=self._rewrite_attachment_refs(bbtalk_data.get('attachments', [])),
+                        context=bbtalk_data.get('context', {}),
+                    )
                 
-                # 关联标签
-                tag_uids = bbtalk_data.get('tags', [])
-                tags = [self.tag_mapping[uid] for uid in tag_uids if uid in self.tag_mapping]
-                new_bbtalk.tags.set(tags)
-                restore_timestamps(new_bbtalk, bbtalk_data)
+                    # 关联标签
+                    tag_uids = bbtalk_data.get('tags', [])
+                    tags = [self.tag_mapping[uid] for uid in tag_uids if uid in self.tag_mapping]
+                    new_bbtalk.tags.set(tags)
+                    restore_timestamps(new_bbtalk, bbtalk_data)
                 
-                self.uid_mapping[old_uid] = new_bbtalk
-                self.stats['bbtalks_created'] += 1
+                    self.uid_mapping[old_uid] = new_bbtalk
+                    self.stats['bbtalks_created'] += 1
                 
             except Exception as e:
                 error_msg = f"导入 BBTalk 失败 (UID: {bbtalk_data.get('uid', 'unknown')}): {e}"
@@ -404,27 +407,28 @@ class DataImporter:
         """导入存储配置"""
         for setting_data in settings_data:
             try:
-                name = setting_data['name']
+                with transaction.atomic():
+                    name = setting_data['name']
                 
-                # 检查是否已存在同名配置
-                if UserStorageSettings.objects.filter(user=self.user, name=name).exists():
-                    logger.info(f"存储配置 '{name}' 已存在，跳过")
-                    continue
+                    # 检查是否已存在同名配置
+                    if UserStorageSettings.objects.filter(user=self.user, name=name).exists():
+                        logger.info(f"存储配置 '{name}' 已存在，跳过")
+                        continue
                 
-                # 创建新配置（不包含密钥）
-                UserStorageSettings.objects.create(
-                    user=self.user,
-                    name=name,
-                    storage_type=setting_data.get('storage_type', 's3'),
-                    s3_access_key_id=setting_data.get('s3_access_key_id', ''),
-                    # 注意：密钥需要用户手动配置
-                    s3_bucket_name=setting_data.get('s3_bucket_name', ''),
-                    s3_region_name=setting_data.get('s3_region_name', 'us-east-1'),
-                    s3_endpoint_url=setting_data.get('s3_endpoint_url', ''),
-                    s3_custom_domain=setting_data.get('s3_custom_domain', ''),
-                    is_active=False,  # 默认不激活
-                )
-                self.stats['storage_settings_created'] += 1
+                    # 创建新配置（不包含密钥）
+                    UserStorageSettings.objects.create(
+                        user=self.user,
+                        name=name,
+                        storage_type=setting_data.get('storage_type', 's3'),
+                        s3_access_key_id=setting_data.get('s3_access_key_id', ''),
+                        # 注意：密钥需要用户手动配置
+                        s3_bucket_name=setting_data.get('s3_bucket_name', ''),
+                        s3_region_name=setting_data.get('s3_region_name', 'us-east-1'),
+                        s3_endpoint_url=setting_data.get('s3_endpoint_url', ''),
+                        s3_custom_domain=setting_data.get('s3_custom_domain', ''),
+                        is_active=False,  # 默认不激活
+                    )
+                    self.stats['storage_settings_created'] += 1
                 
             except Exception as e:
                 error_msg = f"导入存储配置失败 ({setting_data.get('name', 'unknown')}): {e}"

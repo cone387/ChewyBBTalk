@@ -145,6 +145,8 @@ async function doRefresh(): Promise<boolean> {
     console.error('[Auth] 没有 refresh token');
     return false;
   }
+  // A refresh can finish after logout or another login, including in another tab.
+  const isCurrent = () => getRefreshToken() === refreshToken;
   
   try {
     const response = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/auth/token/refresh/`, {
@@ -155,8 +157,10 @@ async function doRefresh(): Promise<boolean> {
       body: JSON.stringify({ refresh: refreshToken }),
     });
     
+    if (!isCurrent()) return false;
     if (response.ok) {
       const data = await response.json();
+      if (!isCurrent()) return false;
       localStorage.setItem(ACCESS_TOKEN_KEY, data.access);
       
       // 如果返回了新的 refresh token，也更新它
@@ -180,6 +184,7 @@ async function doRefresh(): Promise<boolean> {
     }
   } catch (error) {
     console.error('[Auth] Token 刷新错误:', error);
+    if (!isCurrent()) return false;
     // 网络故障是暂时性的，保留现有登录态并稍后重试。
     scheduleRefreshRetry();
     return false;

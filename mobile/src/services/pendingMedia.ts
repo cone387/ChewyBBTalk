@@ -34,6 +34,7 @@ export async function uploadRetainedMedia(media: PendingMedia, session: Session)
   if (!isCurrentSession(session)) throw new Error('账号已切换');
   if (Platform.OS === 'web') {
     const blob = await (await fetch(media.uri)).blob();
+    if (!isCurrentSession(session)) throw new Error('账号已切换');
     return attachmentApi.uploadFile(new File([blob], media.name, { type: media.mime }));
   }
   return attachmentApi.upload(media.uri, media.name, media.mime);

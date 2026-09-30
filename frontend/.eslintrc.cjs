@@ -5,6 +5,7 @@
  */
 module.exports = {
   root: true,
+  ignorePatterns: ['coverage/**', 'dist/**'],
   parser: '@typescript-eslint/parser',
   parserOptions: {
     ecmaVersion: 'latest',
@@ -17,6 +18,11 @@ module.exports = {
     node: true,
   },
   plugins: ['@typescript-eslint', 'react-hooks', 'react-refresh'],
+  overrides: [{
+    files: ['desktop-integration/**/*.spec.ts'],
+    // Playwright requires destructuring the fixtures parameter, even when none are used.
+    rules: { 'no-empty-pattern': 'off' },
+  }],
   extends: [
     'eslint:recommended',
     'plugin:@typescript-eslint/recommended',

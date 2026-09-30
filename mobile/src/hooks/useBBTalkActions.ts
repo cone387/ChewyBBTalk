@@ -47,7 +47,7 @@ export function useBBTalkActions({ showError, onNavigateCompose }: UseBBTalkActi
       if (!isCurrentSession(session)) return;
       try { await bbtalkApi.deleteBBTalk(item.id); }
       catch (error: any) { if (!isCurrentSession(session)) return; dispatch(undoDelete({ bbtalk: item, index })); showError('删除失败', error.message || '请稍后重试'); }
-      setPendingDelete(null);
+      setPendingDelete(current => current?.bbtalk.id === item.id ? null : current);
     }, 3000);
   }, [bbtalks, dispatch, showError]);
 
@@ -88,6 +88,7 @@ export function useBBTalkActions({ showError, onNavigateCompose }: UseBBTalkActi
   }, [dispatch]);
 
   const handleVoiceFinish = useCallback(async (result: { text: string; audioUri: string | null; audioDuration: number }) => {
+    if (!isCurrentSession(session)) return;
     const { text, audioUri } = result;
     if (!text && !audioUri) return;
     try {
@@ -109,8 +110,8 @@ export function useBBTalkActions({ showError, onNavigateCompose }: UseBBTalkActi
         content: text || '🎙️ 语音记录', attachments: audioAttachment ? [audioAttachment] : [],
         visibility: 'private',
         context: { source: { client: 'ChewyBBTalk Mobile', version: '1.0', platform: 'mobile', input: 'voice' } },
-      }));
-    } catch (e: any) { showError('保存失败', e.message || '请稍后重试'); }
+      })).unwrap();
+    } catch (e: any) { if (isCurrentSession(session)) showError('保存失败', e.message || '请稍后重试'); }
   }, [dispatch, showError]);
 
   return {

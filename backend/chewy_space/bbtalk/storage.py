@@ -73,7 +73,7 @@ def get_user_storage(user) -> Optional[S3Boto3Storage]:
         # 延迟导入避免循环依赖
         from .models import UserStorageSettings
         
-        settings = UserStorageSettings.objects.filter(user=user).first()
+        settings = UserStorageSettings.objects.filter(user=user, is_active=True).first()
         
         if settings and settings.is_active and settings.is_s3_configured():
             logger.info(f"使用用户 {user.username} 的自定义 S3 存储")

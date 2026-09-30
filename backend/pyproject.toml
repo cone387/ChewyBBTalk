@@ -22,8 +22,30 @@ dependencies = [
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.coverage.run]
+branch = true
+source = ["chewy_space/bbtalk"]
+omit = ["*/test*.py", "*/migrations/*", "*/__init__.py"]
+
+[tool.coverage.report]
+show_missing = true
+
+[tool.coverage.html]
+directory = "coverage/html"
+
+[tool.coverage.json]
+output = "coverage/coverage.json"
+
+[tool.coverage.xml]
+output = "coverage/coverage.xml"
+
 [tool.hatch.metadata]
 allow-direct-references = true
+
+[dependency-groups]
+dev = [
+    "coverage>=7.16.2",
+]
 
 [project.scripts]
 # 用法: uv run dev / uv run migrate / uv run init ...

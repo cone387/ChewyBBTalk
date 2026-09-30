@@ -134,7 +134,7 @@ export const dataApi = {
     
     const data = await response.json();
     
-    if (!response.ok && !data.valid) {
+    if (!response.ok) {
       throw new Error(data.error || data.detail || '文件验证失败');
     }
     

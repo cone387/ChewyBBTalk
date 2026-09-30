@@ -16,6 +16,7 @@ function transformAttachment(data: any): Attachment {
         const base = new URL(apiBase);
         parsed.protocol = base.protocol;
         parsed.host = base.host;
+        parsed.port = base.port;
         url = parsed.toString();
       } catch {}
     } else if (url.startsWith('/')) {

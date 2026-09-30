@@ -22,6 +22,7 @@ function transformAttachment(data: any): Attachment {
         const base = new URL(apiBase);
         parsed.protocol = base.protocol;
         parsed.host = base.host;
+        parsed.port = base.port;
         url = parsed.toString();
       } catch {}
     } else {
@@ -49,15 +50,22 @@ function transformAttachment(data: any): Attachment {
   };
 }
 
-async function uploadRequest(formData: FormData): Promise<Response> {
+function captureUploadSession(): () => void {
   const session = getSession(); const base = getApiBaseUrl();
+  return () => {
+    if (!isCurrentSession(session) || base !== getApiBaseUrl()) throw new Error('账号已切换');
+  };
+}
+
+async function uploadRequest(formData: FormData, assertCurrent: () => void): Promise<Response> {
+  const base = getApiBaseUrl();
   const token = await getAccessToken();
-  if (!isCurrentSession(session) || base !== getApiBaseUrl()) throw new Error('账号已切换');
+  assertCurrent();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 60000);
   try {
     const response = await fetch(`${base}/api/v1/attachments/files/`, { method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : {}, body: formData, signal: controller.signal });
-    if (!isCurrentSession(session) || base !== getApiBaseUrl()) throw new Error('账号已切换');
+    assertCurrent();
     return response;
   } catch (error: any) {
     if (error.name === 'AbortError') throw new Error('上传超时，附件仍保留，可稍后重试');
@@ -67,11 +75,13 @@ async function uploadRequest(formData: FormData): Promise<Response> {
 
 export const attachmentApi = {
   async upload(uri: string, fileName: string, mimeType: string): Promise<Attachment> {
+    const assertCurrent = captureUploadSession();
     // Web 平台：RN 风格的 { uri, name, type } 对象不被浏览器 FormData 识别，
     // 会被 toString() 成 "[object Object]"。需要先 fetch 成 Blob 再用 File 包装。
     if (Platform.OS === 'web') {
       const resp = await fetch(uri);
       const blob = await resp.blob();
+      assertCurrent();
       const file = new File([blob], fileName, { type: mimeType || blob.type });
       return this.uploadFile(file);
     }
@@ -85,27 +95,31 @@ export const attachmentApi = {
     } as any);
     formData.append('is_public', 'true');
 
-    const response = await uploadRequest(formData);
+    const response = await uploadRequest(formData, assertCurrent);
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
+      assertCurrent();
       throw new Error(error.detail || JSON.stringify(error) || '上传失败');
     }
 
     const data = await response.json();
+    assertCurrent();
     return transformAttachment(data);
   },
 
   /** Web-only: upload a File/Blob object directly */
   async uploadFile(file: File): Promise<Attachment> {
+    const assertCurrent = captureUploadSession();
     const formData = new FormData();
     formData.append('file', file, file.name || 'upload');
     formData.append('is_public', 'true');
 
-    const response = await uploadRequest(formData);
+    const response = await uploadRequest(formData, assertCurrent);
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
+      assertCurrent();
       // DRF 字段级错误格式: {"file": ["错误信息"]}
       let message = error.detail;
       if (!message) {
@@ -119,6 +133,7 @@ export const attachmentApi = {
     }
 
     const data = await response.json();
+    assertCurrent();
     return transformAttachment(data);
   },
 };
