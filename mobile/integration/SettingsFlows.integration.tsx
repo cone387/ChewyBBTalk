@@ -17,6 +17,7 @@ import { apiClient } from '../src/services/api/apiClient';
 import { publicAuthRequest } from '../src/services/passwordRecovery';
 import { checkForUpdates } from '../src/utils/versionChecker';
 import { xAlert, xConfirm } from '../src/utils/crossAlert';
+import { clearSession, setSession } from '../src/services/session';
 
 const mockGoBack = jest.fn();
 jest.mock('@react-navigation/native', () => ({
@@ -39,7 +40,6 @@ jest.mock('../src/services/auth', () => ({
   logout: jest.fn(),
 }));
 jest.mock('../src/services/api/userApi', () => ({ userApi: { updateProfile: jest.fn(), deleteAccount: jest.fn(), changePassword: jest.fn() } }));
-jest.mock('../src/services/session', () => ({ getSession: () => ({ scope: 'preview' }) }));
 jest.mock('../src/services/pendingMedia', () => ({ removeAccountDrafts: jest.fn() }));
 jest.mock('../src/services/api/tagApi', () => ({ tagApi: { getTags: jest.fn(), updateTag: jest.fn(), reorder: jest.fn() } }));
 jest.mock('../src/services/api/apiClient', () => ({ apiClient: { get: jest.fn(), post: jest.fn() } }));
@@ -52,7 +52,7 @@ const tags = [
   { id: 'one', name: '生活', color: '#123456', bbtalkCount: 1 },
   { id: 'two', name: '工作', color: '#654321', bbtalkCount: 0 },
 ];
-beforeEach(async () => { jest.clearAllMocks(); await AsyncStorage.clear(); });
+beforeEach(async () => { jest.clearAllMocks(); clearSession(); setSession('https://preview.test', 1); await AsyncStorage.clear(); });
 
 test('profile clearing sends empty fields and a failed save retains the form', async () => {
   (userApi.updateProfile as jest.Mock).mockRejectedValueOnce(new Error('网络中断')).mockResolvedValueOnce({});

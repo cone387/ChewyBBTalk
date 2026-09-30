@@ -27,8 +27,9 @@ export function suspendBallForWindow(win: BrowserWindow) {
     foregroundWindows.add(win);
     // Stop the global mouse-forwarding hook as well as hiding the compositor surface.
     ballWindow?.setIgnoreMouseEvents(true, { forward: false });
-    // Keep an already-visible native surface alive: hide/show can replay DWM animations.
-    ballWindow?.setOpacity(0);
+    // Linux ignores native opacity. Windows/macOS keep the surface alive to avoid show animations.
+    if (process.platform === 'linux') ballWindow?.hide();
+    else ballWindow?.setOpacity(0);
     ballWindow?.webContents.send('ball:suspension-changed', true);
   };
   const resume = () => {

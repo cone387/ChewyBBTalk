@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Platform, ScrollView, KeyboardAvoidingView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -11,9 +11,11 @@ import { userApi } from '../services/api/userApi';
 import { attachmentApi } from '../services/api/mediaApi';
 import { useTheme } from '../theme/ThemeContext';
 import { xAlert, xConfirm } from '../utils/crossAlert';
+import { getSession, isCurrentSession, onSessionChange } from '../services/session';
 
 export default function ProfileEditScreen() {
   const currentUser = getCurrentUser();
+  const session = getSession();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { theme } = useTheme();
@@ -27,46 +29,62 @@ export default function ProfileEditScreen() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const savingRef = useRef(false);
   const savedRef = useRef(false);
+  const avatarBusyRef = useRef(false);
+  const aliveRef = useRef(true);
   const [error, setError] = useState('');
+  useEffect(() => {
+    aliveRef.current = true;
+    const unsubscribe = onSessionChange(() => {
+      const user = getSession().scope ? getCurrentUser() : null;
+      setDisplayName(user?.display_name || ''); setBio(user?.bio || ''); setEmail(user?.email || '');
+      setAvatarUrl(user?.avatar || null); setError(''); setSaving(false); setUploadingAvatar(false);
+      savingRef.current = false; avatarBusyRef.current = false; savedRef.current = false;
+    });
+    return () => { aliveRef.current = false; unsubscribe(); };
+  }, []);
   const changed = displayName !== (currentUser?.display_name || '') || bio !== (currentUser?.bio || '') ||
     email !== (currentUser?.email || '') || avatarUrl !== (currentUser?.avatar || null);
   usePreventRemove(changed, ({ data }) => {
+    if (!aliveRef.current || !isCurrentSession(session)) return;
     if (savedRef.current) { navigation.dispatch(data.action); return; }
-    xConfirm('放弃修改？', '个人信息还没有保存。', () => navigation.dispatch(data.action), undefined,
+    xConfirm('放弃修改？', '个人信息还没有保存。', () => {
+      if (aliveRef.current && isCurrentSession(session)) navigation.dispatch(data.action);
+    }, undefined,
       { confirmText: '放弃修改', cancelText: '继续编辑' });
   });
 
   const pickAvatar = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-    if (result.canceled || !result.assets.length) return;
+    if (savingRef.current || avatarBusyRef.current || !aliveRef.current || !session.scope || !isCurrentSession(session)) return;
+    avatarBusyRef.current = true;
     setUploadingAvatar(true);
     try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8,
+      });
+      if (!aliveRef.current || !isCurrentSession(session) || result.canceled || !result.assets.length) return;
       const asset = result.assets[0];
       let att;
       if (Platform.OS === 'web') {
         // Web: uri is a blob URL, need to convert to File object
         const resp = await fetch(asset.uri);
+        if (!aliveRef.current || !isCurrentSession(session)) return;
         const blob = await resp.blob();
+        if (!aliveRef.current || !isCurrentSession(session)) return;
         const file = new File([blob], asset.fileName || `avatar_${Date.now()}.jpg`, { type: asset.mimeType || 'image/jpeg' });
         att = await attachmentApi.uploadFile(file);
       } else {
         att = await attachmentApi.upload(asset.uri, asset.fileName || `avatar_${Date.now()}.jpg`, asset.mimeType || 'image/jpeg');
       }
-      setAvatarUrl(att.url);
+      if (aliveRef.current && isCurrentSession(session)) setAvatarUrl(att.url);
     } catch (e: any) {
-      xAlert('上传失败', e.message);
+      if (aliveRef.current && isCurrentSession(session)) xAlert('上传失败', e?.message || '请稍后重试');
     } finally {
-      setUploadingAvatar(false);
+      if (aliveRef.current && isCurrentSession(session)) { avatarBusyRef.current = false; setUploadingAvatar(false); }
     }
   };
 
   const handleSave = async () => {
-    if (savingRef.current || uploadingAvatar) return;
+    if (savingRef.current || avatarBusyRef.current || !aliveRef.current || !session.scope || !isCurrentSession(session)) return;
     if (!displayName.trim()) {
       xAlert('提示', '显示名称不能为空');
       return;
@@ -81,13 +99,15 @@ export default function ProfileEditScreen() {
       };
       if (avatarUrl) data.avatar = avatarUrl;
       const updated = await userApi.updateProfile(data);
+      if (!isCurrentSession(session)) return;
       await updateCachedUser(updated);
+      if (!aliveRef.current || !isCurrentSession(session)) return;
       savedRef.current = true;
       navigation.goBack();
     } catch (e: any) {
-      setError(e.message || '保存失败，请稍后重试');
+      if (aliveRef.current && isCurrentSession(session)) setError(e?.message || '保存失败，请稍后重试');
     } finally {
-      savingRef.current = false; setSaving(false);
+      if (aliveRef.current && isCurrentSession(session)) { savingRef.current = false; setSaving(false); }
     }
   };
 

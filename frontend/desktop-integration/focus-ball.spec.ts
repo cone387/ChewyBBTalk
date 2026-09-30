@@ -46,7 +46,11 @@ test('opens ready to type and restores a docked ball without replaying hover ani
     await expect.poll(() => application.windows().some(page => page.url().includes('/compose/'))).toBe(true)
     compose = application.windows().find(page => page.url().includes('/compose/'))!
     await expect(compose.getByPlaceholder('你要BB什么？')).toBeFocused()
-    expect(await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find(win => win.webContents.getURL().includes('/ball/'))!.getOpacity())).toBe(0)
+    const suspended = await application.evaluate(({ BrowserWindow }) => {
+      const overlay = BrowserWindow.getAllWindows().find(win => win.webContents.getURL().includes('/ball/'))!
+      return process.platform === 'linux' ? !overlay.isVisible() : overlay.getOpacity() === 0
+    })
+    expect(suspended).toBe(true)
     await expect(icon).not.toHaveClass(/animating/)
     const hiddenTransform = await icon.evaluate(node => getComputedStyle(node).transform)
     await compose.evaluate(() => window.desktop.compose.hide())
@@ -61,7 +65,7 @@ test('opens ready to type and restores a docked ball without replaying hover ani
       return values
     })
     expect([...new Set(transforms)]).toEqual([hiddenTransform])
-    expect(await application.evaluate(() => (globalThis as any).__ballShowCount)).toBe(0)
+    expect(await application.evaluate(() => (globalThis as any).__ballShowCount)).toBe(process.platform === 'linux' ? 1 : 0)
     await expect(icon).not.toHaveClass(/animating/)
   } finally {
     await application.close()

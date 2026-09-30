@@ -41,7 +41,8 @@ test(`compose size stays stable at ${scale * 100}% scaling`, async () => {
       expect(changes.length, JSON.stringify(changes)).toBeLessThanOrEqual(2)
       expect(changes.length).toBeGreaterThan(0)
       const previous = await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find(win => win.webContents.getURL().includes('/compose/'))!.getBounds())
-      expect(previous.width).toBe(440)
+      // Conversion through physical pixels can round fractional desktop scales by one DIP.
+      expect(Math.abs(previous.width - 440)).toBeLessThanOrEqual(1)
       await page.evaluate(async () => { await new Promise(resolve => setTimeout(resolve, 500)) })
       expect(await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find(win => win.webContents.getURL().includes('/compose/'))!.getBounds())).toEqual(previous)
     }

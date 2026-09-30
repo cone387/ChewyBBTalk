@@ -273,8 +273,10 @@ export async function register(data: {
 }
 
 export async function logout(): Promise<void> {
+  const session = getSession();
   const server = getApiBaseUrl();
   const [refreshToken, accessToken] = await Promise.all([getRefreshToken(), getAccessToken()]);
+  if (!isCurrentSession(session) || server !== getApiBaseUrl()) return;
   await clearAuth();
   if (refreshToken) {
     const controller = new AbortController();
@@ -386,8 +388,12 @@ export function getCurrentUser(): User | null {
 }
 
 export async function updateCachedUser(user: User): Promise<void> {
-  currentUser = user;
-  await storage.setItemAsync(USER_INFO_KEY, JSON.stringify(user));
+  const session = getSession();
+  await writeCredentials(async () => {
+    if (!session.scope || !isCurrentSession(session)) return;
+    await storage.setItemAsync(USER_INFO_KEY, JSON.stringify(user));
+    if (isCurrentSession(session)) currentUser = user;
+  });
 }
 
 export async function isAuthenticated(): Promise<boolean> {

@@ -60,7 +60,8 @@ test('real ball overlay suspends during editing; rounded corners and moved posit
       const actual = compose.getBounds()
       return { x: actual.x, y: actual.y }
     })
-    await page.evaluate(() => window.desktop.compose.hide())
+    // The renderer can be destroyed before page.evaluate delivers its return value.
+    await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find(win => win.webContents.getURL().includes('/compose/'))!.close())
     await expect.poll(() => application.windows().some(page => page.url().includes('/compose/'))).toBe(false)
     expect(JSON.parse(await readFile(join(profile, 'chewybbtalk.json'), 'utf8')).windows.compose).toEqual(saved)
     await ball.evaluate(() => window.desktop.compose.show())

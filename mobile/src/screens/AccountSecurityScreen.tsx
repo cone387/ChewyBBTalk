@@ -1,7 +1,7 @@
-import { getSession } from '../services/session';
+import { getSession, isCurrentSession, onSessionChange } from '../services/session';
 import { removeAccountDrafts } from '../services/pendingMedia';
 import { useNavigation } from '@react-navigation/native';
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,63 +18,91 @@ export default function AccountSecurityScreen({ onLogout }: Props) {
   const c = theme.colors;
   const navigation = useNavigation<any>();
   const user = getCurrentUser();
+  const renderedSession = getSession();
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [repeatPassword, setRepeatPassword] = useState('');
   const [changing, setChanging] = useState(false);
   const busyRef = useRef(false);
+  const aliveRef = useRef(true);
   const [passwordMessage, setPasswordMessage] = useState('');
   const changePassword = async () => {
-    if (busyRef.current) return;
+    const session = getSession();
+    if (busyRef.current || !aliveRef.current || !session.scope || !isCurrentSession(renderedSession)) return;
     if (!oldPassword || newPassword.length < 8 || newPassword !== repeatPassword) { setPasswordMessage('请填写当前密码，新密码至少 8 位，且两次输入一致。'); return; }
     busyRef.current = true; setChanging(true); setPasswordMessage('');
     try {
       await userApi.changePassword(oldPassword, newPassword);
-      setOldPassword(''); setNewPassword(''); setRepeatPassword('');
-      xAlert('密码已更新', '请使用新密码重新登录。其他设备也需要重新登录。');
-      await logout(); onLogout();
-    } catch (error: any) { setPasswordMessage(error.message || '密码修改失败，请重试'); }
-    finally { busyRef.current = false; setChanging(false); }
+      if (!isCurrentSession(session)) return;
+      if (aliveRef.current) {
+        setOldPassword(''); setNewPassword(''); setRepeatPassword('');
+        xAlert('密码已更新', '请使用新密码重新登录。其他设备也需要重新登录。');
+      }
+      await logout();
+      if (aliveRef.current && getSession().scope === null && getSession().generation === session.generation + 1) onLogout();
+    } catch (error: any) {
+      if (aliveRef.current && isCurrentSession(session)) setPasswordMessage(error?.message || '密码修改失败，请重试');
+    } finally {
+      if (aliveRef.current && isCurrentSession(session)) { busyRef.current = false; setChanging(false); }
+    }
   };
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
   const [deleting, setDeleting] = useState(false);
 
+  useEffect(() => {
+    aliveRef.current = true;
+    const unsubscribe = onSessionChange(() => {
+      busyRef.current = false;
+      setOldPassword(''); setNewPassword(''); setRepeatPassword(''); setPasswordMessage('');
+      setShowDeleteConfirm(false); setDeletePassword(''); setChanging(false); setDeleting(false);
+    });
+    return () => { aliveRef.current = false; unsubscribe(); };
+  }, []);
+
   const handleDeleteAccount = () => {
+    const session = getSession();
+    if (busyRef.current || !aliveRef.current || !session.scope || !isCurrentSession(renderedSession)) return;
     xConfirm(
       '删除账号',
       '确定要永久删除您的账号吗？此操作不可撤销，您的所有数据（碎碎念、标签、附件等）将被永久删除。',
-      () => setShowDeleteConfirm(true),
+      () => { if (aliveRef.current && !busyRef.current && isCurrentSession(session)) setShowDeleteConfirm(true); },
       undefined,
       { confirmText: '继续删除', destructive: true },
     );
   };
 
-  const doLogoutAndRedirect = async () => {
-    await logout();
-    onLogout();
-  };
-
   const confirmDeleteAccount = async () => {
-    if (busyRef.current) return;
+    const session = getSession();
+    if (busyRef.current || !aliveRef.current || !session.scope || !isCurrentSession(renderedSession)) return;
     if (!deletePassword.trim()) {
       xAlert('提示', '请输入密码以确认删除');
       return;
     }
     busyRef.current = true; setDeleting(true);
     try {
-      const scope = getSession().scope;
       await userApi.deleteAccount(deletePassword);
-      setDeletePassword(''); setShowDeleteConfirm(false);
-      xAlert('账号已删除', '您的账号和所有数据已被永久删除。');
-      await doLogoutAndRedirect();
-      await removeAccountDrafts(scope).catch(() => xAlert('账号已删除', '本机草稿清理未完成，可通过系统设置清除 App 数据。'));
+      try {
+        if (isCurrentSession(session)) {
+          if (aliveRef.current) {
+            setDeletePassword(''); setShowDeleteConfirm(false);
+            xAlert('账号已删除', '您的账号和所有数据已被永久删除。');
+          }
+          await logout();
+          if (aliveRef.current && getSession().scope === null && getSession().generation === session.generation + 1) onLogout();
+        }
+      } finally {
+        await removeAccountDrafts(session.scope).catch(() => {
+          const current = getSession();
+          if (aliveRef.current && (isCurrentSession(session) || (current.scope === null && current.generation === session.generation + 1))) {
+            xAlert('账号已删除', '本机草稿清理未完成，可通过系统设置清除 App 数据。');
+          }
+        });
+      }
     } catch (e: any) {
-      const msg = e.message || '请检查密码是否正确';
-      xAlert('删除失败', msg);
+      if (aliveRef.current && isCurrentSession(session)) xAlert('删除失败', e?.message || '请检查密码是否正确');
     } finally {
-      busyRef.current = false;
-      setDeleting(false);
+      if (aliveRef.current && isCurrentSession(session)) { busyRef.current = false; setDeleting(false); }
     }
   };
 

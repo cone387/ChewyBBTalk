@@ -93,6 +93,7 @@ test('real Electron restart, lost response retry and wake account isolation', as
     expect(savedRecords.results[0].tags.map((tag: any) => tag.name)).toEqual(['桌面标签'])
     await application!.close(); application = undefined
     page = await launch()
+    if (!persistent) await login(page, username)
     await expect(page.getByPlaceholder('你要BB什么？')).toHaveValue('后来输入的新草稿')
     const ownerSnapshot = await page.evaluate(() => (window as any).desktop.compose.submissionSnapshot())
     await login(page, otherName)
