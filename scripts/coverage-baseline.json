@@ -18,7 +18,7 @@
   },
   "desktop": {
     "report": "desktop/coverage/coverage-summary.json",
-    "minimum": { "lines": 23, "branches": 73 },
+    "minimum": { "lines": 30, "branches": 77 },
     "files": {
       "main/uploads.ts": { "lines": 99, "branches": 85 },
       "main/submissions.ts": { "lines": 95, "branches": 80 }

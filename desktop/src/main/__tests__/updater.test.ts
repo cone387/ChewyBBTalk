@@ -22,10 +22,11 @@ vi.mock('../windows/settingsWindow', () => ({ showSettingsWindow: vi.fn() }));
 
 beforeEach(() => {
   vi.resetModules(); vi.clearAllMocks(); vi.useFakeTimers();
+  vi.spyOn(process, 'platform', 'get').mockReturnValue('win32');
   events = new EventEmitter(); mocks.packaged = true; mocks.compose = null;
   mocks.check.mockResolvedValue(null); mocks.download.mockResolvedValue([]);
 });
-afterEach(() => vi.useRealTimers());
+afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 async function setup() { const module = await import('../updater'); module.registerUpdater(); return module; }
 
 it('checks after startup and periodically, without installing on ordinary quit', async () => {
@@ -91,4 +92,13 @@ it('development builds never query the production feed or install', async () => 
   await vi.advanceTimersByTimeAsync(7 * 60 * 60 * 1000);
   expect(update.getUpdateState().status).toBe('unsupported');
   expect(mocks.check).not.toHaveBeenCalled(); expect(mocks.install).not.toHaveBeenCalled();
+});
+it.each(['linux', 'darwin'] as const)('does not start the Windows updater on %s', async platform => {
+  vi.spyOn(process, 'platform', 'get').mockReturnValue(platform);
+  const update = await setup();
+  await update.checkForUpdate(); await update.installUpdate();
+  await vi.advanceTimersByTimeAsync(7 * 60 * 60 * 1000);
+  expect(update.getUpdateState().status).toBe('unsupported');
+  expect(mocks.check).not.toHaveBeenCalled();
+  expect(mocks.install).not.toHaveBeenCalled();
 });

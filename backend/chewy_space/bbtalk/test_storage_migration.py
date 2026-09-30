@@ -64,3 +64,17 @@ class StorageMigrationTests(TestCase):
         self.assertTrue(constructor.call_args.kwargs['querystring_auth'])
         self.assertEqual(constructor.call_args.kwargs['endpoint_url'], 'https://s3.example.com')
         self.assertEqual(constructor.call_args.kwargs['custom_domain'], 'cdn.example.com')
+
+    def test_s3_without_custom_endpoint_uses_provider_defaults(self):
+        settings = Mock(get_s3_config=Mock(return_value={
+            'access_key_id': 'test-access', 'secret_access_key': 'test-secret',
+            'bucket_name': 'bucket',
+        }))
+        with patch('storages.backends.s3boto3.S3Boto3Storage') as constructor:
+            self.service._build_s3_storage(settings)
+        kwargs = constructor.call_args.kwargs
+        self.assertNotIn('endpoint_url', kwargs)
+        self.assertNotIn('custom_domain', kwargs)
+        self.assertEqual(kwargs['region_name'], 'us-east-1')
+        self.assertEqual(kwargs['default_acl'], 'private')
+        self.assertTrue(kwargs['querystring_auth'])
