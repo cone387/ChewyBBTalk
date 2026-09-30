@@ -64,3 +64,13 @@ export async function forgetConfirmedSubmission(scope: string, key: string) {
     await tx.done
   } finally { db.close() }
 }
+
+export async function discardSubmission(scope: string) {
+  const db = await openDraftDatabase()
+  try {
+    const tx = db.transaction('intents', 'readwrite')
+    void tx.done.catch(() => {})
+    await tx.store.delete(scope)
+    await tx.done
+  } finally { db.close() }
+}

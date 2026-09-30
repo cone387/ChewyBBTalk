@@ -158,7 +158,6 @@ export default function App({ basename = '/' }: AppProps) {
             <Route path="/desktop/authorize" element={<DesktopAuthorizePage />} />
             
             {/* 防窥锁定页面 - 不要求认证状态，因为长时间不活动后 token 可能已过期 */}
-            {/* 用户通过密码解锁时会重新获取 token */}
             <Route 
               path="/locked" 
               element={<PrivacyLockPage />} 
@@ -167,21 +166,16 @@ export default function App({ basename = '/' }: AppProps) {
             {/* 公开页面 - 无需登录 */}
             <Route path="/public" element={<PublicBBTalkPage />} />
             
-            {/* 私有页面 - 未登录跳转登录 */}
+            {/* 详情页面 - 支持公开碎碎念免登录访问，私密由页面内部判定 */}
+            <Route path="/detail/:id" element={<BBTalkDetailPage />} />
+            <Route path="/bbtalk/:id" element={<BBTalkDetailPage />} />
+
+            {/* 私有主页 - 未登录跳转登录 */}
             <Route 
               path="/" 
               element={
                 isAuthenticated 
                   ? <BBTalkPage /> 
-                  : <Navigate to="/login" replace />
-              } 
-            />
-            
-            <Route 
-              path="/detail/:id" 
-              element={
-                isAuthenticated 
-                  ? <BBTalkDetailPage /> 
                   : <Navigate to="/login" replace />
               } 
             />

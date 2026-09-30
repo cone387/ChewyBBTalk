@@ -1,38 +1,54 @@
-import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { bbtalkApi } from "../services/api/bbtalkApi"
-import type { BBTalk } from '../types';
-import MarkdownRenderer from '../components/MarkdownRenderer';
+import { useEffect, useState } from 'react'
+import { useParams, useNavigate, Link } from 'react-router-dom'
+import { bbtalkApi } from '../services/api/bbtalkApi'
+import type { BBTalk } from '../types'
+import BBTalkItem from '../components/BBTalkItem'
+import ImagePreview from '../components/ImagePreview'
+import { getCurrentUser } from '../services/auth'
 
 export default function BBTalkDetailPage() {
-  const { id } = useParams<{ id: string }>();
-  const [bbtalk, setBBTalk] = useState<BBTalk | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
+  const [bbtalk, setBBTalk] = useState<BBTalk | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [previewImage, setPreviewImage] = useState<{ src: string; alt: string } | null>(null)
+  const [copyTip, setCopyTip] = useState(false)
+  const currentUser = getCurrentUser()
 
   useEffect(() => {
     const loadBBTalk = async () => {
       if (!id) {
-        setError('无效的 BBTalk ID');
-        setIsLoading(false);
-        return;
+        setError('无效的 BBTalk ID')
+        setIsLoading(false)
+        return
       }
 
       try {
-        setIsLoading(true);
-        setError(null);
-        const data = await bbtalkApi.getPublicBBTalk(id);
-        setBBTalk(data);
+        setIsLoading(true)
+        setError(null)
+        // 已登录时优先尝试获取完整详情接口，否则调用公开详情接口
+        let data: BBTalk
+        if (currentUser) {
+          try {
+            data = await bbtalkApi.getBBTalk(id)
+          } catch {
+            data = await bbtalkApi.getPublicBBTalk(id)
+          }
+        } else {
+          data = await bbtalkApi.getPublicBBTalk(id)
+        }
+        setBBTalk(data)
       } catch (err: any) {
-        console.error('加载 BBTalk 失败:', err);
-        setError(err.message || '加载失败');
+        console.error('加载 BBTalk 失败:', err)
+        setError(err.message || '加载失败')
       } finally {
-        setIsLoading(false);
+        setIsLoading(false)
       }
-    };
+    }
 
-    loadBBTalk();
-  }, [id]);
+    loadBBTalk()
+  }, [id, currentUser])
 
   if (isLoading) {
     return (
@@ -42,45 +58,102 @@ export default function BBTalkDetailPage() {
           <p className="text-gray-600">加载中...</p>
         </div>
       </div>
-    );
+    )
   }
 
   if (error || !bbtalk) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-semibold text-gray-800 mb-2">BBTalk 不存在</h2>
-          <p className="text-gray-600">该内容可能已被删除、不存在或不是公开的</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4">
-        <div className="bg-white rounded-2xl shadow-sm p-8">
-          <MarkdownRenderer content={bbtalk.content} className="text-lg" />
-          
-          {bbtalk.tags && bbtalk.tags.length > 0 && (
-            <div className="mt-6 flex gap-2 flex-wrap">
-              {bbtalk.tags.map((tag) => (
-                <span
-                  key={tag.id}
-                  className="px-3 py-1.5 text-white rounded-full text-sm font-medium"
-                  style={{ backgroundColor: tag.color || '#3B82F6' }}
-                >
-                  {tag.name}
-                </span>
-              ))}
-            </div>
-          )}
-          
-          <div className="mt-8 pt-6 border-t border-gray-200 text-sm text-gray-500">
-            <span>{new Date(bbtalk.createdAt).toLocaleDateString('zh-CN')}</span>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="text-center max-w-md bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+          <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold text-gray-800 mb-2">BBTalk 不存在或无访问权限</h2>
+          <p className="text-gray-500 text-sm mb-6">该记录可能已被删除、设为私密或需要登录查看</p>
+          <div className="flex gap-3 justify-center">
+            <Link
+              to={currentUser ? '/' : '/public'}
+              className="px-4 py-2 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
+            >
+              返回首页
+            </Link>
+            {!currentUser && (
+              <Link
+                to={`/login?next=/detail/${id}`}
+                className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors"
+              >
+                前往登录
+              </Link>
+            )}
           </div>
         </div>
       </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 py-6 sm:py-10">
+      <div className="max-w-2xl mx-auto px-4">
+        {/* 返回头部导航 */}
+        <div className="mb-4 flex items-center justify-between">
+          <button
+            onClick={() => {
+              if (window.history.length > 1) {
+                navigate(-1)
+              } else {
+                navigate(currentUser ? '/' : '/public')
+              }
+            }}
+            className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            返回
+          </button>
+
+          <Link
+            to={currentUser ? '/' : '/public'}
+            className="text-xs text-blue-600 hover:underline"
+          >
+            查看全部碎碎念 →
+          </Link>
+        </div>
+
+        {/* 完整的碎碎念卡片 */}
+        <BBTalkItem
+          bbtalk={bbtalk}
+          isPublic={!currentUser}
+          onPreviewImage={setPreviewImage}
+          onShareSuccess={() => {
+            setCopyTip(true)
+            setTimeout(() => setCopyTip(false), 2000)
+          }}
+        />
+
+        {/* 复制成功浮动提示 */}
+        {copyTip && (
+          <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 animate-fade-in">
+            <div className="bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              <span className="font-medium text-sm">链接已复制</span>
+            </div>
+          </div>
+        )}
+
+        {/* 图片预览 */}
+        {previewImage && (
+          <ImagePreview
+            src={previewImage.src}
+            alt={previewImage.alt}
+            onClose={() => setPreviewImage(null)}
+          />
+        )}
+      </div>
     </div>
-  );
+  )
 }
