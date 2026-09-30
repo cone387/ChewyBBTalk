@@ -2,12 +2,14 @@ import { test, expect, _electron as electron } from '@playwright/test'
 import { mkdtemp, rm, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { resolve, join } from 'node:path'
+import { createRequire } from 'node:module'
+const executablePath = createRequire(import.meta.url)('../../desktop/node_modules/electron') as string
 
 test('real ball overlay suspends during editing; rounded corners and moved position survive reopening', async ({}, testInfo) => {
   test.setTimeout(30_000)
   const profile = await mkdtemp(join(tmpdir(), 'chewy-window-input-'))
   const application = await electron.launch({
-    executablePath: resolve('../desktop/node_modules/electron/dist/electron.exe'),
+    executablePath,
     args: [resolve('../desktop/out/main/integration.js'), '--no-sandbox'],
     env: { ...process.env, CHEWY_INTEGRATION_USER_DATA: profile, CHEWY_INTEGRATION_WITH_BALL: '1' },
   })

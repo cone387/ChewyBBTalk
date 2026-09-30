@@ -69,8 +69,14 @@ test('real Electron restart, lost response retry and wake account isolation', as
     await expect(page.locator('.submission-recovery').getByRole('status')).toContainText('有一份发布结果待核对')
     const pending = await page.evaluate(() => (window as any).desktop.compose.submissionSnapshot())
     expect(pending.intent.state).toBe('pending')
+    const persistent = await page.evaluate(() => (window as any).desktop.auth.getState().then((state: any) => state.persistent))
     await application!.close(); application = undefined
     page = await launch()
+    if (!persistent) {
+      // Hosts without a secure credential store intentionally require a new login.
+      await expect(page.locator('.session-notice')).toContainText('登录后继续记录')
+      await login(page, username)
+    }
     await expect(page.locator('.submission-recovery').getByRole('status')).toContainText('有一份发布结果待核对')
     await expect(page.getByRole('button', { name: '重试原提交' })).toBeInViewport({ ratio: 1 })
     await expect(page.getByRole('button', { name: /^发布/ })).toBeInViewport({ ratio: 1 })

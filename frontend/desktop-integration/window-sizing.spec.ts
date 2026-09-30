@@ -1,13 +1,23 @@
 import { test, expect, _electron as electron } from '@playwright/test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { resolve, join } from 'node:path'
+import { resolve, join, dirname, basename } from 'node:path'
+import { createRequire } from 'node:module'
+const executablePath = createRequire(import.meta.url)('../../desktop/node_modules/electron') as string
+
+async function removeSizingProfile(profile: string) {
+  const target = resolve(profile)
+  if (dirname(target) !== resolve(tmpdir()) || !basename(target).startsWith('chewy-window-sizing-')) {
+    throw new Error('Unexpected test profile path')
+  }
+  await rm(target, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+}
 
 for (const scale of [1, 1.25, 1.5]) {
 test(`compose size stays stable at ${scale * 100}% scaling`, async () => {
   const profile = await mkdtemp(join(tmpdir(), 'chewy-window-sizing-'))
   const application = await electron.launch({
-    executablePath: resolve('../desktop/node_modules/electron/dist/electron.exe'),
+    executablePath,
     args: [resolve('../desktop/out/main/integration.js'), '--no-sandbox', `--force-device-scale-factor=${scale}`],
     env: { ...process.env, CHEWY_INTEGRATION_USER_DATA: profile },
   })
@@ -37,7 +47,7 @@ test(`compose size stays stable at ${scale * 100}% scaling`, async () => {
     }
   } finally {
     await application.close()
-    await rm(profile, { recursive: true, force: true })
+    await removeSizingProfile(profile)
   }
 })
 }

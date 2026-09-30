@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { bbtalkApi } from '../services/api/bbtalkApi';
 import { formatTime } from '../utils/formatTime';
@@ -7,6 +7,7 @@ import { decrementCommentCount } from '../store/slices/bbtalkSlice';
 import type { Comment } from '../types';
 import type { Theme } from '../theme/ThemeContext';
 import { xAlert, xConfirm } from '../utils/crossAlert';
+import { getSession, isCurrentSession, onSessionChange } from '../services/session';
 
 const MAX_COLLAPSED = 3;
 
@@ -25,47 +26,104 @@ export default function InlineComments({ bbtalkId, commentCount, newComment, the
   const [loaded, setLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [sessionVersion, setSessionVersion] = useState(0);
+  const operation = useRef(0);
+  const alive = useRef(true);
+  const fetching = useRef(false);
+  const deleting = useRef(new Set<string>());
+  const deleted = useRef(new Set<string>());
+
+  const reset = useCallback(() => {
+    operation.current++;
+    fetching.current = false;
+    deleting.current = new Set();
+    deleted.current = new Set();
+    setComments([]);
+    setLoaded(false);
+    setLoading(false);
+    setLoadError(false);
+    setExpanded(false);
+  }, []);
+
+  useEffect(() => {
+    alive.current = true;
+    const unsubscribe = onSessionChange(() => {
+      reset();
+      setSessionVersion(value => value + 1);
+    });
+    return () => { alive.current = false; operation.current++; unsubscribe(); };
+  }, [reset]);
+
+  useEffect(reset, [bbtalkId, reset]);
 
   const loadComments = useCallback(async () => {
-    if (loading) return;
+    if (fetching.current) return;
+    fetching.current = true;
+    const currentOperation = operation.current;
+    const session = getSession();
+    const isCurrent = () => alive.current && operation.current === currentOperation && isCurrentSession(session);
     setLoading(true);
+    setLoadError(false);
     try {
       const data = await bbtalkApi.getComments(bbtalkId);
-      setComments(data);
+      if (!isCurrent()) return;
+      setComments(current => {
+        const merged = new Map(data.filter(comment => !deleted.current.has(comment.uid)).map(comment => [comment.uid, comment]));
+        current.forEach(comment => { if (!merged.has(comment.uid)) merged.set(comment.uid, comment); });
+        return [...merged.values()];
+      });
       setLoaded(true);
-    } catch {} finally {
-      setLoading(false);
+    } catch {
+      if (isCurrent()) setLoadError(true);
+    } finally {
+      if (isCurrent()) {
+        fetching.current = false;
+        setLoading(false);
+      }
     }
-  }, [bbtalkId, loading]);
+  }, [bbtalkId, sessionVersion]);
 
   // Auto-load when commentCount > 0 and not yet loaded
   useEffect(() => {
-    if (commentCount > 0 && !loaded && !loading) {
+    if (commentCount > 0 && !loaded && !loading && !loadError) {
       loadComments();
     }
-  }, [commentCount, loaded]);
+  }, [commentCount, loaded, loading, loadError, loadComments]);
 
   // Append externally added comment
   useEffect(() => {
-    if (newComment) {
-      setComments(prev => [...prev, newComment]);
+    if (newComment && !deleted.current.has(newComment.uid)) {
+      setComments(prev => prev.some(comment => comment.uid === newComment.uid)
+        ? prev.map(comment => comment.uid === newComment.uid ? newComment : comment)
+        : [...prev, newComment]);
       setLoaded(true);
     }
   }, [newComment]);
 
   const handleDelete = (comment: Comment) => {
+    const currentOperation = operation.current;
+    const session = getSession();
+    const pending = deleting.current;
+    const isCurrent = () => alive.current && operation.current === currentOperation && isCurrentSession(session);
     xConfirm('删除评论', '确定要删除这条评论吗？', async () => {
+          if (!isCurrent() || pending.has(comment.uid)) return;
+          pending.add(comment.uid);
           try {
             await bbtalkApi.deleteComment(bbtalkId, comment.uid);
+            if (!isCurrent()) return;
+            deleted.current.add(comment.uid);
             setComments(prev => prev.filter(c => c.uid !== comment.uid));
             dispatch(decrementCommentCount(bbtalkId));
           } catch (e: any) {
-            xAlert('删除失败', e.message);
+            if (isCurrent()) xAlert('删除失败', e?.message || '请稍后重试');
+          } finally {
+            pending.delete(comment.uid);
           }
     }, undefined, { confirmText: '删除', destructive: true });
   };
 
-  if (comments.length === 0 && !loading) return null;
+  if (comments.length === 0 && !loading && !loadError) return null;
 
   const visible = expanded ? comments : comments.slice(0, MAX_COLLAPSED);
   const hasMore = comments.length > MAX_COLLAPSED;
@@ -76,6 +134,9 @@ export default function InlineComments({ bbtalkId, commentCount, newComment, the
         <ActivityIndicator size="small" color={c.textTertiary} style={{ paddingVertical: 8 }} />
       ) : (
         <>
+          {loadError && <TouchableOpacity accessibilityRole="button" accessibilityLabel="重试加载评论" onPress={loadComments}>
+            <Text style={{ color: c.textSecondary }}>评论加载失败，点击重试</Text>
+          </TouchableOpacity>}
           {visible.map(comment => (
             <TouchableOpacity
               key={comment.uid}

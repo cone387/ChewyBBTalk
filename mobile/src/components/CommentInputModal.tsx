@@ -7,6 +7,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { bbtalkApi } from '../services/api/bbtalkApi';
+import { getSession, isCurrentSession, onSessionChange } from '../services/session';
 import { xAlert } from '../utils/crossAlert';
 import type { Comment } from '../types';
 import type { Theme } from '../theme/ThemeContext';
@@ -27,6 +28,27 @@ export default function CommentInputModal({ visible, bbtalkId, onClose, onCommen
   const inputRef = useRef<TextInput>(null);
   const [text, setText] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const sending = useRef(false);
+  const operation = useRef(0);
+  const alive = useRef(true);
+
+  useEffect(() => {
+    alive.current = true;
+    const unsubscribe = onSessionChange(() => {
+      operation.current++;
+      sending.current = false;
+      setSubmitting(false);
+      setText('');
+    });
+    return () => { alive.current = false; operation.current++; unsubscribe(); };
+  }, []);
+
+  useEffect(() => {
+    operation.current++;
+    sending.current = false;
+    setSubmitting(false);
+    setText('');
+  }, [visible, bbtalkId]);
 
   // 动画值：蒙层透明度 + 面板滑入
   const overlayAnim = useRef(new Animated.Value(0)).current;
@@ -35,23 +57,35 @@ export default function CommentInputModal({ visible, bbtalkId, onClose, onCommen
 
   // 打开/关闭动画
   useEffect(() => {
+    let cancelled = false;
+    let focusTimer: ReturnType<typeof setTimeout> | undefined;
+    let animation: ReturnType<typeof Animated.parallel>;
     if (visible) {
       setMounted(true);
-      Animated.parallel([
+      animation = Animated.parallel([
         Animated.timing(overlayAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
         Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, speed: 20, bounciness: 2 }),
-      ]).start(() => {
-        setTimeout(() => inputRef.current?.focus(), 50);
+      ]);
+      animation.start(result => {
+        if (cancelled || result?.finished === false) return;
+        focusTimer = setTimeout(() => inputRef.current?.focus(), 50);
       });
     } else {
-      Animated.parallel([
+      animation = Animated.parallel([
         Animated.timing(overlayAnim, { toValue: 0, duration: 150, useNativeDriver: true }),
         Animated.timing(slideAnim, { toValue: 200, duration: 150, useNativeDriver: true }),
-      ]).start(() => {
+      ]);
+      animation.start(result => {
+        if (cancelled || result?.finished === false) return;
         setMounted(false);
         setText('');
       });
     }
+    return () => {
+      cancelled = true;
+      animation.stop();
+      if (focusTimer !== undefined) clearTimeout(focusTimer);
+    };
   }, [visible]);
 
   // Android 返回键关闭
@@ -66,19 +100,27 @@ export default function CommentInputModal({ visible, bbtalkId, onClose, onCommen
 
   const handleSend = useCallback(async () => {
     const content = text.trim();
-    if (!content || submitting) return;
+    if (!content || !visible || sending.current) return;
+    sending.current = true;
+    const currentOperation = operation.current;
+    const session = getSession();
+    const isCurrent = () => alive.current && currentOperation === operation.current && isCurrentSession(session);
     setSubmitting(true);
     try {
       const comment = await bbtalkApi.createComment(bbtalkId, content);
+      if (!isCurrent()) return;
       onCommentAdded(comment);
       setText('');
       onClose();
     } catch (e: any) {
-      xAlert('发送失败', e.message || '请稍后重试');
+      if (isCurrent()) xAlert('发送失败', e?.message || '请稍后重试');
     } finally {
-      setSubmitting(false);
+      if (isCurrent()) {
+        sending.current = false;
+        setSubmitting(false);
+      }
     }
-  }, [text, submitting, bbtalkId, onCommentAdded, onClose]);
+  }, [text, visible, bbtalkId, onCommentAdded, onClose]);
 
   const handleKeyPress = useCallback((e: NativeSyntheticEvent<TextInputKeyPressEventData>) => {
     if (isWeb && e.nativeEvent.key === 'Enter' && !(e as any).nativeEvent.shiftKey) {
@@ -113,6 +155,8 @@ export default function CommentInputModal({ visible, bbtalkId, onClose, onCommen
           blurOnSubmit={isWeb}
         />
         <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="发送评论"
           style={[styles.sendBtn, { backgroundColor: text.trim() ? c.primary : c.border }]}
           onPress={handleSend}
           disabled={!text.trim() || submitting}

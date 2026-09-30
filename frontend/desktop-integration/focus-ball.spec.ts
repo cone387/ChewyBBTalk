@@ -2,12 +2,14 @@ import { test, expect, _electron as electron } from '@playwright/test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { resolve, join } from 'node:path'
+import { createRequire } from 'node:module'
+const executablePath = createRequire(import.meta.url)('../../desktop/node_modules/electron') as string
 
 test('opens ready to type and restores a docked ball without replaying hover animation', async () => {
   test.setTimeout(40_000)
   const profile = await mkdtemp(join(tmpdir(), 'chewy-focus-ball-'))
   const application = await electron.launch({
-    executablePath: resolve('../desktop/node_modules/electron/dist/electron.exe'),
+    executablePath,
     args: [resolve('../desktop/out/main/integration.js'), '--no-sandbox'],
     env: { ...process.env, CHEWY_INTEGRATION_USER_DATA: profile, CHEWY_INTEGRATION_WITH_BALL: '1', CHEWY_INTEGRATION_FOCUS: '1' },
   })
