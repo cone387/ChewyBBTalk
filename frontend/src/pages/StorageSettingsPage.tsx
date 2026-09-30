@@ -8,6 +8,7 @@ import Modal from '../components/ui/Modal';
 export default function StorageSettingsPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -40,6 +41,7 @@ export default function StorageSettingsPage() {
   const loadStatus = async () => {
     try {
       setLoading(true);
+      setLoadError(false);
       const configs = await settingsApi.listStorageSettings();
       setAllConfigs(configs);
       setS3Count(configs.length);
@@ -47,6 +49,7 @@ export default function StorageSettingsPage() {
       setActiveConfig(active || null);
     } catch (err) {
       console.error('加载存储状态失败:', err);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -109,6 +112,16 @@ export default function StorageSettingsPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-gray-500">加载中...</div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="min-h-screen flex flex-col gap-4 items-center justify-center bg-gray-50">
+        <p role="alert" className="text-gray-700">无法读取存储状态，请重试</p>
+        <button type="button" onClick={loadStatus} className="min-h-11 px-4 text-blue-600 underline">重试</button>
+        <button type="button" onClick={() => navigate('/settings')} className="min-h-11 px-4 text-gray-600">返回我的</button>
       </div>
     );
   }

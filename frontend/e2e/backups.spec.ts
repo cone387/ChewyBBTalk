@@ -44,8 +44,10 @@ test('create, download and restore a real backup to a separate account', async (
   const card = page.locator('.bbtalk-item').first()
   await expect(card).toContainText('浏览器完整恢复')
   await expect(card).toContainText('备份标签')
-  const href = await card.getByRole('link', { name: /backup.txt/ }).getAttribute('href')
-  expect(await (await page.request.get(href!)).text()).toBe('backup bytes')
+  const attachmentDownload = page.waitForEvent('download')
+  await card.getByRole('link', { name: /backup.txt/ }).click()
+  const restoredAttachment = await attachmentDownload
+  expect((await readFile((await restoredAttachment.path())!)).toString()).toBe('backup bytes')
 })
 
 test('backup request and download failures remain visible and retryable', async ({ page }) => {

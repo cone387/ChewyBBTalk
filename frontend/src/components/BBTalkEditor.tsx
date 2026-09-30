@@ -4,7 +4,9 @@ import { useAttachmentUploads } from '../hooks/useAttachmentUploads'
 import { usePersistentDraft } from '../hooks/usePersistentDraft'
 import { draftKey, type DraftData } from '../services/drafts'
 import { getCurrentUser } from '../services/auth'
-import { transformBBTalk } from '../services/api/bbtalkApi'
+import { beginSubmission, readSubmission, confirmSubmission, forgetConfirmedSubmission, type SubmissionIntent } from '../services/submissions'
+import { bbtalkApi, transformBBTalk } from '../services/api/bbtalkApi'
+import { ApiError } from '../services/api/apiClient'
 import Modal from './ui/Modal'
 import { useAppSelector } from '../store/hooks'
 import CachedImage from './CachedImage'
@@ -17,6 +19,7 @@ interface BBTalkEditorProps {
     tags: string[]
     attachments: Attachment[]
     visibility: 'public' | 'private' | 'friends'
+    submissionKey?: string
     expectedUpdatedAt?: string
     context?: Record<string, any>
   }) => Promise<void>
@@ -44,7 +47,53 @@ function BBTalkEditorContent({ onPublish, isPublishing = false, editing = null, 
   const [publishError, setPublishError] = useState<string | null>(null)
   const submittingRef = useRef(false)
   const [busy, setBusy] = useState(false)
+  const [intent, setIntent] = useState<SubmissionIntent>()
+  const [intentReady, setIntentReady] = useState(Boolean(editing))
   const [conflict, setConflict] = useState<BBTalk | null>(null)
+  const assertIdentity = () => {
+    const user = getCurrentUser()
+    if (!user || draftKey(import.meta.env.VITE_API_BASE_URL || '/', user.id, editing?.id) !== draftScope) {
+      throw new Error('账号已切换，请在当前账号下重新操作')
+    }
+  }
+  useEffect(() => {
+    if (editing || !draftScope) return
+    let cancelled = false
+    readSubmission(draftScope).then(saved => {
+      if (!cancelled) { setIntent(saved); setIntentReady(true) }
+    }).catch(() => {
+      if (!cancelled) setPublishError('无法读取待确认发布，请刷新后重试；当前输入已保留。')
+    })
+    return () => { cancelled = true }
+  }, [draftScope, editing])
+  const recoverSubmission = async (retry: boolean) => {
+    if (!draftScope || !intent || submittingRef.current) return
+    submittingRef.current = true
+    setBusy(true)
+    setPublishError(null)
+    try {
+      assertIdentity()
+      await draft.verifyCurrent()
+      assertIdentity()
+      if (retry) await onPublish({ ...intent.payload, submissionKey: intent.key })
+      else await bbtalkApi.submissionStatus(intent.key)
+      assertIdentity()
+      await confirmSubmission(draftScope, intent.key)
+      setIntent({ ...intent, state: 'confirmed' })
+      setToast({ message: '已确认原提交发布成功，当前输入仍保留，可继续修改。', type: 'success' })
+      window.dispatchEvent(new Event('bbtalk-submission-resolved'))
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 410) {
+        await confirmSubmission(draftScope, intent.key).catch(() => {})
+        setIntent({ ...intent, state: 'confirmed' })
+        setPublishError('原提交对应的记录已删除，不会重新创建。当前输入仍保留。')
+      } else {
+        setPublishError(error instanceof ApiError && error.status === 404
+          ? '暂未查到原提交结果，可重试原提交；不会生成新的提交标识。'
+          : '核对或重试失败，原提交和当前输入已保留，请稍后重试。')
+      }
+    } finally { submittingRef.current = false; setBusy(false) }
+  }
   const [existingAttachments, setExistingAttachments] = useState<Attachment[]>([])  // 编辑模式下的现有附件
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null)
   const [locationError, setLocationError] = useState<boolean>(false)  // 定位失败状态
@@ -416,7 +465,7 @@ function BBTalkEditorContent({ onPublish, isPublishing = false, editing = null, 
 
   // 处理发布/更新
   const handleSubmit = async () => {
-    if (!content.trim() || !draft.loaded || isPublishing || submittingRef.current || hasUnfinishedUploads) return
+    if (!content.trim() || !intentReady || !draft.loaded || isPublishing || submittingRef.current || hasUnfinishedUploads) return
     submittingRef.current = true
     setBusy(true)
     setPublishError(null)
@@ -450,14 +499,37 @@ function BBTalkEditorContent({ onPublish, isPublishing = false, editing = null, 
         }))
       ]
 
-      await onPublish({
+      const payload = {
         content: cleanedContent, tags, attachments: allAttachments, visibility,
         context: Object.keys(context).length > 0 ? context : undefined,
-        expectedUpdatedAt: baseUpdatedAt,
-      })
+      }
+      assertIdentity()
+      let submission: SubmissionIntent | undefined
+      if (!editing) {
+        if (!draftScope) throw new Error('请先登录')
+        const revision = await draft.verifyCurrent()
+        submission = await beginSubmission(draftScope, payload, revision)
+        setIntent(submission)
+      }
+      assertIdentity()
+      await onPublish({ ...payload, submissionKey: submission?.key, expectedUpdatedAt: baseUpdatedAt })
+      assertIdentity()
 
-      // 发布成功，清理草稿
-      await draft.clear().catch(() => {})
+      // Keep the original key if local confirmation or cleanup fails.
+      try {
+        if (submission && draftScope) {
+          await confirmSubmission(draftScope, submission.key)
+          setIntent({ ...submission, state: 'confirmed' })
+        }
+        await draft.clear()
+        if (submission && draftScope) {
+          await forgetConfirmedSubmission(draftScope, submission.key)
+          setIntent(undefined)
+        }
+      } catch {
+        setToast({ message: '发布成功，但本地草稿清理失败，请刷新后核对', type: 'error' })
+        return
+      }
 
       // 清空表单 (仅在新建模式下)
       if (!editing) {
@@ -633,7 +705,14 @@ function BBTalkEditorContent({ onPublish, isPublishing = false, editing = null, 
         <span role={draft.error ? 'alert' : 'status'} className={draft.error ? 'flex-1 text-red-700' : undefined}>{draft.status}</span>
         {draft.error && draft.canRetry && <button type="button" className="min-h-[44px] px-2 text-blue-700" onClick={() => { void draft.retry() }}>重试保存</button>}
       </div>
-
+      {!editing && intent && <section aria-label="原提交恢复" className="mx-4 my-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+        <p role="status">{intent.state === 'pending' ? '有一份发布结果待核对' : '原提交已处理，当前输入仍保留'}</p>
+        <details className="mt-2"><summary className="cursor-pointer">查看原提交内容</summary><p className="mt-2 whitespace-pre-wrap break-words">{intent.payload.content}</p></details>
+        {intent.state === 'pending' && <div className="mt-2 flex flex-wrap gap-2">
+          <button type="button" disabled={busy || isPublishing} className="min-h-[44px] rounded border border-amber-400 px-3 disabled:opacity-50" onClick={() => { void recoverSubmission(false) }}>核对发布结果</button>
+          <button type="button" disabled={busy || isPublishing} className="min-h-[44px] rounded border border-amber-400 px-3 disabled:opacity-50" onClick={() => { void recoverSubmission(true) }}>重试原提交</button>
+        </div>}
+      </section>}
       <Modal visible={Boolean(conflict)} title="记录已有新版本" onClose={() => setConflict(null)}>
         <p className="text-sm text-gray-700">你的修改仍保留。请核对服务器上的最新内容，再决定是否继续编辑。</p>
         <div className="my-3 max-h-64 overflow-auto rounded border p-3 text-sm">

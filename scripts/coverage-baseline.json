@@ -10,10 +10,13 @@
   },
   "frontend": {
     "report": "frontend/coverage/coverage-summary.json",
-    "minimum": { "lines": 22, "branches": 79 },
+    "minimum": { "lines": 39, "branches": 80 },
     "files": {
       "services/api/apiClient.ts": { "lines": 99, "branches": 99 },
-      "services/auth.ts": { "lines": 80, "branches": 75 }
+      "services/auth.ts": { "lines": 80, "branches": 75 },
+      "services/submissions.ts": { "lines": 99, "branches": 99 },
+      "pages/LoginPage.tsx": { "lines": 97, "branches": 93 },
+      "pages/StorageSettingsPage.tsx": { "lines": 99, "branches": 95 }
     }
   },
   "desktop": {

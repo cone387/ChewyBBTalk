@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { login, register, getAuthPolicy } from '../services/auth';
 import Toast from '../components/ui/Toast';
 
@@ -26,6 +26,26 @@ export default function LoginPage() {
   const [registrationEnabled, setRegistrationEnabled] = useState<boolean | null>(null);
   const [policyError, setPolicyError] = useState(false);
   const [policyAttempt, setPolicyAttempt] = useState(0);
+  const submitting = useRef(false);
+  const mounted = useRef(true);
+  const redirectTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      if (redirectTimer.current !== null) window.clearTimeout(redirectTimer.current);
+    };
+  }, []);
+
+  const completeAuthentication = (message: string) => {
+    localStorage.removeItem(PRIVACY_STATE_KEY);
+    localStorage.removeItem(PRIVACY_TIMESTAMP_KEY);
+    setSuccess(message);
+    redirectTimer.current = window.setTimeout(() => {
+      window.location.href = loginDestination();
+    }, 800);
+  };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -52,6 +72,7 @@ export default function LoginPage() {
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting.current) return;
     setError(null);
     setSuccess(null);
     
@@ -64,12 +85,14 @@ export default function LoginPage() {
       setError('当前服务未开放注册，请联系管理员');
       return;
     }
+    submitting.current = true;
     setLoading(true);
     
     try {
       if (isLogin) {
         // 登录
         const result = await login(username, password);
+        if (!mounted.current) return;
         if (result.success) {
           // 保存/清除用户名
           if (rememberUsername) {
@@ -79,15 +102,7 @@ export default function LoginPage() {
             localStorage.removeItem(REMEMBER_USERNAME_KEY);
             localStorage.removeItem(SAVED_USERNAME_KEY);
           }
-          // 清除防偷窥状态，新登录不应被防窥
-          localStorage.removeItem(PRIVACY_STATE_KEY);
-          localStorage.removeItem(PRIVACY_TIMESTAMP_KEY);
-          
-          setSuccess('登录成功！');
-          // 延迟跳转，确保认证状态生效
-          setTimeout(() => {
-            window.location.href = loginDestination();
-          }, 800);
+          completeAuthentication('登录成功！');
         } else {
           setError(result.error || '登录失败');
         }
@@ -99,21 +114,22 @@ export default function LoginPage() {
           email: email || undefined,
           display_name: displayName || undefined,
         });
+        if (!mounted.current) return;
         if (result.success) {
-          setSuccess('注册成功！');
-          // 延迟跳转
-          setTimeout(() => {
-            window.location.href = loginDestination();
-          }, 800);
+          completeAuthentication('注册成功！');
         } else {
           setError(result.error || '注册失败');
         }
       }
     } catch (error) {
+      if (!mounted.current) return;
       console.error('[Login] 错误:', error);
       setError('操作失败，请稍后重试');
     } finally {
-      setLoading(false);
+      if (mounted.current && redirectTimer.current === null) {
+        submitting.current = false;
+        setLoading(false);
+      }
     }
   };
   
