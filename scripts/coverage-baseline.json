@@ -1,8 +1,14 @@
 {
   "mobile": {
     "report": "mobile/coverage/unit/coverage-summary.json",
-    "minimum": { "lines": 92, "branches": 84 },
+    "minimum": { "lines": 94, "branches": 86 },
     "files": {
+      "utils/crossAlert.ts": { "lines": 99, "branches": 99 },
+      "components/ErrorBoundary.tsx": { "lines": 99, "branches": 80 },
+      "components/SkeletonCard.tsx": { "lines": 99, "branches": 0 },
+      "components/EmptyState.tsx": { "lines": 99, "branches": 99 },
+      "components/SearchBar.tsx": { "lines": 99, "branches": 99 },
+      "screens/AboutScreen.tsx": { "lines": 99, "branches": 94 },
       "src/config.ts": { "lines": 99, "branches": 99 },
       "components/UndoToast.tsx": { "lines": 99, "branches": 90 },
       "components/PrivacyLockOverlay.tsx": { "lines": 99, "branches": 91 },
