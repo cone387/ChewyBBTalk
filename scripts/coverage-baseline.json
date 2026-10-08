@@ -1,7 +1,7 @@
 {
   "mobile": {
     "report": "mobile/coverage/unit/coverage-summary.json",
-    "minimum": { "lines": 85, "branches": 78 },
+    "minimum": { "lines": 88, "branches": 81 },
     "files": {
       "services/api/apiClient.ts": { "lines": 99, "branches": 95 },
       "services/auth.ts": { "lines": 98, "branches": 84 },
@@ -18,6 +18,8 @@
       "hooks/usePrivacyMode.ts": { "lines": 99, "branches": 99 },
       "services/historyPrivacy.ts": { "lines": 99, "branches": 99 },
       "screens/CalendarScreen.tsx": { "lines": 99, "branches": 97 },
+      "screens/AudioPlayScreen.tsx": { "lines": 99, "branches": 99 },
+      "screens/PrivacySettingsScreen.tsx": { "lines": 99, "branches": 99 },
       "components/CommentInputModal.tsx": { "lines": 99, "branches": 95 },
       "components/InlineComments.tsx": { "lines": 99, "branches": 88 },
       "components/ImageViewer.tsx": { "lines": 97, "branches": 96 },
