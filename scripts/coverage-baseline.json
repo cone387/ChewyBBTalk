@@ -1,85 +1,306 @@
 {
   "mobile": {
     "report": "mobile/coverage/unit/coverage-summary.json",
-    "minimum": { "lines": 95, "branches": 87 },
+    "minimum": {
+      "lines": 97,
+      "branches": 89
+    },
     "files": {
-      "store/slices/tagSlice.ts": { "lines": 99, "branches": 90 },
-      "theme/ThemeContext.tsx": { "lines": 99, "branches": 92 },
-      "components/TagPickerModal.tsx": { "lines": 99, "branches": 99 },
-      "components/VisibilityPickerModal.tsx": { "lines": 99, "branches": 99 },
-      "utils/crossAlert.ts": { "lines": 99, "branches": 99 },
-      "components/ErrorBoundary.tsx": { "lines": 99, "branches": 80 },
-      "components/SkeletonCard.tsx": { "lines": 99, "branches": 0 },
-      "components/EmptyState.tsx": { "lines": 99, "branches": 99 },
-      "components/SearchBar.tsx": { "lines": 99, "branches": 99 },
-      "screens/AboutScreen.tsx": { "lines": 99, "branches": 94 },
-      "src/config.ts": { "lines": 99, "branches": 99 },
-      "components/UndoToast.tsx": { "lines": 99, "branches": 90 },
-      "components/PrivacyLockOverlay.tsx": { "lines": 99, "branches": 91 },
-      "services/api/apiClient.ts": { "lines": 99, "branches": 95 },
-      "services/auth.ts": { "lines": 98, "branches": 84 },
-      "services/widget/autoSync.ts": { "lines": 99, "branches": 85 },
-      "services/widget/bridge.ts": { "lines": 99, "branches": 99 },
-      "services/widget/config.ts": { "lines": 99, "branches": 99 },
-      "services/widget/datasource.ts": { "lines": 99, "branches": 88 },
-      "services/widget/index.ts": { "lines": 98, "branches": 91 },
-      "utils/errorHandler.ts": { "lines": 99, "branches": 99 },
-      "utils/webAlert.ts": { "lines": 99, "branches": 91 },
-      "components/BBTalkCard.tsx": { "lines": 99, "branches": 96 },
-      "components/AudioPlayerButton.tsx": { "lines": 97, "branches": 93 },
-      "hooks/useDraftAutosave.ts": { "lines": 99, "branches": 90 },
-      "hooks/usePrivacyMode.ts": { "lines": 99, "branches": 99 },
-      "services/historyPrivacy.ts": { "lines": 99, "branches": 99 },
-      "screens/CalendarScreen.tsx": { "lines": 99, "branches": 97 },
-      "screens/AudioPlayScreen.tsx": { "lines": 99, "branches": 99 },
-      "screens/LandingScreen.web.tsx": { "lines": 99, "branches": 85 },
-      "screens/SettingsScreen.tsx": { "lines": 95, "branches": 90 },
-      "screens/PrivacySettingsScreen.tsx": { "lines": 99, "branches": 99 },
-      "components/CommentInputModal.tsx": { "lines": 99, "branches": 95 },
-      "components/InlineComments.tsx": { "lines": 99, "branches": 88 },
-      "components/ImageViewer.tsx": { "lines": 97, "branches": 96 },
-      "components/VoiceRecordingOverlay.tsx": { "lines": 99, "branches": 88 },
-      "navigation/MainTabs.tsx": { "lines": 99, "branches": 99 },
-      "screens/AccountSecurityScreen.tsx": { "lines": 99, "branches": 97 },
-      "screens/CacheManagementScreen.tsx": { "lines": 98, "branches": 92 },
-      "screens/ComposeScreen.tsx": { "lines": 93, "branches": 79 },
-      "screens/DataManagementScreen.tsx": { "lines": 99, "branches": 87 },
-      "screens/HomeScreen.tsx": { "lines": 93, "branches": 81 },
-      "screens/StorageSettingsScreen.tsx": { "lines": 98, "branches": 90 },
-      "screens/TagManagementScreen.tsx": { "lines": 98, "branches": 87 },
-      "screens/LoginScreen.tsx": { "lines": 95, "branches": 90 },
-      "screens/PasswordRecoveryScreen.tsx": { "lines": 99, "branches": 95 },
-      "screens/ProfileEditScreen.tsx": { "lines": 99, "branches": 93 },
-      "store/slices/bbtalkSlice.ts": { "lines": 99, "branches": 75 }
+      "screens/RecordDetailScreen.tsx": {
+        "lines": 99,
+        "branches": 99
+      },
+      "components/OfflineBanner.tsx": {
+        "lines": 99,
+        "branches": 99
+      },
+      "components/ErrorFallback.tsx": {
+        "lines": 99,
+        "branches": 99
+      },
+      "components/SectionCard.tsx": {
+        "lines": 99,
+        "branches": 99
+      },
+      "components/LoadingPlaceholder.tsx": {
+        "lines": 99,
+        "branches": 99
+      },
+      "components/TagTabs.tsx": {
+        "lines": 99,
+        "branches": 99
+      },
+      "components/VideoPlayerButton.tsx": {
+        "lines": 99,
+        "branches": 99
+      },
+      "components/AppBackgroundBlur.tsx": {
+        "lines": 99,
+        "branches": 99
+      },
+      "store/slices/tagSlice.ts": {
+        "lines": 99,
+        "branches": 90
+      },
+      "theme/ThemeContext.tsx": {
+        "lines": 99,
+        "branches": 92
+      },
+      "components/TagPickerModal.tsx": {
+        "lines": 99,
+        "branches": 99
+      },
+      "components/VisibilityPickerModal.tsx": {
+        "lines": 99,
+        "branches": 99
+      },
+      "utils/crossAlert.ts": {
+        "lines": 99,
+        "branches": 99
+      },
+      "components/ErrorBoundary.tsx": {
+        "lines": 99,
+        "branches": 80
+      },
+      "components/SkeletonCard.tsx": {
+        "lines": 99,
+        "branches": 0
+      },
+      "components/EmptyState.tsx": {
+        "lines": 99,
+        "branches": 99
+      },
+      "components/SearchBar.tsx": {
+        "lines": 99,
+        "branches": 99
+      },
+      "screens/AboutScreen.tsx": {
+        "lines": 99,
+        "branches": 94
+      },
+      "src/config.ts": {
+        "lines": 99,
+        "branches": 99
+      },
+      "components/UndoToast.tsx": {
+        "lines": 99,
+        "branches": 90
+      },
+      "components/PrivacyLockOverlay.tsx": {
+        "lines": 99,
+        "branches": 91
+      },
+      "services/api/apiClient.ts": {
+        "lines": 99,
+        "branches": 95
+      },
+      "services/auth.ts": {
+        "lines": 98,
+        "branches": 84
+      },
+      "services/widget/autoSync.ts": {
+        "lines": 99,
+        "branches": 85
+      },
+      "services/widget/bridge.ts": {
+        "lines": 99,
+        "branches": 99
+      },
+      "services/widget/config.ts": {
+        "lines": 99,
+        "branches": 99
+      },
+      "services/widget/datasource.ts": {
+        "lines": 99,
+        "branches": 88
+      },
+      "services/widget/index.ts": {
+        "lines": 98,
+        "branches": 91
+      },
+      "utils/errorHandler.ts": {
+        "lines": 99,
+        "branches": 99
+      },
+      "utils/webAlert.ts": {
+        "lines": 99,
+        "branches": 91
+      },
+      "components/BBTalkCard.tsx": {
+        "lines": 99,
+        "branches": 96
+      },
+      "components/AudioPlayerButton.tsx": {
+        "lines": 97,
+        "branches": 93
+      },
+      "hooks/useDraftAutosave.ts": {
+        "lines": 99,
+        "branches": 90
+      },
+      "hooks/usePrivacyMode.ts": {
+        "lines": 99,
+        "branches": 99
+      },
+      "services/historyPrivacy.ts": {
+        "lines": 99,
+        "branches": 99
+      },
+      "screens/CalendarScreen.tsx": {
+        "lines": 99,
+        "branches": 97
+      },
+      "screens/AudioPlayScreen.tsx": {
+        "lines": 99,
+        "branches": 99
+      },
+      "screens/LandingScreen.web.tsx": {
+        "lines": 99,
+        "branches": 85
+      },
+      "screens/SettingsScreen.tsx": {
+        "lines": 95,
+        "branches": 90
+      },
+      "screens/PrivacySettingsScreen.tsx": {
+        "lines": 99,
+        "branches": 99
+      },
+      "components/CommentInputModal.tsx": {
+        "lines": 99,
+        "branches": 95
+      },
+      "components/InlineComments.tsx": {
+        "lines": 99,
+        "branches": 88
+      },
+      "components/ImageViewer.tsx": {
+        "lines": 97,
+        "branches": 96
+      },
+      "components/VoiceRecordingOverlay.tsx": {
+        "lines": 99,
+        "branches": 88
+      },
+      "navigation/MainTabs.tsx": {
+        "lines": 99,
+        "branches": 99
+      },
+      "screens/AccountSecurityScreen.tsx": {
+        "lines": 99,
+        "branches": 97
+      },
+      "screens/CacheManagementScreen.tsx": {
+        "lines": 98,
+        "branches": 92
+      },
+      "screens/ComposeScreen.tsx": {
+        "lines": 93,
+        "branches": 79
+      },
+      "screens/DataManagementScreen.tsx": {
+        "lines": 99,
+        "branches": 87
+      },
+      "screens/HomeScreen.tsx": {
+        "lines": 93,
+        "branches": 81
+      },
+      "screens/StorageSettingsScreen.tsx": {
+        "lines": 98,
+        "branches": 90
+      },
+      "screens/TagManagementScreen.tsx": {
+        "lines": 98,
+        "branches": 87
+      },
+      "screens/LoginScreen.tsx": {
+        "lines": 95,
+        "branches": 90
+      },
+      "screens/PasswordRecoveryScreen.tsx": {
+        "lines": 99,
+        "branches": 95
+      },
+      "screens/ProfileEditScreen.tsx": {
+        "lines": 99,
+        "branches": 93
+      },
+      "store/slices/bbtalkSlice.ts": {
+        "lines": 99,
+        "branches": 75
+      }
     }
   },
   "frontend": {
     "report": "frontend/coverage/coverage-summary.json",
-    "minimum": { "lines": 39, "branches": 80 },
+    "minimum": {
+      "lines": 39,
+      "branches": 80
+    },
     "files": {
-      "services/api/apiClient.ts": { "lines": 99, "branches": 99 },
-      "services/auth.ts": { "lines": 80, "branches": 75 },
-      "services/submissions.ts": { "lines": 99, "branches": 99 },
-      "pages/LoginPage.tsx": { "lines": 97, "branches": 93 },
-      "pages/StorageSettingsPage.tsx": { "lines": 99, "branches": 95 }
+      "services/api/apiClient.ts": {
+        "lines": 99,
+        "branches": 99
+      },
+      "services/auth.ts": {
+        "lines": 80,
+        "branches": 75
+      },
+      "services/submissions.ts": {
+        "lines": 99,
+        "branches": 99
+      },
+      "pages/LoginPage.tsx": {
+        "lines": 97,
+        "branches": 93
+      },
+      "pages/StorageSettingsPage.tsx": {
+        "lines": 99,
+        "branches": 95
+      }
     }
   },
   "desktop": {
     "report": "desktop/coverage/coverage-summary.json",
-    "minimum": { "lines": 34, "branches": 80 },
+    "minimum": {
+      "lines": 34,
+      "branches": 80
+    },
     "files": {
-      "main/uploads.ts": { "lines": 99, "branches": 85 },
-      "main/submissions.ts": { "lines": 95, "branches": 80 },
-      "main/credentials.ts": { "lines": 99, "branches": 99 },
-      "main/windows/ballWindow.ts": { "lines": 95, "branches": 99 }
+      "main/uploads.ts": {
+        "lines": 99,
+        "branches": 85
+      },
+      "main/submissions.ts": {
+        "lines": 95,
+        "branches": 80
+      },
+      "main/credentials.ts": {
+        "lines": 99,
+        "branches": 99
+      },
+      "main/windows/ballWindow.ts": {
+        "lines": 95,
+        "branches": 99
+      }
     }
   },
   "backend": {
     "report": "backend/coverage/coverage.json",
-    "minimum": { "lines": 80, "branches": 64 },
+    "minimum": {
+      "lines": 80,
+      "branches": 64
+    },
     "files": {
-      "bbtalk/data_import.py": { "lines": 90, "branches": 80 },
-      "bbtalk/storage_migration.py": { "lines": 90, "branches": 65 }
+      "bbtalk/data_import.py": {
+        "lines": 90,
+        "branches": 80
+      },
+      "bbtalk/storage_migration.py": {
+        "lines": 90,
+        "branches": 65
+      }
     }
   }
 }

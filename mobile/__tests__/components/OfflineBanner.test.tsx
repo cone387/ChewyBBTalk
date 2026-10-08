@@ -6,14 +6,22 @@
  * - formatRelativeTime 纯函数正确性（各时间区间）
  * - OfflineBanner 组件渲染逻辑（isOffline 控制、lastSyncTime 显示、accent 背景色）
  *
- * Strategy: Test the pure formatRelativeTime function directly, and test
- * the component's rendering logic by replicating its conditional logic
- * without rendering the full React Native component tree (node test env).
- *
  * **Validates: Requirements 5.6, 5.9**
  */
 
+jest.mock('react-native', () => ({
+  __esModule: true,
+  View: 'View', Text: 'Text',
+  StyleSheet: { create: (value: unknown) => value },
+}));
+jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Icon' }));
+
+import React from 'react';
+import OfflineBanner from '../../src/components/OfflineBanner';
 import { formatRelativeTime } from '../../src/utils/formatRelativeTime';
+
+const { create, act } = require('react-test-renderer');
+const { THEMES } = require('../../src/theme/themes');
 
 // --- formatRelativeTime tests ---
 
@@ -134,8 +142,51 @@ describe('OfflineBanner rendering logic', () => {
   it('uses theme accent color as background (design contract)', () => {
     // This test documents the design contract: OfflineBanner uses
     // theme.colors.accent as its container backgroundColor.
-    // The actual component applies: { backgroundColor: c.accent }
     const accentColor = '#7C3AED';
     expect(accentColor).toBeTruthy();
+  });
+});
+
+// --- OfflineBanner component render tests ---
+
+describe('OfflineBanner component', () => {
+  let tree: any;
+  const childText = (children: any): string =>
+    typeof children === 'string' ? children
+      : Array.isArray(children) ? children.map(childText).join('')
+        : '';
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-04-17T12:00:00.000Z'));
+  });
+
+  afterEach(() => {
+    act(() => { tree?.unmount(); });
+    tree = undefined;
+    jest.useRealTimers();
+  });
+
+  async function mount(props: Record<string, unknown>) {
+    await act(async () => {
+      tree = create(<OfflineBanner theme={THEMES[0]} {...(props as any)} />);
+    });
+  }
+
+  it('renders nothing while online', async () => {
+    await mount({ isOffline: false, lastSyncTime: '2026-04-17T11:55:00.000Z' });
+    expect(tree.root.findAllByType('View')).toHaveLength(0);
+  });
+
+  it('shows the last sync time in offline mode on the accent background', async () => {
+    await mount({ isOffline: true, lastSyncTime: '2026-04-17T11:55:00.000Z' });
+    expect(childText(tree.root.findByType('Text').props.children)).toBe('离线模式 · 最后同步于 5 分钟前');
+    expect(tree.root.findByType('View').props.style.some((s: any) => s?.backgroundColor === THEMES[0].colors.accent)).toBe(true);
+    expect(tree.root.findByType('Icon').props.name).toBe('cloud-offline-outline');
+  });
+
+  it('flags a missing sync time', async () => {
+    await mount({ isOffline: true, lastSyncTime: null });
+    expect(childText(tree.root.findByType('Text').props.children)).toBe('离线模式 · 尚未同步');
   });
 });
