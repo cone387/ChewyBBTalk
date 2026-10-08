@@ -12,6 +12,9 @@ const mockActions: any = {};
 const mockBatch: any = {};
 const mockTagSwipe: any = { resetSlideAnim: jest.fn(), tagScrollRef: { current: null }, listSlideAnim: 0, panResponder: { panHandlers: {} } };
 let mockHoldArgs: any[] = [];
+let mockPrivacyArgs: any[] = [];
+let mockActionsArgs: any[] = [];
+let mockHoldPressed = false;
 const mockVoiceOverlay = jest.fn((_props: any) => null as any);
 const mockUndoToast = jest.fn((_props: any) => null as any);
 const mockSkeleton = jest.fn((_props: any) => null as any);
@@ -87,13 +90,13 @@ jest.mock('../../src/services/historyPrivacy', () => ({
   onHistoryActivity: (...args: any[]) => mockOnHistoryActivity(...args),
 }));
 jest.mock('../../src/hooks/usePrivacyMode', () => ({
-  usePrivacyMode: () => mockPrivacy.value,
+  usePrivacyMode: (...args: any[]) => { mockPrivacyArgs = args; return mockPrivacy.value; },
 }));
 jest.mock('../../src/hooks/useOfflineCache', () => ({
   useOfflineCache: () => mockOffline.value,
 }));
 jest.mock('../../src/hooks/useBBTalkActions', () => ({
-  useBBTalkActions: () => mockActions.value,
+  useBBTalkActions: (...args: any[]) => { mockActionsArgs = args; return mockActions.value; },
 }));
 jest.mock('../../src/hooks/useBatchMode', () => ({
   useBatchMode: () => mockBatch.value,
@@ -104,7 +107,7 @@ jest.mock('../../src/hooks/useTagSwipe', () => ({
 jest.mock('../../src/hooks/useHoldToRecord', () => ({
   useHoldToRecord: (...args: any[]) => {
     mockHoldArgs = args;
-    return { pressed: false, holdMode: false, cancelHint: false, stopAction: undefined, handlers: {} };
+    return { pressed: mockHoldPressed, holdMode: false, cancelHint: false, stopAction: undefined, handlers: {} };
   },
 }));
 jest.mock('../../src/components/VoiceRecordingOverlay', () => ({ __esModule: true, get default() { return mockVoiceOverlay; } }));
@@ -315,6 +318,9 @@ const modalVisible = (label: string) => tree.root.findAllByType('Text').some((t:
 
 beforeEach(() => {
   installStubs();
+  mockPrivacyArgs = [];
+  mockActionsArgs = [];
+  mockHoldPressed = false;
   mockNav.value = {
     navigate: jest.fn(),
     isFocused: jest.fn(() => true),
@@ -676,5 +682,218 @@ describe('HomeScreen tag tabs and voice', () => {
     await act(async () => { mockHoldArgs[0]!(); });
     await act(async () => { overlayProps().onCancel(); });
     expect(overlayProps().visible).toBe(false);
+  });
+
+  it('closes the overlay without navigating when nothing was captured', async () => {
+    await mountHome();
+    await act(async () => { mockHoldArgs[0]!(); });
+    await act(async () => { await overlayProps().onFinish({ text: '', audioUri: null, audioDuration: 0 }); });
+    expect(mockNav.value.navigate).not.toHaveBeenCalled();
+    expect(overlayProps().visible).toBe(false);
+  });
+});
+
+describe('HomeScreen hook wiring', () => {
+  it('forwards privacy errors through the shared showError callback', async () => {
+    await mountHome();
+    mockPrivacyArgs[0].showError('隐私错误', '详细原因');
+    expect(mockXAlert).toHaveBeenCalledWith('隐私错误', '详细原因');
+  });
+
+  it('navigates to compose with and without an edit item', async () => {
+    await mountHome();
+    mockActionsArgs[0].onNavigateCompose(makeTalk('a'));
+    mockActionsArgs[0].onNavigateCompose();
+    expect(mockNav.value.navigate).toHaveBeenNthCalledWith(1, 'Compose', { editItem: expect.objectContaining({ id: 'a' }) });
+    expect(mockNav.value.navigate).toHaveBeenNthCalledWith(2, 'Compose', undefined);
+  });
+
+  it('ignores comments reported without an open comment target', async () => {
+    await mountHome();
+    const props = mockCommentModal.mock.calls[mockCommentModal.mock.calls.length - 1]![0];
+    await act(async () => { props.onCommentAdded({ id: 'c0', content: 'x', createdAt: '2026-10-08T00:00:00Z' } as unknown as Comment); });
+    expect(mockSlice.incrementCommentCount).not.toHaveBeenCalled();
+  });
+});
+
+describe('HomeScreen refresh plumbing', () => {
+  it('animates the transition from skeletons to loaded records', async () => {
+    mockStoreState.value.bbtalk.isLoading = true;
+    await act(async () => { tree = create(<HomeScreen selectedTag={null} selectedDate={null} />); });
+    await settle();
+    mockStoreState.value.bbtalk.isLoading = false;
+    // A fresh element is required: re-using the initial one lets React bail out of the re-render.
+    await act(async () => { tree.update(<HomeScreen selectedTag={null} selectedDate={null} />); });
+    await settle();
+    const { LayoutAnimation } = require('react-native');
+    expect(LayoutAnimation.create).toHaveBeenCalledWith(300, 'easeInEaseOut', 'opacity');
+  });
+
+  it('refreshes privacy settings and the tag tab preference on focus', async () => {
+    await mountHome();
+    // The privacy focus listener is registered before the foreground refresh one.
+    const privacyFocus = mockNav.value.addListener.mock.calls.filter((call: any[]) => call[0] === 'focus')[0]![1]!;
+    await act(async () => { privacyFocus(); });
+    expect(mockPrivacy.value.loadPrivacySettings).toHaveBeenCalled();
+    expect(mockAsyncStorage.getItem).toHaveBeenCalledWith('show_tag_tabs');
+  });
+
+  it('skips the foreground refresh when unfocused, backgrounded, or throttled', async () => {
+    await mountHome();
+    const initial = mockSlice.loadBBTalks.mock.calls.length;
+    const RN = require('react-native');
+    mockNav.value.isFocused = jest.fn(() => false);
+    await act(async () => { mockNavListeners.focus!(); });
+    mockNav.value.isFocused = jest.fn(() => true);
+    RN.AppState.currentState = 'background';
+    await act(async () => { mockNavListeners.focus!(); });
+    RN.AppState.currentState = 'active';
+    await act(async () => { mockNavListeners.focus!(); });
+    await act(async () => { mockNavListeners.focus!(); }); // throttled within a second
+    expect(mockSlice.loadBBTalks.mock.calls.length).toBe(initial + 1);
+  });
+
+  it('refreshes from the app-state change listener', async () => {
+    const RN = require('react-native');
+    RN.AppState.addEventListener.mockClear();
+    await mountHome();
+    const initial = mockSlice.loadBBTalks.mock.calls.length;
+    const onChange = RN.AppState.addEventListener.mock.calls[0]![1]!;
+    await act(async () => { onChange('active'); });
+    expect(mockSlice.loadBBTalks.mock.calls.length).toBe(initial + 1);
+  });
+
+  it('refreshes the list when connectivity returns', async () => {
+    mockOffline.value.isOffline = true;
+    await act(async () => { tree = create(<HomeScreen selectedTag={null} selectedDate={null} />); });
+    await settle();
+    const initial = mockSlice.loadBBTalks.mock.calls.length;
+    mockOffline.value.isOffline = false;
+    await act(async () => { tree.update(<HomeScreen selectedTag={null} selectedDate={null} />); });
+    await settle();
+    expect(mockSlice.loadBBTalks.mock.calls.length).toBe(initial + 1);
+  });
+
+  it('logs cache initialization failures', async () => {
+    mockOffline.value.initCache = jest.fn(async () => { throw new Error('db'); });
+    await mountHome();
+    expect(mockLogError).toHaveBeenCalledWith(expect.any(Error), 'HomeScreen offline cache init');
+  });
+
+  it('shows the pagination spinner while the next page loads', async () => {
+    let resolveMore!: (v: any) => void;
+    mockSlice.loadMoreBBTalks = jest.fn(() => new Promise((resolve) => { resolveMore = resolve; }));
+    await mountHome();
+    await press('触底加载');
+    expect(mockSlice.loadMoreBBTalks).toHaveBeenCalledTimes(1);
+    expect(tree.root.findAllByType('ActivityIndicator').length).toBe(1);
+    await act(async () => { resolveMore({ type: 'done' }); });
+    await settle();
+    expect(tree.root.findAllByType('ActivityIndicator').length).toBe(0);
+  });
+});
+
+describe('HomeScreen search and pickers', () => {
+  it('closes the search through the panel close button', async () => {
+    await mountHome();
+    await press('搜索');
+    expect(tappable('提交搜索')).toBeDefined();
+    await press('关闭搜索面板');
+    expect(tappable('提交搜索')).toBeUndefined();
+  });
+
+  it('saves the typed term when closing the search', async () => {
+    await mountHome();
+    await press('搜索');
+    await act(async () => { tree.root.findAllByType(SearchTextInput)[0].props.onChangeText('临时'); });
+    await press('关闭搜索');
+    expect(mockAsyncStorage.setItem).toHaveBeenCalledWith('search_history', JSON.stringify(['临时']));
+    expect(tappable('提交搜索')).toBeUndefined();
+  });
+
+  it('ignores blank search submissions', async () => {
+    await mountHome();
+    await press('搜索');
+    await act(async () => { tree.root.findAllByType(SearchTextInput)[0].props.onChangeText('   '); });
+    await press('提交搜索');
+    expect(mockAsyncStorage.setItem).not.toHaveBeenCalled();
+  });
+
+  it('closes the tag and visibility pickers through their cancel buttons', async () => {
+    mockBatch.value.batchMode = true;
+    mockBatch.value.selectedIds = new Set(['a']);
+    await mountHome();
+    await press('批量改标签');
+    await press('关闭标签选择');
+    expect(mockTagPicker.mock.calls[mockTagPicker.mock.calls.length - 1]![0].visible).toBe(false);
+    await press('批量改可见性');
+    await press('关闭可见性选择');
+    expect(mockVisibilityPicker.mock.calls[mockVisibilityPicker.mock.calls.length - 1]![0].visible).toBe(false);
+  });
+
+  it('skips guarded batch and long-press actions with nothing selected', async () => {
+    mockBatch.value.batchMode = true;
+    mockBatch.value.selectedIds = new Set<string>();
+    await mountHome();
+    await press('长按 a'); // already inside batch mode
+    expect(mockBatch.value.enterBatchMode).not.toHaveBeenCalled();
+    await press('批量删除');
+    expect(mockBatch.value.batchDelete).not.toHaveBeenCalled();
+    await press('批量改标签');
+    await press('批量改可见性');
+    expect(mockTagPicker.mock.calls[mockTagPicker.mock.calls.length - 1]![0].visible).toBe(false);
+    expect(mockVisibilityPicker.mock.calls[mockVisibilityPicker.mock.calls.length - 1]![0].visible).toBe(false);
+    const tagProps = mockTagPicker.mock.calls[mockTagPicker.mock.calls.length - 1]![0];
+    const visProps = mockVisibilityPicker.mock.calls[mockVisibilityPicker.mock.calls.length - 1]![0];
+    await act(async () => { tagProps.onConfirm(['工作']); });
+    await act(async () => { visProps.onConfirm('public'); });
+    expect(mockBatch.value.batchUpdateTags).not.toHaveBeenCalled();
+    expect(mockBatch.value.batchUpdateVisibility).not.toHaveBeenCalled();
+  });
+});
+
+describe('HomeScreen ui details', () => {
+  it('extracts stable keys from the flat list data', async () => {
+    await mountHome();
+    const list = tree.root.findAllByType(mockFlatListComponent)[0];
+    expect(list.props.keyExtractor(makeTalk('a'))).toBe('a');
+  });
+
+  it('shows and uses the privacy countdown badge', async () => {
+    mockPrivacy.value.showCountdown = true;
+    mockPrivacy.value.privacyEnabled = true;
+    mockPrivacy.value.privacySeconds = 90;
+    await mountHome();
+    expect(hasText('1:30')).toBe(true);
+    await press('锁定内容');
+    expect(mockPrivacy.value.setLocked).toHaveBeenCalledWith(true);
+    await act(async () => { tappable('锁定内容')!.props.onLongPress!(); });
+    expect(mockNav.value.navigate).toHaveBeenCalledWith('PrivacySettings');
+  });
+
+  it('formats short countdowns in seconds', async () => {
+    mockPrivacy.value.showCountdown = true;
+    mockPrivacy.value.privacyEnabled = true;
+    mockPrivacy.value.privacySeconds = 45;
+    await mountHome();
+    expect(hasText('45s')).toBe(true);
+  });
+
+  it('closes the image viewer through its own close button and the back request', async () => {
+    await mountHome();
+    await press('图片 a');
+    expect(tree.root.findAllByType('Modal')[0].props.visible).toBe(true);
+    await press('关闭查看器');
+    expect(tree.root.findAllByType('Modal')[0].props.visible).toBe(false);
+    await press('图片 a');
+    await act(async () => { tree.root.findAllByType('Modal')[0].props.onRequestClose(); });
+    expect(tree.root.findAllByType('Modal')[0].props.visible).toBe(false);
+  });
+
+  it('dims the compose button while a recording press is active', async () => {
+    mockHoldPressed = true;
+    await mountHome();
+    const fab = tree.root.findAllByType('View').find((node: any) => node.props.accessibilityLabel === '新建碎碎念');
+    expect(fab.props.style[fab.props.style.length - 1].opacity).toBe(0.85);
   });
 });

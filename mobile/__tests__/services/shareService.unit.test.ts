@@ -47,6 +47,7 @@ jest.mock('../../src/utils/errorHandler', () => ({
   logError: jest.fn(),
 }));
 
+import { logError } from '../../src/utils/errorHandler';
 import {
   buildShareText,
   downloadImages,
@@ -203,12 +204,28 @@ describe('ShareService Unit Tests', () => {
     it('RN Share 抛出异常时，最终降级为剪贴板复制', async () => {
       const item = makeBBTalk({ attachments: [] });
 
-      (Share.share as jest.Mock).mockRejectedValue(new Error('share failed'));
+      (Share.share as jest.Mock).mockRejectedValueOnce(new Error('share failed'));
 
       await shareBBTalk(item);
 
       // Should copy to clipboard as final fallback
       expect(Clipboard.setStringAsync).toHaveBeenCalledWith(buildShareText(item));
+      expect(Alert.alert).toHaveBeenCalledWith('已复制', '内容已复制到剪贴板');
+    });
+
+    it('剪贴板降级自身失败时记录错误并再次尝试复制', async () => {
+      const item = makeBBTalk({ attachments: [] });
+
+      (Share.share as jest.Mock).mockRejectedValueOnce(new Error('share failed'));
+      // First clipboard attempt (inside shareOnNative) fails, the outer fallback retries.
+      (Clipboard.setStringAsync as jest.Mock)
+        .mockRejectedValueOnce(new Error('clip unavailable'))
+        .mockResolvedValue(undefined);
+
+      await shareBBTalk(item);
+
+      expect(logError).toHaveBeenCalledWith(expect.any(Error), 'shareBBTalk');
+      expect(Clipboard.setStringAsync).toHaveBeenCalledTimes(2);
       expect(Alert.alert).toHaveBeenCalledWith('已复制', '内容已复制到剪贴板');
     });
 
@@ -314,6 +331,22 @@ describe('ShareService Unit Tests', () => {
       expect(Share.share).toHaveBeenCalledWith({
         message: buildShareText(item),
       });
+    });
+
+    it('图片下载批次本身失败时记录错误并继续纯文本分享', async () => {
+      const item = makeBBTalkWithImages();
+
+      // The per-URL catch swallows failures, but a broken logger makes the
+      // whole downloadImages batch reject — the share flow must survive it.
+      (FileSystem.downloadAsync as jest.Mock).mockRejectedValueOnce(new Error('download failed'));
+      (logError as jest.Mock).mockImplementationOnce(() => { throw new Error('logger broken'); });
+      (Share.share as jest.Mock).mockResolvedValueOnce({ action: 'sharedAction' });
+
+      await shareBBTalk(item);
+
+      expect(logError).toHaveBeenCalledWith(expect.any(Error), 'download images for share');
+      expect(Sharing.shareAsync).not.toHaveBeenCalled();
+      expect(Share.share).toHaveBeenCalledWith({ message: buildShareText(item) });
     });
 
     it('部分图片下载失败时，仍使用成功下载的图片分享', async () => {
@@ -436,6 +469,18 @@ describe('ShareService Unit Tests', () => {
       ]);
 
       expect(result).toEqual(['/tmp/cache/share_b.png']);
+    });
+
+    it('URL 以斜杠结尾时使用带时间戳的回退文件名', async () => {
+      (FileSystem.downloadAsync as jest.Mock).mockResolvedValueOnce({ status: 200, uri: '/tmp/cache/fallback.jpg' });
+
+      const result = await downloadImages(['https://example.com/album/']);
+
+      expect(result).toEqual(['/tmp/cache/fallback.jpg']);
+      expect(FileSystem.downloadAsync).toHaveBeenCalledWith(
+        'https://example.com/album/',
+        expect.stringMatching(/^\/tmp\/cache\/share_share_\d+\.jpg$/),
+      );
     });
   });
 

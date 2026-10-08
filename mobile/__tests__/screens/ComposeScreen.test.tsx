@@ -32,11 +32,14 @@ const mockSetAudioModeAsync = jest.fn();
 const mockAudioPlayer = { play: jest.fn(), pause: jest.fn() };
 const mockBuildImageSource = jest.fn((url: any) => url);
 const mockAsyncStorage: any = {};
+// Mutated in place so modules that destructure Platform at import time observe changes.
+const mockPlatform = { OS: 'ios' };
+let mockHoldPressed = false;
 
 jest.mock('react-native', () => ({
   View: 'View', Text: 'Text', TouchableOpacity: 'TouchableOpacity', ScrollView: 'ScrollView',
   ActivityIndicator: 'ActivityIndicator', StyleSheet: { create: (value: unknown) => value },
-  Platform: { OS: 'ios' }, Modal: 'Modal', FlatList: 'FlatList', Linking: { openURL: jest.fn() },
+  get Platform() { return mockPlatform; }, Modal: 'Modal', FlatList: 'FlatList', Linking: { openURL: jest.fn() },
   Dimensions: { get: () => ({ width: 400, height: 800 }) },
   Keyboard: { dismiss: jest.fn(), addListener: jest.fn(() => ({ remove: jest.fn() })) },
   AppState: { addEventListener: jest.fn(() => ({ remove: jest.fn() })) },
@@ -130,7 +133,7 @@ jest.mock('../../src/components/VoiceRecordingOverlay', () => ({
 jest.mock('../../src/hooks/useHoldToRecord', () => ({
   useHoldToRecord: (...args: any[]) => {
     mockHoldArgs = args;
-    return { pressed: false, holdMode: false, cancelHint: false, stopAction: undefined, handlers: {} };
+    return { pressed: mockHoldPressed, holdMode: false, cancelHint: false, stopAction: undefined, handlers: {} };
   },
 }));
 jest.mock('../../src/hooks/useDraftAutosave', () => ({
@@ -196,10 +199,28 @@ async function press(label: string) { await act(async () => { await tappable(lab
 const hasText = (s: string) => tree.root.findAllByType('Text').some((t: any) => childText(t.props.children) === s);
 const imageCount = () => tree.root.findAllByType('ExpoImage').length;
 const overlayProps = () => mockVoiceOverlay.mock.calls[mockVoiceOverlay.mock.calls.length - 1][0];
+// ComposeScreen's web branches reach for window.Audio/window.open, absent in the node env.
+function installWebWindow() {
+  const created: any[] = [];
+  class FakeAudio {
+    onended: (() => void) | null = null;
+    onerror: (() => void) | null = null;
+    played = false;
+    paused = false;
+    constructor(_url: string) { created.push(this); }
+    play() { this.played = true; return Promise.resolve(); }
+    pause() { this.paused = true; }
+  }
+  const open = jest.fn();
+  (global as any).window = { Audio: FakeAudio, open };
+  return { created, open };
+}
 
 beforeAll(() => { setSession('https://api.example', '1'); });
 
 beforeEach(() => {
+  mockPlatform.OS = 'ios';
+  mockHoldPressed = false;
   mockNavHolder.value = { goBack: jest.fn(), dispatch: jest.fn(), setParams: jest.fn() };
   mockRoute.params = {};
   mockPrevent = null;
@@ -329,6 +350,20 @@ describe('ComposeScreen drafts', () => {
     mockReadDraft.mockRejectedValue(new Error('corrupt'));
     await mountCompose();
     expect(hasText('无法读取草稿，请重新打开编辑器后重试。')).toBe(true);
+  });
+
+  it('discards a restored draft when the session changes while loading', async () => {
+    let resolveDraft!: (v: string | null) => void;
+    mockReadDraft.mockReturnValueOnce(new Promise((resolve) => { resolveDraft = resolve; }));
+    await mountCompose();
+    setSession('https://api.example', '98');
+    await act(async () => {
+      resolveDraft(draftJson({ version: 1, content: '旧会话草稿', visibility: 'private', attachments: [], location: null, pendingMedia: [] }));
+    });
+    await settle();
+    expect(input().props.value).toBe('');
+    expect(input().props.editable).toBe(false); // draftReady never flipped for the stale session
+    setSession('https://api.example', '1');
   });
 });
 
@@ -476,6 +511,19 @@ describe('ComposeScreen pending submission recovery', () => {
     expect(tappable('核对发布结果')).toBeUndefined();
   });
 
+  it('ignores a second recovery press while the first verification is in flight', async () => {
+    let resolveStatus!: (v: any) => void;
+    mockApi.submissionStatus = jest.fn(() => new Promise((resolve) => { resolveStatus = resolve; }));
+    await mountWithPending();
+    // Fire-and-forget: the handler chain parks on the deferred status call, so awaiting it would hang.
+    await act(async () => { void tappable('核对发布结果')!.props.onPress(); });
+    await act(async () => { void tappable('核对发布结果')!.props.onPress(); });
+    expect(mockApi.submissionStatus).toHaveBeenCalledTimes(1);
+    await act(async () => { resolveStatus({ id: 'rec_z' }); });
+    await settle();
+    expect(hasText('已确认原提交发布成功，当前输入仍保留。修改后可发布新记录。')).toBe(true);
+  });
+
   it('retries the original submission through the create thunk', async () => {
     await mountWithPending();
     await press('重试原提交');
@@ -555,6 +603,32 @@ describe('ComposeScreen leave guard', () => {
     expect(mockXAlert).toHaveBeenCalledWith('草稿保存失败', '当前内容仍保留，请重试后再退出。');
     expect(mockNavHolder.value.dispatch).not.toHaveBeenCalled();
   });
+
+  it('leaves immediately without asking again once the guard has let go', async () => {
+    await mountCompose();
+    await typeIn('草稿内容');
+    await act(async () => { mockPrevent!.handler({ data: { action: { type: 'NAV_L' } } }); });
+    await act(async () => { await mockActionSheet.mock.calls[0][2](0); });
+    expect(mockNavHolder.value.dispatch).toHaveBeenCalledTimes(1);
+    await act(async () => { mockPrevent!.handler({ data: { action: { type: 'NAV_L' } } }); });
+    expect(mockActionSheet).toHaveBeenCalledTimes(1);
+    expect(mockNavHolder.value.dispatch).toHaveBeenCalledTimes(2);
+  });
+
+  it('defers the leave guard while a media upload is in flight', async () => {
+    let resolveRetain!: (v: any) => void;
+    mockRetainMedia.mockReturnValueOnce(new Promise((resolve) => { resolveRetain = resolve; }));
+    mockImagePicker.launchImageLibraryAsync.mockResolvedValue({
+      canceled: false, assets: [{ uri: 'file:///b.png', fileName: 'b.png', mimeType: 'image/png' }],
+    });
+    mockUploadRetained.mockResolvedValue(att('up8'));
+    await mountCompose();
+    await act(async () => { void tappable('添加图片')!.props.onPress(); });
+    await act(async () => { mockPrevent!.handler({ data: { action: { type: 'NAV_X' } } }); });
+    expect(mockActionSheet).not.toHaveBeenCalled();
+    await act(async () => { resolveRetain(pendingItem('m8', 'b.png')); });
+    await settle();
+  });
 });
 
 describe('ComposeScreen locked capture', () => {
@@ -598,6 +672,14 @@ describe('ComposeScreen locked capture', () => {
     expect(hasText('草稿保存失败，请重试；当前输入仍保留。')).toBe(true);
     expect(onRequestUnlock).not.toHaveBeenCalled();
   });
+
+  it('hides the quick tag chips inside the locked capture', async () => {
+    mockTagList = [{ id: 't1', name: '工作', color: '', sortOrder: 0, bbtalkCount: 0 }];
+    await mountCompose({ lockedCapture: true });
+    await press('插入标签');
+    expect(input().props.value).toBe('#');
+    expect(tappable('#工作')).toBeUndefined();
+  });
 });
 
 describe('ComposeScreen media', () => {
@@ -638,6 +720,20 @@ describe('ComposeScreen media', () => {
     expect(hasText('p1.jpg')).toBe(false);
     expect(hasText('附件待上传，草稿保存在本机')).toBe(false);
     expect(mockUploadRetained).not.toHaveBeenCalled();
+  });
+
+  it('stops uploading retained media when the session changes mid-flight', async () => {
+    let resolveUpload!: (v: any) => void;
+    mockUploadRetained.mockReturnValueOnce(new Promise((resolve) => { resolveUpload = resolve; }));
+    await mountWithPendingDraft();
+    mockWriteDraft.mockClear();
+    await act(async () => { void tappable('重试上传')!.props.onPress(); });
+    setSession('https://api.example', '99');
+    await act(async () => { resolveUpload(att('late')); });
+    await settle();
+    expect(mockWriteDraft).not.toHaveBeenCalled();
+    expect(hasText('p1.jpg')).toBe(true);
+    setSession('https://api.example', '1');
   });
 
   it('runs picked images through retain and upload, snapshotting drafts', async () => {
@@ -827,5 +923,233 @@ describe('ComposeScreen voice input', () => {
     expect(mockRetainMedia).toHaveBeenCalledWith('file:///voice.m4a', expect.stringMatching(/^voice_\d+\.m4a$/), 'audio/mp4', getSession());
     expect(hasText('录音')).toBe(true);
     expect(overlayProps().visible).toBe(false);
+  });
+});
+
+describe('ComposeScreen media pickers', () => {
+  it('captures a photo after camera permission is granted and uploads it', async () => {
+    mockImagePicker.requestCameraPermissionsAsync.mockResolvedValue({ granted: true });
+    mockImagePicker.launchCameraAsync.mockResolvedValue({ canceled: false, assets: [{ uri: 'file:///shot.jpg' }] });
+    mockRetainMedia.mockResolvedValue(pendingItem('cam1'));
+    mockUploadRetained.mockResolvedValue(att('camup'));
+    await mountCompose();
+    await press('更多工具');
+    await press('拍照');
+    expect(mockRetainMedia).toHaveBeenCalledWith('file:///shot.jpg', expect.stringMatching(/^photo_\d+\.jpg$/), 'image/jpeg', getSession());
+    expect(mockUploadRetained).toHaveBeenCalledWith(pendingItem('cam1'), getSession());
+    expect(imageCount()).toBe(1);
+  });
+
+  it('alerts when the camera or document picker itself fails', async () => {
+    mockImagePicker.requestCameraPermissionsAsync.mockResolvedValue({ granted: true });
+    mockImagePicker.launchCameraAsync.mockRejectedValue(new Error('crash'));
+    mockDocumentPicker.getDocumentAsync.mockRejectedValue(new Error('nope'));
+    await mountCompose();
+    await press('更多工具');
+    await press('拍照');
+    expect(mockXAlert).toHaveBeenCalledWith('无法拍照', '请稍后重试');
+    await press('添加文件');
+    expect(mockXAlert).toHaveBeenCalledWith('无法打开文件', '请重新选择文件');
+  });
+
+  it('picks a video through the toolbar, ignoring cancelled selections', async () => {
+    mockImagePicker.launchImageLibraryAsync
+      .mockResolvedValueOnce({ canceled: true, assets: [] })
+      .mockResolvedValueOnce({ canceled: false, assets: [{ uri: 'file:///clip.mp4' }] });
+    mockRetainMedia.mockResolvedValue(pendingItem('vid1', 'clip.mp4'));
+    mockUploadRetained.mockResolvedValue(att('vidup', 'video'));
+    await mountCompose();
+    await press('更多工具');
+    await press('添加视频');
+    expect(mockRetainMedia).not.toHaveBeenCalled();
+    await press('添加视频');
+    expect(mockImagePicker.launchImageLibraryAsync).toHaveBeenLastCalledWith(expect.objectContaining({ mediaTypes: ['videos'] }));
+    expect(mockRetainMedia).toHaveBeenCalledWith('file:///clip.mp4', expect.stringMatching(/^media_\d+\.mp4$/), 'video/mp4', getSession());
+    expect(hasText('视频')).toBe(true);
+  });
+
+  it('attaches a picked document file', async () => {
+    mockDocumentPicker.getDocumentAsync.mockResolvedValue({
+      canceled: false, assets: [{ uri: 'file:///note.pdf', name: 'note.pdf', mimeType: 'application/pdf' }],
+    });
+    mockRetainMedia.mockResolvedValue(pendingItem('doc1', 'note.pdf'));
+    mockUploadRetained.mockResolvedValue(att('docup', 'file'));
+    await mountCompose();
+    await press('更多工具');
+    await press('添加文件');
+    expect(mockRetainMedia).toHaveBeenCalledWith('file:///note.pdf', 'note.pdf', 'application/pdf', getSession());
+    expect(hasText('docup.orig')).toBe(true);
+  });
+
+  it('falls back to a generic message when retention fails without details', async () => {
+    mockRetainMedia.mockRejectedValue({});
+    mockImagePicker.launchImageLibraryAsync.mockResolvedValue({
+      canceled: false, assets: [{ uri: 'file:///c.png', fileName: 'c.png', mimeType: 'image/png' }],
+    });
+    await mountCompose();
+    await press('添加图片');
+    expect(hasText('无法保存附件，请重试')).toBe(true);
+    expect(mockUploadRetained).not.toHaveBeenCalled();
+  });
+});
+
+describe('ComposeScreen editing details', () => {
+  it('cancels back out and inserts snippets at the tracked cursor position', async () => {
+    await mountCompose();
+    await typeIn('hello');
+    await act(async () => { input().props.onSelectionChange({ nativeEvent: { selection: { start: 2 } } }); });
+    await press('更多工具');
+    await press('加粗');
+    expect(input().props.value).toBe('he**粗体**llo');
+    await press('取消');
+    expect(mockNavHolder.value.goBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks for content when submitting an empty composer', async () => {
+    await mountCompose();
+    await act(async () => { await tappable('保存')!.props.onPress(); });
+    expect(mockXAlert).toHaveBeenCalledWith('提示', '请输入内容');
+    expect(mockSubmissions.begin).not.toHaveBeenCalled();
+  });
+
+  it('surfaces string and unknown update failures verbatim', async () => {
+    mockRoute.params = { editItem: makeEditItem() };
+    mockThunkResults.update = jest.fn(async () => { throw '网络断开'; });
+    await mountCompose();
+    await typeIn('#工作 改');
+    await press('更新');
+    expect(hasText('发布或更新失败，内容已保留。网络断开')).toBe(true);
+    mockThunkResults.update = jest.fn(async () => { throw {}; });
+    await press('更新');
+    expect(hasText('发布或更新失败，内容已保留。请重试')).toBe(true);
+  });
+
+  it('publishes with the captured location context', async () => {
+    mockReadDraft.mockResolvedValue(draftJson({
+      version: 1, content: '有位置', visibility: 'private', attachments: [],
+      location: { latitude: 1, longitude: 2 }, pendingMedia: [],
+    }));
+    await mountCompose();
+    await press('保存');
+    expect(mockSubmissions.begin.mock.calls[0][0].context).toEqual({
+      source: SOURCE_CONTEXT, location: { latitude: 1, longitude: 2 },
+    });
+  });
+
+  it('omits a location removed before updating an edit', async () => {
+    mockRoute.params = { editItem: makeEditItem({ context: { location: { latitude: 5, longitude: 6 } } }) };
+    await mountCompose();
+    await press('移除位置');
+    await typeIn('#工作 改');
+    await press('更新');
+    expect(mockUpdateThunk.mock.calls[0][0].data.context).toEqual({ source: SOURCE_CONTEXT });
+  });
+
+  it('returns to private visibility without asking again', async () => {
+    await mountCompose();
+    await press('修改可见性');
+    expect(hasText('公开可见')).toBe(true);
+    await press('修改可见性');
+    expect(hasText('仅自己可见')).toBe(true);
+    expect(mockConfirmPublic).toHaveBeenCalledTimes(1);
+  });
+
+  it('labels an attachment without an original filename as 附件', async () => {
+    mockRoute.params = { editItem: makeEditItem({ attachments: [{ uid: 'f0', url: 'file:///f0', type: 'file', filename: 'f0.bin' } as Attachment] }) };
+    await mountCompose();
+    expect(hasText('附件')).toBe(true);
+  });
+
+  it('shows the upload spinner and ignores extra picker presses while uploading', async () => {
+    let resolveRetain!: (v: any) => void;
+    mockRetainMedia.mockReturnValueOnce(new Promise((resolve) => { resolveRetain = resolve; }));
+    mockImagePicker.launchImageLibraryAsync.mockResolvedValue({
+      canceled: false, assets: [{ uri: 'file:///a.png', fileName: 'a.png', mimeType: 'image/png' }],
+    });
+    mockUploadRetained.mockResolvedValue(att('up9'));
+    await mountCompose();
+    await act(async () => { void tappable('添加图片')!.props.onPress(); });
+    expect(tree.root.findAllByType('ActivityIndicator').length).toBe(1);
+    await act(async () => { void tappable('添加图片')!.props.onPress(); });
+    expect(mockRetainMedia).toHaveBeenCalledTimes(1);
+    await act(async () => { resolveRetain(pendingItem('m9', 'a.png')); });
+    await settle();
+    expect(tree.root.findAllByType('ActivityIndicator').length).toBe(0);
+    expect(imageCount()).toBe(1);
+  });
+});
+
+describe('ComposeScreen keyboard and platform details', () => {
+  it('raises and lowers the toolbar padding on iOS keyboard events', async () => {
+    const { Keyboard } = require('react-native');
+    Keyboard.addListener.mockClear();
+    await mountCompose();
+    expect(Keyboard.addListener.mock.calls.map((call: any[]) => call[0])).toEqual(['keyboardWillShow', 'keyboardWillHide']);
+    const toolbar = () => tree.root.findAllByType('View')
+      .find((node: any) => Array.isArray(node.props.style) && node.props.style[0]?.borderTopWidth === 0.5);
+    await act(async () => { Keyboard.addListener.mock.calls[0][1]({ endCoordinates: { height: 260 } }); });
+    expect(toolbar().props.style[1].paddingBottom).toBe(0);
+    await act(async () => { Keyboard.addListener.mock.calls[1][1](); });
+    expect(toolbar().props.style[1].paddingBottom).toBe(12);
+  });
+
+  it('subscribes to android keyboard notifications instead', async () => {
+    const { Keyboard } = require('react-native');
+    Keyboard.addListener.mockClear();
+    mockPlatform.OS = 'android';
+    await mountCompose();
+    expect(Keyboard.addListener.mock.calls.map((call: any[]) => call[0])).toEqual(['keyboardDidShow', 'keyboardDidHide']);
+  });
+
+  it('dims the mic button while a recording press is active', async () => {
+    mockHoldPressed = true;
+    await mountCompose();
+    const mic = tree.root.findAllByType('View').find((node: any) => node.props.accessibilityLabel === '录音');
+    expect(mic.props.style[1].opacity).toBe(0.2);
+  });
+
+  it('inserts every markdown snippet from the expanded toolbar', async () => {
+    await mountCompose();
+    await press('更多工具');
+    await press('斜体');
+    await press('标题');
+    await press('无序列表');
+    await press('代码');
+    await press('链接');
+    expect(input().props.value).toBe('*斜体*\n## \n- `代码`[文字](url)');
+  });
+});
+
+describe('ComposeScreen web playback', () => {
+  it('plays and pauses audio through a window Audio element on web', async () => {
+    const { created } = installWebWindow();
+    mockPlatform.OS = 'web';
+    mockRoute.params = { editItem: makeEditItem({ attachments: [att('w1', 'audio')] }) };
+    await mountCompose();
+    await press('录音');
+    expect(created.length).toBe(1);
+    expect(created[0].played).toBe(true);
+    await press('录音');
+    expect(created[0].paused).toBe(true);
+  });
+
+  it('opens video attachments in a new tab on web', async () => {
+    const { open } = installWebWindow();
+    mockPlatform.OS = 'web';
+    mockRoute.params = { editItem: makeEditItem({ attachments: [att('wv', 'video')] }) };
+    await mountCompose();
+    await press('视频');
+    expect(open).toHaveBeenCalledWith('file:///wv', '_blank');
+  });
+
+  it('resets the icon when native audio playback throws', async () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    mockAudioPlayer.play.mockImplementationOnce(() => { throw new Error('boom'); });
+    mockRoute.params = { editItem: makeEditItem({ attachments: [att('e1', 'audio')] }) };
+    await mountCompose();
+    await press('录音');
+    expect(warnSpy).toHaveBeenCalled();
+    expect(tree.root.findAllByType('Icon').some((node: any) => node.props.name === 'play')).toBe(true);
+    warnSpy.mockRestore();
   });
 });

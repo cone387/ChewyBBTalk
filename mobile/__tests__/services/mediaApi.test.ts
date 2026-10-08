@@ -10,7 +10,8 @@ const originalFetch = global.fetch, originalForm = global.FormData;
 const fetchMock = jest.fn();
 class UploadForm {
   entries = new Map<string, unknown>();
-  append(key: string, value: unknown) { this.entries.set(key, value); }
+  filenames = new Map<string, unknown>();
+  append(key: string, value: unknown, filename?: unknown) { this.entries.set(key, value); this.filenames.set(key, filename); }
   get(key: string) { return this.entries.get(key); }
 }
 function response(data: unknown = { uid: 'file', preview_url: '/preview/', mime_type: 'image/jpeg' }, status = 200) {
@@ -31,6 +32,26 @@ it('sends the native file descriptor and bearer token as multipart without JSON 
   expect(options.body.get('file')).toEqual({ uri: 'file:///photo.jpg', name: 'photo.jpg', type: 'image/jpeg' });
   expect(options.headers).toEqual({ Authorization: 'Bearer access' });
   expect(jest.getTimerCount()).toBe(0);
+});
+it('omits the Authorization header entirely when no token is available', async () => {
+  (getAccessToken as jest.Mock).mockResolvedValueOnce(null);
+  await attachmentApi.upload('file:///photo.jpg', 'photo.jpg', 'image/jpeg');
+  expect(fetchMock.mock.calls[0][1].headers).toEqual({});
+});
+it.each([{ detail: 'denied' }, {}])('surfaces a rejected native upload payload %j', async data => {
+  fetchMock.mockResolvedValue(response(data, 400));
+  await expect(attachmentApi.upload('file:///photo.jpg', 'photo.jpg', 'image/jpeg'))
+    .rejects.toThrow(Object.keys(data).length ? 'denied' : '{}');
+});
+it('falls back to a placeholder uid when the server response identifies no file', async () => {
+  fetchMock.mockResolvedValue(response({ preview_url: '/preview/', mime_type: 'image/jpeg' }));
+  expect(await attachmentApi.uploadFile(new File(['file'], 'file'))).toMatchObject({ uid: '', url: 'https://example.com/preview/' });
+});
+it('names a nameless upload explicitly', async () => {
+  await attachmentApi.uploadFile(new File(['file'], ''));
+  const options = fetchMock.mock.calls[0][1];
+  expect(options.body.get('file')).toBeInstanceOf(File);
+  expect(options.body.filenames.get('file')).toBe('upload');
 });
 it.each(['image/jpeg', 'video/mp4', 'audio/mp4', 'application/pdf'])('infers the attachment kind from %s', async mime => {
   fetchMock.mockResolvedValue(response({ id: 'id', mime_type: mime, original_name: 'original', size: 5, url: '/url' }));

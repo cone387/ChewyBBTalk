@@ -12,6 +12,7 @@ jest.mock('../../src/services/shareService', () => ({ shareBBTalk: jest.fn() }))
 jest.mock('../../src/utils/errorHandler', () => ({ logError: jest.fn() }));
 jest.mock('../../src/utils/crossAlert', () => ({ xActionSheet: jest.fn(), xConfirm: jest.fn() }));
 import { act, cleanup, renderHook } from '@testing-library/react-native';
+import { Platform } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useAppDispatch, useAppSelector } from '../../src/store/hooks';
 import { createBBTalkAsync, updateBBTalkAsync, undoDelete, togglePinAsync } from '../../src/store/slices/bbtalkSlice';
@@ -122,4 +123,99 @@ it('does not save an empty voice result or one completed after account switch', 
   (attachmentApi.upload as jest.Mock).mockImplementation(async () => { clearSession(); return { uid: 'audio' }; });
   await act(async () => { await result.current.handleVoiceFinish({ text: 'text', audioUri: 'file:///voice', audioDuration: 2 }); });
   expect(createBBTalkAsync).not.toHaveBeenCalled();
+});
+it('ignores a voice result submitted after the session is gone', async () => {
+  const { result } = actions();
+  clearSession();
+  await act(async () => { await result.current.handleVoiceFinish({ text: 'late', audioUri: null, audioDuration: 0 }); });
+  expect(attachmentApi.upload).not.toHaveBeenCalled();
+  expect(createBBTalkAsync).not.toHaveBeenCalled();
+});
+it.each(['', 'audio/webm'])('wraps a browser voice blob (type %j) into a webm upload on web', async blobType => {
+  (Platform as any).OS = 'web';
+  const originalFetch = global.fetch;
+  const fetchMock = jest.fn().mockResolvedValue({ blob: async () => new Blob(['audio'], { type: blobType }) });
+  global.fetch = fetchMock as unknown as typeof fetch;
+  (attachmentApi.uploadFile as jest.Mock).mockReset().mockResolvedValueOnce({ uid: 'web-audio' });
+  try {
+    const { result } = actions();
+    await act(async () => { await result.current.handleVoiceFinish({ text: '', audioUri: 'blob:voice', audioDuration: 3 }); });
+    expect(fetchMock).toHaveBeenCalledWith('blob:voice');
+    const file = (attachmentApi.uploadFile as jest.Mock).mock.calls[0][0];
+    expect(file).toBeInstanceOf(File);
+    expect(file.name).toMatch(/^voice_\d+\.webm$/);
+    expect(file.type).toBe('audio/webm');
+    expect(createBBTalkAsync).toHaveBeenCalledWith(expect.objectContaining({ attachments: [{ uid: 'web-audio' }] }));
+  } finally {
+    global.fetch = originalFetch;
+    (Platform as any).OS = 'ios';
+  }
+});
+it('uploads android voice recordings as 3gpp attachments', async () => {
+  (Platform as any).OS = 'android';
+  try {
+    const { result } = actions();
+    await act(async () => { await result.current.handleVoiceFinish({ text: 'note', audioUri: 'file:///voice', audioDuration: 1 }); });
+    expect(attachmentApi.upload).toHaveBeenCalledWith('file:///voice', expect.stringMatching(/^voice_\d+\.3gp$/), 'audio/3gpp');
+    expect(createBBTalkAsync).toHaveBeenCalledWith(expect.objectContaining({ content: 'note' }));
+  } finally { (Platform as any).OS = 'ios'; }
+});
+it('swallows a voice save failure that surfaces after an account switch', async () => {
+  unwrap.mockImplementationOnce(async () => { clearSession(); throw new Error('save failed'); });
+  const { result } = actions();
+  await act(async () => { await result.current.handleVoiceFinish({ text: 'x', audioUri: null, audioDuration: 0 }); });
+  expect(showError).not.toHaveBeenCalled();
+});
+it('ignores concurrent share requests while a share is still in flight', async () => {
+  let release!: () => void;
+  (shareBBTalk as jest.Mock).mockImplementationOnce(() => new Promise<void>(resolve => { release = resolve; }));
+  const { result } = actions();
+  act(() => result.current.showMenu(first));
+  await act(async () => { (xActionSheet as jest.Mock).mock.calls[0][2](2); });
+  expect(result.current.isSharing).toBe(true);
+  act(() => result.current.showMenu(first));
+  await act(async () => { (xActionSheet as jest.Mock).mock.calls[1][2](2); });
+  expect(shareBBTalk).toHaveBeenCalledTimes(1);
+  await act(async () => { release(); });
+  expect(result.current.isSharing).toBe(false);
+});
+it('abandons the rollback when the account switches during a failing delete', async () => {
+  (bbtalkApi.deleteBBTalk as jest.Mock).mockImplementationOnce(async () => { clearSession(); throw new Error('offline'); });
+  const { result } = actions();
+  act(() => result.current.handleDelete(first));
+  await act(async () => { await jest.advanceTimersByTimeAsync(3000); });
+  expect(undoDelete).not.toHaveBeenCalled();
+  expect(showError).not.toHaveBeenCalled();
+});
+it('undo stays a no-op without a pending deletion or after an account switch', () => {
+  const { result } = actions();
+  act(() => result.current.handleUndo());
+  expect(dispatch).not.toHaveBeenCalled();
+  act(() => result.current.handleDelete(first));
+  clearSession();
+  act(() => result.current.handleUndo());
+  expect(undoDelete).not.toHaveBeenCalled();
+  expect(result.current.pendingDelete?.bbtalk.id).toBe('first');
+});
+it('offers unpinning for an already pinned record', () => {
+  const { result } = actions();
+  act(() => result.current.showMenu({ ...first, isPinned: true }));
+  const options = (xActionSheet as jest.Mock).mock.calls[0][1];
+  expect(options[1].text).toBe('取消置顶');
+});
+it('ignores menu actions chosen after an account switch', async () => {
+  const { result } = actions();
+  act(() => result.current.showMenu(first));
+  clearSession();
+  await act(async () => { (xActionSheet as jest.Mock).mock.calls[0][2](0); });
+  expect(navigate).not.toHaveBeenCalled();
+  expect(togglePinAsync).not.toHaveBeenCalled();
+});
+it('drops a visibility change confirmed after an account switch', async () => {
+  const { result } = actions();
+  act(() => result.current.toggleVisibility(first));
+  clearSession();
+  await act(async () => { (xConfirm as jest.Mock).mock.calls[0][2](); });
+  expect(updateBBTalkAsync).not.toHaveBeenCalled();
+  expect(dispatch).not.toHaveBeenCalled();
 });

@@ -99,6 +99,26 @@ describe('bbtalkSlice thunks', () => {
     expect(state().totalCount).toBe(42);
     expect(state().hasMore).toBe(false);
   });
+  it('treats an empty tag array as an unfiltered full load', async () => {
+    api.getBBTalks.mockReturnValue(listResult([makeTalk('a', 'hello')], null, 9));
+    const { store, state } = makeStore();
+    await store.dispatch(loadBBTalks({ tags: [] }));
+    expect(api.getBBTalks).toHaveBeenCalledWith({ page: 1, search: undefined, tags__name: '', create_time__date: undefined });
+    expect(state().isFiltered).toBe(false);
+    expect(state().totalCount).toBe(9);
+  });
+  it('defaults both thunks to an unfiltered request when called without arguments', async () => {
+    api.getBBTalks.mockReturnValue(listResult([makeTalk('a', 'hello')], 'page-2', 5));
+    // The declared thunk signature requires an argument; omitting one exercises the default.
+    const loadFirstPage = loadBBTalks as unknown as () => any;
+    const loadNextPage = loadMoreBBTalks as unknown as () => any;
+    const { store, state } = makeStore();
+    await store.dispatch(loadFirstPage());
+    expect(api.getBBTalks).toHaveBeenLastCalledWith({ page: 1, search: undefined, tags__name: undefined, create_time__date: undefined });
+    await store.dispatch(loadNextPage());
+    expect(api.getBBTalks).toHaveBeenLastCalledWith({ page: 2, search: undefined, tags__name: undefined, create_time__date: undefined });
+    expect(state().currentPage).toBe(2);
+  });
   it('reports load failures and allows clearing the error', async () => {
     api.getBBTalks.mockRejectedValueOnce(new Error('服务不可用'));
     api.getBBTalks.mockRejectedValueOnce({});
@@ -148,6 +168,21 @@ describe('bbtalkSlice thunks', () => {
     expect(state().hasMore).toBe(false);
     expect(state().isLoading).toBe(false);
   });
+  it('ignores a stale load-more rejection after a newer load finished', async () => {
+    api.getBBTalks.mockReturnValueOnce(listResult([makeTalk('a', '1')], 'page-2', 1));
+    let rejectSlow!: (reason: unknown) => void;
+    api.getBBTalks.mockImplementationOnce(() => new Promise<any>((_resolve, reject) => { rejectSlow = reject; }));
+    api.getBBTalks.mockReturnValueOnce(listResult([makeTalk('b', '2')], null, 2));
+    const { store, state } = makeStore();
+    await store.dispatch(loadBBTalks({}));
+    const slow = store.dispatch(loadMoreBBTalks({}));
+    await store.dispatch(loadMoreBBTalks({}));
+    rejectSlow(new Error('过期的失败'));
+    await slow;
+    expect(state().error).toBeNull();
+    expect(state().bbtalks.map((item: any) => item.id)).toEqual(['a', 'b']);
+    expect(state().currentPage).toBe(2);
+  });
   it('undoes an optimistic delete back at the original position', () => {
     let state = reducer(undefined, loadBBTalks.pending('', {}));
     state = reducer(state, loadBBTalks.fulfilled({
@@ -189,6 +224,43 @@ describe('bbtalkSlice thunks', () => {
     api.togglePin.mockRejectedValueOnce({});
     const pinned = await store.dispatch(togglePinAsync('a')) as any;
     expect(pinned.payload).toBe('置顶操作失败');
+  });
+  it('falls back to default messages for message-less failures', async () => {
+    const { store } = makeStore();
+    api.createBBTalk.mockRejectedValueOnce({});
+    const created = await store.dispatch(createBBTalkAsync({ content: 'x' })) as any;
+    expect(created.payload).toEqual({ message: '创建失败', status: undefined, code: undefined });
+    api.updateBBTalk.mockRejectedValueOnce({});
+    const updated = await store.dispatch(updateBBTalkAsync({ id: 'a', data: {} })) as any;
+    expect(updated.payload).toEqual({ message: '更新失败', code: undefined, current: undefined });
+    api.deleteBBTalk.mockRejectedValueOnce({});
+    const deleted = await store.dispatch(deleteBBTalkAsync('a')) as any;
+    expect(deleted.payload).toBe('删除失败');
+    api.getBBTalks.mockReturnValueOnce(listResult([makeTalk('a', '1')], 'page-2'));
+    api.getBBTalks.mockRejectedValueOnce({});
+    await store.dispatch(loadBBTalks({}));
+    await store.dispatch(loadMoreBBTalks({}));
+    const state = (store.getState() as any).bbtalk;
+    expect(state.error).toBe('加载更多失败');
+  });
+  it('keeps the list unchanged when an update returns an unknown record', async () => {
+    api.getBBTalks.mockReturnValueOnce(listResult([makeTalk('a', '1')]));
+    api.updateBBTalk.mockResolvedValueOnce(makeTalk('ghost', 'changed'));
+    const { store, state } = makeStore();
+    await store.dispatch(loadBBTalks({}));
+    await store.dispatch(updateBBTalkAsync({ id: 'ghost', data: { content: 'changed' } }));
+    expect(state().bbtalks.map((item: any) => item.id)).toEqual(['a']);
+    expect(state().bbtalks[0].content).toBe('1');
+  });
+  it('re-sorts pinned items even when the pin toggle returns an unknown record', async () => {
+    const pinnedOld = { ...makeTalk('old', '1'), isPinned: true, updatedAt: '2026-01-01T00:00:00Z' };
+    const fresh = { ...makeTalk('fresh', '2'), isPinned: false, updatedAt: '2026-03-01T00:00:00Z' };
+    api.getBBTalks.mockReturnValueOnce(listResult([fresh, pinnedOld], null, 2));
+    api.togglePin.mockResolvedValueOnce({ ...makeTalk('ghost', 'x'), isPinned: true });
+    const { store, state } = makeStore();
+    await store.dispatch(loadBBTalks({}));
+    await store.dispatch(togglePinAsync('ghost'));
+    expect(state().bbtalks.map((item: any) => item.id)).toEqual(['old', 'fresh']);
   });
   it('removes a deleted talk from the list', async () => {
     api.getBBTalks.mockReturnValueOnce(listResult([makeTalk('a', '1'), makeTalk('b', '2')], null, 2));
@@ -235,5 +307,14 @@ describe('bbtalkSlice comment counters', () => {
     const state = loadedWith(makeTalk('a', 'x'));
     expect(state.bbtalks[0].commentCount).toBe(0);
     expect(reducer(state, incrementCommentCount('a')).bbtalks[0].commentCount).toBe(1);
+  });
+  it('treats a missing comment count as zero when adjusting counters', () => {
+    const talk = { ...makeTalk('a', 'x'), commentCount: undefined };
+    let state = loadedWith(talk);
+    // Decrementing from an absent count cannot go below zero and stays unset.
+    state = reducer(state, decrementCommentCount('a'));
+    expect(state.bbtalks[0].commentCount).toBeUndefined();
+    state = reducer(state, incrementCommentCount('a'));
+    expect(state.bbtalks[0].commentCount).toBe(1);
   });
 });

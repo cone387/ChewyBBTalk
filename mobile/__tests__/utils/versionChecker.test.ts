@@ -18,6 +18,7 @@ jest.mock('../../src/utils/crossAlert', () => ({ xConfirm: jest.fn() }));
 
 import { Linking, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
 import { xConfirm } from '../../src/utils/crossAlert';
 import { checkForUpdates, compareVersions } from '../../src/utils/versionChecker';
@@ -144,5 +145,25 @@ describe('checkForUpdates', () => {
     else (Updates as any).isEnabled = false;
     expect(await checkForUpdates(true)).toBe('current');
     expect(Updates.checkForUpdateAsync).not.toHaveBeenCalled();
+  });
+
+  it('falls back to default version and bundle id when expo config is missing', async () => {
+    const originalConfig = (Constants as any).expoConfig;
+    (Constants as any).expoConfig = undefined;
+    fetchMock.mockResolvedValue(storeResponse('1.0.0'));
+    try {
+      // Store reports exactly the assumed default 1.0.0 → no update dialog.
+      expect(await checkForUpdates(true)).toBe('current');
+      expect(fetchMock).toHaveBeenCalledWith('https://itunes.apple.com/lookup?bundleId=com.chewy.bbtalk');
+    } finally {
+      (Constants as any).expoConfig = originalConfig;
+    }
+  });
+
+  it('reports an error when the update dialog itself crashes', async () => {
+    fetchMock.mockResolvedValue(storeResponse('1.4.0'));
+    (xConfirm as jest.Mock).mockImplementationOnce(() => { throw new Error('dialog crashed'); });
+    expect(await checkForUpdates(true)).toBe('error');
+    expect(console.warn).toHaveBeenCalled();
   });
 });

@@ -19,12 +19,36 @@ it.each([
   [{ url: '/legacy/file' }, 'https://example.com/legacy/file'],
   [{ url: 'https://legacy.example/file' }, 'https://legacy.example/file'],
   [{ url: 'bare/storage/path' }, ''],
+  // Bare non-http preview URLs are kept verbatim (no host rewrite, no apiBase join).
+  [{ uid: 'file', preview_url: 'cdn/relative/file.jpg' }, 'cdn/relative/file.jpg'],
+  // Without a uid the preview URL falls back to the numeric/local id.
+  [{ id: 'legacy-7', url: 'old/storage/path' }, 'https://example.com/api/v1/attachments/files/legacy-7/preview/'],
 ])('normalizes attachment previews for %j', (attachment, url) => {
   expect(transformBBTalk({ ...wire, attachments: [attachment] }).attachments[0]).toMatchObject({ url, type: 'file' });
 });
 it('serializes submission identity, attachments, tags and source context', async () => {
   await bbtalkApi.createBBTalk({ submissionKey: 'intent', content: 'body', tags: ['Work', 'Life'], visibility: 'private', attachments: [{ uid: 'file', url: 'url', type: 'image', originalFilename: 'original.jpg', mimeType: 'image/jpeg', fileSize: 5 }], context: { location: 'home' } });
   expect(apiClient.post).toHaveBeenCalledWith('/api/v1/bbtalk/', expect.objectContaining({ post_tags: 'Work,Life', visibility: 'private', attachments: [expect.objectContaining({ original_filename: 'original.jpg', mime_type: 'image/jpeg', file_size: 5 })], context: expect.objectContaining({ location: 'home', source: expect.objectContaining({ platform: 'mobile' }) }) }), { 'Idempotency-Key': 'intent' });
+});
+it('submits a minimal record without tags, attachments, visibility or idempotency key', async () => {
+  (apiClient.post as jest.Mock).mockResolvedValueOnce(wire);
+  await bbtalkApi.createBBTalk({ content: 'bare' });
+  const [path, payload, headers] = (apiClient.post as jest.Mock).mock.calls[0];
+  expect(path).toBe('/api/v1/bbtalk/');
+  expect(payload.content).toBe('bare');
+  expect(payload.post_tags).toBeUndefined();
+  expect(payload).not.toHaveProperty('attachments');
+  expect(payload).not.toHaveProperty('visibility');
+  expect(headers).toBeUndefined();
+});
+it('deletes records, toggles pins and reads date counts through their endpoints', async () => {
+  await bbtalkApi.deleteBBTalk('record');
+  expect(apiClient.delete).toHaveBeenCalledWith('/api/v1/bbtalk/record/');
+  expect((await bbtalkApi.togglePin('record')).id).toBe('record');
+  expect(apiClient.post).toHaveBeenCalledWith('/api/v1/bbtalk/record/pin/');
+  (apiClient.get as jest.Mock).mockResolvedValueOnce([{ date: '2026-10-08', count: 3 }]);
+  expect(await bbtalkApi.getDateCounts({ year: 2026, month: 10 })).toEqual([{ date: '2026-10-08', count: 3 }]);
+  expect(apiClient.get).toHaveBeenCalledWith('/api/v1/bbtalk/date-counts/', { year: 2026, month: 10 });
 });
 it('allows explicitly clearing content, tags and attachments while preserving revision checks', async () => {
   await bbtalkApi.updateBBTalk('record', { content: '', tags: [], attachments: [], visibility: 'private' }, 'revision');

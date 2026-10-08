@@ -2,8 +2,8 @@
   "mobile": {
     "report": "mobile/coverage/unit/coverage-summary.json",
     "minimum": {
-      "lines": 97,
-      "branches": 90
+      "lines": 99,
+      "branches": 93
     },
     "files": {
       "screens/ThemeSettingsScreen.tsx": {
@@ -195,8 +195,8 @@
         "branches": 88
       },
       "components/ImageViewer.tsx": {
-        "lines": 97,
-        "branches": 96
+        "lines": 99,
+        "branches": 99
       },
       "components/VoiceRecordingOverlay.tsx": {
         "lines": 99,
@@ -215,16 +215,16 @@
         "branches": 92
       },
       "screens/ComposeScreen.tsx": {
-        "lines": 93,
-        "branches": 79
+        "lines": 99,
+        "branches": 90
       },
       "screens/DataManagementScreen.tsx": {
         "lines": 99,
         "branches": 87
       },
       "screens/HomeScreen.tsx": {
-        "lines": 93,
-        "branches": 81
+        "lines": 99,
+        "branches": 95
       },
       "screens/StorageSettingsScreen.tsx": {
         "lines": 98,
@@ -248,7 +248,43 @@
       },
       "store/slices/bbtalkSlice.ts": {
         "lines": 99,
-        "branches": 75
+        "branches": 98
+      },
+      "services/api/bbtalkApi.ts": {
+        "lines": 99,
+        "branches": 99
+      },
+      "services/api/mediaApi.ts": {
+        "lines": 99,
+        "branches": 98
+      },
+      "services/shareService.ts": {
+        "lines": 99,
+        "branches": 99
+      },
+      "services/offlineCacheService.ts": {
+        "lines": 99,
+        "branches": 99
+      },
+      "services/drafts.ts": {
+        "lines": 99,
+        "branches": 99
+      },
+      "utils/contrastValidator.ts": {
+        "lines": 99,
+        "branches": 99
+      },
+      "utils/versionChecker.ts": {
+        "lines": 99,
+        "branches": 99
+      },
+      "hooks/useBBTalkActions.ts": {
+        "lines": 99,
+        "branches": 96
+      },
+      "hooks/useTagSwipe.ts": {
+        "lines": 99,
+        "branches": 99
       }
     }
   },

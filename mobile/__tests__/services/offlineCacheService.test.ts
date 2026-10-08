@@ -326,3 +326,117 @@ describe('OfflineCacheService - Property 8: 清除缓存正确性', () => {
     );
   });
 });
+
+// --- Direct service tests (SQLite + session mocked) ---
+// The property tests above exercise the serialization semantics; these
+// exercise the service itself: guard branches, corrupt rows and DB failures.
+
+jest.mock('expo-sqlite', () => {
+  const db = {
+    withTransactionSync: jest.fn((fn: () => void) => fn()),
+    execSync: jest.fn(),
+    runSync: jest.fn(),
+    getAllSync: jest.fn(() => [] as any[]),
+    getFirstSync: jest.fn(() => null),
+  };
+  return { openDatabaseSync: jest.fn(() => db), __db: db };
+});
+jest.mock('../../src/services/session', () => ({
+  getSession: jest.fn(),
+  isCurrentSession: jest.fn(),
+}));
+jest.mock('../../src/utils/errorHandler', () => ({ logError: jest.fn() }));
+
+import * as SQLite from 'expo-sqlite';
+import {
+  cacheBBTalks,
+  getCachedBBTalks,
+  clearCache,
+  getLastSyncTime,
+  setLastSyncTime,
+} from '../../src/services/offlineCacheService';
+import { getSession, isCurrentSession, type Session } from '../../src/services/session';
+import { logError } from '../../src/utils/errorHandler';
+
+const db = () => (SQLite as any).__db;
+const talk = (id: string): BBTalk => ({
+  id, content: `content-${id}`, visibility: 'private', tags: [], attachments: [],
+  context: {}, isPinned: false, commentCount: 0,
+  createdAt: '2026-10-08T00:00:00Z', updatedAt: '2026-10-08T00:00:00Z',
+});
+
+describe('OfflineCacheService service guards and failures', () => {
+  const active: Session = { scope: '["https://cache.example","alice"]', generation: 1 };
+  const loggedOut: Session = { scope: null, generation: 2 };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (getSession as jest.Mock).mockReturnValue(active);
+    (isCurrentSession as jest.Mock).mockReturnValue(true);
+    db().getAllSync.mockReturnValue([]);
+    db().getFirstSync.mockReturnValue(null);
+  });
+
+  it('replaces the scoped rows and reads them back in position order', async () => {
+    await cacheBBTalks([talk('a'), talk('b')], active);
+    expect(db().runSync).toHaveBeenCalledWith('DELETE FROM scoped_bbtalks WHERE scope = ?', [active.scope]);
+    expect(db().runSync).toHaveBeenLastCalledWith(
+      'INSERT OR REPLACE INTO scoped_bbtalks (scope, id, data, position) VALUES (?, ?, ?, ?)',
+      [active.scope, 'b', JSON.stringify(talk('b')), 1],
+    );
+
+    db().getAllSync.mockReturnValue([
+      { id: 'a', data: JSON.stringify(talk('a')) },
+      { id: 'b', data: JSON.stringify(talk('b')) },
+    ]);
+    await expect(getCachedBBTalks(active)).resolves.toEqual([talk('a'), talk('b')]);
+  });
+
+  it('skips rows with corrupt payloads and reports them', async () => {
+    db().getAllSync.mockReturnValue([
+      { id: 'broken', data: 'not-json{' },
+      { id: 'intact', data: JSON.stringify(talk('intact')) },
+    ]);
+    await expect(getCachedBBTalks(active)).resolves.toEqual([talk('intact')]);
+    expect(logError).toHaveBeenCalledWith(expect.any(Error), 'parse cached bbtalk id=broken');
+  });
+
+  it('returns an empty list when the scoped query itself fails', async () => {
+    db().getAllSync.mockImplementation(() => { throw new Error('db corrupted'); });
+    await expect(getCachedBBTalks(active)).resolves.toEqual([]);
+    expect(logError).toHaveBeenCalledWith(expect.any(Error), 'getCachedBBTalks');
+  });
+
+  it('returns null sync time when the meta query fails', async () => {
+    db().getFirstSync.mockImplementation(() => { throw new Error('database locked'); });
+    await expect(getLastSyncTime(active)).resolves.toBeNull();
+    expect(logError).toHaveBeenCalledWith(expect.any(Error), 'getLastSyncTime');
+  });
+
+  it('reads and persists the last sync time for the scope', async () => {
+    db().getFirstSync.mockReturnValue({ value: '2026-10-08T08:00:00.000Z' });
+    await expect(getLastSyncTime(active)).resolves.toBe('2026-10-08T08:00:00.000Z');
+    await setLastSyncTime('2026-10-08T09:00:00.000Z', active);
+    expect(db().runSync).toHaveBeenCalledWith(
+      'INSERT OR REPLACE INTO scoped_meta (scope, key, value) VALUES (?, ?, ?)',
+      [active.scope, 'last_sync_time', '2026-10-08T09:00:00.000Z'],
+    );
+  });
+
+  it('never touches the database without a usable session', async () => {
+    db().runSync.mockClear();
+    db().getFirstSync.mockClear();
+    await clearCache(loggedOut);
+    await expect(getLastSyncTime(loggedOut)).resolves.toBeNull();
+    expect(db().runSync).not.toHaveBeenCalled();
+    expect(db().getFirstSync).not.toHaveBeenCalled();
+
+    (isCurrentSession as jest.Mock).mockReturnValue(false);
+    await clearCache(active);
+    await expect(getCachedBBTalks(active)).resolves.toEqual([]);
+    await expect(getLastSyncTime(active)).resolves.toBeNull();
+    expect(db().withTransactionSync).not.toHaveBeenCalled();
+    expect(db().runSync).not.toHaveBeenCalled();
+    expect(db().getFirstSync).not.toHaveBeenCalled();
+  });
+});

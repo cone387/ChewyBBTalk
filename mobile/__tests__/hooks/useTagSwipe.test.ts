@@ -63,3 +63,35 @@ it('does not switch when there are no tags', () => {
   const { handlers, select } = swipe(null, true, []);
   act(() => handlers.onPanResponderRelease(null, { dx: -70, vx: 0 })); expect(select).not.toHaveBeenCalled();
 });
+it('marks the gesture as active when the responder is granted', () => {
+  const { handlers } = swipe();
+  expect(handlers.onPanResponderGrant()).toBeUndefined();
+});
+it('springs back to rest when a normal-motion gesture is terminated', () => {
+  const { handlers, result } = swipe();
+  act(() => handlers.onPanResponderTerminate());
+  expect(Animated.spring).toHaveBeenCalledWith(result.current.listSlideAnim, expect.objectContaining({ toValue: 0 }));
+});
+it('snaps straight back for small reduced-motion releases without animating', () => {
+  (useReducedMotion as jest.Mock).mockReturnValue(true);
+  const { handlers, result } = swipe();
+  act(() => handlers.onPanResponderRelease(null, { dx: 15, vx: 0 }));
+  expect(result.current.listSlideAnim.setValue).toHaveBeenLastCalledWith(0);
+  expect(Animated.spring).not.toHaveBeenCalled();
+});
+it('applies weak damping at the right edge and full tracking in the middle', () => {
+  const right = swipe('two');
+  act(() => right.handlers.onPanResponderMove(null, { dx: -120 }));
+  expect(right.result.current.listSlideAnim.setValue).toHaveBeenLastCalledWith(-9.6);
+  const middle = swipe('one');
+  act(() => middle.handlers.onPanResponderMove(null, { dx: 100 }));
+  expect(middle.result.current.listSlideAnim.setValue).toHaveBeenLastCalledWith(30);
+});
+it('scrolls the tag strip to the newly selected tab', () => {
+  const { handlers, result, select } = swipe('one');
+  const scrollTo = jest.fn();
+  result.current.tagScrollRef.current = { scrollTo } as any;
+  act(() => handlers.onPanResponderRelease(null, { dx: -70, vx: 0 }));
+  expect(select).toHaveBeenCalledWith('two');
+  expect(scrollTo).toHaveBeenCalledWith({ x: 40, animated: true });
+});

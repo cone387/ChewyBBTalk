@@ -67,6 +67,23 @@ describe('ImageViewer rendering', () => {
     expect(image.props.cachePolicy).toBe('disk');
     expect(tree.root.findAllByType('View')[0].props.gestureBound).toBe(true);
   });
+
+  it('claims both touch-down and move gestures eagerly', async () => {
+    await mountViewer();
+    expect(panConfig().onStartShouldSetPanResponder()).toBe(true);
+    expect(panConfig().onMoveShouldSetPanResponder()).toBe(true);
+  });
+
+  it('ignores moves that are neither single-finger nor an active pinch', async () => {
+    await mountViewer();
+    const translateX = RN.__values[1];
+    const translateY = RN.__values[2];
+    // No grant happened, so a two-finger move is not an active pinch; with
+    // more than one touch it is also not a pan — nothing should change.
+    move([touch(0, 0), touch(40, 0)], { dx: 25, dy: 30 });
+    expect(translateX.__getValue()).toBe(0);
+    expect(translateY.__getValue()).toBe(0);
+  });
 });
 
 describe('ImageViewer double-tap zoom', () => {
