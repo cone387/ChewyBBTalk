@@ -1,9 +1,14 @@
 {
   "mobile": {
     "report": "mobile/coverage/unit/coverage-summary.json",
-    "minimum": { "lines": 72, "branches": 65 },
+    "minimum": { "lines": 75, "branches": 67 },
     "files": {
       "services/api/apiClient.ts": { "lines": 99, "branches": 95 },
+      "services/widget/autoSync.ts": { "lines": 99, "branches": 85 },
+      "services/widget/bridge.ts": { "lines": 99, "branches": 99 },
+      "services/widget/config.ts": { "lines": 99, "branches": 99 },
+      "services/widget/datasource.ts": { "lines": 99, "branches": 88 },
+      "services/widget/index.ts": { "lines": 98, "branches": 91 },
       "hooks/useDraftAutosave.ts": { "lines": 99, "branches": 90 },
       "services/historyPrivacy.ts": { "lines": 99, "branches": 99 },
       "components/CommentInputModal.tsx": { "lines": 99, "branches": 95 },
