@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ScrollView, View, Text, TextInput, TouchableOpacity, ActivityIndicator, Linking, KeyboardAvoidingView, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
@@ -14,19 +14,20 @@ export default function PasswordRecoveryScreen() {
   const [stage, setStage] = useState<'request' | 'confirm' | 'done'>('request');
   const [busy, setBusy] = useState(false); const [message, setMessage] = useState('');
   const [failed, setFailed] = useState(false);
+  const busyRef = useRef(false);
   const loadPolicy = () => { setFailed(false); publicAuthRequest('policy').then(p => setEnabled(!!p.password_recovery_enabled)).catch(() => setFailed(true)); };
   useEffect(loadPolicy, []);
   const submit = async () => {
-    if (busy) return;
+    if (busyRef.current) return;
     if (!username.trim() || (stage === 'request' ? !email.trim() : !code.trim() || password.length < 8)) { setMessage('请填写完整信息，新密码至少 8 位。'); return; }
-    setBusy(true); setMessage('');
+    busyRef.current = true; setBusy(true); setMessage('');
     try {
       const result = await publicAuthRequest(`password/${stage}`, stage === 'request' ? { username: username.trim(), email: email.trim() } : { username: username.trim(), code: code.trim(), new_password: password });
       setMessage(result.message);
       setStage(stage === 'request' ? 'confirm' : 'done');
       setPassword(''); setCode('');
     } catch (error: any) { setMessage(error.message || '请求失败，请重试'); }
-    finally { setBusy(false); }
+    finally { busyRef.current = false; setBusy(false); }
   };
   const input = { minHeight: 48, borderWidth: 1, borderColor: c.border, borderRadius: 12, paddingHorizontal: 14, color: c.text, backgroundColor: c.surface, marginTop: 8, marginBottom: 18, fontSize: 16 };
   return <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.background }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
