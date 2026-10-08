@@ -3,9 +3,29 @@
     "report": "mobile/coverage/unit/coverage-summary.json",
     "minimum": {
       "lines": 97,
-      "branches": 89
+      "branches": 90
     },
     "files": {
+      "screens/ThemeSettingsScreen.tsx": {
+        "lines": 99,
+        "branches": 99
+      },
+      "utils/errorSerializer.ts": {
+        "lines": 99,
+        "branches": 99
+      },
+      "store/hooks.ts": {
+        "lines": 99,
+        "branches": 99
+      },
+      "screens/LandingScreen.tsx": {
+        "lines": 99,
+        "branches": 99
+      },
+      "services/offlineCacheService.web.ts": {
+        "lines": 99,
+        "branches": 99
+      },
       "screens/RecordDetailScreen.tsx": {
         "lines": 99,
         "branches": 99
