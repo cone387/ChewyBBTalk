@@ -1,9 +1,22 @@
 jest.mock('../../src/services/api', () => ({
-  bbtalkApi: {},
+  bbtalkApi: {
+    getBBTalks: jest.fn(),
+    createBBTalk: jest.fn(),
+    updateBBTalk: jest.fn(),
+    deleteBBTalk: jest.fn(),
+    togglePin: jest.fn(),
+  },
 }));
 
-import reducer, { loadBBTalks, setBBTalksFromCache } from '../../src/store/slices/bbtalkSlice';
+import { configureStore } from '@reduxjs/toolkit';
+import reducer, {
+  loadBBTalks, loadMoreBBTalks, createBBTalkAsync, updateBBTalkAsync, deleteBBTalkAsync, togglePinAsync,
+  setBBTalksFromCache, optimisticDelete, undoDelete, incrementCommentCount, decrementCommentCount, clearError,
+} from '../../src/store/slices/bbtalkSlice';
+import { bbtalkApi } from '../../src/services/api';
 import type { BBTalk } from '../../src/types';
+
+const api = bbtalkApi as jest.Mocked<typeof bbtalkApi>;
 
 function makeTalk(id: string, content: string): BBTalk {
   return {
@@ -53,5 +66,174 @@ describe('bbtalkSlice cache startup', () => {
     expect(state.isLoading).toBe(false);
     expect(state.hasMore).toBe(true);
     expect(state.totalCount).toBe(12);
+  });
+});
+
+describe('bbtalkSlice thunks', () => {
+  function makeStore() {
+    const store = configureStore({ reducer: { bbtalk: reducer } });
+    return { store, state: () => (store.getState() as any).bbtalk };
+  }
+  const listResult = (items: BBTalk[], next: string | null = null, count = items.length) =>
+    Promise.resolve({ results: items, next, count });
+
+  beforeEach(() => jest.clearAllMocks());
+
+  it('loads a full page with filter params translated for the API', async () => {
+    api.getBBTalks.mockReturnValue(listResult([makeTalk('a', 'hello')], 'next-page', 42));
+    const { store, state } = makeStore();
+    await store.dispatch(loadBBTalks({ search: 'x', tags: ['t1', 't2'], date: '2026-10-08' }));
+    expect(api.getBBTalks).toHaveBeenCalledWith({ page: 1, search: 'x', tags__name: 't1,t2', create_time__date: '2026-10-08' });
+    expect(state().bbtalks.map(item => item.id)).toEqual(['a']);
+    expect(state().isFiltered).toBe(true);
+    expect(state().hasMore).toBe(true);
+    expect(state().hasLoadedFromNetwork).toBe(true);
+    // Filtered loads keep the unfiltered total.
+    expect(state().totalCount).toBe(0);
+  });
+  it('keeps the server total on unfiltered loads', async () => {
+    api.getBBTalks.mockReturnValue(listResult([makeTalk('a', 'hello')], null, 42));
+    const { store, state } = makeStore();
+    await store.dispatch(loadBBTalks({}));
+    expect(state().isFiltered).toBe(false);
+    expect(state().totalCount).toBe(42);
+    expect(state().hasMore).toBe(false);
+  });
+  it('reports load failures and allows clearing the error', async () => {
+    api.getBBTalks.mockRejectedValueOnce(new Error('服务不可用'));
+    api.getBBTalks.mockRejectedValueOnce({});
+    const { store, state } = makeStore();
+    await store.dispatch(loadBBTalks({}));
+    expect(state().error).toBe('服务不可用');
+    expect(state().isLoading).toBe(false);
+    store.dispatch(clearError());
+    expect(state().error).toBeNull();
+    await store.dispatch(loadBBTalks({}));
+    expect(state().error).toBe('加载失败');
+  });
+  it('ignores a slow first response after a newer load finished', async () => {
+    let resolveSlow!: (value: { results: BBTalk[]; next: string | null; count: number }) => void;
+    api.getBBTalks.mockImplementationOnce(() => new Promise(resolve => { resolveSlow = resolve; }));
+    api.getBBTalks.mockImplementationOnce(() => listResult([makeTalk('fresh', 'x')]));
+    const { store, state } = makeStore();
+    const slow = store.dispatch(loadBBTalks({}));
+    await store.dispatch(loadBBTalks({}));
+    resolveSlow({ results: [makeTalk('stale', 'y')], next: null, count: 1 });
+    await slow;
+    expect(state().bbtalks.map(item => item.id)).toEqual(['fresh']);
+  });
+  it('appends the next page, skipping records hidden by an optimistic delete', async () => {
+    api.getBBTalks.mockReturnValueOnce(listResult([makeTalk('a', '1')], 'page-2', 2));
+    api.getBBTalks.mockReturnValueOnce(listResult([makeTalk('a2', '1'), makeTalk('b', '2')], null, 2));
+    const { store, state } = makeStore();
+    await store.dispatch(loadBBTalks({}));
+    store.dispatch(optimisticDelete('a2'));
+    expect(state().hiddenRecordIds).toEqual(['a2']);
+    // A repeated optimistic delete must not duplicate the hidden id.
+    store.dispatch(optimisticDelete('a2'));
+    expect(state().hiddenRecordIds).toEqual(['a2']);
+    await store.dispatch(loadMoreBBTalks({}));
+    expect(api.getBBTalks).toHaveBeenLastCalledWith({ page: 2, search: undefined, tags__name: undefined, create_time__date: undefined });
+    expect(state().bbtalks.map(item => item.id)).toEqual(['a', 'b']);
+    expect(state().currentPage).toBe(2);
+    expect(state().hasMore).toBe(false);
+  });
+  it('stops paging after a load-more failure', async () => {
+    api.getBBTalks.mockReturnValueOnce(listResult([makeTalk('a', '1')], 'page-2'));
+    api.getBBTalks.mockRejectedValueOnce(new Error('断网'));
+    const { store, state } = makeStore();
+    await store.dispatch(loadBBTalks({}));
+    await store.dispatch(loadMoreBBTalks({}));
+    expect(state().error).toBe('断网');
+    expect(state().hasMore).toBe(false);
+    expect(state().isLoading).toBe(false);
+  });
+  it('undoes an optimistic delete back at the original position', () => {
+    let state = reducer(undefined, loadBBTalks.pending('', {}));
+    state = reducer(state, loadBBTalks.fulfilled({
+      bbtalks: [makeTalk('a', '1'), makeTalk('b', '2'), makeTalk('c', '3')], page: 1, hasMore: false, totalCount: 3, isFullLoad: true,
+    }, '', {}));
+    state = reducer(state, optimisticDelete('b'));
+    expect(state.bbtalks.map(item => item.id)).toEqual(['a', 'c']);
+    expect(state.totalCount).toBe(2);
+    state = reducer(state, undoDelete({ bbtalk: makeTalk('b', '2'), index: 1 }));
+    expect(state.bbtalks.map(item => item.id)).toEqual(['a', 'b', 'c']);
+    expect(state.totalCount).toBe(3);
+    expect(state.hiddenRecordIds).toEqual([]);
+  });
+  it('adds a created talk once and keeps update payloads', async () => {
+    const created = makeTalk('new', 'hello');
+    api.createBBTalk.mockResolvedValue(created);
+    const { store, state } = makeStore();
+    await store.dispatch(createBBTalkAsync({ content: 'hello' }));
+    expect(state().bbtalks.map(item => item.id)).toEqual(['new']);
+    expect(state().totalCount).toBe(1);
+    await store.dispatch(createBBTalkAsync({ content: 'hello' }));
+    expect(state().bbtalks).toHaveLength(1);
+    const updated = { ...created, content: 'changed' };
+    api.updateBBTalk.mockResolvedValueOnce(updated);
+    await store.dispatch(updateBBTalkAsync({ id: 'new', data: { content: 'changed' } }));
+    expect(state().bbtalks[0].content).toBe('changed');
+  });
+  it('rejects create/update/delete/toggle failures with structured payloads', async () => {
+    const { store } = makeStore();
+    api.createBBTalk.mockRejectedValueOnce(Object.assign(new Error('冲突'), { status: 409, code: 'dup' }));
+    const created = await store.dispatch(createBBTalkAsync({ content: 'x' })) as any;
+    expect(created.payload).toEqual({ message: '冲突', status: 409, code: 'dup' });
+    api.updateBBTalk.mockRejectedValueOnce(Object.assign(new Error('过期'), { code: 'stale', current: { id: 'old' } }));
+    const updated = await store.dispatch(updateBBTalkAsync({ id: 'a', data: {} })) as any;
+    expect(updated.payload).toEqual({ message: '过期', code: 'stale', current: { id: 'old' } });
+    api.deleteBBTalk.mockRejectedValueOnce(new Error('无权限'));
+    const deleted = await store.dispatch(deleteBBTalkAsync('a')) as any;
+    expect(deleted.payload).toBe('无权限');
+    api.togglePin.mockRejectedValueOnce({});
+    const pinned = await store.dispatch(togglePinAsync('a')) as any;
+    expect(pinned.payload).toBe('置顶操作失败');
+  });
+  it('removes a deleted talk from the list', async () => {
+    api.getBBTalks.mockReturnValueOnce(listResult([makeTalk('a', '1'), makeTalk('b', '2')], null, 2));
+    api.deleteBBTalk.mockResolvedValueOnce(undefined as never);
+    const { store, state } = makeStore();
+    await store.dispatch(loadBBTalks({}));
+    await store.dispatch(deleteBBTalkAsync('a'));
+    expect(state().bbtalks.map(item => item.id)).toEqual(['b']);
+    expect(state().totalCount).toBe(1);
+  });
+  it('re-sorts with pinned talks first, newest update winning ties', async () => {
+    const older = { ...makeTalk('older', '1'), updatedAt: '2026-01-01T00:00:00Z', isPinned: true };
+    const newer = { ...makeTalk('newer', '2'), updatedAt: '2026-02-01T00:00:00Z', isPinned: false };
+    api.getBBTalks.mockReturnValueOnce(listResult([newer, older], null, 2));
+    api.togglePin.mockResolvedValueOnce({ ...newer, isPinned: true } as never);
+    const { store, state } = makeStore();
+    await store.dispatch(loadBBTalks({}));
+    await store.dispatch(togglePinAsync('newer'));
+    expect(state().bbtalks.map(item => item.id)).toEqual(['newer', 'older']);
+    api.togglePin.mockResolvedValueOnce({ ...older, isPinned: false } as never);
+    await store.dispatch(togglePinAsync('older'));
+    expect(state().bbtalks.map(item => item.id)).toEqual(['newer', 'older']);
+  });
+});
+
+describe('bbtalkSlice comment counters', () => {
+  function loadedWith(talk: BBTalk) {
+    let state = reducer(undefined, loadBBTalks.pending('', {}));
+    return reducer(state, loadBBTalks.fulfilled({ bbtalks: [talk], page: 1, hasMore: false, totalCount: 1, isFullLoad: true }, '', {}));
+  }
+  it('increments and decrements with a floor at zero, ignoring unknown ids', () => {
+    let state = loadedWith({ ...makeTalk('a', 'x'), commentCount: 1 });
+    state = reducer(state, incrementCommentCount('a'));
+    expect(state.bbtalks[0].commentCount).toBe(2);
+    state = reducer(state, decrementCommentCount('a'));
+    state = reducer(state, decrementCommentCount('a'));
+    state = reducer(state, decrementCommentCount('a'));
+    expect(state.bbtalks[0].commentCount).toBe(0);
+    state = reducer(state, incrementCommentCount('missing'));
+    state = reducer(state, decrementCommentCount('missing'));
+    expect(state.bbtalks[0].commentCount).toBe(0);
+  });
+  it('counts comments on a talk that never had any', () => {
+    const state = loadedWith(makeTalk('a', 'x'));
+    expect(state.bbtalks[0].commentCount).toBe(0);
+    expect(reducer(state, incrementCommentCount('a')).bbtalks[0].commentCount).toBe(1);
   });
 });
