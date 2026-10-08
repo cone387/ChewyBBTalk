@@ -1,7 +1,7 @@
 {
   "mobile": {
     "report": "mobile/coverage/unit/coverage-summary.json",
-    "minimum": { "lines": 83, "branches": 75 },
+    "minimum": { "lines": 85, "branches": 78 },
     "files": {
       "services/api/apiClient.ts": { "lines": 99, "branches": 95 },
       "services/auth.ts": { "lines": 98, "branches": 84 },
@@ -15,7 +15,9 @@
       "components/BBTalkCard.tsx": { "lines": 99, "branches": 96 },
       "components/AudioPlayerButton.tsx": { "lines": 97, "branches": 93 },
       "hooks/useDraftAutosave.ts": { "lines": 99, "branches": 90 },
+      "hooks/usePrivacyMode.ts": { "lines": 99, "branches": 99 },
       "services/historyPrivacy.ts": { "lines": 99, "branches": 99 },
+      "screens/CalendarScreen.tsx": { "lines": 99, "branches": 97 },
       "components/CommentInputModal.tsx": { "lines": 99, "branches": 95 },
       "components/InlineComments.tsx": { "lines": 99, "branches": 88 },
       "components/ImageViewer.tsx": { "lines": 97, "branches": 96 },
