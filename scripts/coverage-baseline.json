@@ -1,7 +1,7 @@
 {
   "mobile": {
     "report": "mobile/coverage/unit/coverage-summary.json",
-    "minimum": { "lines": 80, "branches": 71 },
+    "minimum": { "lines": 83, "branches": 75 },
     "files": {
       "services/api/apiClient.ts": { "lines": 99, "branches": 95 },
       "services/auth.ts": { "lines": 98, "branches": 84 },
@@ -12,6 +12,8 @@
       "services/widget/index.ts": { "lines": 98, "branches": 91 },
       "utils/errorHandler.ts": { "lines": 99, "branches": 99 },
       "utils/webAlert.ts": { "lines": 99, "branches": 91 },
+      "components/BBTalkCard.tsx": { "lines": 99, "branches": 96 },
+      "components/AudioPlayerButton.tsx": { "lines": 97, "branches": 93 },
       "hooks/useDraftAutosave.ts": { "lines": 99, "branches": 90 },
       "services/historyPrivacy.ts": { "lines": 99, "branches": 99 },
       "components/CommentInputModal.tsx": { "lines": 99, "branches": 95 },
