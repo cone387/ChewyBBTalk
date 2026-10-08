@@ -1,6 +1,6 @@
 import { useNavigation } from '@react-navigation/native';
 import { publicAuthRequest } from '../services/passwordRecovery';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator,
@@ -33,6 +33,7 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
   const [email, setEmail] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
+  const loadingRef = useRef(false);
 
   // 服务器选择
   const [servers, setServers] = useState<ServerItem[]>([{ label: '默认服务', url: DEFAULT_URL }]);
@@ -90,9 +91,10 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
   };
 
   const handleSubmit = async () => {
+    if (loadingRef.current) return;
     if (!isLogin && registrationEnabled === false) { xAlert('暂未开放注册', '当前服务暂未开放新用户注册，请联系服务提供方。'); return; }
     if (!username || !password) { xAlert('提示', '请输入用户名和密码'); return; }
-    setLoading(true);
+    loadingRef.current = true; setLoading(true);
     try {
       const result = isLogin
         ? await login(username, password)
@@ -100,7 +102,7 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
       if (result.success) onLoginSuccess();
       else xAlert(isLogin ? '登录失败' : '注册失败', result.error || '请重试');
     } catch { xAlert('错误', '网络错误，请稍后重试'); }
-    finally { setLoading(false); }
+    finally { loadingRef.current = false; setLoading(false); }
   };
 
   const currentLabel = servers.find(s => s.url === selectedServer)?.label || '默认服务';

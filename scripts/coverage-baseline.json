@@ -1,7 +1,7 @@
 {
   "mobile": {
     "report": "mobile/coverage/unit/coverage-summary.json",
-    "minimum": { "lines": 42, "branches": 36 },
+    "minimum": { "lines": 45, "branches": 39 },
     "files": {
       "services/api/apiClient.ts": { "lines": 99, "branches": 95 },
       "hooks/useDraftAutosave.ts": { "lines": 99, "branches": 90 },
@@ -10,6 +10,7 @@
       "components/InlineComments.tsx": { "lines": 99, "branches": 88 },
       "navigation/MainTabs.tsx": { "lines": 99, "branches": 99 },
       "screens/AccountSecurityScreen.tsx": { "lines": 99, "branches": 97 },
+      "screens/LoginScreen.tsx": { "lines": 95, "branches": 90 },
       "screens/PasswordRecoveryScreen.tsx": { "lines": 99, "branches": 95 },
       "screens/ProfileEditScreen.tsx": { "lines": 99, "branches": 93 }
     }
