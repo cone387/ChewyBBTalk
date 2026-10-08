@@ -1,8 +1,11 @@
 {
   "mobile": {
     "report": "mobile/coverage/unit/coverage-summary.json",
-    "minimum": { "lines": 90, "branches": 82 },
+    "minimum": { "lines": 92, "branches": 84 },
     "files": {
+      "src/config.ts": { "lines": 99, "branches": 99 },
+      "components/UndoToast.tsx": { "lines": 99, "branches": 90 },
+      "components/PrivacyLockOverlay.tsx": { "lines": 99, "branches": 91 },
       "services/api/apiClient.ts": { "lines": 99, "branches": 95 },
       "services/auth.ts": { "lines": 98, "branches": 84 },
       "services/widget/autoSync.ts": { "lines": 99, "branches": 85 },
