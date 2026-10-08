@@ -1,8 +1,12 @@
 {
   "mobile": {
     "report": "mobile/coverage/unit/coverage-summary.json",
-    "minimum": { "lines": 94, "branches": 86 },
+    "minimum": { "lines": 95, "branches": 87 },
     "files": {
+      "store/slices/tagSlice.ts": { "lines": 99, "branches": 90 },
+      "theme/ThemeContext.tsx": { "lines": 99, "branches": 92 },
+      "components/TagPickerModal.tsx": { "lines": 99, "branches": 99 },
+      "components/VisibilityPickerModal.tsx": { "lines": 99, "branches": 99 },
       "utils/crossAlert.ts": { "lines": 99, "branches": 99 },
       "components/ErrorBoundary.tsx": { "lines": 99, "branches": 80 },
       "components/SkeletonCard.tsx": { "lines": 99, "branches": 0 },
