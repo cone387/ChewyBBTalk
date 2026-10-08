@@ -31,15 +31,34 @@ test(`compose size stays stable at ${scale * 100}% scaling`, async () => {
       ;(globalThis as any).__resizeBounds = []
       window.on('resize', () => (globalThis as any).__resizeBounds.push(window.getBounds()))
     })
-    for (const text of ['很多行内容\n'.repeat(24), '短内容']) {
+    const longText = '很多行内容\n'.repeat(24)
+    let longTextareaHeight = 0
+    for (const text of [longText, '短内容']) {
       await application.evaluate(() => { (globalThis as any).__resizeBounds = [] })
       await textarea.fill(text)
       const changes = await application.evaluate(async () => {
-        await new Promise(resolve => setTimeout(resolve, 1000))
+        // Cold CI runners can need seconds before the first auto-grow resize lands;
+        // return once activity has gone quiet, capping the wait for dead environments.
+        const deadline = Date.now() + 10_000
+        let seen = 0
+        while (Date.now() < deadline) {
+          await new Promise(resolve => setTimeout(resolve, 300))
+          const count = ((globalThis as any).__resizeBounds as unknown[]).length
+          if (count > 0 && count === seen) break
+          seen = count
+        }
         return (globalThis as any).__resizeBounds as Array<{ height: number }>
       })
       expect(changes.length, JSON.stringify(changes)).toBeLessThanOrEqual(2)
-      expect(changes.length).toBeGreaterThan(0)
+      if (process.platform === 'linux') {
+        // Under Xvfb there is no window-manager resize feedback, so resize events can
+        // stay at zero; verify the auto-grow chain through the textarea's own height.
+        const height = await textarea.evaluate(el => el.clientHeight)
+        if (text === longText) longTextareaHeight = height
+        else expect(height).toBeLessThan(longTextareaHeight)
+      } else {
+        expect(changes.length).toBeGreaterThan(0)
+      }
       const previous = await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find(win => win.webContents.getURL().includes('/compose/'))!.getBounds())
       // Conversion through physical pixels can round fractional desktop scales by one DIP.
       expect(Math.abs(previous.width - 440)).toBeLessThanOrEqual(1)
