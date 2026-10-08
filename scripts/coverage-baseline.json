@@ -1,9 +1,10 @@
 {
   "mobile": {
     "report": "mobile/coverage/unit/coverage-summary.json",
-    "minimum": { "lines": 79, "branches": 69 },
+    "minimum": { "lines": 80, "branches": 71 },
     "files": {
       "services/api/apiClient.ts": { "lines": 99, "branches": 95 },
+      "services/auth.ts": { "lines": 98, "branches": 84 },
       "services/widget/autoSync.ts": { "lines": 99, "branches": 85 },
       "services/widget/bridge.ts": { "lines": 99, "branches": 99 },
       "services/widget/config.ts": { "lines": 99, "branches": 99 },
