@@ -47,7 +47,7 @@ describe('bbtalkSlice cache startup', () => {
 
     state = reducer(state, setBBTalksFromCache([makeTalk('cached-1', 'cached')]));
 
-    expect(state.bbtalks.map(item => item.id)).toEqual(['cached-1']);
+    expect(state.bbtalks.map((item: any) => item.id)).toEqual(['cached-1']);
     expect(state.isLoading).toBe(false);
     expect(state.hasMore).toBe(false);
 
@@ -62,7 +62,7 @@ describe('bbtalkSlice cache startup', () => {
       }, '', {}),
     );
 
-    expect(state.bbtalks.map(item => item.id)).toEqual(['network-1']);
+    expect(state.bbtalks.map((item: any) => item.id)).toEqual(['network-1']);
     expect(state.isLoading).toBe(false);
     expect(state.hasMore).toBe(true);
     expect(state.totalCount).toBe(12);
@@ -75,7 +75,7 @@ describe('bbtalkSlice thunks', () => {
     return { store, state: () => (store.getState() as any).bbtalk };
   }
   const listResult = (items: BBTalk[], next: string | null = null, count = items.length) =>
-    Promise.resolve({ results: items, next, count });
+    Promise.resolve({ results: items, next, previous: null, count });
 
   beforeEach(() => jest.clearAllMocks());
 
@@ -84,7 +84,7 @@ describe('bbtalkSlice thunks', () => {
     const { store, state } = makeStore();
     await store.dispatch(loadBBTalks({ search: 'x', tags: ['t1', 't2'], date: '2026-10-08' }));
     expect(api.getBBTalks).toHaveBeenCalledWith({ page: 1, search: 'x', tags__name: 't1,t2', create_time__date: '2026-10-08' });
-    expect(state().bbtalks.map(item => item.id)).toEqual(['a']);
+    expect(state().bbtalks.map((item: any) => item.id)).toEqual(['a']);
     expect(state().isFiltered).toBe(true);
     expect(state().hasMore).toBe(true);
     expect(state().hasLoadedFromNetwork).toBe(true);
@@ -112,15 +112,15 @@ describe('bbtalkSlice thunks', () => {
     expect(state().error).toBe('加载失败');
   });
   it('ignores a slow first response after a newer load finished', async () => {
-    let resolveSlow!: (value: { results: BBTalk[]; next: string | null; count: number }) => void;
-    api.getBBTalks.mockImplementationOnce(() => new Promise(resolve => { resolveSlow = resolve; }));
+    let resolveSlow!: (value: any) => void;
+    api.getBBTalks.mockImplementationOnce(() => new Promise<any>(resolve => { resolveSlow = resolve; }));
     api.getBBTalks.mockImplementationOnce(() => listResult([makeTalk('fresh', 'x')]));
     const { store, state } = makeStore();
     const slow = store.dispatch(loadBBTalks({}));
     await store.dispatch(loadBBTalks({}));
-    resolveSlow({ results: [makeTalk('stale', 'y')], next: null, count: 1 });
+    resolveSlow({ results: [makeTalk('stale', 'y')], next: null, previous: null, count: 1 });
     await slow;
-    expect(state().bbtalks.map(item => item.id)).toEqual(['fresh']);
+    expect(state().bbtalks.map((item: any) => item.id)).toEqual(['fresh']);
   });
   it('appends the next page, skipping records hidden by an optimistic delete', async () => {
     api.getBBTalks.mockReturnValueOnce(listResult([makeTalk('a', '1')], 'page-2', 2));
@@ -134,7 +134,7 @@ describe('bbtalkSlice thunks', () => {
     expect(state().hiddenRecordIds).toEqual(['a2']);
     await store.dispatch(loadMoreBBTalks({}));
     expect(api.getBBTalks).toHaveBeenLastCalledWith({ page: 2, search: undefined, tags__name: undefined, create_time__date: undefined });
-    expect(state().bbtalks.map(item => item.id)).toEqual(['a', 'b']);
+    expect(state().bbtalks.map((item: any) => item.id)).toEqual(['a', 'b']);
     expect(state().currentPage).toBe(2);
     expect(state().hasMore).toBe(false);
   });
@@ -154,10 +154,10 @@ describe('bbtalkSlice thunks', () => {
       bbtalks: [makeTalk('a', '1'), makeTalk('b', '2'), makeTalk('c', '3')], page: 1, hasMore: false, totalCount: 3, isFullLoad: true,
     }, '', {}));
     state = reducer(state, optimisticDelete('b'));
-    expect(state.bbtalks.map(item => item.id)).toEqual(['a', 'c']);
+    expect(state.bbtalks.map((item: any) => item.id)).toEqual(['a', 'c']);
     expect(state.totalCount).toBe(2);
     state = reducer(state, undoDelete({ bbtalk: makeTalk('b', '2'), index: 1 }));
-    expect(state.bbtalks.map(item => item.id)).toEqual(['a', 'b', 'c']);
+    expect(state.bbtalks.map((item: any) => item.id)).toEqual(['a', 'b', 'c']);
     expect(state.totalCount).toBe(3);
     expect(state.hiddenRecordIds).toEqual([]);
   });
@@ -166,7 +166,7 @@ describe('bbtalkSlice thunks', () => {
     api.createBBTalk.mockResolvedValue(created);
     const { store, state } = makeStore();
     await store.dispatch(createBBTalkAsync({ content: 'hello' }));
-    expect(state().bbtalks.map(item => item.id)).toEqual(['new']);
+    expect(state().bbtalks.map((item: any) => item.id)).toEqual(['new']);
     expect(state().totalCount).toBe(1);
     await store.dispatch(createBBTalkAsync({ content: 'hello' }));
     expect(state().bbtalks).toHaveLength(1);
@@ -196,7 +196,7 @@ describe('bbtalkSlice thunks', () => {
     const { store, state } = makeStore();
     await store.dispatch(loadBBTalks({}));
     await store.dispatch(deleteBBTalkAsync('a'));
-    expect(state().bbtalks.map(item => item.id)).toEqual(['b']);
+    expect(state().bbtalks.map((item: any) => item.id)).toEqual(['b']);
     expect(state().totalCount).toBe(1);
   });
   it('re-sorts with pinned talks first, newest update winning ties', async () => {
@@ -207,10 +207,10 @@ describe('bbtalkSlice thunks', () => {
     const { store, state } = makeStore();
     await store.dispatch(loadBBTalks({}));
     await store.dispatch(togglePinAsync('newer'));
-    expect(state().bbtalks.map(item => item.id)).toEqual(['newer', 'older']);
+    expect(state().bbtalks.map((item: any) => item.id)).toEqual(['newer', 'older']);
     api.togglePin.mockResolvedValueOnce({ ...older, isPinned: false } as never);
     await store.dispatch(togglePinAsync('older'));
-    expect(state().bbtalks.map(item => item.id)).toEqual(['newer', 'older']);
+    expect(state().bbtalks.map((item: any) => item.id)).toEqual(['newer', 'older']);
   });
 });
 

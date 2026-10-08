@@ -39,7 +39,7 @@ function type(label: string, value: string) { act(() => input(label).props.onCha
 function tappable(label: string) {
   const matches = tree.root.findAllByType('TouchableOpacity').filter((node: any) =>
     node.props.accessibilityLabel === label || node.findAllByType('Text').some((text: any) => text.props.children === label));
-  return matches.find(node => !matches.some(other => other !== node && node.findAllByType('TouchableOpacity').includes(other)));
+  return matches.find((node: any) => !matches.some((other: any) => other !== node && node.findAllByType('TouchableOpacity').includes(other)));
 }
 const button = tappable;
 async function press(label: string) { await act(async () => tappable(label).props.onPress()); }
@@ -48,7 +48,7 @@ const picker = () => tree.root.findAllByType('Modal')[0];
 const serverRowsWithUrl = (url: string) => {
   const matches = tree.root.findAllByType('TouchableOpacity')
     .filter((node: any) => node.findAllByType('Text').some((text: any) => text.props.children === url));
-  return matches.filter(node => !matches.some(other => other !== node && node.findAllByType('TouchableOpacity').includes(other)));
+  return matches.filter((node: any) => !matches.some((other: any) => other !== node && node.findAllByType('TouchableOpacity').includes(other)));
 };
 function savedServers(list: unknown[]) { (AsyncStorage.getItem as jest.Mock).mockResolvedValue(JSON.stringify(list)); }
 beforeEach(() => {
