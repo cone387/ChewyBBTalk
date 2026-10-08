@@ -291,8 +291,8 @@
   "frontend": {
     "report": "frontend/coverage/coverage-summary.json",
     "minimum": {
-      "lines": 39,
-      "branches": 80
+      "lines": 84,
+      "branches": 87
     },
     "files": {
       "services/api/apiClient.ts": {
@@ -314,14 +314,62 @@
       "pages/StorageSettingsPage.tsx": {
         "lines": 99,
         "branches": 95
+      },
+      "pages/BBTalkPage.tsx": {
+        "lines": 91,
+        "branches": 90
+      },
+      "components/BBTalkItem.tsx": {
+        "lines": 99,
+        "branches": 85
+      },
+      "components/BBTalkEditor.tsx": {
+        "lines": 94,
+        "branches": 86
+      },
+      "pages/S3ConfigListPage.tsx": {
+        "lines": 99,
+        "branches": 92
+      },
+      "pages/DataManagementPage.tsx": {
+        "lines": 99,
+        "branches": 74
+      },
+      "pages/PrivacyLockPage.tsx": {
+        "lines": 99,
+        "branches": 90
+      },
+      "components/ImagePreview.tsx": {
+        "lines": 99,
+        "branches": 98
+      },
+      "App.tsx": {
+        "lines": 87,
+        "branches": 94
+      },
+      "services/cache/imageCache.ts": {
+        "lines": 87,
+        "branches": 73
+      },
+      "store/slices/bbtalkSlice.ts": {
+        "lines": 99,
+        "branches": 85
+      },
+      "pages/BBTalkDetailPage.tsx": {
+        "lines": 98,
+        "branches": 94
+      },
+      "pages/SettingsPage.tsx": {
+        "lines": 99,
+        "branches": 93
       }
     }
   },
   "desktop": {
     "report": "desktop/coverage/coverage-summary.json",
     "minimum": {
-      "lines": 34,
-      "branches": 80
+      "lines": 95,
+      "branches": 88
     },
     "files": {
       "main/uploads.ts": {
@@ -339,6 +387,62 @@
       "main/windows/ballWindow.ts": {
         "lines": 95,
         "branches": 99
+      },
+      "renderer/compose/ComposeWindow.tsx": {
+        "lines": 99,
+        "branches": 85
+      },
+      "renderer/ball/Ball.tsx": {
+        "lines": 96,
+        "branches": 81
+      },
+      "renderer/settings/SettingsWindow.tsx": {
+        "lines": 99,
+        "branches": 93
+      },
+      "preload/index.ts": {
+        "lines": 99,
+        "branches": 95
+      },
+      "main/windows/composeWindow.ts": {
+        "lines": 99,
+        "branches": 95
+      },
+      "main/windows/loginWindow.ts": {
+        "lines": 99,
+        "branches": 91
+      },
+      "main/windows/settingsWindow.ts": {
+        "lines": 99,
+        "branches": 92
+      },
+      "main/index.ts": {
+        "lines": 98,
+        "branches": 99
+      },
+      "main/ball/animate.ts": {
+        "lines": 99,
+        "branches": 95
+      },
+      "main/store.ts": {
+        "lines": 99,
+        "branches": 95
+      },
+      "main/ipc/ballIpc.ts": {
+        "lines": 99,
+        "branches": 95
+      },
+      "renderer/login/LoginWindow.tsx": {
+        "lines": 99,
+        "branches": 94
+      },
+      "main/ipc/authIpc.ts": {
+        "lines": 99,
+        "branches": 95
+      },
+      "main/hotkey.ts": {
+        "lines": 99,
+        "branches": 95
       }
     }
   },
