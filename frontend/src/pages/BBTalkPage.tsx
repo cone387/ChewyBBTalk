@@ -107,7 +107,6 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
   const { bbtalks, isLoading, hasMore, totalCount } = useAppSelector((state) => state.bbtalk)
   const { tags } = useAppSelector((state) => state.tag)
   const [isPublishing, setIsPublishing] = useState(false)
-  const [showEditor, setShowEditor] = useState(true)
   const [showBackToTop, setShowBackToTop] = useState(false)
   const [showMobileMenu, setShowMobileMenu] = useState(false) // 移动端菜单
   const [editingBBTalk, setEditingBBTalk] = useState<typeof bbtalks[0] | null>(null)
@@ -126,7 +125,6 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
       dispatch(optimisticDelete(item.bbtalk.id))
     }),
   })
-  const lastScrollY = useRef(0)
   const containerRef = useRef<HTMLDivElement>(null)
   const [privacyTimeoutMinutes] = useState(() => {
     const saved = localStorage.getItem('privacy_timeout_minutes')
@@ -256,7 +254,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
     }
   }, [buildFilterParams, dispatch, isPublic])
 
-  // 监听滚动，控制编辑框显示/隐藏、回到顶部按钮和分页加载（使用 rAF 节流避免频繁触发重渲染）
+  // 保持编辑器在文档流中，滚动仅控制回到顶部按钮和分页加载。
   useEffect(() => {
     let ticking = false
     const handleScroll = () => {
@@ -271,13 +269,6 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
           const scrollHeight = containerRef.current.scrollHeight
           const clientHeight = containerRef.current.clientHeight
           
-          // 向上滚动显示编辑框，向下滚动隐藏编辑框
-          if (currentScrollY < lastScrollY.current) {
-            setShowEditor(true)
-          } else if (currentScrollY > lastScrollY.current && currentScrollY > 100) {
-            setShowEditor(false)
-          }
-          
           // 滚动超过400px显示回到顶部按钮
           const shouldShow = currentScrollY > 400
           setShowBackToTop(prev => prev !== shouldShow ? shouldShow : prev)
@@ -287,7 +278,6 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
             handleLoadMore()
           }
           
-          lastScrollY.current = currentScrollY
           ticking = false
         })
         ticking = true
@@ -559,11 +549,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
             </div>
           ) : (
             /* 已登录显示编辑框 */
-            <div 
-              className={`transition-all duration-300 mb-6 ${
-                showEditor ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none h-0 mb-0 overflow-hidden'
-              }`}
-            >
+            <div className="mb-6">
               <BBTalkEditor 
                 onPublish={handlePublish} 
                 isPublishing={isPublishing}

@@ -208,7 +208,7 @@ body {
   box-shadow: 0 3px 12px rgb(25 39 65 / 3%);
 }
 .bbtalk-composer:focus-within { border-color: #9bb6e4; }
-.composer-toolbar { border-top: 1px solid #f0f2f6; padding-top: 10px; }
+.composer-toolbar { border-top: 0; padding-top: 10px; }
 .composer-tools svg { width: 18px; height: 18px; }
 .record-content p, .record-content li { font-size: 14px; line-height: 1.85; color: #333e50; }
 .record-content p + p { margin-top: 8px; }

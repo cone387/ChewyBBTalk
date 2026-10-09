@@ -23,6 +23,29 @@ test('workspace navigation stays consistent and S3 uses an accessible shared dia
   }
   await expect(page.locator('.bbtalk-item')).toHaveCount(4)
   await page.screenshot({ path: info.outputPath('workspace.png'), fullPage: true })
+  const originalViewport = page.viewportSize()!
+  await page.setViewportSize({ width: originalViewport.width, height: 600 })
+  // Scrolling must not collapse the composer and change the scrollbar geometry.
+  const scrollGeometry = await page.locator('.feed-scroll').evaluate(async el => {
+    const initialHeight = el.scrollHeight
+    const samples: { height: number; top: number; target: number }[] = []
+    for (const target of [120, 220, 160, 20]) {
+      el.scrollTop = target
+      const end = performance.now() + 400
+      while (performance.now() < end) {
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+        samples.push({ height: el.scrollHeight, top: el.scrollTop, target })
+      }
+    }
+    el.scrollTop = 0
+    return { initialHeight, samples }
+  })
+  for (const sample of scrollGeometry.samples) {
+    expect(sample.height).toBe(scrollGeometry.initialHeight)
+    expect(sample.top).toBeCloseTo(sample.target, 0)
+  }
+  await expect(page.locator('.composer-toolbar')).toHaveCSS('border-top-width', '0px')
+  await page.setViewportSize(originalViewport)
   const sidebar = page.getByRole('complementary', { name: '桌面侧栏' })
   if (info.project.name === 'desktop') await sidebar.getByRole('button', { name: '账户与设置' }).click()
   for (const [label, path, title] of [
