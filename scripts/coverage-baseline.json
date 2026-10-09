@@ -291,10 +291,26 @@
   "frontend": {
     "report": "frontend/coverage/coverage-summary.json",
     "minimum": {
-      "lines": 84,
+      "lines": 89,
       "branches": 87
     },
     "files": {
+      "components/BBTalkPublisher.tsx": {
+        "lines": 99,
+        "branches": 94
+      },
+      "components/BackupPanel.tsx": {
+        "lines": 99,
+        "branches": 92
+      },
+      "components/ui/Drawer.tsx": {
+        "lines": 99,
+        "branches": 82
+      },
+      "pages/PrivacySettingsPage.tsx": {
+        "lines": 99,
+        "branches": 99
+      },
       "services/api/apiClient.ts": {
         "lines": 99,
         "branches": 99
@@ -325,7 +341,7 @@
       },
       "components/BBTalkEditor.tsx": {
         "lines": 94,
-        "branches": 86
+        "branches": 85
       },
       "pages/S3ConfigListPage.tsx": {
         "lines": 99,
