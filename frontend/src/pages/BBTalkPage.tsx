@@ -7,6 +7,7 @@ import { invalidateFeed, loadBBTalks, createBBTalkAsync, updateBBTalkAsync, load
 import { loadTags, updateTagAsync } from '../store/slices/tagSlice'
 import BBTalkEditor from '../components/BBTalkEditor'
 import BBTalkItem from '../components/BBTalkItem'
+import AppBrand from '../components/AppBrand'
 import Modal from '../components/ui/Modal'
 import ImagePreview from '../components/ImagePreview'
 import PrivacyCountdownButton from '../components/PrivacyCountdownButton'
@@ -80,11 +81,11 @@ function SortableTagItem({
         }`}
       >
         <span className="flex min-w-0 items-center gap-2">
-          <span aria-hidden="true" className="tag-symbol shrink-0 text-base text-gray-400">#</span>
+          <span aria-hidden="true" className="tag-symbol" style={{ color: `color-mix(in srgb, ${tag.color || '#5275a8'} 55%, #334155)` }}>#</span>
           <span className="truncate">{tag.name}</span>
         </span>
         {count > 0 && (
-          <span className="shrink-0 text-xs tabular-nums text-gray-500">{count}</span>
+          <span className="tag-count">{count}</span>
         )}
       </button>
       <button type="button" {...attributes} {...listeners} aria-label={`拖动排序：${tag.name}`}
@@ -467,9 +468,10 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
       </header>
       <div className="feed-workspace">
           <aside aria-label="桌面侧栏" className="classic-feed-sidebar">
+            <div className="feed-brand"><AppBrand /></div>
             <div className="classic-feed-search">
               <label className="block text-sm font-medium text-gray-600">
-                <span className="mb-2 block">搜索</span>
+                <span className="sr-only">搜索</span>
                 <span className="relative block">
                   <svg aria-hidden="true" className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeWidth="1.7" d="m21 21-5-5m2-6a7 7 0 11-14 0 7 7 0 0114 0Z" /></svg>
                   <input type="search" placeholder="搜索 BBTalk..." value={searchKeyword}
@@ -479,14 +481,11 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
               </label>
             </div>
           <section aria-label="标签列表" className="feed-tags-panel">
-            <div className="feed-tags-heading">
-                <h2 className="mb-3 flex items-center gap-2 text-sm font-medium text-gray-600"><span aria-hidden="true" className="h-2.5 w-2.5 rounded bg-orange-400" />标签</h2>
-                <button type="button" onClick={() => setSelectedTags([])} aria-pressed={selectedTags.length === 0}
-                  className={`mb-2 flex min-h-11 w-full items-center justify-between rounded-lg px-3 text-sm ${selectedTags.length === 0 ? 'bg-gray-100 font-medium text-gray-900' : 'text-gray-700 hover:bg-gray-100'}`}>
-                  <span>全部标签</span><span className="text-xs text-gray-400">{totalCount}</span>
-                </button>
-            </div>
             <div className="feed-tags-scroll subtle-scrollbar">
+                <button type="button" onClick={() => setSelectedTags([])} aria-pressed={selectedTags.length === 0}
+                  className="tag-all-button mb-1 flex min-h-11 w-full items-center justify-between rounded-lg px-3 text-sm text-gray-600">
+                  <span className="flex items-center gap-2"><span className="tag-symbol" aria-hidden="true"><svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="5" height="5" rx="1" /><rect x="12" y="3" width="5" height="5" rx="1" /><rect x="3" y="12" width="5" height="5" rx="1" /><rect x="12" y="12" width="5" height="5" rx="1" /></svg></span>全部</span><span className="tag-count">{totalCount}</span>
+                </button>
                 {tags.length === 0 ? <p className="px-3 py-2 text-sm text-gray-500">暂无标签</p> :
                   <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                     <SortableContext items={tags.map(tag => tag.id)} strategy={verticalListSortingStrategy}>

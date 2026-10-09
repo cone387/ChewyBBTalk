@@ -36,6 +36,12 @@ test('desktop keeps its sidebar and authenticated login visits return to the fee
       expect(side!.width).toBe(256)
       expect(tagBox!.height).toBeGreaterThan(600)
       await expect(tags.locator('.tag-list-row')).toHaveCount(40)
+      const allIcon = await tags.locator('.tag-all-button .tag-symbol').boundingBox()
+      const firstIcon = await tags.locator('.tag-list-row .tag-symbol').first().boundingBox()
+      const allCount = await tags.locator('.tag-all-button .tag-count').boundingBox()
+      const firstCount = await tags.locator('.tag-list-row .tag-count').first().boundingBox()
+      expect(firstIcon!.x).toBeCloseTo(allIcon!.x, 0)
+      expect(firstCount!.x + firstCount!.width).toBeCloseTo(allCount!.x + allCount!.width, 0)
       const visibleRows = await tags.locator('.tag-list-row').evaluateAll(rows => rows.filter(row => {
         const bounds = row.getBoundingClientRect()
         return bounds.top >= 0 && bounds.bottom <= innerHeight
