@@ -47,7 +47,7 @@ test('opens ready to type and restores a docked ball without replaying hover ani
     // the ball click; tolerate that by reopening before pinning down state.
     for (let attempt = 0; ; attempt++) {
       compose = await openViaBall()
-      await application.waitForTimeout(1_500)
+      await new Promise(resolve => setTimeout(resolve, 1_500))
       if (application.windows().includes(compose)) break
       if (attempt >= 2) throw new Error('compose kept closing after the ball reopen')
     }
