@@ -74,6 +74,14 @@ describe('authentication bootstrap', () => {
 });
 
 describe('routing', () => {
+  it('sends a locked authenticated login visit to unlock without a return URL', async () => {
+    localStorage.setItem('bbtalk_privacy_mode', 'true');
+    history.pushState({}, '', '/login');
+    const view = await mountApp();
+    expect(await view.findByText('锁定页')).toBeTruthy();
+    expect(window.location.pathname).toBe('/locked');
+    expect(window.location.search).toBe('');
+  });
   it.each([
     ['/login', '/', '私有主页'],
     ['/login?next=https%3A%2F%2Fevil.example', '/', '私有主页'],

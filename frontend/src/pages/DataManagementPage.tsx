@@ -1,3 +1,4 @@
+import SettingsLayout from '../components/layout/SettingsLayout';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Button from '../components/ui/Button';
@@ -104,25 +105,11 @@ export default function DataManagementPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      <header className="bg-white/80 backdrop-blur-sm border-b border-gray-100 sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto px-4 py-4 flex items-center gap-4">
-          <button
-            onClick={() => navigate('/settings')}
-            aria-label="返回我的"
-            className="min-h-[44px] min-w-[44px] p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <h1 className="text-xl font-semibold text-gray-900">数据管理</h1>
-        </div>
-      </header>
+    <SettingsLayout title="数据管理" description="管理备份、导入导出和数据恢复。" active="/settings/data">
 
-      <main className="max-w-3xl mx-auto px-4 py-8 space-y-6">
+      <div className="settings-body">
         <BackupPanel />
-        {importReport && <section aria-label="导入结果" className="rounded-2xl border border-gray-200 bg-white p-6">
+        {importReport && <section aria-label="导入结果" className="rounded-xl border border-gray-200 bg-white p-6">
           <h2 className="text-lg font-semibold">{importReport.partial ? '导入部分完成，请核对' : '数据导入成功'}</h2>
           <p className="mt-2 text-sm leading-relaxed text-gray-700">新增 {importReport.stats.bbtalks_created} 条内容、{importReport.stats.tags_created} 个标签、{importReport.stats.comments_created ?? 0} 条评论、{importReport.stats.attachments_created ?? 0} 个附件。</p>
           <p className="mt-2 text-sm text-gray-600">跳过 {importReport.stats.bbtalks_skipped} 条内容、{importReport.stats.tags_skipped} 个标签、{importReport.stats.comments_skipped ?? 0} 条评论、{importReport.stats.attachments_skipped ?? 0} 个附件。</p>
@@ -131,10 +118,10 @@ export default function DataManagementPage() {
           <Button className="mt-4 min-h-[44px]" onClick={() => navigate('/')}>查看记录</Button>
         </section>}
         {/* 数据导出 */}
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+        <div className="settings-panel p-6">
           <div className="flex items-start gap-4 mb-6">
-            <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center flex-shrink-0">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+              <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
             </div>
@@ -182,7 +169,7 @@ export default function DataManagementPage() {
               <Button
                 onClick={handleExport}
                 loading={isExporting}
-                className="w-full"
+                className="w-full sm:w-auto"
               >
                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -194,10 +181,10 @@ export default function DataManagementPage() {
         </div>
 
         {/* 数据导入 */}
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+        <div className="settings-panel p-6">
           <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center flex-shrink-0">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+              <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
               </svg>
             </div>
@@ -249,7 +236,7 @@ export default function DataManagementPage() {
             </div>
           </div>
         </div>
-      </main>
+      </div>
 
       {/* 导入确认弹窗 */}
       {showImportModal && validationResult && (
@@ -333,6 +320,6 @@ export default function DataManagementPage() {
           onClose={() => setToast(null)}
         />
       )}
-    </div>
+    </SettingsLayout>
   );
 }

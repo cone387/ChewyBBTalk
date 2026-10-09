@@ -112,7 +112,7 @@ function InlineCommentSection({
           {comments.map(comment => (
             <div key={comment.uid} className="flex items-start justify-between gap-2 group/comment text-sm">
               <p className="flex-1 text-gray-600 leading-relaxed">
-                <span className="font-medium text-indigo-600">{comment.userDisplayName || comment.userUsername}</span>
+                <span className="font-medium text-blue-700">{comment.userDisplayName || comment.userUsername}</span>
                 <span className="text-gray-300 mx-1">·</span>
                 {comment.content}
               </p>
@@ -137,7 +137,7 @@ function InlineCommentSection({
       )}
 
       {!expanded && comments.length > 0 && (
-        <button onClick={() => setExpanded(true)} className="mt-2 text-xs text-indigo-500 hover:text-indigo-600">
+        <button onClick={() => setExpanded(true)} className="mt-2 text-xs text-blue-700 hover:text-blue-700">
           查看 {comments.length} 条评论
         </button>
       )}
@@ -167,7 +167,7 @@ function InlineCommentSection({
           <button
             onClick={handleSubmit}
             disabled={!newComment.trim() || submitting}
-            className="px-4 py-2 text-sm text-white bg-indigo-500 rounded-full hover:bg-indigo-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="px-4 py-2 text-sm text-white bg-blue-600 rounded-full hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             {submitting ? '...' : '发送'}
           </button>
@@ -326,13 +326,13 @@ const BBTalkItem: React.FC<BBTalkItemProps> = React.memo(function BBTalkItem({
   })
 
   return (
-    <div data-record-id={bbtalk.id} className="feed-surface bg-white rounded-2xl relative bbtalk-item group">
+    <div data-record-id={bbtalk.id} className="feed-surface bg-white rounded-xl relative bbtalk-item group">
       {shareFeedback.feedback}
-      <div className="p-6">
+      <div className="p-5 sm:p-6">
         {/* 右上角更多操作菜单 */}
         <div className="absolute top-4 right-4" ref={menuOpen ? menuRef : null}>
           <button
-            className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100 focus:opacity-100"
+            className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors opacity-100"
             onClick={() => setMenuOpen(!menuOpen)}
             title="更多"
           >
@@ -397,9 +397,9 @@ const BBTalkItem: React.FC<BBTalkItemProps> = React.memo(function BBTalkItem({
             {bbtalk.tags.map((tag, index) => (
               <span
                 key={tag.id || `tag-${index}`}
-                className="px-3 py-1.5 text-white rounded-full text-xs font-medium"
-                style={{ backgroundColor: tag.color || '#3B82F6' }}
+                className="inline-flex items-center gap-1.5 rounded-md bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700"
               >
+                <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: tag.color || '#3B82F6' }} />
                 {tag.name}
               </span>
             ))}
@@ -557,7 +557,7 @@ const BBTalkItem: React.FC<BBTalkItemProps> = React.memo(function BBTalkItem({
           {/* 评论按钮 */}
           <button
             onClick={() => setCommentInputVisible(!commentInputVisible)}
-            className="text-gray-400 hover:text-indigo-500 flex items-center gap-1 transition-colors text-sm"
+            className="text-gray-400 hover:text-blue-700 flex items-center gap-1 transition-colors text-sm"
             title="评论"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

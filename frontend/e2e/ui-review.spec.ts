@@ -14,7 +14,7 @@ async function login(page: Page) {
 test('settings destinations remain reachable and scrollable, and logout can be cancelled', async ({ page }, info) => {
   await login(page)
   const destinations = [
-    ['/settings', '我的'], ['/settings/privacy', '防窥设置'], ['/settings/storage', '存储设置'],
+    ['/settings', '设置'], ['/settings/privacy', '防窥设置'], ['/settings/storage', '存储设置'],
     ['/settings/storage/s3', 'S3 配置管理'], ['/settings/data', '数据管理'], ['/settings/status', '运行状态'],
   ]
   for (const [path, title] of destinations) {

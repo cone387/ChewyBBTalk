@@ -1,3 +1,4 @@
+import WorkspaceSidebar from '../components/layout/WorkspaceSidebar'
 import { useActionFeedback } from '../hooks/useActionFeedback'
 import { useUndoableDelete } from '../hooks/useUndoableDelete'
 import { useCallback, useEffect, useState, useRef } from 'react'
@@ -459,32 +460,31 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
   const filteredBBTalks = bbtalks
 
   return (
-    <div className="h-full bg-gray-50 flex flex-col">
+    <div className="feed-layout">
       <header className="shrink-0 border-b border-gray-200/70 bg-white lg:hidden">
         <div className="mx-auto flex min-h-16 max-w-3xl items-center justify-between gap-4 px-4 sm:px-8">
           <div>
             <p className="text-lg font-semibold tracking-tight text-gray-900">{isPublic ? '公开碎碎念' : '我的碎碎念'}</p>
-            <p className="text-xs text-gray-500">留下一点今天，慢慢回看。</p>
           </div>
         </div>
       </header>
-      {/* 主内容区 */}
-      <div className="flex-1 min-h-0 overflow-hidden">
-      {/* 整体容器 - 左右内容作为整体居中 */}
-      <div className="h-full max-w-7xl w-full mx-auto px-3 sm:px-4 relative">
-        <div className="h-full flex gap-6">
-          <aside aria-label="桌面侧栏" className="hidden lg:flex w-64 shrink-0 flex-col py-8">
-            <div className="feed-surface flex min-h-0 flex-1 flex-col rounded-2xl bg-white">
-              <div className="space-y-5 p-5">
-                <p className="text-xl font-semibold tracking-tight text-gray-900">BBTalk</p>
+      <div className="feed-workspace">
+          <WorkspaceSidebar active="/" isPublic={isPublic} footer={
+                !isPublic ? <button type="button" onClick={() => navigate('/settings')} aria-label="账户与设置" title={currentUser?.display_name || currentUser?.username}
+                  className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-3 text-left hover:bg-gray-100">
+                  <span className="min-w-0 truncate text-sm font-medium text-gray-900">{currentUser?.display_name || currentUser?.username || '账户'}</span>
+                  <span className="shrink-0 text-sm text-gray-500">设置</span>
+                </button> : <button type="button" onClick={handleLogin} className="min-h-11 w-full rounded-lg text-sm text-blue-700 hover:bg-blue-50">登录</button>
+          }>
+            <div className="px-2 pb-5">
                 <label className="block text-sm font-medium text-gray-600">
                   搜索
                   <input type="search" placeholder="搜索 BBTalk..." value={searchKeyword}
                     onChange={event => setSearchKeyword(event.target.value)}
                     className="feed-field mt-2 min-h-11 w-full rounded-xl px-3 text-sm text-gray-800" />
                 </label>
-              </div>
-              <div className="min-h-0 flex-1 overflow-y-auto border-t border-gray-100 p-4">
+            </div>
+            <div className="border-t border-gray-200 pt-5">
                 <h2 className="mb-3 px-3 text-sm font-medium text-gray-500">标签</h2>
                 <button type="button" onClick={() => setSelectedTags([])} aria-pressed={selectedTags.length === 0}
                   className={`mb-2 flex min-h-11 w-full items-center justify-between rounded-lg px-3 text-sm ${selectedTags.length === 0 ? 'bg-gray-100 font-medium text-gray-900' : 'text-gray-700 hover:bg-gray-100'}`}>
@@ -497,20 +497,16 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                         isSelected={selectedTags.includes(tag.id)} count={tag.bbtalkCount || 0} onClick={() => toggleTag(tag.id)} />)}</div>
                     </SortableContext>
                   </DndContext>}
-              </div>
-              <div className="border-t border-gray-100 p-4">
-                {!isPublic ? <button type="button" onClick={() => navigate('/settings')} aria-label="账户与设置" title={currentUser?.display_name || currentUser?.username}
-                  className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-3 text-left hover:bg-gray-100">
-                  <span className="min-w-0 truncate text-sm font-medium text-gray-900">{currentUser?.display_name || currentUser?.username || '账户'}</span>
-                  <span className="shrink-0 text-sm text-gray-500">设置</span>
-                </button> : <button type="button" onClick={handleLogin} className="min-h-11 w-full rounded-lg text-sm text-blue-700 hover:bg-blue-50">登录</button>}
-              </div>
             </div>
-          </aside>
+          </WorkspaceSidebar>
           {/* 居中的内容流 */}
-          <div ref={containerRef} role="main" aria-label="记录列表" className="flex-1 min-w-0 pt-4 sm:pt-6 lg:pt-8 pb-24 lg:pb-8 overflow-y-auto overscroll-contain -webkit-overflow-scrolling-touch">
+          <div ref={containerRef} role="main" aria-label="记录列表" className="feed-scroll">
             {/* 滚动内容区 */}
-            <div className="w-full max-w-4xl mx-auto sm:px-4">
+            <div className="feed-column">
+              <div className="feed-heading">
+                <h1>{activeFilters.length > 0 ? '筛选结果' : isPublic ? '公开记录' : '全部记录'}</h1>
+                {activeFilters.length === 0 && <span className="text-sm tabular-nums text-gray-500">{totalCount} 条记录</span>}
+              </div>
               <div className="mb-4 flex items-center gap-2 lg:hidden">
                 <div className="relative min-w-0 flex-1">
                   <input type="search" aria-label="搜索记录" placeholder="搜索 BBTalk..." value={searchKeyword}
@@ -520,7 +516,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </div>
-                <button type="button" onClick={() => setShowMobileMenu(true)} aria-haspopup="dialog" aria-expanded={showMobileMenu}
+                <button type="button" onClick={event => { event.currentTarget.focus(); setShowMobileMenu(true); }} aria-haspopup="dialog" aria-expanded={showMobileMenu}
                   className="min-h-11 shrink-0 rounded-xl bg-white px-4 text-sm font-medium text-gray-700 hover:bg-gray-100">
                   筛选{selectedTags.length > 0 ? ` (${selectedTags.length})` : ''}
                 </button>
@@ -535,7 +531,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
           {/* 编辑框 / 登录提示 */}
           {isPublic ? (
             /* 公开页面显示登录提示 */
-            <div className="mb-6 bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+            <div className="mb-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
@@ -572,7 +568,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
             </div>
           )}
 
-          {activeFilters.length > 0 && <section aria-label="当前筛选条件" className="mb-4 rounded-2xl bg-gray-100/80 p-3">
+          {activeFilters.length > 0 && <section aria-label="当前筛选条件" className="mb-4 rounded-xl bg-gray-100/80 p-3">
             <div className="flex items-center justify-between gap-3">
               <p className="text-sm font-medium text-gray-800">当前筛选 · {activeFilters.length}</p>
               <button type="button" onClick={clearFilters} className="min-h-11 px-2 text-sm text-blue-700 hover:underline">全部清除</button>
@@ -591,8 +587,8 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                 {[0, 1, 2].map(i => <SkeletonCard key={i} />)}
               </div>
             ) : filteredBBTalks.length === 0 ? (
-              <div className="feed-surface rounded-2xl bg-white px-6 py-10 text-center">
-                <div aria-hidden="true" className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-50 text-gray-400">
+              <div className="feed-surface rounded-xl bg-white px-6 py-10 text-center">
+                <div aria-hidden="true" className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gray-50 text-gray-400">
                   <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7h8M8 11h5M5 3h14a1 1 0 011 1v16a1 1 0 01-1 1H5a1 1 0 01-1-1V4a1 1 0 011-1z" /></svg>
                 </div>
                 <p className="font-medium text-gray-700">{activeFilters.length > 0 ? '没有找到匹配的碎碎念' : '暂无碎碎念'}</p>
@@ -604,7 +600,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                 const isEditing = editingBBTalk?.id === bbtalk.id
                 if (isEditing) {
                   return (
-                    <div key={bbtalk.id} data-record-id={bbtalk.id} className="feed-surface bg-white rounded-2xl relative bbtalk-item group p-6">
+                    <div key={bbtalk.id} data-record-id={bbtalk.id} className="feed-surface bg-white rounded-xl relative bbtalk-item group p-6">
                       <BBTalkEditor 
                         onPublish={data => handlePublish(data, bbtalk)}
                         isPublishing={isPublishing}
@@ -651,8 +647,6 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
           </div>
           </div>
         </div>
-      </div>
-      </div>
       </div>
       
       {/* 防偷窥倒计时按钮（状态隔离，消除全局重渲染） */}
@@ -709,7 +703,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
         onDismiss={deletion.dismiss}
       />
       {/* 移动端底部导航栏 */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 safe-area-pb">
+      <div role="navigation" aria-label="移动导航" className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 safe-area-pb">
         <div className="flex items-center h-14 max-w-lg mx-auto">
           {/* 首页 */}
           <button

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { getCurrentUser, logout } from '../services/auth';
 import { useActionFeedback } from '../hooks/useActionFeedback';
 import Button from '../components/ui/Button';
-import AppBrand from '../components/AppBrand';
+import SettingsLayout from '../components/layout/SettingsLayout';
 
 const settings = [
   { title: '防窥设置', description: '锁定时长、倒计时显示', path: '/settings/privacy',
@@ -22,24 +22,9 @@ export default function SettingsPage() {
   const feedback = useActionFeedback();
 
   return (
-    <div className="app-page">
+    <SettingsLayout title="设置" description="管理账户、隐私和数据。" active="/settings" backTo="/" backLabel="返回记录">
       {feedback.feedback}
-      <header className="app-header sticky top-0 z-10">
-        <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-8">
-          <Button variant="ghost" onClick={() => navigate('/')} aria-label="返回记录" className="-ml-2 px-2.5">
-            <svg aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-            返回记录
-          </Button>
-          <AppBrand />
-        </div>
-      </header>
-      <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-10">
-        <div className="mb-6">
-          <h1 className="text-2xl font-semibold tracking-tight">我的</h1>
-          <p className="mt-2 text-sm leading-6 text-gray-500">管理记录的隐私、存储与备份。</p>
-        </div>
+      <div className="settings-body">
         {currentUser && <section aria-label="当前账户" className="app-surface mb-7 flex items-center gap-4 p-5 sm:p-6">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-50 font-semibold text-blue-700">
             {currentUser.avatar ? <img src={currentUser.avatar} alt={currentUser.display_name || currentUser.username} className="h-full w-full object-cover" />
@@ -52,8 +37,8 @@ export default function SettingsPage() {
         </section>}
         <section aria-labelledby="settings-title">
           <h2 id="settings-title" className="mb-3 px-1 text-sm font-medium text-gray-500">偏好与数据</h2>
-          <div className="app-surface divide-y divide-gray-100">
-            {settings.map(item => <button key={item.path} type="button" onClick={() => navigate(item.path)} className="app-setting-row">
+          <div className="grid gap-3 xl:grid-cols-2">
+            {settings.map(item => <button key={item.path} type="button" onClick={() => navigate(item.path)} className="settings-panel flex min-h-28 items-center gap-4 p-5 text-left transition-colors hover:bg-gray-50">
               <span className="app-setting-icon">
                 <svg aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
@@ -80,7 +65,7 @@ export default function SettingsPage() {
             退出登录
           </Button>
         </div>}
-      </main>
-    </div>
+      </div>
+    </SettingsLayout>
   );
 }

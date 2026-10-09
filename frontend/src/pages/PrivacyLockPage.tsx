@@ -207,7 +207,7 @@ export default function PrivacyLockPage() {
   }
   
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-3 sm:p-4 gap-3 sm:gap-4">
+    <div className="app-page min-h-full flex flex-col items-center justify-center px-5 py-10 gap-5">
       {/* BBTalk 编辑器 */}
       <div className="w-full max-w-xl">
         <BBTalkEditor 
@@ -225,7 +225,7 @@ export default function PrivacyLockPage() {
       </div>
       
       {/* 解锁卡片 - 响应式布局 */}
-      <div className="bg-white rounded-2xl shadow-sm p-4 sm:p-5 w-full max-w-xl">
+      <div className="app-surface p-5 sm:p-6 w-full max-w-xl">
         {/* 移动端垂直布局，桌面端水平布局 */}
         <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-5">
           {/* 锁图标 - 移动端居中显示 */}
@@ -296,7 +296,7 @@ export default function PrivacyLockPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={isMobile ? '输入密码' : '请输入密码以继续'}
-                className="flex-1 px-4 py-3 sm:py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                aria-label="解锁密码" autoComplete="current-password" className="app-input flex-1 min-w-0"
                 disabled={isVerifying}
                 autoFocus={!isMobile}
               />

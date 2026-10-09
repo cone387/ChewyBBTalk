@@ -45,7 +45,7 @@ test('settings uses the same surfaces and preserves navigation and logout confir
   await page.getByRole('button', { name: '登录', exact: true }).click()
   await expect(page.getByLabel('记录内容')).toBeVisible()
   await page.goto('/settings')
-  await expect(page.getByRole('heading', { name: '我的', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '设置', exact: true })).toBeVisible()
   expect(await page.locator('.app-page').evaluate(el => getComputedStyle(el).backgroundColor)).toBe(loginBackground)
   await page.screenshot({ path: info.outputPath('settings.png'), fullPage: true })
   await page.setViewportSize({ width: 375, height: 568 })

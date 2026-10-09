@@ -32,8 +32,8 @@ export default function DesktopAuthorizePage() {
       returnToDesktop({ code: result.code });
     } catch (e) { setError(e instanceof Error ? e.message : '授权失败，请重试'); setBusy(false); }
   };
-  return <main className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
-    <section className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-8 space-y-6">
+  return <main className="app-page auth-layout">
+    <section className="auth-panel space-y-6">
       <p className="text-sm font-semibold text-blue-700">BBTalk · 桌面登录</p>
       <h1 className="text-2xl font-semibold text-gray-900">连接你的桌面端</h1>
       {!valid ? <p role="alert" className="text-red-700">授权链接无效，请回到桌面端重新发起登录。</p> : <>

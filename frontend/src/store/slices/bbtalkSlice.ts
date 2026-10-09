@@ -246,7 +246,13 @@ const bbtalkSlice = createSlice({
       })
       // createBBTalkAsync
       .addCase(createBBTalkAsync.fulfilled, (state, action) => {
-        if (!state.bbtalks.some(item => item.id === action.payload.id)) state.bbtalks.unshift(action.payload)
+        // A refresh started before this mutation may contain an older snapshot.
+        state.activeRequestId = undefined
+        state.isLoading = false
+        if (!state.bbtalks.some(item => item.id === action.payload.id)) {
+          state.bbtalks.unshift(action.payload)
+          state.totalCount += 1
+        }
       })
       .addCase(createBBTalkAsync.rejected, (state, action) => {
         state.error = action.payload as string

@@ -1,3 +1,4 @@
+import SettingsLayout from '../components/layout/SettingsLayout';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { settingsApi } from '../services/api/settingsApi';
@@ -110,60 +111,43 @@ export default function StorageSettingsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-gray-500">加载中...</div>
-      </div>
+      <SettingsLayout title="存储设置" description="选择附件保存位置，管理云存储与文件迁移。" active="/settings/storage">
+        <p role="status" className="settings-panel p-6 text-sm text-gray-500">加载中...</p>
+      </SettingsLayout>
     );
   }
 
   if (loadError) {
     return (
-      <div className="min-h-screen flex flex-col gap-4 items-center justify-center bg-gray-50">
+      <SettingsLayout title="存储设置" description="选择附件保存位置，管理云存储与文件迁移。" active="/settings/storage">
+        <div className="settings-panel flex flex-col items-start gap-4 p-6">
         <p role="alert" className="text-gray-700">无法读取存储状态，请重试</p>
         <button type="button" onClick={loadStatus} className="min-h-11 px-4 text-blue-600 underline">重试</button>
-        <button type="button" onClick={() => navigate('/settings')} className="min-h-11 px-4 text-gray-600">返回我的</button>
-      </div>
+        </div>
+      </SettingsLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      <header className="bg-white/80 backdrop-blur-sm border-b border-gray-100 sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto px-4 py-4 flex items-center gap-4">
-          <button
-            onClick={() => navigate('/settings')}
-            aria-label="返回我的"
-            className="min-h-[44px] min-w-[44px] p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <h1 className="text-xl font-semibold text-gray-900">存储设置</h1>
-        </div>
-      </header>
+    <SettingsLayout title="存储设置" description="选择附件保存位置，管理云存储与文件迁移。" active="/settings/storage">
 
       {error && <Toast message={error} type="error" onClose={() => setError(null)} />}
       {success && <Toast message={success} type="success" onClose={() => setSuccess(null)} />}
 
-      <main className="max-w-3xl mx-auto px-4 py-8 space-y-4">
+      <div className="settings-body">
         {/* 服务器存储 */}
         <button
           onClick={handleSwitchToServer}
           disabled={switching}
-          className={`w-full p-5 bg-white rounded-2xl shadow-lg border-2 transition-all text-left ${
+          className={`w-full p-5 bg-white rounded-xl border transition-all text-left ${
             isServerStorage
               ? 'border-green-500 shadow-green-100'
               : 'border-gray-100 hover:border-gray-300'
           }`}
         >
           <div className="flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
-              isServerStorage
-                ? 'bg-gradient-to-br from-green-500 to-emerald-600'
-                : 'bg-gradient-to-br from-gray-400 to-gray-500'
-            }`}>
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 bg-gray-100`}>
+              <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
               </svg>
             </div>
@@ -189,19 +173,15 @@ export default function StorageSettingsPage() {
         {/* S3 兼容存储 */}
         <button
           onClick={() => navigate('/settings/storage/s3')}
-          className={`w-full p-5 bg-white rounded-2xl shadow-lg border-2 transition-all text-left ${
+          className={`w-full p-5 bg-white rounded-xl border transition-all text-left ${
             !isServerStorage
               ? 'border-green-500 shadow-green-100'
               : 'border-gray-100 hover:border-gray-300'
           }`}
         >
           <div className="flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
-              !isServerStorage
-                ? 'bg-gradient-to-br from-green-500 to-emerald-600'
-                : 'bg-gradient-to-br from-blue-500 to-purple-600'
-            }`}>
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 bg-gray-100`}>
+              <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
               </svg>
             </div>
@@ -230,7 +210,7 @@ export default function StorageSettingsPage() {
         {/* 数据迁移 */}
         <div className="mt-8">
           <h2 className="text-lg font-semibold text-gray-900 mb-3 px-1">数据迁移</h2>
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 divide-y divide-gray-100">
+          <div className="settings-panel divide-y divide-gray-100">
             {/* 迁移到当前存储 */}
             <button
               onClick={() => handleOpenMigration(
@@ -239,8 +219,8 @@ export default function StorageSettingsPage() {
               )}
               className="w-full p-4 flex items-center gap-4 text-left hover:bg-gray-50 transition-colors"
             >
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
                 </svg>
               </div>
@@ -262,8 +242,8 @@ export default function StorageSettingsPage() {
                 onClick={() => handleOpenMigration(config.id, config.name)}
                 className="w-full p-4 flex items-center gap-4 text-left hover:bg-gray-50 transition-colors"
               >
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-400 to-cyan-500 flex items-center justify-center flex-shrink-0">
-                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
                   </svg>
                 </div>
@@ -283,8 +263,8 @@ export default function StorageSettingsPage() {
                 onClick={() => handleOpenMigration(null, '服务器存储')}
                 className="w-full p-4 flex items-center gap-4 text-left hover:bg-gray-50 transition-colors"
               >
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center flex-shrink-0">
-                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
                   </svg>
                 </div>
@@ -338,7 +318,7 @@ export default function StorageSettingsPage() {
                     <button
                       onClick={handleExecuteMigration}
                       disabled={migrating}
-                      className="w-full py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {migrating ? (
                         <span className="flex items-center justify-center gap-2">
@@ -401,21 +381,21 @@ export default function StorageSettingsPage() {
         </Modal>
 
         {/* 提示信息 */}
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mt-6">
+        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mt-6">
           <div className="flex gap-3">
-            <svg className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-gray-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <div className="text-sm text-amber-800">
+            <div className="text-sm text-gray-700">
               <p className="font-medium">存储类型说明</p>
-              <ul className="mt-1 text-amber-700 space-y-1">
+              <ul className="mt-1 text-gray-600 space-y-1">
                 <li><strong>服务器存储</strong> - 文件保存在服务器本地磁盘</li>
                 <li><strong>S3 兼容存储</strong> - 文件保存到云存储服务，支持 AWS S3、阿里云 OSS、腾讯云 COS、MinIO 等</li>
               </ul>
             </div>
           </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </SettingsLayout>
   );
 }

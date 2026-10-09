@@ -46,7 +46,7 @@ describe('profile card', () => {
     auth.user = null;
     render(<SettingsPage />);
     expect(screen.queryByText('退出登录')).toBeNull();
-    expect(screen.getByText('我的')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: '设置' })).toBeTruthy();
   });
 });
 

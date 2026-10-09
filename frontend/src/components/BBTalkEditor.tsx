@@ -683,7 +683,7 @@ function BBTalkEditorContent({ onPublish, isPublishing = false, editing = null, 
   return (
     <div
       ref={editorContainerRef}
-      className={`bbtalk-composer relative rounded-2xl bg-white ${isDragOver ? 'bbtalk-composer--dragging' : ''}`}
+      className={`bbtalk-composer relative rounded-xl bg-white ${isDragOver ? 'bbtalk-composer--dragging' : ''}`}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}
@@ -691,7 +691,7 @@ function BBTalkEditorContent({ onPublish, isPublishing = false, editing = null, 
     >
       {/* 拖拽提示遮罩 */}
       {isDragOver && (
-        <div className="absolute inset-0 bg-slate-100/90 rounded-2xl flex items-center justify-center z-10 pointer-events-none">
+        <div className="absolute inset-0 bg-slate-100/90 rounded-xl flex items-center justify-center z-10 pointer-events-none">
           <div className="flex flex-col items-center gap-2 text-slate-600">
             <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />

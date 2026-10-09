@@ -3,16 +3,16 @@
 @tailwind utilities;
 
 :root {
-  --color-page: #f9fafb;
+  --color-page: #fafafa;
   --color-surface: #ffffff;
-  --color-ink: #111827;
-  --color-muted: #6b7280;
-  --color-line: #e5e7eb;
+  --color-ink: #202124;
+  --color-muted: #62656d;
+  --color-line: #e7e7eb;
   --color-primary: #2563eb;
   --color-primary-hover: #1d4ed8;
-  --radius-control: 0.75rem;
-  --radius-surface: 1rem;
-  --shadow-surface: 0 2px 12px rgb(15 23 42 / 4%);
+  --radius-control: 0.5rem;
+  --radius-surface: 0.75rem;
+  --shadow-surface: 0 1px 2px rgb(15 23 42 / 3%);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
@@ -26,6 +26,7 @@
   .app-header { @apply border-b bg-white; border-color: var(--color-line); }
   .app-surface {
     background: var(--color-surface);
+    border: 1px solid var(--color-line);
     border-radius: var(--radius-surface);
     box-shadow: var(--shadow-surface);
   }
@@ -40,15 +41,53 @@
   .app-button--ghost { @apply bg-transparent text-gray-600 hover:bg-gray-100 hover:text-gray-900; }
   .app-button--danger { @apply bg-red-50 text-red-700 hover:bg-red-100; }
   .app-input {
-    @apply min-h-12 w-full border border-gray-200 bg-gray-50 px-3.5 py-3 text-base text-gray-900 placeholder:text-gray-500 disabled:cursor-not-allowed disabled:opacity-60;
+    @apply min-h-12 w-full border border-gray-200 bg-white px-3.5 py-3 text-base text-gray-900 placeholder:text-gray-500 disabled:cursor-not-allowed disabled:opacity-60;
     border-radius: var(--radius-control);
     transition: background-color 160ms ease, border-color 160ms ease;
   }
   .app-input:focus { @apply border-blue-600 bg-white; }
   .app-input[aria-invalid="true"] { @apply border-red-600; }
   .app-field-label { @apply mb-2 block text-sm font-medium text-gray-700; }
-  .app-setting-row { @apply flex min-h-20 w-full items-center gap-4 px-5 py-4 text-left transition-colors first:rounded-t-2xl last:rounded-b-2xl hover:bg-gray-50; }
-  .app-setting-icon { @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-600; }
+  .app-setting-row { @apply flex min-h-20 w-full items-center gap-4 px-5 py-4 text-left transition-colors first:rounded-t-xl last:rounded-b-xl hover:bg-gray-50; }
+  .app-setting-icon { @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-600; }
+  .workspace-layout { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .workspace-sidebar { display: none; }
+  .workspace-content { min-width: 0; }
+  .workspace-topbar { @apply flex min-h-16 items-center justify-between gap-4 border-b bg-white px-4 sm:px-8; border-color: var(--color-line); }
+  .settings-content { @apply mx-auto w-full max-w-5xl px-5 py-7 sm:px-10 sm:py-10; }
+  .page-heading { @apply mb-8 flex flex-wrap items-start justify-between gap-5; }
+  .page-heading h1 { @apply text-2xl font-semibold tracking-tight; }
+  .page-heading p { @apply mt-2 text-sm leading-6; color: var(--color-muted); }
+  .settings-body { @apply space-y-5; }
+  .settings-panel { @apply overflow-hidden rounded-xl border bg-white; border-color: var(--color-line); }
+  .settings-icon { @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-600; }
+  .workspace-nav { @apply space-y-1 px-3; }
+  .workspace-nav-link { @apply flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm text-gray-600 transition-colors hover:bg-gray-200/60 hover:text-gray-900; }
+  .workspace-nav-link[aria-current="page"] { @apply bg-white font-medium text-gray-900; box-shadow: 0 1px 3px rgb(0 0 0 / 5%); }
+  .workspace-nav-link svg { @apply h-[18px] w-[18px] shrink-0; }
+  .workspace-brand { @apply px-6 py-6; }
+  .workspace-sidebar-content { @apply mt-5 min-h-0 flex-1 overflow-y-auto px-3; }
+  .workspace-sidebar-footer { @apply mx-3 mt-4 border-t border-gray-200 px-2 py-4 text-xs text-gray-500; }
+  .feed-layout { @apply flex h-full min-h-0 flex-col; background: var(--color-page); }
+  .feed-workspace { @apply flex min-h-0 flex-1; }
+  .feed-scroll { @apply min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-24 pt-6 sm:px-8; }
+  .feed-column { @apply mx-auto w-full max-w-5xl; }
+  .feed-heading { @apply mb-6 hidden items-center justify-between gap-4; }
+  .feed-heading h1 { @apply text-xl font-semibold; }
+  .feed-heading p { @apply mt-1 text-sm text-gray-500; }
+  .auth-layout { @apply flex min-h-full items-center justify-center px-6 py-10; background: var(--color-page); }
+  .auth-panel { @apply w-full max-w-[400px]; }
+  .auth-heading { @apply mb-8; }
+  .auth-heading h1 { @apply mt-5 text-2xl font-semibold tracking-tight; }
+  .auth-heading p { @apply mt-2 text-sm leading-6 text-gray-500; }
+  @media (min-width: 1024px) {
+    .workspace-layout { grid-template-columns: 240px minmax(0, 1fr); }
+    .workspace-sidebar { display: flex; position: sticky; top: 0; width: 240px; height: 100dvh; flex-shrink: 0; flex-direction: column; border-right: 1px solid var(--color-line); background: #f4f4f6; }
+    .feed-workspace > .workspace-sidebar { position: static; height: 100%; }
+    .feed-scroll { padding: 36px 48px; }
+    .feed-heading { display: flex; }
+    .auth-panel { padding: 36px; max-width: 440px; border: 1px solid var(--color-line); border-radius: 12px; background: white; box-shadow: var(--shadow-surface); }
+  }
 }
 
 * {
@@ -124,7 +163,8 @@ body {
 
 /* The writing surface stays borderless, including mouse and keyboard focus. */
 .bbtalk-composer {
-  box-shadow: 0 2px 12px rgb(15 23 42 / 4%);
+  border: 1px solid var(--color-line);
+  box-shadow: var(--shadow-surface);
 }
 
 .bbtalk-composer__input,
@@ -148,7 +188,8 @@ body {
 }
 
 .feed-surface {
-  box-shadow: 0 2px 12px rgb(15 23 42 / 4%);
+  border: 1px solid var(--color-line);
+  box-shadow: none;
 }
 
 .feed-field {
@@ -159,7 +200,7 @@ body {
 }
 
 .feed-field:focus-visible {
-  outline: none;
-  box-shadow: none;
-  background-color: #e5e7eb;
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  background-color: white;
 }

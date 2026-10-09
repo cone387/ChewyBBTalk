@@ -154,6 +154,21 @@ describe('public feed', () => {
 });
 
 describe('record mutations', () => {
+  it('keeps newly created records when an earlier refresh completes afterwards', async () => {
+    const s = store();
+    await s.dispatch(loadBBTalks());
+    let finishRefresh!: (value: ReturnType<typeof paged>) => void;
+    api.getBBTalks.mockImplementationOnce(() => new Promise(resolve => { finishRefresh = resolve; }));
+    const refresh = s.dispatch(loadBBTalks());
+    api.createBBTalk.mockResolvedValue(record('new'));
+    await s.dispatch(createBBTalkAsync({ content: 'new' }));
+    finishRefresh(paged([record('b1'), record('b2')]));
+    await refresh;
+    expect(state(s).bbtalks.map(item => item.id)).toEqual(['new', 'b1', 'b2']);
+    expect(state(s).totalCount).toBe(3);
+    expect(state(s).isLoading).toBe(false);
+  });
+
   it('prepends new records once and reports create failures', async () => {
     const s = store();
     api.createBBTalk.mockResolvedValue(record('n1'));

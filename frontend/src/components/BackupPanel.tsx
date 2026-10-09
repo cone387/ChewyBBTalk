@@ -69,7 +69,7 @@ export default function BackupPanel() {
   }
 
   const failed = ['failed', 'interrupted', 'unknown'].includes(data?.latest?.status ?? '')
-  return <section aria-labelledby="backup-heading" className="rounded-2xl border border-gray-100 bg-white p-6 shadow-lg">
+  return <section aria-labelledby="backup-heading" className="settings-panel p-6">
     <h2 id="backup-heading" className="text-lg font-semibold text-gray-900">服务器备份</h2>
     <p className="mt-2 text-sm leading-relaxed text-gray-600">创建包含正文、标签、评论和附件的备份，保留最近 7 份。备份与服务在同一台服务器，建议下载后另存一份。</p>
     <div className="my-4 flex flex-wrap gap-3">

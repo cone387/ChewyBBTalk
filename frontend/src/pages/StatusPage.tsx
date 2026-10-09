@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { apiClient } from '../services/api/apiClient'
+import SettingsLayout from '../components/layout/SettingsLayout'
 
 interface Check { status: string; message: string }
 interface RuntimeStatus {
@@ -15,7 +16,7 @@ const modes: Record<string, string> = { server: '服务器存储', s3: '个人 S
 function size(bytes: number) { return new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 1 }).format(bytes / 1024 / 1024) + ' MB' }
 function CheckCard({ title, check, children }: { title: string; check: Check; children?: React.ReactNode }) {
   const healthy = check.status === 'ok' || check.status === 'success'
-  return <section className="rounded-2xl border border-gray-200 bg-white p-5 space-y-3">
+  return <section className="settings-panel p-5 space-y-3">
     <div className="flex flex-wrap items-center justify-between gap-2">
       <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
       <span className={`rounded-full px-3 py-1 text-sm font-medium ${healthy ? 'bg-green-50 text-green-800' : 'bg-amber-50 text-amber-900'}`}>{labels[check.status] || '待核对'}</span>
@@ -41,14 +42,8 @@ export default function StatusPage() {
     } finally { if (id === generation.current) setLoading(false) }
   }, [])
   useEffect(() => { void refresh(); return () => { generation.current++ } }, [refresh])
-  return <div className="min-h-screen bg-gray-50">
-    <header className="border-b border-gray-200 bg-white">
-      <div className="mx-auto flex max-w-3xl items-center gap-4 px-4 py-3">
-        <Link to="/settings" className="inline-flex min-h-11 items-center text-sm text-blue-700 underline">返回设置</Link>
-        <h1 className="text-xl font-semibold text-gray-900">运行状态</h1>
-      </div>
-    </header>
-    <main className="mx-auto max-w-3xl space-y-4 px-4 py-6" aria-busy={loading}>
+  return <SettingsLayout title="运行状态" description="检查服务连接、存储与最近备份。" active="/settings/status" backLabel="返回设置">
+    <div className="settings-body" aria-busy={loading}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="text-sm leading-6 text-gray-600">
           <p>查看当前账号的存储与最近备份情况。</p>
@@ -77,6 +72,6 @@ export default function StatusPage() {
           </CheckCard>
         </div>}
       </>}
-    </main>
-  </div>
+    </div>
+  </SettingsLayout>
 }

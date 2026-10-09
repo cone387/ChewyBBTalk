@@ -85,7 +85,7 @@ const Modal: React.FC<ModalProps> = ({
       onClick={onClose}
     >
       {/* 背景遮罩 */}
-      <div className="absolute inset-0 bg-black bg-opacity-50 transition-opacity duration-200" />
+      <div className="absolute inset-0 bg-gray-950/40 transition-opacity duration-200" />
       
       {/* 模态框内容 */}
       <div
@@ -95,7 +95,7 @@ const Modal: React.FC<ModalProps> = ({
         aria-labelledby={title ? titleId : undefined}
         aria-label={title ? undefined : '对话框'}
         tabIndex={-1}
-        className={`relative flex flex-col bg-white rounded-lg shadow-xl max-h-[90dvh] overflow-hidden ${className}`}
+        className={`relative flex flex-col border border-gray-200 bg-white rounded-xl shadow-xl max-h-[90dvh] overflow-hidden ${className}`}
         style={{ width, maxWidth: '90vw' }}
         onClick={(e) => e.stopPropagation()}
       >

@@ -1,8 +1,7 @@
+import SettingsLayout from '../components/layout/SettingsLayout';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 
 export default function PrivacySettingsPage() {
-  const navigate = useNavigate();
 
   const [privacyTimeoutMinutes, setPrivacyTimeoutMinutes] = useState(() => {
     const saved = localStorage.getItem('privacy_timeout_minutes');
@@ -15,28 +14,14 @@ export default function PrivacySettingsPage() {
   });
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      <header className="bg-white/80 backdrop-blur-sm border-b border-gray-100 sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto px-4 py-4 flex items-center gap-4">
-          <button
-            onClick={() => navigate('/settings')}
-            aria-label="返回我的"
-            className="min-h-[44px] min-w-[44px] p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <h1 className="text-xl font-semibold text-gray-900">防窥设置</h1>
-        </div>
-      </header>
+    <SettingsLayout title="防窥设置" description="控制离开后何时锁定，以及锁定提醒。" active="/settings/privacy">
 
-      <main className="max-w-3xl mx-auto px-4 py-8">
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-          <div className="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-purple-50">
+      <div className="settings-body">
+        <div className="settings-panel overflow-hidden">
+          <div className="px-6 py-5 border-b border-gray-100 bg-gray-50">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
               </div>
@@ -50,11 +35,12 @@ export default function PrivacySettingsPage() {
           <div className="p-6 space-y-6">
             {/* 超时时长 */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
+              <label htmlFor="privacy-timeout" className="block text-sm font-medium text-gray-700 mb-3">
                 防窥超时时长
               </label>
               <div className="flex items-center gap-3">
                 <input
+                  id="privacy-timeout"
                   type="range"
                   min="1"
                   max="60"
@@ -111,7 +97,7 @@ export default function PrivacySettingsPage() {
             </div>
           </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </SettingsLayout>
   );
 }

@@ -25,10 +25,10 @@ test('desktop keeps its sidebar and authenticated login visits return to the fee
       const side = await sidebar.boundingBox()
       expect(editor!.x).toBeGreaterThan(side!.x + side!.width)
       if (width === 1440) expect(editor!.width).toBeGreaterThan(700)
-      await expect(page.getByRole('button', { name: '记录', exact: true })).toBeHidden()
+      await expect(page.getByRole('navigation', { name: '移动导航' })).toBeHidden()
     } else {
       await expect(sidebar).toBeHidden()
-      await expect(page.getByRole('button', { name: '记录', exact: true })).toBeVisible()
+      await expect(page.getByRole('navigation', { name: '移动导航' })).toBeVisible()
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
     await page.screenshot({ path: info.outputPath(`feed-${width}.png`) })

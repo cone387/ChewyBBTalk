@@ -79,6 +79,24 @@ describe('list rendering', () => {
 });
 
 describe('creating a configuration', () => {
+  it('supports Escape dismissal and retains the dialog while a save is pending', async () => {
+    api.create.mockReturnValue(new Promise(() => {}));
+    render(<S3ConfigListPage />);
+    await screen.findByText('还没有 S3 配置');
+    const trigger = screen.getByRole('button', { name: '新建配置' });
+    fireEvent.click(trigger);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    fireEvent.click(trigger);
+    fireEvent.change(screen.getByPlaceholderText('例如：阿里云 OSS、MinIO 测试'), { target: { value: 'MinIO' } });
+    fireEvent.change(screen.getByPlaceholderText('输入 Access Key ID'), { target: { value: 'AK' } });
+    fireEvent.change(screen.getByPlaceholderText('输入 Secret Access Key'), { target: { value: 'SECRET' } });
+    fireEvent.change(screen.getByPlaceholderText('输入 Bucket 名称'), { target: { value: 'bucket' } });
+    fireEvent.click(screen.getByRole('button', { name: '保存', exact: true }));
+    await waitFor(() => expect(api.create).toHaveBeenCalledTimes(1));
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.getByRole('dialog', { name: '创建 S3 配置' })).toBeTruthy();
+  });
   it('opens the form pre-activating the very first configuration', async () => {
     render(<S3ConfigListPage />);
     await screen.findByText('还没有 S3 配置');
@@ -239,5 +257,8 @@ describe('card actions', () => {
     api.test.mockRejectedValueOnce(new Error('超时'));
     fireEvent.click(screen.getByRole('button', { name: '测试', exact: true }));
     expect(await screen.findByText('超时')).toBeTruthy();
+    api.test.mockRejectedValueOnce(new Error(''));
+    fireEvent.click(screen.getByRole('button', { name: '测试', exact: true }));
+    expect(await screen.findByText('测试连接失败')).toBeTruthy();
   });
 });

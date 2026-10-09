@@ -5,6 +5,7 @@ import type { BBTalk } from '../types'
 import BBTalkItem from '../components/BBTalkItem'
 import ImagePreview from '../components/ImagePreview'
 import { getCurrentUser } from '../services/auth'
+import WorkspaceSidebar from '../components/layout/WorkspaceSidebar'
 
 export default function BBTalkDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -99,8 +100,9 @@ export default function BBTalkDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-6 sm:py-10">
-      <div className="max-w-2xl mx-auto px-4">
+    <div className="app-page workspace-layout">
+      <WorkspaceSidebar active="/" isPublic={!currentUser} />
+      <main className="settings-content">
         {/* 返回头部导航 */}
         <div className="mb-4 flex items-center justify-between">
           <button
@@ -123,7 +125,7 @@ export default function BBTalkDetailPage() {
             to={currentUser ? '/' : '/public'}
             className="text-xs text-blue-600 hover:underline"
           >
-            查看全部碎碎念 →
+            查看全部记录
           </Link>
         </div>
 
@@ -158,7 +160,7 @@ export default function BBTalkDetailPage() {
             onClose={() => setPreviewImage(null)}
           />
         )}
-      </div>
+      </main>
     </div>
   )
 }

@@ -4,7 +4,7 @@ import StatusPage from '../src/pages/StatusPage';
 
 const client = vi.hoisted(() => ({ get: vi.fn() }));
 vi.mock('../src/services/api/apiClient', () => ({ apiClient: client }));
-vi.mock('react-router-dom', () => ({ Link: ({ to, children }: { to: string; children: React.ReactNode }) => <a href={to}>{children}</a> }));
+vi.mock('react-router-dom', () => ({ useNavigate: () => vi.fn(), Link: ({ to, children }: { to: string; children: React.ReactNode }) => <a href={to}>{children}</a> }));
 
 const base = {
   checked_at: '2026-10-01T08:00:00Z',

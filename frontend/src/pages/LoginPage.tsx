@@ -137,12 +137,12 @@ export default function LoginPage() {
   };
   
   return (
-    <div className="app-page flex flex-col">
-      <main className="flex flex-1 items-center justify-center px-6 py-12 sm:py-16">
-        <div className="w-full max-w-[360px]">
+    <div className="app-page auth-layout">
+      <main className="auth-panel">
           <section aria-labelledby="auth-title">
-            <div className="mb-8">
-              <h1 id="auth-title" className="text-3xl font-semibold tracking-tight">{isLogin ? '登录 BBTalk' : '注册 BBTalk'}</h1>
+            <div className="auth-heading">
+              <h1 id="auth-title">{isLogin ? '登录 BBTalk' : '注册 BBTalk'}</h1>
+              <p>{isLogin ? '继续记录你的想法。' : '创建账户，开始你的第一条记录。'}</p>
             </div>
             <form onSubmit={handleSubmit} className="space-y-5" aria-describedby={error ? 'auth-error' : undefined}>
               <Input id="username" name="username" label="用户名" value={username}
@@ -196,7 +196,6 @@ export default function LoginPage() {
               {registrationEnabled === null && !policyError && <p role="status" className="py-2 text-sm text-gray-500">正在读取注册设置…</p>}
             </div>
           </section>
-        </div>
       </main>
     </div>
   );
