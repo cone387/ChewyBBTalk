@@ -315,7 +315,7 @@ describe('list refresh and paging', () => {
     view.unmount();
   });
 
-  it('reveals the back-to-top control when scrolling down and hides the composer', async () => {
+  it('reveals the back-to-top control without hiding the composer', async () => {
     stubAsyncRaf();
     const view = await loaded();
     const container = scrollContainer();
@@ -326,13 +326,14 @@ describe('list refresh and paging', () => {
     fireEvent.scroll(container);
     await settle();
     await screen.findByTitle('回到顶部');
-    const composerWrapper = screen.getByText('发布测试').closest('div.transition-all') as HTMLElement;
-    expect(composerWrapper.className).toContain('opacity-0');
+    const publishButton = screen.getByRole('button', { name: '发布测试' });
+    publishButton.focus();
+    expect(document.activeElement).toBe(publishButton);
     Object.defineProperty(container, 'scrollTop', { value: 100, configurable: true, writable: true });
     fireEvent.scroll(container);
     await settle();
     await waitFor(() => expect(screen.queryByTitle('回到顶部')).toBeNull());
-    expect(composerWrapper.className).toContain('opacity-100');
+    expect(screen.getByRole('button', { name: '发布测试' })).toBe(publishButton);
     Object.defineProperty(container, 'scrollTop', { value: 600, configurable: true, writable: true });
     fireEvent.scroll(container);
     await settle();
