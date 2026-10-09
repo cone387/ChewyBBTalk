@@ -40,10 +40,12 @@ venv/
 env/
 *.sqlite3
 
-# Django
+# Runtime data
 db.sqlite3
 staticfiles/
 media/
+backend/chewy_space/data/
+.secret_key
 
 # Custom configs (not committed)
 backend/chewy_space/configs/
@@ -57,7 +59,7 @@ attachments.md
 .temp_tests/
 test_*.py
 !scripts/tests/test_*.py
-!backend/chewy_space/bbtalk/test_*.py
+!backend/tests/test_*.py
 simple_test.py
 test-*.txt
 test.txt

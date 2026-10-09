@@ -38,7 +38,7 @@ jobs:
 
       - name: Run business and FastAPI HTTP contract tests
         run: |
-          uv run coverage run chewy_space/manage.py test bbtalk
+          uv run coverage run -m pytest
           uv run coverage json
           uv run coverage xml
           uv run coverage html
@@ -81,7 +81,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     env:
-      DATABASE_URL: postgresql://bbtalk_test:bbtalk_test@127.0.0.1:5432/bbtalk_test
+      TEST_DATABASE_URL: postgresql://bbtalk_test:bbtalk_test@127.0.0.1:5432/bbtalk_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -92,7 +92,7 @@ jobs:
           version: '0.11.7'
       - run: uv sync --frozen
       - name: Verify durable submissions and conditional edits with real row locks
-        run: uv run python chewy_space/manage.py test bbtalk.test_submission --noinput
+        run: uv run pytest tests/test_concurrency.py -q
 
   mobile:
     name: Mobile tests and types

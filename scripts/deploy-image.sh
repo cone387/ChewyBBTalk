@@ -65,7 +65,7 @@ if ! docker run -d --name "$container" --restart unless-stopped \
   fail "新容器启动失败；旧容器保留为 $previous，请检查后人工恢复"
 fi
 
-# Probe Nginx and Django through the same container-facing HTTP path.
+# Probe Nginx and FastAPI through the same container-facing HTTP path.
 probe='import json, urllib.request, urllib.error
 with urllib.request.urlopen("http://127.0.0.1:4010/", timeout=3) as response:
     assert response.status == 200

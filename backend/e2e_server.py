@@ -1,8 +1,6 @@
 """Loopback-only FastAPI server with disposable data for browser regression tests."""
 import os
 from pathlib import Path
-import signal
-import sys
 import tempfile
 
 
@@ -10,7 +8,6 @@ def main():
     with tempfile.TemporaryDirectory(prefix="chewybbtalk-e2e-") as directory:
         root = Path(directory)
         os.environ.update({
-            "DJANGO_SETTINGS_MODULE": "chewy_space.settings",
             "DATABASE_URL": "sqlite:///" + str(root / "db.sqlite3"),
             "DATA_DIR": directory,
             "MEDIA_ROOT": str(root / "media"),
@@ -23,23 +20,15 @@ def main():
             "AUTH_REFRESH_RATE": "10000/minute",
             "ALLOWED_HOSTS": "127.0.0.1,localhost",
         })
-        sys.path.insert(0, str(Path(__file__).resolve().parent / "chewy_space"))
-        import django
-        from django.conf import settings
-        from django.core.management import call_command
-
-        # Explicit absolute path also handles Windows drive letters.
-        settings.DATABASES["default"]["NAME"] = str(root / "db.sqlite3")
-        django.setup()
-        call_command("migrate", interactive=False, verbosity=0)
-        signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
+        from chewy_api.app import app
+        from chewy_api.migrate import upgrade
+        upgrade(app.state.engine)
+        import uvicorn
         try:
-            import uvicorn
-            uvicorn.run("chewy_space.asgi:application", host="127.0.0.1", port=18020,
-                        proxy_headers=False)
+            uvicorn.run(app, host='127.0.0.1', port=18020, proxy_headers=False)
         finally:
-            from django.db import connections
-            connections.close_all()
+            app.state.engine.dispose()
+
 
 
 if __name__ == "__main__":

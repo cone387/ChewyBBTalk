@@ -24,10 +24,10 @@
 
 ```sh
 cd backend
-uv run python chewy_space/manage.py migrate --noinput
+uv run python -m chewy_api.cli migrate
 ```
 
-新增迁移 `0009_password_recovery`，为账号增加凭证版本，并创建恢复码摘要表。默认不启用邮件找回；修改密码无需 SMTP。
+原生 Alembic 迁移建立完整业务表，或接管已完成旧版 `0009_password_recovery` 的数据库，保留凭证版本和恢复码摘要。默认不启用邮件找回；修改密码无需 SMTP。升级边界见 [后端说明](../backend/README.md)。
 
 通过部署环境设置以下变量，不把真实密码写入仓库：
 
@@ -43,11 +43,11 @@ EMAIL_HOST_PASSWORD=your-smtp-secret
 DEFAULT_FROM_EMAIL=ChewyBBTalk <noreply@example.com>
 ```
 
-SMTP 465 通常使用 `EMAIL_USE_SSL=true`、`EMAIL_USE_TLS=false`；具体以发信服务配置为准。恢复邮件使用 Django `send_mail`，配置参考 [Django 邮件文档](https://docs.djangoproject.com/en/5.2/topics/email/)。
+SMTP 465 通常使用 `EMAIL_USE_SSL=true`、`EMAIL_USE_TLS=false`；具体以发信服务配置为准。恢复邮件通过 Python `smtplib` 发送，保留现有 `EMAIL_*` 环境变量。
 
 发信配置完成后，使用测试账号验证送达与垃圾邮件情况，再开启生产找回入口。请求需同时匹配用户名和账号邮箱，响应不透露账号是否存在。恢复码 15 分钟有效，保存摘要，单次消费；邮箱或凭证版本变化后失效。邮件失败日志不输出验证码或发信凭证。
 
-恢复端点同时按直接连接地址和用户名限流，默认与现有认证限流一样使用 Django 缓存。多进程部署应配置共享缓存，并在反向代理配置额外的请求限制。
+恢复端点同时按直接连接地址和用户名限流，默认与现有认证限流一样使用进程内限流器。多进程部署在可信反向代理配置统一请求限制。
 
 ## 已完成的自动验证
 

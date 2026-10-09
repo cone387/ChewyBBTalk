@@ -69,7 +69,7 @@ npm run dev
 所有配置项均有合理默认值，无需 `.env` 文件即可启动。如需自定义，可通过环境变量或 `.env` 文件配置：
 
 ```bash
-# Django 配置
+# 后端配置
 SECRET_KEY=           # 留空则自动生成并持久化到 /app/data/.secret_key
 DEBUG=false           # 默认 false
 ALLOWED_HOSTS=*       # 默认允许所有域名
@@ -188,9 +188,9 @@ startApp({
 - Tailwind CSS 样式
 
 **后端**
-- FastAPI + Uvicorn（保留 Django ORM、管理后台及 DRF 业务兼容层）
+- FastAPI + Uvicorn、Pydantic、SQLAlchemy 2 + Alembic、SQLAdmin
 - SQLite（默认）/ PostgreSQL / MySQL
-- chewy-attachment 附件管理
+- 原生本地 / S3 附件管理（boto3）
 - JWT 认证
 
 **部署**
@@ -223,9 +223,8 @@ ChewyBBTalk/
 │   │   └── types/           # TypeScript 类型
 │   └── Dockerfile
 ├── backend/                 # FastAPI 后端 API
-│   ├── chewy_space/
-│   │   ├── bbtalk/          # 碎碎念模块
-│   │   └── chewy_space/     # Django 配置
+│   ├── chewy_api/           # 原生路由、模型、存储与迁移
+│   ├── tests/               # API、数据迁移与并发测试
 │   └── Dockerfile
 ├── data/                    # 数据存储目录
 ├── .github/workflows/       # GitHub Actions
@@ -241,7 +240,8 @@ ChewyBBTalk/
    ```bash
    cd backend
    uv sync  # 安装依赖
-   uv run python chewy_space/manage.py migrate  # 数据库迁移
+   uv run python -m chewy_api.cli migrate  # 数据库迁移
+   uv run python -m chewy_api.cli init  # 初始化管理员
    uv run dev  # FastAPI + Uvicorn，默认 0.0.0.0:8020
    ```
 
@@ -317,7 +317,9 @@ MIT License - 查看 [LICENSE](LICENSE) 文件了解详情
 ## 🙏 致谢
 
 - [FastAPI](https://fastapi.tiangolo.com/) - HTTP/API 框架
-- [Django](https://www.djangoproject.com/) - ORM、管理后台及业务兼容层
+- [SQLAlchemy](https://www.sqlalchemy.org/) - 数据访问
+- [Alembic](https://alembic.sqlalchemy.org/) - 数据库迁移
+- [SQLAdmin](https://aminalaee.github.io/sqladmin/) - 管理后台
 - [React](https://reactjs.org/) - 前端框架
 - [chewy-attachment](https://github.com/cone387/ChewyAttachment) - 附件管理
 - 所有贡献者和开源项目的支持！
@@ -336,7 +338,7 @@ Web 登录页读取服务端策略，关闭时展示管理员联系提示；策�
 达到限制返回 HTTP 429、中文原因、`Retry-After` 秒数和 `retry_after` 字段。
 设置某项为空可关闭该项限制，修改后需重启服务。
 
-默认使用 Django 进程内缓存，按直接连接 IP 计数；多个 worker 的额度独立，重启会重置，
+默认使用进程内限流器，按直接连接 IP 计数；多个 worker 的额度独立，重启会重置，
 不是全局严格配额。应用不信任客户端提供的 `X-Forwarded-For`，反向代理后的访问可能共享代理 IP 额度。
 部署时按并发和用户规模调整额度；需要跨 worker 或真实来源 IP 的统一限制时，
 在可信入口代理配置对应限流，或另行配置共享缓存及可信代理策略。

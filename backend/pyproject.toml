@@ -7,16 +7,17 @@ requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.115,<1",
     "uvicorn[standard]>=0.34,<1",
-    "Django>=5.2",
-    "djangorestframework>=3.14.0",
-    "django-cors-headers>=4.3.0",
-    "django-filter>=24.0",
-    "drf-spectacular>=0.27.0",
     "psycopg2-binary>=2.9.9",
-    "chewy-attachment[django-s3]==0.5.2",
     "PyJWT[crypto]>=2.8.0",
-    "requests>=2.31.0",
-    "djangorestframework-simplejwt>=5.5.1",
+    "sqlalchemy[asyncio]>=2.0,<3",
+    "alembic>=1.15,<2",
+    "python-multipart>=0.0.20",
+    "boto3>=1.35",
+    "sqladmin>=0.20,<1",
+    "itsdangerous>=2.2",
+    "pymysql>=1.1",
+    "tzdata>=2025.1",
+    "cryptography>=44",
 ]
 
 [build-system]
@@ -25,7 +26,7 @@ build-backend = "hatchling.build"
 
 [tool.coverage.run]
 branch = true
-source = ["chewy_space/bbtalk"]
+source = ["chewy_api"]
 omit = ["*/test*.py", "*/migrations/*", "*/__init__.py"]
 
 [tool.coverage.report]
@@ -43,18 +44,23 @@ output = "coverage/coverage.xml"
 [tool.hatch.metadata]
 allow-direct-references = true
 
+[tool.hatch.build.targets.wheel]
+packages = ["chewy_api"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
 [dependency-groups]
 dev = [
     "coverage>=7.16.2",
     "httpx>=0.28,<1",
+    "pytest>=8",
 ]
 
 [project.scripts]
 # 用法: uv run dev / uv run migrate / uv run init ...
-dev = "cli:dev"
-migrate = "cli:migrate"
-init = "cli:init"
-makemigrations = "cli:makemigrations"
-collectstatic = "cli:collectstatic"
-test = "cli:test"
-shell = "cli:shell"
+dev = "chewy_api.cli:dev"
+migrate = "chewy_api.cli:migrate"
+init = "chewy_api.cli:init"
+test = "chewy_api.cli:test"
+bbtalk = "chewy_api.cli:main"

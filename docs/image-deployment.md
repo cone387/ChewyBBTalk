@@ -9,7 +9,7 @@
 3. 从构建提交读取部署脚本，不覆盖服务器工作区、`.env` 或数据文件。
 4. 在部署目录取得 `flock` 锁，最多拉取 3 次，镜像可用后才停止旧容器。
 5. 旧容器改名为 `chewy-bbtalk-previous`，新容器使用原 `./data:/app/data`、可选 `.env`、4010 端口和 `unless-stopped` 策略启动。
-6. 通过容器内 Python 检查 Nginx 首页 200 及 Django 用户 API 的 200/401 JSON 响应。检查通过才删除旧容器并报告成功。
+6. 通过容器内 Python 检查 Nginx 首页 200 及 FastAPI 用户 API 的 200/401 JSON 响应。检查通过才删除旧容器并报告成功。
 
 服务器需要 Bash、Docker 兼容 CLI、`flock`（util-linux）、`timeout`（coreutils），以及访问 GitHub 和 GHCR 的网络。镜像目前允许匿名拉取；若仓库权限改变，应先在服务器配置凭据。拉取失败仍然可能发生，但不会停止旧服务。
 
@@ -42,7 +42,7 @@ bash scripts/deploy-image.sh ghcr.io/cone387/chewy-bbtalk@sha256:<完整64位摘
 
 后续验证：run `34093149511` 部署成功（提交 a7cbe27）。服务器实际运行摘要 `sha256:884a9acd89746f9bc888c1a968104f8d9f08d91393e3245032781ba5023ffe67` 与流水线一致，2026-09-07 15:07 CST 启动；独立 SSH 检查首页 200、用户 API 401。Web 草稿功能已包含在该版本。
 
-容器切换有短暂服务中断；健康检查代表 Web 和 Django 能响应，不代表所有业务操作、外部存储或数据库恢复演练通过。
+容器切换有短暂服务中断；健康检查代表 Web 和 FastAPI 能响应，不代表所有业务操作、外部存储或数据库恢复演练通过。
 
 ## 回归验证
 

@@ -9,6 +9,12 @@ frontend/dist
 frontend/dev-dist
 backend/chewy_space/db.sqlite3
 backend/chewy_space/media
+backend/chewy_space/data
+backend/.venv
+backend/dist
+backend/coverage
+backend/.temp*
+**/.secret_key
 __pycache__
 *.pyc
 .env

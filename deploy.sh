@@ -247,7 +247,7 @@ show_access_info() {
 generate_keys() {
     log_info "生成配置密钥:"
     echo ""
-    echo "Django SECRET_KEY:"
+    echo "Backend SECRET_KEY:"
     openssl rand -base64 50
     
     echo ""

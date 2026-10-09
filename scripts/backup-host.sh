@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 # Host-side scheduler entrypoint. The backup itself runs inside the container
-# so the host does not need Python, Django, or access to the SQLite file.
+# so the host does not need Python or access to the SQLite file.
 
 KEEP="${BACKUP_KEEP:-7}"
 EXPLICIT_CONTAINER="${BACKUP_CONTAINER:-}"
@@ -43,7 +43,7 @@ if [[ -z "$CONTAINER" ]]; then
   exit 1
 fi
 
-ARGS=(backup_data --keep "$KEEP")
+ARGS=(backup --keep "$KEEP")
 if [[ -n "$USER_ID" ]]; then
   if ! [[ "$USER_ID" =~ ^[1-9][0-9]*$ ]]; then
     echo "BACKUP_USER_ID must be a positive integer" >&2
@@ -55,13 +55,12 @@ if [[ "$DRY_RUN" == "true" ]]; then
   ARGS+=(--dry-run)
 fi
 
-# Single-container image copies Django to /app/backend. Compose's backend
-# image keeps the source tree at /app/chewy_space and uses uv for its venv.
-if docker exec "$CONTAINER" sh -c 'test -f /app/backend/manage.py' >/dev/null 2>&1; then
-  docker exec "$CONTAINER" python /app/backend/manage.py "${ARGS[@]}"
-elif docker exec "$CONTAINER" sh -c 'test -f /app/chewy_space/manage.py' >/dev/null 2>&1; then
-  docker exec -w /app/chewy_space "$CONTAINER" uv run python manage.py "${ARGS[@]}"
+# Both images expose the native CLI; Compose uses its locked uv environment.
+if docker exec "$CONTAINER" sh -c 'test -d /app/backend/chewy_api' >/dev/null 2>&1; then
+  docker exec -w /app/backend "$CONTAINER" python -m chewy_api.cli "${ARGS[@]}"
+elif docker exec "$CONTAINER" sh -c 'test -d /app/chewy_api' >/dev/null 2>&1; then
+  docker exec -w /app "$CONTAINER" uv run --frozen --no-dev python -m chewy_api.cli "${ARGS[@]}"
 else
-  echo "could not locate manage.py in container: $CONTAINER" >&2
+  echo "could not locate native backend in container: $CONTAINER" >&2
   exit 1
 fi

@@ -544,45 +544,45 @@
       "branches": 91
     },
     "files": {
-      "bbtalk/views.py": {
-        "lines": 99,
-        "branches": 99
+      "chewy_api/records.py": {
+        "lines": 95,
+        "branches": 97
       },
-      "bbtalk/attachment_views.py": {
+      "chewy_api/storage.py": {
         "lines": 99,
         "branches": 96
       },
-      "bbtalk/authentication.py": {
+      "chewy_api/auth.py": {
+        "lines": 96,
+        "branches": 92
+      },
+      "chewy_api/security.py": {
         "lines": 99,
         "branches": 99
       },
-      "bbtalk/management/commands/init_system.py": {
+      "chewy_api/cli.py": {
         "lines": 94,
         "branches": 84
       },
-      "bbtalk/privacy_views.py": {
+      "chewy_api/app.py": {
         "lines": 99,
         "branches": 99
       },
-      "bbtalk/backup_integrity.py": {
+      "chewy_api/backup_integrity.py": {
         "lines": 99,
         "branches": 99
       },
-      "bbtalk/backups.py": {
+      "chewy_api/backups.py": {
         "lines": 95,
         "branches": 89
       },
-      "bbtalk/status_views.py": {
-        "lines": 96,
-        "branches": 87
+      "chewy_api/data.py": {
+        "lines": 98,
+        "branches": 95
       },
-      "bbtalk/data_import.py": {
-        "lines": 94,
-        "branches": 91
-      },
-      "bbtalk/storage_migration.py": {
-        "lines": 97,
-        "branches": 93
+      "chewy_api/status.py": {
+        "lines": 99,
+        "branches": 99
       }
     }
   }

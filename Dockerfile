@@ -26,16 +26,10 @@ COPY backend/pyproject.toml backend/uv.lock* ./
 # 安装 uv 和依赖
 ARG PIP_INDEX_URL=https://pypi.org/simple
 RUN pip install --no-cache-dir uv && \
-    uv pip install --system -r pyproject.toml
+    uv export --frozen --no-dev --no-emit-project --output-file requirements.txt && \
+    uv pip install --system -r requirements.txt
 
-COPY backend/chewy_space ./chewy_space
-
-# 收集静态文件
-WORKDIR /app/chewy_space
-ENV MEDIA_ROOT=/app/media
-ENV STATIC_ROOT=/app/staticfiles
-RUN python manage.py collectstatic --noinput
-
+COPY backend/chewy_api ./chewy_api
 
 # ================================
 # 前端构建阶段
@@ -78,8 +72,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # 复制后端依赖和代码
 COPY --from=backend-builder /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages
 COPY --from=backend-builder /usr/local/bin /usr/local/bin
-COPY --from=backend-builder /app/chewy_space /app/backend
-COPY --from=backend-builder /app/staticfiles /app/staticfiles
+COPY --from=backend-builder /app/chewy_api /app/backend/chewy_api
 
 # 复制前端构建产物
 COPY --from=frontend-builder /app/dist /app/frontend
@@ -87,15 +80,15 @@ COPY --from=frontend-builder /app/dist /app/frontend
 # 复制配置文件
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-COPY start_django.sh /app/start_django.sh
+COPY start_service.sh /app/start_service.sh
 
 # 创建必要的目录和设置权限
-RUN sed -i 's/\r$//' /app/start_django.sh && \
+RUN sed -i 's/\r$//' /app/start_service.sh && \
     sed -i 's/\r$//' /etc/supervisor/conf.d/supervisord.conf && \
     mkdir -p /app/data/media /app/data/staticfiles /app/data/db /run/nginx && \
     chown -R www-data:www-data /app/data && \
     chown -R nobody:nogroup /run/nginx && \
-    chmod +x /app/start_django.sh
+    chmod +x /app/start_service.sh
 
 # 所有运行时数据统一在 /app/data (挂载卷即可持久化)
 ENV MEDIA_ROOT=/app/data/media
@@ -109,4 +102,4 @@ ENV ALLOWED_HOSTS=*
 EXPOSE 4010
 
 # 启动容器
-CMD ["/app/start_django.sh", "supervisor"]
+CMD ["/app/start_service.sh", "supervisor"]

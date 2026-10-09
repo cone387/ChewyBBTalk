@@ -30,7 +30,7 @@
 
 执行记录：[web-core-flow-regression](openspec/changes/web-core-flow-regression/tasks.md)。
 
-- 临时数据库 + 真实 Django API，桌面和 375px 小屏 Chromium 回归。
+- 临时数据库 + 真实 FastAPI API，桌面和 375px 小屏 Chromium 回归。
 - 覆盖错误登录、发布、编辑、搜索、删除撤销、刷新持久性和连续删除。
 - 修复小屏更多菜单、撤销提示遮挡、发布按钮换行，以及连续删除/慢请求的撤销竞态。
 - CI 自动运行并保留报告，命令见 [浏览器回归说明](frontend/e2e/README.md)。

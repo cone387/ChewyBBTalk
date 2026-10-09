@@ -34,7 +34,7 @@ for (const part of parts) {
     check(part, metrics(python ? report.totals : report.total), baseline.minimum);
     const files = Object.entries(python ? report.files : report).filter(([key]) => key !== 'total');
     for (const [suffix, floor] of Object.entries(baseline.files)) {
-      const matches = files.filter(([path]) => path.replaceAll('\\', '/').endsWith(`/${suffix}`));
+      const matches = files.filter(([path]) => `/${path.replaceAll('\\', '/')}`.endsWith(`/${suffix}`));
       if (matches.length !== 1) throw new Error(`${part}/${suffix}: expected exactly one source entry, found ${matches.length}`);
       check(`${part}/${suffix}`, metrics(python ? matches[0][1].summary : matches[0][1]), floor);
     }

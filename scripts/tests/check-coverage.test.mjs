@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 // Exercise the actual CLI against isolated reports, without overwriting real coverage.
-function runGate(t, { functions = 100, fileFunctions = 100, missingFile = false, part = 'frontend', missingReport = false } = {}) {
+function runGate(t, { functions = 100, fileFunctions = 100, missingFile = false, part = 'frontend', missingReport = false, sourcePath = 'C:\\project\\src\\api.ts' } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'bbtalk-coverage-gate-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(join(root, 'scripts'));
@@ -17,7 +17,7 @@ function runGate(t, { functions = 100, fileFunctions = 100, missingFile = false,
   }));
   if (!missingReport) writeFileSync(join(root, 'coverage.json'), JSON.stringify({
     total: metrics(functions),
-    ...(!missingFile && { 'C:\\project\\src\\api.ts': metrics(fileFunctions) }),
+    ...(!missingFile && { [sourcePath]: metrics(fileFunctions) }),
   }));
   return spawnSync(process.execPath, [join(root, 'scripts/check-coverage.mjs'), part], { encoding: 'utf8' });
 }
@@ -26,6 +26,11 @@ test('accepts complete reports including Windows file paths', t => {
   const result = runGate(t);
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /functions 100\.00%/);
+});
+
+test('accepts relative source paths at the report root', t => {
+  const result = runGate(t, { sourcePath: 'api.ts' });
+  assert.equal(result.status, 0, result.stderr);
 });
 
 for (const [name, options, message] of [

@@ -1,138 +1,122 @@
 # ChewyBBTalk 后端
 
-FastAPI + Uvicorn 提供 HTTP/API 入口，保留 Django ORM、数据库迁移和管理后台。
+原生 FastAPI + Uvicorn，使用 Pydantic、SQLAlchemy 2、Alembic 和 SQLAdmin。
+Django、DRF、SimpleJWT 和 chewy-attachment 已从代码和运行依赖移除。
 
-这次采用兼容迁移：现有 DRF 业务处理、序列化和认证通过 `api_compat.py` 复用，
-尚未移除 Django/DRF。FastAPI 注册已有 API 路由，新增接口可直接使用 FastAPI
-路由和 Pydantic 模型；已有数据库、JWT、Session 和 API 路径保持兼容。
-
-## 本地开发
+## 本地运行
 
 ```bash
-# 安装依赖
 cd backend
-uv sync
-
-# 数据库迁移
-uv run python chewy_space/manage.py migrate
-
-# 初始化管理员（未指定 ADMIN_PASSWORD 时生成受限凭据文件）
-uv run python chewy_space/manage.py init_system
-
-# 将历史明文 S3 密钥回填为加密值（可重复执行，不修改管理员密码）
-uv run python chewy_space/manage.py encrypt_storage_secrets
-
-# 创建所有用户的 ZIP 备份（默认写入 DATA_DIR/backups，每用户保留 7 份）
-uv run python chewy_space/manage.py backup_data
-
-# 只备份指定用户并保留 14 份；可先用 --dry-run 预览
-uv run python chewy_space/manage.py backup_data --user-id 1 --keep 14 --dry-run
-
-# 启动开发服务器
+uv sync --frozen
+uv run python -m chewy_api.cli migrate
+uv run python -m chewy_api.cli init
 uv run dev
 ```
 
-或者用项目根目录的脚本一键启动：
+生产入口（先迁移，再启动 worker）：
 
 ```bash
-./start_backend.sh
+uv run uvicorn chewy_api.app:app --host 0.0.0.0 --port 8020 --no-proxy-headers
 ```
 
-直接使用 ASGI 入口（生产环境不加 `--reload`）：
+`BACKEND_HOST`、`BACKEND_PORT` 调整开发监听地址。根目录 `start_backend.sh`
+加载 `.env`，支持 `dev`、`prod`、`test` 参数。Docker、Supervisor、浏览器测试使用同一 ASGI 入口。
+
+## 已有实例升级
+
+先一起备份数据库、附件、`DATA_DIR` 和 `SECRET_KEY`。保持已有 `DATABASE_URL`、
+`MEDIA_ROOT`、`DATA_DIR`、`SECRET_KEY`，执行 `uv sync --frozen` 及
+`uv run python -m chewy_api.cli migrate`，再启动新服务。迁移期间停止旧服务。
+
+Alembic 直接接管业务表，不复制或删除已有记录。旧数据库须已完成
+`0009_password_recovery`；字段不完整时会在修改业务表前拒绝迁移。
+更早版本先用旧版程序完成数据库升级，再执行原生迁移。空数据库直接创建完整表结构。
+
+保留原有 PBKDF2/scrypt 密码、JWT 和刷新令牌黑名单、记录/标签/评论 ID、附件路径及
+S3 加密密钥。**旧 Cookie 会话和管理后台需要重新登录**；JWT 客户端可继续使用有效令牌。
+已有数据库中的旧框架元数据和审计表保持原样，不再被框架使用，不属于运行依赖。
+本地默认路径仍指向 `backend/chewy_space/`，用于沿用既有数据库、媒体和数据目录，
+该目录不再包含应用代码。回退应恢复升级前的配套数据备份和旧代码。
+
+`/admin/` 改由 SQLAdmin 提供，支持账号资料及权限管理、业务数据只读查询。
+账号创建使用 CLI；记录、附件等修改经过账号 API，保证可见性、提交回执和文件操作一致。
+
+## 管理命令
 
 ```bash
-uv run uvicorn chewy_space.asgi:application --app-dir chewy_space --host 0.0.0.0 --port 8020 --no-proxy-headers
+uv run python -m chewy_api.cli --help
+uv run python -m chewy_api.cli create-user alice --email alice@example.com
+uv run python -m chewy_api.cli create-user operator --admin
+uv run python -m chewy_api.cli encrypt-storage-secrets
+uv run python -m chewy_api.cli backup --user-id 1 --keep 14 --dry-run
+uv run python -m chewy_api.cli backup --user-id 1 --keep 14
+uv run python -m chewy_api.cli check
+uv run python -m chewy_api.cli shell
 ```
 
-`BACKEND_HOST` 和 `BACKEND_PORT` 可调整 `uv run dev` 的监听地址；存活检查为 `/healthz`。
-Docker、Supervisor 和浏览器回归测试均使用同一 FastAPI ASGI 入口。
-管理命令仍使用 `manage.py`；`runserver` 和旧 WSGI 入口仅用于维护旧 Django 服务，
-不会加载 FastAPI 路由。升级执行 `uv sync --frozen` 后按现有方式运行迁移即可，无需导出导入数据库。
+`init` 不重置已有管理员密码。`ADMIN_USERNAME` 默认为 `admin`；未提供 `ADMIN_PASSWORD`
+时生成随机密码，保存到受限文件 `DATA_DIR/credentials/initial-admin.json`。
+仅 `CREATE_DEMO_USER=true` 时创建演示账号 `demo / demo123` 和数据。
+
+`SECRET_KEY` 用于 JWT、Session 签名和 S3 密钥派生（`enc:v1:`）。未配置时自动生成并
+持久化到 `DATA_DIR/.secret_key`。保持密钥稳定并纳入备份；`encrypt-storage-secrets`
+可重复执行，将旧明文 S3 密钥回填为加密值。
 
 ## 环境变量
 
-| 变量 | 说明 | 默认值 |
-|------|------|--------|
-| `DATABASE_URL` | 数据库连接 | `sqlite:///db.sqlite3` |
-| `DEBUG` | 调试模式 | `True` |
-| `SECRET_KEY` | Django Secret Key | 自动生成并持久化 |
-| `ALLOWED_HOSTS` | 允许的主机 | `*` |
-| `ADMIN_USERNAME` | 初始管理员用户名 | `admin` |
-| `ADMIN_PASSWORD` | 初始管理员密码 | 留空时随机生成，保存到 DATA_DIR/credentials/initial-admin.json |
+| 变量 | 用途 / 默认值 |
+| --- | --- |
+| `DATABASE_URL` | `sqlite:///db.sqlite3`；也支持 `postgresql://...`、`mysql://...` |
+| `DATA_DIR` | 密钥、初始化凭据及备份的持久化目录 |
+| `MEDIA_ROOT` | 附件根目录，实际文件在 `attachments/` 下 |
+| `BACKUP_ROOT` | 可选覆盖 `DATA_DIR/backups` |
+| `SECRET_KEY` | 稳定签名和加密密钥 |
+| `ALLOWED_HOSTS` | 逗号分隔的允许主机，默认 `*` |
+| `CORS_ALLOWED_ORIGINS` | 逗号分隔的允许客户端来源 |
+| `CORS_ORIGIN_ALLOW_ALL` | 默认关闭 |
+| `SESSION_COOKIE_SECURE` | HTTPS 部署开启 |
+| `REGISTRATION_ENABLED` | 默认关闭；不影响已有账号登录 |
+| `AUTH_LOGIN_RATE` | `30/minute` |
+| `AUTH_REGISTRATION_RATE` | `5/minute` |
+| `AUTH_REFRESH_RATE` | `120/minute` |
+| `ATTACHMENT_MAX_FILE_SIZE` | 默认 10 MiB |
+| `IMPORT_MAX_FILE_SIZE` | 默认 512 MiB，同时约束 ZIP 解压总大小 |
+| `TIME_ZONE` | 默认 `Asia/Shanghai` |
 
-S3 Secret Access Key 会以 `enc:v1:` 格式加密存储，密钥由 `SECRET_KEY` 派生。请保持生产环境的 `SECRET_KEY` 稳定；历史明文配置可按上面的命令手动回填，管理员密码策略不受影响。
+限流器按直接连接 IP 在每个 worker 内计数，成功与失败请求均计入，重启重置。
+配置为空可关闭该限制；超过限制返回 429 和 `Retry-After`。应用不信任任意转发 IP 头。
+需要跨 worker 配额时，在可信反向代理设置统一限流。沿用 `X-Forwarded-Proto: https`
+识别 HTTPS 外部链接的约定；入口代理应覆盖此头，来源 IP 不随转发头改写。
+邮件恢复默认关闭，SMTP 配置见 [移动端发布说明](../mobile/RELEASE_READINESS.md)。
 
-支持 SQLite、PostgreSQL、MySQL，通过 `DATABASE_URL` 切换：
+## 接口和数据
 
-```bash
-# PostgreSQL
-DATABASE_URL=postgresql://user:pass@localhost:5432/chewybbtalk
+沿用 `/api/v1/bbtalk/`、`/api/v1/attachments/files/` 路径及客户端契约，支持
+JSON 后缀、分页、持久幂等回执、条件编辑、桌面 PKCE 授权、密码恢复和附件 Range。
+Swagger：`/api/schema/swagger-ui/`；ReDoc：`/api/schema/redoc/`；
+OpenAPI：`/api/schema/`；存活检查：`/healthz`。
 
-# MySQL
-DATABASE_URL=mysql://user:pass@localhost:3306/chewybbtalk
-```
+附件经鉴权读取，不直接公开媒体目录。S3 下载使用签名重定向。
+备份不导出存储密钥；完整 ZIP 包含 SHA-256 清单，跨账号还原重映射 ID 并保留时间戳，
+文件恢复失败会回滚。仍有附件的存储配置须先迁移附件才能删除；迁移保留原文件。
 
-## API 文档
+## 结构与测试
 
-启动后访问 Swagger UI 查看完整 API 文档：
-
-- http://localhost:8020/api/schema/swagger-ui/
-- http://localhost:8020/api/schema/redoc/
-
-## 项目结构
-
-```
-backend/
-├── chewy_space/
-│   ├── bbtalk/            # 核心业务模块
-│   │   ├── models.py        # User、BBTalk、Tag、Attachment 模型
-│   │   ├── views.py         # API 视图
-│   │   ├── serializers.py   # 序列化器
-│   │   ├── authentication.py # JWT + Session 认证
-│   │   ├── storage_provider.py # 用户自定义 S3 存储
-│   │   ├── data_export.py   # 数据导出
-│   │   └── data_import.py   # 数据导入
-│   ├── chewy_space/       # Django 配置
-│   │   ├── settings.py      # 统一配置（环境变量驱动）
-│   │   ├── urls.py          # 兼容路由及管理后台
-│   │   ├── api.py           # FastAPI 应用、路由、CORS、OpenAPI
-│   │   └── api_compat.py    # 原有业务处理、请求和流式响应的适配层
-│   └── manage.py
-├── pyproject.toml         # 依赖配置
-└── Dockerfile
-```
-
-## 运行测试
+`chewy_api/` 包含应用、路由、模型、认证、存储、备份、CLI 和 Alembic 迁移。
+`tests/fixtures/legacy.sql` 是合成旧数据库，用于在未安装 Django 时验证兼容升级。
 
 ```bash
-uv run python chewy_space/manage.py test bbtalk
+uv run pytest
+uv run coverage run -m pytest
+uv run coverage json
+uv run coverage report
+node ../scripts/check-coverage.mjs backend
+uv run python benchmark_feed.py --sizes 1000 10000 --repeats 10
 ```
 
-其中 `bbtalk.test_fastapi` 直接通过 FastAPI TestClient 验证 ASGI 入口，覆盖令牌轮换、
-Session/CSRF、权限隔离、幂等提交、附件 multipart/Range/下载、备份和桌面端授权。
-适配层在线程中执行同步 ORM 和文件读取，上传超过内存阈值会暂存到磁盘，响应结束或
-客户端断开时释放文件和数据库连接。附件必须通过鉴权接口读取，FastAPI 不直接暴露媒体目录。
+默认测试使用临时 SQLite。设置指向独立测试库的 `TEST_DATABASE_URL`，再执行
+`uv run pytest tests/test_concurrency.py` 可验证 PostgreSQL 行锁；CI 使用 PostgreSQL 16。
+在 `frontend/` 执行 `npm run test:e2e` 会启动独立临时原生后端。
 
-API 文档合并现有 DRF schema 和原生 FastAPI schema；部分历史接口尚未声明完整的输入输出模型，
-生成 schema 时仍会出现原有 drf-spectacular 提示。
-
-
-### 注册与认证请求限制
-
-自助注册默认关闭，包括升级后未配置此项的实例；已有账号仍可登录。
-需要开放注册时，在根目录 `.env` 设置 `REGISTRATION_ENABLED=true` 并重启服务。
-Web 登录页读取服务端策略，关闭时展示管理员联系提示；策略读取失败可重试，不阻止已有账号登录。
-
-`AUTH_LOGIN_RATE=30/minute`、`AUTH_REGISTRATION_RATE=5/minute`、`AUTH_REFRESH_RATE=120/minute`
-分别控制登录（JWT 与旧登录接口共享额度）、注册和令牌刷新请求；成功与失败请求均计数。
-达到限制返回 HTTP 429、中文原因、`Retry-After` 秒数和 `retry_after` 字段。
-设置某项为空可关闭该项限制，修改后需重启服务。
-
-默认使用 Django 进程内缓存，按直接连接 IP 计数；多个 worker 的额度独立，重启会重置，
-不是全局严格配额。应用不信任客户端提供的 `X-Forwarded-For`，反向代理后的访问可能共享代理 IP 额度。
-部署时按并发和用户规模调整额度；需要跨 worker 或真实来源 IP 的统一限制时，
-在可信入口代理配置对应限流，或另行配置共享缓存及可信代理策略。
-
-## 移动端账号恢复
-
-本轮新增 `0009_password_recovery` 迁移。修改密码无需邮件服务；邮件找回默认关闭。SMTP 配置与发布前核验见 [移动端发布指南](../mobile/RELEASE_READINESS.md#后端升级与邮件配置)。
+SQLite 显式开启事务，使保存点参与外层回滚，参见
+[SQLAlchemy SQLite 事务文档](https://docs.sqlalchemy.org/en/20/dialects/sqlite.html#serializable-isolation-savepoints-transactional-ddl)。

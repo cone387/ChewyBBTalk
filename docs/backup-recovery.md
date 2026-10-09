@@ -7,8 +7,8 @@ Web 的“设置 → 数据管理 → 服务器备份”支持创建当前账号
 默认目录为 `DATA_DIR/backups/<user-id>/`。可通过 `BACKUP_ROOT` 指定 API 与命令共用的根目录；命令的 `--output-dir` 仍可单次覆盖。备份不包含登录密码、S3 secret 或整个服务数据库，恢复 S3 配置后需重新填写密钥。
 
 ```sh
-uv run python chewy_space/manage.py backup_data --dry-run
-uv run python chewy_space/manage.py backup_data --user-id 1 --keep 7
+uv run python -m chewy_api.cli backup --dry-run
+uv run python -m chewy_api.cli backup --user-id 1 --keep 7
 ```
 
 页面和定时命令共用账号级进程锁及状态文件。程序异常退出后锁由系统释放；状态仍显示运行中而锁已释放时，页面显示“已中断”。不要手动删除正在使用的锁文件。
@@ -27,4 +27,4 @@ uv run python chewy_space/manage.py backup_data --user-id 1 --keep 7
 
 ## 自动验证
 
-`test_backup_management.py` 使用临时目录和真实本地存储完成跨账号恢复，并核对字段、文件字节、权限、锁及失败清理；`test_backup_integrity.py` 验证摘要、缺件与篡改拒绝；`backups.spec.ts` 使用真实 Django/IndexedDB 环境验证页面创建、下载、导入及错误报告。
+`backend/tests/test_data.py` 使用临时目录和真实本地存储完成跨账号恢复，并核对字段、文件字节、权限、锁及失败回滚；`test_backup_integrity.py` 验证摘要、缺件与篡改拒绝；`backups.spec.ts` 使用真实 FastAPI/IndexedDB 环境验证页面创建、下载、导入及错误报告。
