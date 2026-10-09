@@ -291,10 +291,30 @@
   "frontend": {
     "report": "frontend/coverage/coverage-summary.json",
     "minimum": {
-      "lines": 89,
-      "branches": 87
+      "lines": 95,
+      "branches": 91
     },
     "files": {
+      "services/mediaApi.ts": {
+        "lines": 99,
+        "branches": 99
+      },
+      "pages/StatusPage.tsx": {
+        "lines": 99,
+        "branches": 99
+      },
+      "store/slices/tagSlice.ts": {
+        "lines": 99,
+        "branches": 99
+      },
+      "pages/DesktopAuthorizePage.tsx": {
+        "lines": 99,
+        "branches": 99
+      },
+      "pages/PublicBBTalkPage.tsx": {
+        "lines": 99,
+        "branches": 99
+      },
       "components/BBTalkPublisher.tsx": {
         "lines": 99,
         "branches": 94
@@ -316,8 +336,8 @@
         "branches": 99
       },
       "services/auth.ts": {
-        "lines": 80,
-        "branches": 75
+        "lines": 99,
+        "branches": 95
       },
       "services/submissions.ts": {
         "lines": 99,
@@ -332,16 +352,16 @@
         "branches": 95
       },
       "pages/BBTalkPage.tsx": {
-        "lines": 91,
-        "branches": 90
+        "lines": 98,
+        "branches": 94
       },
       "components/BBTalkItem.tsx": {
         "lines": 99,
         "branches": 85
       },
       "components/BBTalkEditor.tsx": {
-        "lines": 94,
-        "branches": 85
+        "lines": 99,
+        "branches": 92
       },
       "pages/S3ConfigListPage.tsx": {
         "lines": 99,
