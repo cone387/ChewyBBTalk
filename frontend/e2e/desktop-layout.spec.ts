@@ -34,6 +34,8 @@ test('desktop keeps its sidebar and authenticated login visits return to the fee
       const tagBox = await tags.boundingBox()
       expect(tagBox!.x + tagBox!.width).toBeLessThan(editor!.x)
       expect(side!.width).toBe(256)
+      const feedBounds = await page.locator('.feed-scroll').boundingBox()
+      expect(feedBounds!.x + feedBounds!.width).toBeCloseTo(width, 0)
       expect(tagBox!.height).toBeGreaterThan(600)
       await expect(tags.locator('.tag-list-row')).toHaveCount(40)
       const allIcon = await tags.locator('.tag-all-button .tag-symbol').boundingBox()

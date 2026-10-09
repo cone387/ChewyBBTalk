@@ -11,6 +11,8 @@ test('workspace navigation stays consistent and S3 uses an accessible shared dia
   await page.getByLabel('密码', { exact: true }).fill(password)
   await page.getByRole('button', { name: '登录', exact: true }).click()
   await expect(page.getByLabel('记录内容')).toBeVisible()
+  await page.getByLabel('记录内容').focus()
+  await expect(page.getByLabel('记录内容')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
   for (const content of [
     '把零散的想法记下来。\n\n走路时想到的一个点子、今天读到的一句话，都值得留在这里。 #日常 ',
     '周五，给自己留一点空白。\n\n先把手上的事做好，再慢慢整理下一步。 #想法 ',

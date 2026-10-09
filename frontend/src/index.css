@@ -96,10 +96,11 @@
   .auth-heading h1 { @apply mt-5 text-2xl font-semibold tracking-tight; }
   .auth-heading p { @apply mt-2 text-sm leading-6 text-gray-500; }
   @media (min-width: 1024px) {
+    .feed-workspace { max-width: none; padding-left: max(16px, calc((100vw - 1280px) / 2 + 16px)); padding-right: 0; }
     .workspace-layout { grid-template-columns: 220px minmax(0, 1fr); }
     .workspace-sidebar { display: flex; position: sticky; top: 0; width: 220px; height: 100dvh; flex-shrink: 0; flex-direction: column; border-right: 1px solid var(--color-line); background: white; }
     .classic-feed-sidebar { display: flex; flex-direction: column; width: 256px; flex-shrink: 0; padding: 36px 0 24px; overflow: hidden; border-right: 1px solid #e8ebf0; }
-    .feed-scroll { padding: 38px 24px; }
+    .feed-scroll { padding: 38px max(40px, calc((100vw - 1280px) / 2 + 40px)) 38px 24px; }
     .auth-panel { padding: 36px; max-width: 440px; border: 1px solid var(--color-line); border-radius: 12px; background: white; box-shadow: var(--shadow-surface); }
   }
 }
@@ -226,13 +227,7 @@ body {
   box-shadow: none;
 }
 
-.bbtalk-composer__input {
-  transition: background-color 160ms ease;
-}
-
-.bbtalk-composer__input:focus-visible {
-  background-color: #f8fafc;
-}
+.bbtalk-composer__input { background-color: transparent; }
 
 .bbtalk-composer--dragging {
   background-color: #f1f5f9;
