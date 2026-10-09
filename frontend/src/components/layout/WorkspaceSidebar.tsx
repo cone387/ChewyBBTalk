@@ -26,7 +26,7 @@ export default function WorkspaceSidebar({ active, children, footer, isPublic = 
         {item.label}
       </button>)}
     </nav>
-    <div className="workspace-sidebar-content">{children}</div>
+    <div className="workspace-sidebar-content subtle-scrollbar">{children}</div>
     <div className="workspace-sidebar-footer">{footer || <span>BBTalk · 记录与回顾</span>}</div>
   </aside>
 }
