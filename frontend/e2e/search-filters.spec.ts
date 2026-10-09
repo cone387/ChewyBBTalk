@@ -65,6 +65,18 @@ test('search empty results offer clearing and clearing also removes tags', async
 
 test('tag filters switch selection and support keyboard dismissal at every size', async ({ page }, info) => {
   await setup(page)
+  const sidebar = page.getByRole('complementary', { name: '桌面侧栏' })
+  if (await sidebar.isVisible()) {
+    await sidebar.getByRole('button', { name: /^旅行/ }).click()
+    const work = sidebar.getByRole('button', { name: /^工作/ })
+    await work.focus()
+    await page.keyboard.press('Enter')
+    await expect(work).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByRole('button', { name: '移除标签：旅行' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: '移除标签：工作' })).toBeVisible()
+    await page.screenshot({ path: info.outputPath('tag-filters-sidebar.png') })
+    return
+  }
   const trigger = page.locator('button[aria-haspopup="dialog"]')
   await trigger.click()
   const dialog = page.getByRole('dialog', { name: '筛选记录' })

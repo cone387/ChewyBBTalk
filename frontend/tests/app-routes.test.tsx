@@ -74,6 +74,29 @@ describe('authentication bootstrap', () => {
 });
 
 describe('routing', () => {
+  it.each([
+    ['/login', '/', '私有主页'],
+    ['/login?next=https%3A%2F%2Fevil.example', '/', '私有主页'],
+    ['/login?next=%2Fdesktop%2Fauthorize%3Fstate%3Dabc', '/desktop/authorize', '桌面授权页'],
+  ])('redirects an authenticated visit to %s', async (path, destination, marker) => {
+    history.pushState({}, '', path);
+    const view = await mountApp();
+    expect(await view.findByText(marker)).toBeTruthy();
+    expect(window.location.pathname).toBe(destination);
+    expect(view.queryByText('登录页')).toBeNull();
+    if (destination === '/desktop/authorize') expect(window.location.search).toBe('?state=abc');
+  });
+
+  it('keeps authenticated login redirects behind the privacy lock', async () => {
+    localStorage.setItem('bbtalk_privacy_mode', 'true');
+    history.pushState({}, '', '/login?next=%2Fdesktop%2Fauthorize%3Fstate%3Dabc');
+    const view = await mountApp();
+    expect(await view.findByText('锁定页')).toBeTruthy();
+    expect(window.location.pathname).toBe('/locked');
+    expect(new URLSearchParams(window.location.search).get('next')).toBe('/desktop/authorize?state=abc');
+    expect(view.queryByText('桌面授权页')).toBeNull();
+  });
+
   it('serves public routes to anonymous visitors', async () => {
     boundary.initAuth.mockResolvedValue(false);
     history.pushState({}, '', '/public');

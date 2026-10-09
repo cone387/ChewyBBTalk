@@ -133,7 +133,7 @@ async function loadedPrivate() {
   return view;
 }
 function scrollContainer() {
-  return document.querySelector('.overflow-y-auto') as HTMLElement;
+  return screen.getByRole('main');
 }
 async function openFilterDialog() {
   fireEvent.click(screen.getAllByRole('button', { name: /^筛选/ })[0]);

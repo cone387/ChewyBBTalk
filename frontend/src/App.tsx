@@ -41,6 +41,17 @@ function RouteLoading() {
   )
 }
 
+function LoginRoute({ authenticated }: { authenticated: boolean }) {
+  const { search } = useLocation()
+  if (!authenticated) return <LoginPage />
+  const next = new URLSearchParams(search).get('next')
+  const destination = next?.startsWith('/desktop/authorize?') ? next : '/'
+  const locked = localStorage.getItem(PRIVACY_STATE_KEY) === 'true'
+  return <Navigate replace to={locked
+    ? '/locked' + (destination === '/' ? '' : `?next=${encodeURIComponent(destination)}`)
+    : destination} />
+}
+
 // 防窥模式检查组件
 function PrivacyModeChecker({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate()
@@ -162,7 +173,7 @@ export default function App({ basename = '/' }: AppProps) {
           <Suspense fallback={<RouteLoading />}>
           <Routes>
             {/* 登录页面 */}
-            <Route path="/login" element={<LoginPage />} />
+            <Route path="/login" element={<LoginRoute authenticated={isAuthenticated} />} />
             <Route path="/desktop/authorize" element={<DesktopAuthorizePage />} />
             
             {/* 防窥锁定页面 - 不要求认证状态，因为长时间不活动后 token 可能已过期 */}

@@ -97,7 +97,7 @@ async function loaded(isPublic = false) {
   return view;
 }
 function scrollContainer() {
-  return document.querySelector('.overflow-y-auto') as HTMLElement;
+  return screen.getByRole('main');
 }
 // The scroll handler arms its rAF gate *after* scheduling, so the frame must run asynchronously.
 function stubAsyncRaf() {

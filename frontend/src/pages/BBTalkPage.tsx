@@ -460,31 +460,58 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
 
   return (
     <div className="h-full bg-gray-50 flex flex-col">
-      <header className="shrink-0 border-b border-gray-200/70 bg-white">
+      <header className="shrink-0 border-b border-gray-200/70 bg-white lg:hidden">
         <div className="mx-auto flex min-h-16 max-w-3xl items-center justify-between gap-4 px-4 sm:px-8">
           <div>
             <p className="text-lg font-semibold tracking-tight text-gray-900">{isPublic ? '公开碎碎念' : '我的碎碎念'}</p>
             <p className="text-xs text-gray-500">留下一点今天，慢慢回看。</p>
           </div>
-          <nav aria-label="主导航" className="hidden lg:flex items-center gap-2">
-            <button type="button" aria-current="page" className="min-h-11 rounded-xl bg-blue-50 px-4 text-sm font-medium text-blue-700">记录</button>
-            {!isPublic && <button type="button" onClick={() => navigate('/settings')} title={currentUser?.display_name || currentUser?.username} className="min-h-11 rounded-xl px-4 text-sm text-gray-600 hover:bg-gray-100">
-              我的
-            </button>}
-            {isPublic && <button type="button" onClick={handleLogin} className="min-h-11 rounded-xl px-4 text-sm text-blue-700 hover:bg-blue-50">登录</button>}
-          </nav>
         </div>
       </header>
       {/* 主内容区 */}
       <div className="flex-1 min-h-0 overflow-hidden">
       {/* 整体容器 - 左右内容作为整体居中 */}
-      <div className="h-full max-w-3xl w-full mx-auto px-3 sm:px-4 relative">
-        <div className="h-full flex gap-3">
+      <div className="h-full max-w-7xl w-full mx-auto px-3 sm:px-4 relative">
+        <div className="h-full flex gap-6">
+          <aside aria-label="桌面侧栏" className="hidden lg:flex w-64 shrink-0 flex-col py-8">
+            <div className="feed-surface flex min-h-0 flex-1 flex-col rounded-2xl bg-white">
+              <div className="space-y-5 p-5">
+                <p className="text-xl font-semibold tracking-tight text-gray-900">BBTalk</p>
+                <label className="block text-sm font-medium text-gray-600">
+                  搜索
+                  <input type="search" placeholder="搜索 BBTalk..." value={searchKeyword}
+                    onChange={event => setSearchKeyword(event.target.value)}
+                    className="feed-field mt-2 min-h-11 w-full rounded-xl px-3 text-sm text-gray-800" />
+                </label>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto border-t border-gray-100 p-4">
+                <h2 className="mb-3 px-3 text-sm font-medium text-gray-500">标签</h2>
+                <button type="button" onClick={() => setSelectedTags([])} aria-pressed={selectedTags.length === 0}
+                  className={`mb-2 flex min-h-11 w-full items-center justify-between rounded-lg px-3 text-sm ${selectedTags.length === 0 ? 'bg-gray-100 font-medium text-gray-900' : 'text-gray-700 hover:bg-gray-100'}`}>
+                  <span>全部标签</span><span className="text-xs text-gray-400">{totalCount}</span>
+                </button>
+                {tags.length === 0 ? <p className="px-3 py-2 text-sm text-gray-500">暂无标签</p> :
+                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                    <SortableContext items={tags.map(tag => tag.id)} strategy={verticalListSortingStrategy}>
+                      <div className="space-y-1">{tags.map(tag => <SortableTagItem key={tag.id} tag={tag}
+                        isSelected={selectedTags.includes(tag.id)} count={tag.bbtalkCount || 0} onClick={() => toggleTag(tag.id)} />)}</div>
+                    </SortableContext>
+                  </DndContext>}
+              </div>
+              <div className="border-t border-gray-100 p-4">
+                {!isPublic ? <button type="button" onClick={() => navigate('/settings')} aria-label="账户与设置" title={currentUser?.display_name || currentUser?.username}
+                  className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-3 text-left hover:bg-gray-100">
+                  <span className="min-w-0 truncate text-sm font-medium text-gray-900">{currentUser?.display_name || currentUser?.username || '账户'}</span>
+                  <span className="shrink-0 text-sm text-gray-500">设置</span>
+                </button> : <button type="button" onClick={handleLogin} className="min-h-11 w-full rounded-lg text-sm text-blue-700 hover:bg-blue-50">登录</button>}
+              </div>
+            </div>
+          </aside>
           {/* 居中的内容流 */}
-          <div ref={containerRef} className="flex-1 min-w-0 pt-4 sm:pt-6 pb-24 lg:pb-8 overflow-y-auto overscroll-contain -webkit-overflow-scrolling-touch">
+          <div ref={containerRef} role="main" aria-label="记录列表" className="flex-1 min-w-0 pt-4 sm:pt-6 lg:pt-8 pb-24 lg:pb-8 overflow-y-auto overscroll-contain -webkit-overflow-scrolling-touch">
             {/* 滚动内容区 */}
-            <div className="w-full max-w-2xl mx-auto sm:px-4">
-              <div className="mb-4 flex items-center gap-2">
+            <div className="w-full max-w-4xl mx-auto sm:px-4">
+              <div className="mb-4 flex items-center gap-2 lg:hidden">
                 <div className="relative min-w-0 flex-1">
                   <input type="search" aria-label="搜索记录" placeholder="搜索 BBTalk..." value={searchKeyword}
                     onChange={event => setSearchKeyword(event.target.value)}
@@ -498,7 +525,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                   筛选{selectedTags.length > 0 ? ` (${selectedTags.length})` : ''}
                 </button>
               </div>
-              {tags.length > 0 && <div aria-label="标签快捷筛选" className="mb-5 flex gap-2 overflow-x-auto pb-1">
+              {tags.length > 0 && <div aria-label="标签快捷筛选" className="mb-5 flex gap-2 overflow-x-auto pb-1 lg:hidden">
                 <button type="button" aria-pressed={selectedTags.length === 0} onClick={() => setSelectedTags([])}
                   className={`min-h-11 shrink-0 rounded-full px-4 text-sm ${selectedTags.length === 0 ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}>全部</button>
                 {tags.slice(0, 6).map(tag => <button key={tag.id} type="button" aria-pressed={selectedTags.includes(tag.id)} onClick={() => toggleTag(tag.id)}
