@@ -52,9 +52,9 @@ it('builds the tray menu and wires every action', async () => {
   expect(state.showSettings).toHaveBeenCalledTimes(1);
   template.find(item => item.label === '退出')!.click!();
   expect(state.quit).toHaveBeenCalledTimes(1);
-  expect((await import('electron')).app._isQuitting).toBe(true);
+  expect(((await import('electron')).app as unknown as { _isQuitting: boolean })._isQuitting).toBe(true);
 
-  const trayClick = state.tray.on.mock.calls.find(([event]: [string]) => event === 'click')![1] as () => void;
+  const trayClick = state.tray.on.mock.calls.find(call => call[0] === 'click')![1] as () => void;
   trayClick();
   expect(state.showCompose).toHaveBeenCalledTimes(2);
 });
