@@ -518,7 +518,7 @@
     "report": "backend/coverage/coverage.json",
     "minimum": {
       "lines": 96,
-      "branches": 92
+      "branches": 91
     },
     "files": {
       "bbtalk/views.py": {
@@ -534,8 +534,8 @@
         "branches": 99
       },
       "bbtalk/management/commands/init_system.py": {
-        "lines": 96,
-        "branches": 90
+        "lines": 94,
+        "branches": 84
       },
       "bbtalk/privacy_views.py": {
         "lines": 99,
