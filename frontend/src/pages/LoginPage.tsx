@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { login, register, getAuthPolicy } from '../services/auth';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
-import AppBrand from '../components/AppBrand';
 
 const REMEMBER_USERNAME_KEY = 'bbtalk_remember_username';
 const SAVED_USERNAME_KEY = 'bbtalk_saved_username';
@@ -139,17 +138,11 @@ export default function LoginPage() {
   
   return (
     <div className="app-page flex flex-col">
-      <header className="app-header shrink-0">
-        <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between gap-4 px-5 sm:px-8">
-          <AppBrand />
-        </div>
-      </header>
-      <main className="flex flex-1 items-center justify-center px-4 py-8 sm:py-12">
-        <div className="w-full max-w-[420px]">
-          <section aria-labelledby="auth-title" className="app-surface p-6 sm:p-8">
-            <div className="mb-7">
-              <h1 id="auth-title" className="text-2xl font-semibold tracking-tight">{isLogin ? '欢迎回来' : '创建账户'}</h1>
-              <p className="mt-2 text-sm leading-6 text-gray-500">{isLogin ? '登录后，接着记下今天。' : '给日常的想法，留一个自己的位置。'}</p>
+      <main className="flex flex-1 items-center justify-center px-6 py-12 sm:py-16">
+        <div className="w-full max-w-[360px]">
+          <section aria-labelledby="auth-title">
+            <div className="mb-8">
+              <h1 id="auth-title" className="text-3xl font-semibold tracking-tight">{isLogin ? '登录 BBTalk' : '注册 BBTalk'}</h1>
             </div>
             <form onSubmit={handleSubmit} className="space-y-5" aria-describedby={error ? 'auth-error' : undefined}>
               <Input id="username" name="username" label="用户名" value={username}
@@ -203,7 +196,6 @@ export default function LoginPage() {
               {registrationEnabled === null && !policyError && <p role="status" className="py-2 text-sm text-gray-500">正在读取注册设置…</p>}
             </div>
           </section>
-          <p className="mt-6 text-center text-xs leading-5 text-gray-500">留下一点今天，慢慢回看。</p>
         </div>
       </main>
     </div>

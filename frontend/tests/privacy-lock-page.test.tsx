@@ -116,7 +116,7 @@ describe('biometric unlock', () => {
     await waitFor(() => expect(boundary.navigate).toHaveBeenCalledWith('/', { replace: true }));
     expect(create).toHaveBeenCalledWith(expect.objectContaining({
       publicKey: expect.objectContaining({
-        rp: expect.objectContaining({ name: 'ChewyBBTalk' }),
+        rp: expect.objectContaining({ name: 'BBTalk' }),
         attestation: 'none',
       }),
     }));

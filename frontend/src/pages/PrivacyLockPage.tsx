@@ -130,7 +130,7 @@ export default function PrivacyLockPage() {
       const createOptions: PublicKeyCredentialCreationOptions = {
         challenge,
         rp: {
-          name: 'ChewyBBTalk',
+          name: 'BBTalk',
           id: window.location.hostname,
         },
         user: {

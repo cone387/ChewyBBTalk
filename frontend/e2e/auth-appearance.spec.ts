@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 
 test('login and registration remain usable at short heights and with keyboard navigation', async ({ page }, info) => {
   await page.goto('/login')
-  await expect(page.getByRole('heading', { name: '欢迎回来' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '登录 BBTalk' })).toBeVisible()
   await expect(page.getByRole('button', { name: '创建新账户' })).toBeVisible()
   await page.getByLabel('密码', { exact: true }).fill('visible-only-in-test')
   await page.getByRole('button', { name: '显示密码' }).click()
@@ -24,7 +24,7 @@ test('login and registration remain usable at short heights and with keyboard na
   await expect(page.getByLabel('密码', { exact: true })).toHaveAttribute('autocomplete', 'new-password')
   await page.getByLabel('用户名', { exact: true }).fill('')
   await page.screenshot({ path: info.outputPath('registration.png'), fullPage: true })
-  await page.setViewportSize({ width: 375, height: 568 })
+  await page.setViewportSize({ width: 375, height: 440 })
   await page.getByRole('button', { name: '注册', exact: true }).scrollIntoViewIfNeeded()
   await expect(page.getByRole('button', { name: '注册', exact: true })).toBeInViewport()
   expect(await page.getByTestId('route-viewport').evaluate(el => el.scrollTop)).toBeGreaterThan(0)

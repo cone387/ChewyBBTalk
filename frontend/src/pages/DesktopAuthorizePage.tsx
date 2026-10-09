@@ -34,11 +34,11 @@ export default function DesktopAuthorizePage() {
   };
   return <main className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
     <section className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-8 space-y-6">
-      <p className="text-sm font-semibold text-blue-700">ChewyBBTalk · 桌面登录</p>
+      <p className="text-sm font-semibold text-blue-700">BBTalk · 桌面登录</p>
       <h1 className="text-2xl font-semibold text-gray-900">连接你的桌面端</h1>
       {!valid ? <p role="alert" className="text-red-700">授权链接无效，请回到桌面端重新发起登录。</p> : <>
         <p className="text-gray-600 leading-relaxed">{user ? `使用 ${user.display_name || user.username} 登录桌面端，随时记录和上传附件。` : '先登录网页账号，再确认连接桌面端。'}</p>
-        <p className="text-sm text-gray-600">仅在你刚刚从 ChewyBBTalk 桌面端发起登录时继续。</p>
+        <p className="text-sm text-gray-600">仅在你刚刚从 BBTalk 桌面端发起登录时继续。</p>
         {error && <p role="alert" className="text-red-700">{error}</p>}
         {user ? <button className="w-full min-h-12 rounded-lg bg-blue-600 text-white font-medium disabled:opacity-50" disabled={busy} onClick={authorize}>{busy ? '正在连接…' : '确认登录桌面端'}</button>
           : <a className="flex min-h-12 items-center justify-center rounded-lg bg-blue-600 text-white" href={`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`}>登录并继续</a>}
