@@ -517,17 +517,49 @@
   "backend": {
     "report": "backend/coverage/coverage.json",
     "minimum": {
-      "lines": 80,
-      "branches": 64
+      "lines": 96,
+      "branches": 92
     },
     "files": {
+      "bbtalk/views.py": {
+        "lines": 99,
+        "branches": 99
+      },
+      "bbtalk/attachment_views.py": {
+        "lines": 99,
+        "branches": 96
+      },
+      "bbtalk/authentication.py": {
+        "lines": 99,
+        "branches": 99
+      },
+      "bbtalk/management/commands/init_system.py": {
+        "lines": 96,
+        "branches": 90
+      },
+      "bbtalk/privacy_views.py": {
+        "lines": 99,
+        "branches": 99
+      },
+      "bbtalk/backup_integrity.py": {
+        "lines": 99,
+        "branches": 99
+      },
+      "bbtalk/backups.py": {
+        "lines": 95,
+        "branches": 89
+      },
+      "bbtalk/status_views.py": {
+        "lines": 96,
+        "branches": 87
+      },
       "bbtalk/data_import.py": {
-        "lines": 90,
-        "branches": 80
+        "lines": 94,
+        "branches": 91
       },
       "bbtalk/storage_migration.py": {
-        "lines": 90,
-        "branches": 65
+        "lines": 97,
+        "branches": 93
       }
     }
   }
