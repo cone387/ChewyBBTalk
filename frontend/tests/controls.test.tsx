@@ -4,8 +4,23 @@ import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import Modal from '../src/components/ui/Modal'
 import Select from '../src/components/ui/Select'
+import Input from '../src/components/ui/Input'
 
 afterEach(cleanup)
+
+it('associates shared input labels, help and validation errors with the field', async () => {
+  const user = userEvent.setup()
+  const { rerender } = render(<><p id="help">用于登录</p><Input label="账户" aria-describedby="help" error="请输入账户" /></>)
+  const input = screen.getByLabelText('账户') as HTMLInputElement
+  await user.click(screen.getByText('账户'))
+  expect(document.activeElement).toBe(input)
+  expect(input.getAttribute('aria-invalid')).toBe('true')
+  const error = screen.getByText('请输入账户')
+  expect(input.getAttribute('aria-describedby')?.split(' ')).toEqual(['help', error.id])
+  rerender(<Input id="account" label="账户" />)
+  expect(screen.getByLabelText('账户').id).toBe('account')
+  expect(screen.getByLabelText('账户').hasAttribute('aria-invalid')).toBe(false)
+})
 
 describe('Modal keyboard navigation', () => {
   it('contains focus, closes with Escape and restores focus without losing the body scroll setting', async () => {

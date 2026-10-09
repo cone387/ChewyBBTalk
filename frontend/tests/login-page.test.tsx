@@ -11,7 +11,7 @@ beforeEach(() => {
   auth.login.mockResolvedValue({ success: false, error: '凭证不正确' });
   auth.register.mockResolvedValue({ success: false, error: '用户名已存在' });
 });
-afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 async function page() {
   const view = render(<LoginPage />);
   await screen.findByRole('button', { name: '创建新账户' });
@@ -41,6 +41,41 @@ it('does not send an incomplete form to the server', async () => {
   await page(); submit();
   expect(await screen.findByText('请输入用户名和密码')).toBeTruthy();
   expect(auth.login).not.toHaveBeenCalled();
+  expect(document.activeElement).toBe(screen.getByLabelText('用户名'));
+  fireEvent.change(screen.getByLabelText('用户名'), { target: { value: 'alice' } });
+  submit();
+  expect(document.activeElement).toBe(screen.getByLabelText('密码'));
+});
+
+it('reveals the password without submitting and resets visibility when changing modes', async () => {
+  await page(); credentials();
+  const password = screen.getByLabelText('密码') as HTMLInputElement;
+  expect(password.autocomplete).toBe('current-password');
+  fireEvent.click(screen.getByRole('button', { name: '显示密码' }));
+  expect(password.type).toBe('text');
+  expect(password.value).toBe('secret');
+  expect(screen.getByRole('button', { name: '隐藏密码' }).getAttribute('aria-pressed')).toBe('true');
+  expect(auth.login).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: '隐藏密码' }));
+  expect(password.type).toBe('password');
+  fireEvent.click(screen.getByRole('button', { name: '显示密码' }));
+  fireEvent.click(screen.getByRole('button', { name: '创建新账户' }));
+  expect(password.type).toBe('password');
+  expect(password.autocomplete).toBe('new-password');
+  expect(screen.getByLabelText(/邮箱/).getAttribute('autocomplete')).toBe('email');
+  expect(screen.getByLabelText(/显示名称/).getAttribute('autocomplete')).toBe('nickname');
+});
+
+it('keeps authentication errors beside the form until the user retries', async () => {
+  await page(); credentials(); submit();
+  const alert = await screen.findByRole('alert');
+  const form = screen.getByLabelText('密码').closest('form')!;
+  expect(form.contains(alert)).toBe(true);
+  expect(form.getAttribute('aria-describedby')).toBe(alert.id);
+  auth.login.mockReturnValue(new Promise(() => {}));
+  submit();
+  expect(screen.queryByRole('alert')).toBeNull();
+  expect((screen.getByRole('button', { name: '显示密码' }) as HTMLButtonElement).disabled).toBe(true);
 });
 it('keeps login usable when registration policy is unavailable and allows retry', async () => {
   auth.getAuthPolicy.mockRejectedValueOnce(new Error('offline'));
@@ -132,6 +167,24 @@ it('cancels the pending redirect when the page unmounts', async () => {
   const redirect = schedule.mock.results[redirectIndex].value;
   view.unmount();
   expect(clear).toHaveBeenCalledWith(redirect);
+});
+
+it.each([
+  ['', '/'],
+  ['?next=https%3A%2F%2Fother.test', '/'],
+  ['?next=%2Fdesktop%2Fauthorize%3Fstate%3Drequest', '/desktop/authorize?state=request'],
+])('redirects successful login only to the feed or pending desktop authorization: %s', async (search, expected) => {
+  auth.login.mockResolvedValue({ success: true });
+  await page(); credentials();
+  vi.useFakeTimers();
+  // Replace the browser navigation boundary; keep the real DOM and timer APIs.
+  const location = { search, href: '/login' };
+  const browser = new Proxy(window, { get: (target, key) => key === 'location' ? location : Reflect.get(target, key) });
+  vi.stubGlobal('window', browser);
+  await act(async () => submit());
+  expect(location.href).toBe('/login');
+  await act(async () => vi.advanceTimersByTime(800));
+  expect(location.href).toBe(expected);
 });
 it('ignores authentication UI side effects if its request completes after unmount', async () => {
   let finish!: (value: { success: boolean }) => void;

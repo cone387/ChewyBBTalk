@@ -34,6 +34,14 @@ describe('profile card', () => {
     expect(screen.getByText('@bob')).toBeTruthy();
   });
 
+  it('uses the username initial when neither photo nor display name is available', () => {
+    auth.user = { id: 3, username: 'carol', display_name: '' };
+    render(<SettingsPage />);
+    expect(screen.getByText('C')).toBeTruthy();
+    expect(screen.getByText('carol')).toBeTruthy();
+    expect(screen.getByText('@carol')).toBeTruthy();
+  });
+
   it('hides account surfaces for signed-out visitors', () => {
     auth.user = null;
     render(<SettingsPage />);

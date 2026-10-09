@@ -1,0 +1,63 @@
+import { test, expect } from '@playwright/test'
+
+test('login and registration remain usable at short heights and with keyboard navigation', async ({ page }, info) => {
+  await page.goto('/login')
+  await expect(page.getByRole('heading', { name: '欢迎回来' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '创建新账户' })).toBeVisible()
+  await page.getByLabel('密码', { exact: true }).fill('visible-only-in-test')
+  await page.getByRole('button', { name: '显示密码' }).click()
+  await expect(page.getByLabel('密码', { exact: true })).toHaveAttribute('type', 'text')
+  await page.getByRole('button', { name: '隐藏密码' }).click()
+  await page.getByLabel('密码', { exact: true }).fill('')
+  await page.screenshot({ path: info.outputPath('login.png'), fullPage: true })
+
+  await page.getByRole('button', { name: '登录', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText('请输入用户名和密码')
+  await expect(page.getByLabel('用户名', { exact: true })).toBeFocused()
+  await page.keyboard.type('keyboard-user')
+  await page.keyboard.press('Tab')
+  await expect(page.getByLabel('密码', { exact: true })).toBeFocused()
+  await page.screenshot({ path: info.outputPath('login-error-focus.png'), fullPage: true })
+
+  await page.getByRole('button', { name: '创建新账户' }).click()
+  await expect(page.getByRole('alert')).toHaveCount(0)
+  await expect(page.getByLabel('密码', { exact: true })).toHaveAttribute('autocomplete', 'new-password')
+  await page.getByLabel('用户名', { exact: true }).fill('')
+  await page.screenshot({ path: info.outputPath('registration.png'), fullPage: true })
+  await page.setViewportSize({ width: 375, height: 568 })
+  await page.getByRole('button', { name: '注册', exact: true }).scrollIntoViewIfNeeded()
+  await expect(page.getByRole('button', { name: '注册', exact: true })).toBeInViewport()
+  expect(await page.getByTestId('route-viewport').evaluate(el => el.scrollTop)).toBeGreaterThan(0)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.screenshot({ path: info.outputPath('registration-short-screen.png') })
+})
+
+test('settings uses the same surfaces and preserves navigation and logout confirmation', async ({ page }, info) => {
+  const username = `design_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+  const password = 'appearance-review-2026'
+  expect((await page.request.post('/api/v1/bbtalk/auth/register/', {
+    data: { username, password, display_name: '小满', email: 'xiaoman@example.com' },
+  })).status()).toBe(201)
+  await page.goto('/login')
+  const loginBackground = await page.locator('.app-page').evaluate(el => getComputedStyle(el).backgroundColor)
+  await page.getByLabel('用户名', { exact: true }).fill(username)
+  await page.getByLabel('密码', { exact: true }).fill(password)
+  await page.getByRole('button', { name: '登录', exact: true }).click()
+  await expect(page.getByLabel('记录内容')).toBeVisible()
+  await page.goto('/settings')
+  await expect(page.getByRole('heading', { name: '我的', exact: true })).toBeVisible()
+  expect(await page.locator('.app-page').evaluate(el => getComputedStyle(el).backgroundColor)).toBe(loginBackground)
+  await page.screenshot({ path: info.outputPath('settings.png'), fullPage: true })
+  await page.setViewportSize({ width: 375, height: 568 })
+  const logout = page.getByRole('button', { name: '退出登录', exact: true })
+  await logout.scrollIntoViewIfNeeded()
+  await expect(logout).toBeInViewport()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await logout.click()
+  const dialog = page.getByRole('dialog', { name: '退出登录' })
+  await expect(dialog).toBeVisible()
+  await dialog.getByRole('button', { name: '取消', exact: true }).click()
+  await expect(logout).toBeFocused()
+  await page.getByRole('button', { name: '返回记录', exact: true }).click()
+  await expect(page.getByLabel('记录内容')).toBeVisible()
+})
