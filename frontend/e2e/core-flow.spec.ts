@@ -126,7 +126,7 @@ test('registration policy failure can be retried and throttling preserves creden
   policyFails = false
   await page.getByRole('button', { name: '重试读取注册设置' }).click()
   await page.getByRole('button', { name: '创建新账户' }).click()
-  await expect(page.getByRole('heading', { name: '创建账户' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '注册 BBTalk' })).toBeVisible()
   await page.getByRole('button', { name: '登录已有账户' }).click()
   await page.route('**/auth/token/', route => route.fulfill({ status: 429,
     headers: { 'Retry-After': '42' }, json: { code: 'rate_limited', error: '请求过于频繁，请 42 秒后重试', retry_after: 42 } }))
