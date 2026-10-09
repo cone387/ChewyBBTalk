@@ -6,20 +6,20 @@ WORKDIR /app
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 # Copy project files
-COPY pyproject.toml README.md ./
+COPY pyproject.toml uv.lock README.md cli.py ./
 COPY chewy_space/ ./chewy_space/
 
 # Install dependencies
-RUN uv sync --no-dev
+RUN uv sync --frozen --no-dev
 
 WORKDIR /app/chewy_space
 
 # Collect static files
-RUN uv run python manage.py collectstatic --noinput || true
+RUN uv run --frozen --no-dev python manage.py collectstatic --noinput
 
 EXPOSE 8020
 
-# 支持通过环境变量配置 workers 数量
-ENV GUNICORN_WORKERS=2
+# 保留 GUNICORN_WORKERS 作为旧部署的兼容变量。
+ENV WEB_CONCURRENCY=2
 
-CMD ["sh", "-c", "uv run python manage.py migrate && uv run python manage.py init_system && uv run gunicorn --bind 0.0.0.0:8020 --workers ${GUNICORN_WORKERS} --access-logfile - --error-logfile - chewy_space.wsgi:application"]
+CMD ["sh", "-c", "uv run --frozen --no-dev python manage.py migrate --noinput && uv run --frozen --no-dev python manage.py init_system && exec uv run --frozen --no-dev uvicorn chewy_space.asgi:application --host 0.0.0.0 --port 8020 --workers ${GUNICORN_WORKERS:-${WEB_CONCURRENCY}} --no-proxy-headers"]

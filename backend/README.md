@@ -1,6 +1,10 @@
 # ChewyBBTalk 后端
 
-Django 5.2 + DRF 的碎碎念后端服务。
+FastAPI + Uvicorn 提供 HTTP/API 入口，保留 Django ORM、数据库迁移和管理后台。
+
+这次采用兼容迁移：现有 DRF 业务处理、序列化和认证通过 `api_compat.py` 复用，
+尚未移除 Django/DRF。FastAPI 注册已有 API 路由，新增接口可直接使用 FastAPI
+路由和 Pydantic 模型；已有数据库、JWT、Session 和 API 路径保持兼容。
 
 ## 本地开发
 
@@ -25,7 +29,7 @@ uv run python chewy_space/manage.py backup_data
 uv run python chewy_space/manage.py backup_data --user-id 1 --keep 14 --dry-run
 
 # 启动开发服务器
-uv run python chewy_space/manage.py runserver 0.0.0.0:8020
+uv run dev
 ```
 
 或者用项目根目录的脚本一键启动：
@@ -33,6 +37,17 @@ uv run python chewy_space/manage.py runserver 0.0.0.0:8020
 ```bash
 ./start_backend.sh
 ```
+
+直接使用 ASGI 入口（生产环境不加 `--reload`）：
+
+```bash
+uv run uvicorn chewy_space.asgi:application --app-dir chewy_space --host 0.0.0.0 --port 8020 --no-proxy-headers
+```
+
+`BACKEND_HOST` 和 `BACKEND_PORT` 可调整 `uv run dev` 的监听地址；存活检查为 `/healthz`。
+Docker、Supervisor 和浏览器回归测试均使用同一 FastAPI ASGI 入口。
+管理命令仍使用 `manage.py`；`runserver` 和旧 WSGI 入口仅用于维护旧 Django 服务，
+不会加载 FastAPI 路由。升级执行 `uv sync --frozen` 后按现有方式运行迁移即可，无需导出导入数据库。
 
 ## 环境变量
 
@@ -79,7 +94,9 @@ backend/
 │   │   └── data_import.py   # 数据导入
 │   ├── chewy_space/       # Django 配置
 │   │   ├── settings.py      # 统一配置（环境变量驱动）
-│   │   └── urls.py          # 路由
+│   │   ├── urls.py          # 兼容路由及管理后台
+│   │   ├── api.py           # FastAPI 应用、路由、CORS、OpenAPI
+│   │   └── api_compat.py    # 原有业务处理、请求和流式响应的适配层
 │   └── manage.py
 ├── pyproject.toml         # 依赖配置
 └── Dockerfile
@@ -90,6 +107,14 @@ backend/
 ```bash
 uv run python chewy_space/manage.py test bbtalk
 ```
+
+其中 `bbtalk.test_fastapi` 直接通过 FastAPI TestClient 验证 ASGI 入口，覆盖令牌轮换、
+Session/CSRF、权限隔离、幂等提交、附件 multipart/Range/下载、备份和桌面端授权。
+适配层在线程中执行同步 ORM 和文件读取，上传超过内存阈值会暂存到磁盘，响应结束或
+客户端断开时释放文件和数据库连接。附件必须通过鉴权接口读取，FastAPI 不直接暴露媒体目录。
+
+API 文档合并现有 DRF schema 和原生 FastAPI schema；部分历史接口尚未声明完整的输入输出模型，
+生成 schema 时仍会出现原有 drf-spectacular 提示。
 
 
 ### 注册与认证请求限制

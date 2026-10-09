@@ -1,10 +1,11 @@
 #!/bin/bash
 
-# Django 启动脚本
+# FastAPI 启动脚本（保留文件名以兼容已有容器部署）
 # 支持两种模式：
-# 1. docker-compose模式：启动gunicorn
+# 1. docker-compose模式：启动 Uvicorn
 # 2. 单容器模式：启动supervisor
 
+set -e
 cd /app/backend
 
 # 确保数据目录存在并设置权限
@@ -35,7 +36,7 @@ python manage.py collectstatic --noinput
 echo "初始化系统..."
 python manage.py init_system
 
-# 初始化完成后确保数据目录权限正确（gunicorn 以 www-data 运行）
+# 初始化完成后确保数据目录权限正确（Uvicorn 以 www-data 运行）
 chown -R www-data:www-data /app/data
 
 # 根据参数决定启动模式
@@ -43,6 +44,6 @@ if [ "$1" = "supervisor" ]; then
     echo "启动 supervisor（单容器模式）..."
     exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
 else
-    echo "启动 Django 服务（docker-compose模式）..."
-    exec gunicorn chewy_space.wsgi:application --bind 127.0.0.1:8020 --workers 2 --timeout 120
+    echo "启动 FastAPI 服务（docker-compose模式）..."
+    exec uvicorn chewy_space.asgi:application --host 0.0.0.0 --port 8020 --workers "${WEB_CONCURRENCY:-2}" --no-proxy-headers
 fi

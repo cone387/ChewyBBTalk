@@ -1,5 +1,5 @@
 # ================================
-# 单容器部署：Django + 前端 + Nginx
+# 单容器部署：FastAPI + 前端 + Nginx
 # ================================
 # Quickstart:
 #   docker run -d -p 4010:4010 -v bbtalk_data:/app/data ghcr.io/cone387/chewybbtalk
@@ -74,9 +74,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     supervisor \
     && rm -rf /var/lib/apt/lists/*
-
-# 安装gunicorn
-RUN pip install --no-cache-dir gunicorn
 
 # 复制后端依赖和代码
 COPY --from=backend-builder /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages

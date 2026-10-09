@@ -36,7 +36,7 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen
 
-      - name: Run Django tests
+      - name: Run business and FastAPI HTTP contract tests
         run: |
           uv run coverage run chewy_space/manage.py test bbtalk
           uv run coverage json

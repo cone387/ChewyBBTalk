@@ -1,4 +1,4 @@
-"""Loopback-only Django server with disposable data for browser regression tests."""
+"""Loopback-only FastAPI server with disposable data for browser regression tests."""
 import os
 from pathlib import Path
 import signal
@@ -34,7 +34,9 @@ def main():
         call_command("migrate", interactive=False, verbosity=0)
         signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
         try:
-            call_command("runserver", "127.0.0.1:18020", use_reloader=False)
+            import uvicorn
+            uvicorn.run("chewy_space.asgi:application", host="127.0.0.1", port=18020,
+                        proxy_headers=False)
         finally:
             from django.db import connections
             connections.close_all()

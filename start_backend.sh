@@ -2,7 +2,7 @@
 
 ###############################################################
 #                  ChewyBBTalk 后端本地启动脚本                #
-#              一键启动本地开发环境的 Django 后端              #
+#              一键启动本地开发环境的 FastAPI 后端             #
 ###############################################################
 
 set -e
@@ -19,7 +19,7 @@ BACKEND_DIR="backend"
 MANAGE_PY="$BACKEND_DIR/chewy_space/manage.py"
 DEFAULT_HOST="0.0.0.0"
 DEFAULT_PORT="8020"
-SCRIPT_NAME="manage.py runserver"
+SCRIPT_NAME="uvicorn chewy_space.asgi:application"
 
 # 环境参数（从命令行参数获取，默认为 dev）
 ENV="${1:-dev}"
@@ -81,7 +81,7 @@ kill_old_process() {
     # 方式2: 通过进程名查找
     DJANGO_PIDS=$(pgrep -f "$SCRIPT_NAME" 2>/dev/null || true)
     if [ -n "$DJANGO_PIDS" ]; then
-        log_info "发现 Django 进程 (PIDs: $(echo $DJANGO_PIDS | tr '\n' ' '))，正在停止..."
+        log_info "发现 FastAPI 进程 (PIDs: $(echo $DJANGO_PIDS | tr '\n' ' '))，正在停止..."
         echo "$DJANGO_PIDS" | xargs kill 2>/dev/null || true
         sleep 1
         
@@ -176,7 +176,7 @@ collect_static() {
 
 # 启动后端服务
 start_backend() {
-    log_step "启动 Django 后端服务..."
+    log_step "启动 FastAPI 后端服务..."
     
     cd $BACKEND_DIR
     
@@ -184,8 +184,8 @@ start_backend() {
     log_info "按 Ctrl+C 停止服务"
     echo ""
     
-    # 使用 uv run 启动 Django 开发服务器
-    uv run --no-sync python chewy_space/manage.py runserver $FINAL_HOST:$FINAL_PORT &
+    # 使用 Uvicorn 启动 FastAPI；关闭代理 IP 重写以保留认证限流语义。
+    uv run --no-sync uvicorn chewy_space.asgi:application --app-dir chewy_space --host "$FINAL_HOST" --port "$FINAL_PORT" --reload --no-proxy-headers &
     BACKEND_PID=$!
     
     cd - > /dev/null

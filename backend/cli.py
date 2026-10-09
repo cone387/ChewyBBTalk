@@ -28,7 +28,10 @@ def _manage(args: list[str]):
     execute_from_command_line(["manage.py"] + args)
 
 def dev():
-    _manage(["runserver", "0.0.0.0:8020"])
+    _setup()
+    import uvicorn
+    uvicorn.run("chewy_space.asgi:application", host=os.getenv("BACKEND_HOST", "0.0.0.0"),
+                port=int(os.getenv("BACKEND_PORT", "8020")), reload=True, proxy_headers=False)
 
 def migrate():
     _manage(["migrate"])

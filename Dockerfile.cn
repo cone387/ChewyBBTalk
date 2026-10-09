@@ -1,5 +1,5 @@
 # ================================
-# 单容器部署：Django + 前端 + Nginx (中国优化版)
+# 单容器部署：FastAPI + 前端 + Nginx (中国优化版)
 # ================================
 # 快速启动:
 #   docker build -f Dockerfile.cn -t chewybbtalk .
@@ -81,9 +81,6 @@ RUN sed -i 's/deb.debian.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.li
     curl \
     supervisor \
     && rm -rf /var/lib/apt/lists/*
-
-# 使用清华 PyPI 镜像安装 gunicorn
-RUN pip install --no-cache-dir -i https://pypi.tuna.tsinghua.edu.cn/simple gunicorn
 
 # 复制后端依赖和代码
 COPY --from=backend-builder /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages

@@ -188,7 +188,7 @@ startApp({
 - Tailwind CSS 样式
 
 **后端**
-- Django 5.2 + Django REST Framework
+- FastAPI + Uvicorn（保留 Django ORM、管理后台及 DRF 业务兼容层）
 - SQLite（默认）/ PostgreSQL / MySQL
 - chewy-attachment 附件管理
 - JWT 认证
@@ -222,7 +222,7 @@ ChewyBBTalk/
 │   │   ├── store/           # Redux 状态管理
 │   │   └── types/           # TypeScript 类型
 │   └── Dockerfile
-├── backend/                 # Django 后端 API
+├── backend/                 # FastAPI 后端 API
 │   ├── chewy_space/
 │   │   ├── bbtalk/          # 碎碎念模块
 │   │   └── chewy_space/     # Django 配置
@@ -241,9 +241,8 @@ ChewyBBTalk/
    ```bash
    cd backend
    uv sync  # 安装依赖
-   cd chewy_space
-   uv run python manage.py migrate  # 数据库迁移
-   uv run python manage.py runserver 0.0.0.0:8020
+   uv run python chewy_space/manage.py migrate  # 数据库迁移
+   uv run dev  # FastAPI + Uvicorn，默认 0.0.0.0:8020
    ```
 
 2. **前端开发**:
@@ -255,7 +254,7 @@ ChewyBBTalk/
 
 ### Web 浏览器回归
 
-在 `frontend/` 运行 `npm run test:e2e`，会自动启动临时 Django 数据库和 Web，覆盖桌面及小屏的登录、记录编辑、搜索与删除撤销。安装与报告说明见 [frontend/e2e/README.md](frontend/e2e/README.md)。
+在 `frontend/` 运行 `npm run test:e2e`，会自动启动使用临时数据库的 FastAPI 和 Web，覆盖桌面及小屏的登录、记录编辑、搜索与删除撤销。安装与报告说明见 [frontend/e2e/README.md](frontend/e2e/README.md)。
 
 ## 📋 API 端点
 
@@ -317,7 +316,8 @@ MIT License - 查看 [LICENSE](LICENSE) 文件了解详情
 
 ## 🙏 致谢
 
-- [Django](https://www.djangoproject.com/) - Web 框架
+- [FastAPI](https://fastapi.tiangolo.com/) - HTTP/API 框架
+- [Django](https://www.djangoproject.com/) - ORM、管理后台及业务兼容层
 - [React](https://reactjs.org/) - 前端框架
 - [chewy-attachment](https://github.com/cone387/ChewyAttachment) - 附件管理
 - 所有贡献者和开源项目的支持！
