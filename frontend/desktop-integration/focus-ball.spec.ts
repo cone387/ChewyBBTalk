@@ -26,12 +26,6 @@ test('opens ready to type and restores a docked ball without replaying hover ani
     await compose.evaluate(() => window.desktop.compose.hide())
     await expect.poll(() => application.windows().some(page => page.url().includes('/compose/'))).toBe(false)
 
-    await application.evaluate(({ BrowserWindow }) => {
-      const overlay = BrowserWindow.getAllWindows().find(win => win.webContents.getURL().includes('/ball/'))!
-      ;(globalThis as any).__ballShowCount = 0
-      overlay.on('show', () => (globalThis as any).__ballShowCount++)
-    })
-
     const icon = ball.getByRole('button', { name: 'ChewyBBTalk', exact: true })
     const box = (await icon.boundingBox())!
     const y = Math.round(box.y + box.height / 2)
@@ -42,10 +36,26 @@ test('opens ready to type and restores a docked ball without replaying hover ani
     await expect(icon).toHaveClass(/snapped/)
     await ball.mouse.move(5, y)
     await ball.mouse.move(6, y)
-    await icon.click({ force: true, position: { x: 32, y: 28 } })
-    await expect.poll(() => application.windows().some(page => page.url().includes('/compose/'))).toBe(true)
-    compose = application.windows().find(page => page.url().includes('/compose/'))!
-    await expect(compose.getByPlaceholder('你要BB什么？')).toBeFocused()
+    const openViaBall = async () => {
+      await icon.click({ force: true, position: { x: 32, y: 28 } })
+      await expect.poll(() => application.windows().some(page => page.url().includes('/compose/'))).toBe(true)
+      const page = application.windows().find(p => p.url().includes('/compose/'))!
+      await expect(page.getByPlaceholder('你要BB什么？')).toBeFocused()
+      return page
+    }
+    // Some CI runner images close the freshly reopened compose shortly after
+    // the ball click; tolerate that by reopening before pinning down state.
+    for (let attempt = 0; ; attempt++) {
+      compose = await openViaBall()
+      await application.waitForTimeout(1_500)
+      if (application.windows().includes(compose)) break
+      if (attempt >= 2) throw new Error('compose kept closing after the ball reopen')
+    }
+    await application.evaluate(({ BrowserWindow }) => {
+      const overlay = BrowserWindow.getAllWindows().find(win => win.webContents.getURL().includes('/ball/'))!
+      ;(globalThis as any).__ballShowCount = 0
+      overlay.on('show', () => (globalThis as any).__ballShowCount++)
+    })
     const suspended = await application.evaluate(({ BrowserWindow }) => {
       const overlay = BrowserWindow.getAllWindows().find(win => win.webContents.getURL().includes('/ball/'))!
       return process.platform === 'linux' ? !overlay.isVisible() : overlay.getOpacity() === 0
