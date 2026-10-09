@@ -12,7 +12,7 @@ const pythonMetrics = summary => ({
   lines: percent(summary.covered_lines, summary.num_statements),
   branches: percent(summary.covered_branches, summary.num_branches),
 });
-const jsMetrics = summary => Object.fromEntries(['lines', 'branches'].map(key => [key, summary[key]?.pct]));
+const jsMetrics = summary => Object.fromEntries(['lines', 'branches', 'functions'].map(key => [key, summary[key]?.pct]));
 
 function check(label, actual, minimum) {
   for (const [metric, floor] of Object.entries(minimum)) {
@@ -21,7 +21,7 @@ function check(label, actual, minimum) {
       failures.push(`${label}: ${metric} ${value ?? 'missing'}% is below ${floor}%`);
     }
   }
-  console.log(`${label}: lines ${actual.lines?.toFixed(2)}%, branches ${actual.branches?.toFixed(2)}%`);
+  console.log(`${label}: ${Object.entries(actual).map(([metric, value]) => `${metric} ${typeof value === 'number' ? value.toFixed(2) : 'missing'}%`).join(', ')}`);
 }
 
 for (const part of parts) {

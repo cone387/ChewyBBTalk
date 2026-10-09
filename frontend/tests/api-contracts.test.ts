@@ -74,3 +74,42 @@ it('preserves null local storage targets and propagates migration failures', asy
   await expect(settingsApi.migrationExecute(7)).rejects.toThrow('target unavailable')
   expect(apiClient.post).toHaveBeenLastCalledWith('/api/v1/bbtalk/storage/migration/execute/', { target_config_id: 7 })
 })
+
+const storagePayload = { name: 'archive', storage_type: 's3' as const, s3_bucket_name: 'photos' }
+const storageRequests = [
+  { name: 'list', call: () => settingsApi.listStorageSettings(), method: 'get', args: ['/api/v1/bbtalk/settings/storage/'] },
+  { name: 'active', call: () => settingsApi.getActiveStorageSettings(), method: 'get', args: ['/api/v1/bbtalk/settings/storage/active/'] },
+  { name: 'create', call: () => settingsApi.createStorageSettings(storagePayload), method: 'post', args: ['/api/v1/bbtalk/settings/storage/create/', storagePayload] },
+  { name: 'update', call: () => settingsApi.updateStorageSettings(7, storagePayload), method: 'patch', args: ['/api/v1/bbtalk/settings/storage/7/', storagePayload] },
+  { name: 'delete', call: () => settingsApi.deleteStorageSettings(7), method: 'delete', args: ['/api/v1/bbtalk/settings/storage/7/delete/'] },
+  { name: 'activate', call: () => settingsApi.activateStorageSettings(7), method: 'post', args: ['/api/v1/bbtalk/settings/storage/7/activate/'] },
+  { name: 'deactivate all', call: () => settingsApi.deactivateAllStorage(), method: 'post', args: ['/api/v1/bbtalk/settings/storage/deactivate-all/'] },
+  { name: 'test active', call: () => settingsApi.testStorageConnection(), method: 'post', args: ['/api/v1/bbtalk/settings/storage/test/'] },
+  { name: 'test selected', call: () => settingsApi.testStorageConnectionById(7), method: 'post', args: ['/api/v1/bbtalk/settings/storage/7/test/'] },
+] as const
+
+it.each(storageRequests)('sends the storage $name contract and preserves responses', async ({ call, method, args }) => {
+  const response = { id: 7, name: 'archive', success: true }
+  vi.mocked(apiClient[method]).mockResolvedValue(response)
+  expect(await call()).toBe(response)
+  expect(apiClient[method]).toHaveBeenCalledExactlyOnceWith(...args)
+})
+
+it.each(storageRequests)('propagates storage $name failures without reporting success', async ({ call, method }) => {
+  const error = new Error('storage unavailable')
+  vi.mocked(apiClient[method]).mockRejectedValue(error)
+  await expect(call()).rejects.toBe(error)
+})
+
+it.each([
+  { name: 'list', call: () => backupApi.list(), method: 'get' },
+  { name: 'create', call: () => backupApi.create(), method: 'post' },
+] as const)('sends the backup $name contract and propagates errors', async ({ call, method }) => {
+  const response = { items: [], latest: { status: 'running' } }
+  vi.mocked(apiClient[method]).mockResolvedValueOnce(response)
+  expect(await call()).toBe(response)
+  expect(apiClient[method]).toHaveBeenCalledExactlyOnceWith('/api/v1/bbtalk/data/backups/')
+  const error = new Error('backup unavailable')
+  vi.mocked(apiClient[method]).mockRejectedValueOnce(error)
+  await expect(call()).rejects.toBe(error)
+})

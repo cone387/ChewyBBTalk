@@ -3,7 +3,8 @@
     "report": "mobile/coverage/unit/coverage-summary.json",
     "minimum": {
       "lines": 99,
-      "branches": 93
+      "branches": 93,
+      "functions": 95
     },
     "files": {
       "screens/ThemeSettingsScreen.tsx": {
@@ -292,7 +293,8 @@
     "report": "frontend/coverage/coverage-summary.json",
     "minimum": {
       "lines": 95,
-      "branches": 91
+      "branches": 91,
+      "functions": 85
     },
     "files": {
       "services/mediaApi.ts": {
@@ -398,6 +400,21 @@
       "pages/SettingsPage.tsx": {
         "lines": 99,
         "branches": 93
+      },
+      "components/AuthenticatedMedia.tsx": {
+        "lines": 95,
+        "branches": 90,
+        "functions": 100
+      },
+      "services/api/settingsApi.ts": {
+        "lines": 100,
+        "branches": 100,
+        "functions": 100
+      },
+      "services/api/backupApi.ts": {
+        "lines": 100,
+        "branches": 100,
+        "functions": 100
       }
     }
   },
@@ -405,7 +422,8 @@
     "report": "desktop/coverage/coverage-summary.json",
     "minimum": {
       "lines": 98,
-      "branches": 89
+      "branches": 89,
+      "functions": 97
     },
     "files": {
       "main/auth.ts": {
@@ -511,6 +529,11 @@
       "main/hotkey.ts": {
         "lines": 99,
         "branches": 95
+      },
+      "main/browserAuth.ts": {
+        "lines": 99,
+        "branches": 90,
+        "functions": 100
       }
     }
   },

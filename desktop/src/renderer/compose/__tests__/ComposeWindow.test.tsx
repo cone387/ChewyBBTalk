@@ -63,10 +63,14 @@ let client: typeof import('react-dom/client');
 let root: import('react-dom/client').Root;
 
 beforeEach(async () => {
+  vi.useFakeTimers();
   dom = installMiniDom();
   react = await import('react');
   client = await import('react-dom/client');
   vi.clearAllMocks();
+  // Restore persistent implementations changed by error/recovery scenarios.
+  desktop.compose.saveDraft.mockReset().mockResolvedValue();
+  desktop.compose.recoverSubmission.mockReset().mockImplementation(() => Promise.resolve(state.recoverResult ?? { key: 'k1', payload: defaultPayload, state: 'confirmed' as const }));
   state.snapshot = { session: { scope: 'user:1', generation: 1 } };
   state.draft = '';
   state.uploads = [];
@@ -88,12 +92,13 @@ afterEach(async () => {
   if (root) await act(() => root.unmount());
   root = undefined as unknown as import('react-dom/client').Root;
   dom.restore();
+  vi.useRealTimers();
 });
 
-async function act(fn: () => void) {
+async function act(fn: () => unknown | Promise<unknown>) {
   const { act: run } = await import('react');
   let error: unknown;
-  await run(async () => { try { fn(); } catch (e) { error = e; } });
+  await run(async () => { try { await fn(); } catch (e) { error = e; } });
   if (error) throw error;
 }
 
@@ -116,11 +121,9 @@ const q = (selector: string) => dom.document.querySelectorAll(selector);
 const text = (selector: string) => q(selector).map(el => el.textContent).join('|');
 const click = async (el: any) => { await act(() => dom.dispatch(el, { type: 'click' })); await act(async () => {}); };
 
-/** Flush effects inside act, let real 0ms timers fire outside act, then settle again. */
+/** Flush debounced draft writes and their promise continuations inside act. */
 async function settle() {
-  await act(async () => {});
-  await new Promise(resolve => setTimeout(resolve, 25));
-  await act(async () => {});
+  await act(() => vi.advanceTimersByTimeAsync(25));
 }
 
 async function type(textarea: any, value: string) {
@@ -425,7 +428,7 @@ it('retries the original submission through the recovery panel', async () => {
 it('saves the draft on close after uploads settle', async () => {
   await mount();
   await type(textarea(), 'before close');
-  state.beforeCloseListeners.forEach(fn => { void fn(); });
+  await act(() => Promise.all(state.beforeCloseListeners.map(fn => fn())));
   await settle();
   expect(desktop.compose.saveDraft).toHaveBeenCalledWith('before close', { scope: 'user:1', generation: 1 });
 });

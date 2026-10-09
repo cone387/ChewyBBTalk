@@ -29,11 +29,6 @@ async function mountRoot() {
   return root;
 }
 
-async function flushRender() {
-  const { act } = await import('react');
-  await act(async () => {});
-}
-
 it.each([
   ['../compose/main', 'compose-entry-marker'],
   ['../ball/main', 'ball-entry-marker'],
@@ -41,8 +36,8 @@ it.each([
   ['../settings/main', 'settings-entry-marker'],
 ] as const)('%s renders its window into #root', async (entry, marker) => {
   const root = await mountRoot();
-  await import(entry);
-  await flushRender();
+  const { act } = await import('react');
+  await act(async () => { await import(entry); });
   expect(root.textContent).toContain(marker);
 });
 

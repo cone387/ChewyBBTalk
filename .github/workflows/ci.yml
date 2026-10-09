@@ -60,6 +60,40 @@ jobs:
           path: backend/coverage/
           retention-days: 14
 
+  backend-postgres:
+    name: Backend PostgreSQL concurrency
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: bbtalk_test
+          POSTGRES_PASSWORD: bbtalk_test
+          POSTGRES_DB: bbtalk_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U bbtalk_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://bbtalk_test:bbtalk_test@127.0.0.1:5432/bbtalk_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: '0.11.7'
+      - run: uv sync --frozen
+      - name: Verify durable submissions and conditional edits with real row locks
+        run: uv run python chewy_space/manage.py test bbtalk.test_submission --noinput
+
   mobile:
     name: Mobile tests and types
     runs-on: ubuntu-latest
@@ -162,6 +196,9 @@ jobs:
 
       - name: Web regression tests
         run: npm run test:coverage
+
+      - name: Coverage gate regression tests
+        run: node --test ../scripts/tests/check-coverage.test.mjs
 
       - name: Check Web coverage baseline
         run: node ../scripts/check-coverage.mjs frontend

@@ -2,7 +2,7 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
 from unittest.mock import patch
 
-from django.db import close_old_connections
+from django.db import close_old_connections, connection
 from django.test import TransactionTestCase
 from rest_framework.test import APIClient
 
@@ -83,10 +83,13 @@ class SubmissionTests(TransactionTestCase):
             second = pool.submit(worker)
             statuses = [first.result(timeout=10), second.result(timeout=10)]
         self.assertTrue(all(code in (200, 201, 503) for code in statuses), statuses)
+        if connection.vendor == 'postgresql':
+            self.assertCountEqual(statuses, [201, 200])
         # SQLite may reject either writer; retrying the same key is safe.
         self.assertIn(self.submit().status_code, (200, 201))
         self.assertEqual(BBTalk.objects.count(), 1)
         self.assertEqual(SubmissionReceipt.objects.count(), 1)
+        self.assertEqual(Tag.objects.count(), 1)
 
     def test_key_validation_and_legacy_clients(self):
         self.assertEqual(self.submit(key='bad').status_code, 400)
@@ -123,6 +126,36 @@ class SubmissionTests(TransactionTestCase):
             statuses = [a.result(timeout=10), b.result(timeout=10)]
         self.assertTrue(all(code in (200, 409, 503) for code in statuses), statuses)
         self.assertLessEqual(statuses.count(200), 1)
+        if connection.vendor == 'postgresql':
+            self.assertCountEqual(statuses, [200, 409])
+
+        path = f"/api/v1/bbtalk/{record['uid']}/"
+        # SQLite may reject both writers. Once contention is gone, the same
+        # version must permit one write; a test accepting only 503s is not enough.
+        contents = ['edit A', 'edit B']
+        if 200 not in statuses:
+            retry = self.client.patch(path, {'content': contents[0]}, format='json',
+                                      HTTP_IF_MATCH=record['update_time'])
+            self.assertEqual(retry.status_code, 200)
+            winner = contents[0]
+        else:
+            winner = contents[statuses.index(200)]
+        current = self.client.get(path)
+        self.assertEqual(current.status_code, 200)
+        self.assertEqual(current.data['content'], winner)
+        self.assertNotEqual(current.data['update_time'], record['update_time'])
+
+        stale = self.client.patch(path, {'content': 'stale retry'}, format='json',
+                                 HTTP_IF_MATCH=record['update_time'])
+        self.assertEqual(stale.status_code, 409)
+        self.assertEqual(stale.data['current']['content'], winner)
+        self.assertEqual(BBTalk.objects.get(uid=record['uid']).content, winner)
+
+        saved = self.client.patch(path, {'content': 'reviewed edit'}, format='json',
+                                 HTTP_IF_MATCH=current.data['update_time'])
+        self.assertEqual(saved.status_code, 200)
+        self.assertNotEqual(saved.data['update_time'], current.data['update_time'])
+        self.assertEqual(BBTalk.objects.get(uid=record['uid']).content, 'reviewed edit')
 
     def test_conditional_update_rejects_stale_versions_and_preserves_content(self):
         first = self.submit().data
