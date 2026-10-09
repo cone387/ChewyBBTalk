@@ -384,10 +384,42 @@
   "desktop": {
     "report": "desktop/coverage/coverage-summary.json",
     "minimum": {
-      "lines": 95,
-      "branches": 88
+      "lines": 98,
+      "branches": 89
     },
     "files": {
+      "main/auth.ts": {
+        "lines": 99,
+        "branches": 80
+      },
+      "main/ipc/composeIpc.ts": {
+        "lines": 99,
+        "branches": 99
+      },
+      "main/tray.ts": {
+        "lines": 99,
+        "branches": 99
+      },
+      "main/icons.ts": {
+        "lines": 99,
+        "branches": 80
+      },
+      "renderer/compose/main.tsx": {
+        "lines": 99,
+        "branches": 99
+      },
+      "renderer/ball/main.tsx": {
+        "lines": 99,
+        "branches": 99
+      },
+      "renderer/login/main.tsx": {
+        "lines": 99,
+        "branches": 99
+      },
+      "renderer/settings/main.tsx": {
+        "lines": 99,
+        "branches": 99
+      },
       "main/uploads.ts": {
         "lines": 99,
         "branches": 85

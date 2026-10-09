@@ -261,6 +261,17 @@ export class FakeDocument extends FakeNode {
   removeEventListener(type: string, listener: Listener) { this.events.removeEventListener(type, listener); }
   listenersFor(type: string, capture: boolean) { return this.events.listenersFor(type, capture); }
   querySelectorAll(selector: string): FakeElement[] { return this.body.querySelectorAll(selector); }
+  getElementById(id: string): FakeElement | null {
+    const visit = (node: FakeNode): FakeElement | null => {
+      for (const child of node.children) {
+        if (child instanceof FakeElement && child.attributes.get('id') === id) return child;
+        const found = visit(child);
+        if (found) return found;
+      }
+      return null;
+    };
+    return visit(this.body);
+  }
   createElement(tag: string) { return new FakeElement(this, tag); }
   createElementNS(_ns: string, tag: string) { const el = new FakeElement(this, tag); el.namespaceURI = 'http://www.w3.org/2000/svg'; return el; }
   createTextNode(value: string) { return new FakeText(this, value); }

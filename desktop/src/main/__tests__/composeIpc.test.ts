@@ -70,3 +70,19 @@ it('uses private visibility and the default server before preferences are config
   expect(call('compose:get-api-url')).toBe('https://bbtalk.cone387.top');
   call('compose:set-visibility', 'public'); expect(call('compose:get-visibility')).toBe('public');
 });
+it('opens and closes the compose, login and settings windows on demand', async () => {
+  call('compose:show', 12, 34);
+  expect(state.show).toHaveBeenCalledWith(12, 34);
+  call('compose:hide');
+  expect(state.hide).toHaveBeenCalledTimes(1);
+  const loginWindow = await import('../windows/loginWindow');
+  const settingsWindow = await import('../windows/settingsWindow');
+  call('login:show');
+  call('login:hide');
+  expect(vi.mocked(loginWindow.showLoginWindow)).toHaveBeenCalledTimes(1);
+  expect(vi.mocked(loginWindow.hideLoginWindow)).toHaveBeenCalledTimes(1);
+  call('settings:show');
+  call('settings:hide');
+  expect(vi.mocked(settingsWindow.showSettingsWindow)).toHaveBeenCalledTimes(1);
+  expect(vi.mocked(settingsWindow.hideSettingsWindow)).toHaveBeenCalledTimes(1);
+});

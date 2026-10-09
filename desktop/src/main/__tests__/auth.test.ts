@@ -130,3 +130,68 @@ it('refreshes once on a 401 and replays the request with the new token', async (
   expect((vi.mocked(fetch).mock.calls[3][1]?.headers as any).Authorization).toBe(`Bearer ${fresh}`);
   auth.logout(); vi.clearAllTimers(); vi.useRealTimers(); vi.unstubAllGlobals();
 });
+
+describe('desktop auth state machine', () => {
+  const userToken = (userId = 42, exp = Math.floor(Date.now() / 1000) + 3600) =>
+    `header.${Buffer.from(JSON.stringify({ exp, user_id: userId })).toString('base64url')}.signature`;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.resetModules();
+    vi.restoreAllMocks();
+    storeState['auth.apiUrl'] = 'https://example.test';
+    storeState.auth = { apiUrl: 'https://example.test', username: '', refreshToken: 'refresh-token' };
+  });
+  afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); vi.unstubAllGlobals(); });
+
+  it('rejects server addresses that are not plain http(s) origins', async () => {
+    const auth = await import('../auth');
+    expect(() => auth.normalizeServer('ftp://example.test')).toThrow('有效的服务器地址');
+    expect(() => auth.normalizeServer('https://example.test/path')).toThrow('有效的服务器地址');
+    expect(() => auth.normalizeServer('https://user:pass@example.test')).toThrow('有效的服务器地址');
+    expect(auth.normalizeServer(' https://example.test/ ')).toBe('https://example.test');
+  });
+
+  it('reports expired after a 401 refresh and offline after a server error refresh', async () => {
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ access: token(), refresh: 'r1' }), { status: 200 }))
+      .mockResolvedValueOnce(new Response('{}', { status: 401 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ access: token(), refresh: 'r2' }), { status: 200 }))
+      .mockResolvedValueOnce(new Response('boom', { status: 500 })));
+    const auth = await import('../auth');
+    expect((await auth.login('alice', 'password')).ok).toBe(true);
+    expect(await auth.refreshAccessToken()).toBe(false);
+    expect(auth.getAuthState().status).toBe('expired');
+    expect(auth.isLoggedIn()).toBe(false);
+    expect((await auth.login('alice', 'password')).ok).toBe(true);
+    expect(await auth.refreshAccessToken()).toBe(false);
+    expect(auth.getAuthState().status).toBe('offline');
+    expect(auth.getAccessToken()).toBeTruthy();
+  });
+
+  it('restores sessions and derives the submission scope from the token user id', async () => {
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ access: userToken(), refresh: 'r1' }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ access: userToken(), refresh: 'r2' }), { status: 200 })));
+    const auth = await import('../auth');
+    expect((await auth.login('alice', 'password')).ok).toBe(true);
+    expect(auth.getSubmissionSession()).toEqual({
+      scope: JSON.stringify(['https://example.test', '42']),
+      generation: auth.getSessionGeneration(),
+      apiUrl: 'https://example.test',
+    });
+    expect(await auth.tryRestoreSession()).toBe(true);
+    auth.logout();
+    expect(auth.getSubmissionSession()).toBeNull();
+  });
+
+  it('marks the session offline and rethrows when the request fails at the network level', async () => {
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ access: token(), refresh: 'r1' }), { status: 200 }))
+      .mockRejectedValueOnce(new Error('network down')));
+    const auth = await import('../auth');
+    expect((await auth.login('alice', 'password')).ok).toBe(true);
+    await expect(auth.authenticatedFetch('/api/v1/bbtalk/')).rejects.toThrow('network down');
+    expect(auth.getAuthState().status).toBe('offline');
+  });
+});
