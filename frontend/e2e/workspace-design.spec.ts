@@ -24,6 +24,7 @@ test('workspace navigation stays consistent and S3 uses an accessible shared dia
   await expect(page.locator('.bbtalk-item')).toHaveCount(4)
   await page.screenshot({ path: info.outputPath('workspace.png'), fullPage: true })
   const sidebar = page.getByRole('complementary', { name: '桌面侧栏' })
+  if (info.project.name === 'desktop') await sidebar.getByRole('button', { name: '账户与设置' }).click()
   for (const [label, path, title] of [
     ['设置', '/settings', '设置'], ['隐私', '/settings/privacy', '防窥设置'],
     ['存储', '/settings/storage', '存储设置'], ['数据', '/settings/data', '数据管理'],

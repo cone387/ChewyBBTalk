@@ -1,4 +1,3 @@
-import WorkspaceSidebar from '../components/layout/WorkspaceSidebar'
 import { useActionFeedback } from '../hooks/useActionFeedback'
 import { useUndoableDelete } from '../hooks/useUndoableDelete'
 import { useCallback, useEffect, useState, useRef } from 'react'
@@ -76,7 +75,7 @@ function SortableTagItem({
         title={tag.name}
         className={`tag-filter-button min-h-11 min-w-0 flex-1 gap-2 text-left px-3 py-2 rounded-lg transition-colors text-sm flex items-center justify-between ${
           isSelected
-            ? 'bg-blue-50 text-blue-700 font-medium'
+            ? 'bg-gray-100 text-gray-900 font-medium'
             : 'text-gray-600 hover:bg-gray-200/60 hover:text-gray-900'
         }`}
       >
@@ -467,31 +466,51 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
         </div>
       </header>
       <div className="feed-workspace">
-          <WorkspaceSidebar active="/" isPublic={isPublic} footer={
-                !isPublic ? <button type="button" onClick={() => navigate('/settings')} aria-label="账户与设置" title={currentUser?.display_name || currentUser?.username}
-                  className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-3 text-left hover:bg-gray-100">
-                  <span className="min-w-0 truncate text-sm font-medium text-gray-900">{currentUser?.display_name || currentUser?.username || '账户'}</span>
-                  <span className="shrink-0 text-sm text-gray-500">设置</span>
-                </button> : <button type="button" onClick={handleLogin} className="min-h-11 w-full rounded-lg text-sm text-blue-700 hover:bg-blue-50">登录</button>
-          }>
-            <div className="workspace-search">
-                <label className="relative block text-sm text-gray-600">
-                  <span className="sr-only">搜索</span>
+          <aside aria-label="桌面侧栏" className="classic-feed-sidebar">
+            <div className="classic-feed-search">
+              <label className="block text-sm font-medium text-gray-600">
+                <span className="mb-2 block">搜索</span>
+                <span className="relative block">
                   <svg aria-hidden="true" className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeWidth="1.7" d="m21 21-5-5m2-6a7 7 0 11-14 0 7 7 0 0114 0Z" /></svg>
                   <input type="search" placeholder="搜索 BBTalk..." value={searchKeyword}
                     onChange={event => setSearchKeyword(event.target.value)}
-                    className="feed-field min-h-11 w-full rounded-lg pl-9 pr-3 text-sm text-gray-800" />
-                </label>
+                    className="classic-search-input min-h-11 w-full rounded-xl py-2 pl-9 pr-3 text-sm text-gray-800" />
+                </span>
+              </label>
             </div>
-          </WorkspaceSidebar>
+          <section aria-label="标签列表" className="feed-tags-panel">
+            <div className="feed-tags-heading">
+                <h2 className="mb-3 flex items-center gap-2 text-sm font-medium text-gray-600"><span aria-hidden="true" className="h-2.5 w-2.5 rounded bg-orange-400" />标签</h2>
+                <button type="button" onClick={() => setSelectedTags([])} aria-pressed={selectedTags.length === 0}
+                  className={`mb-2 flex min-h-11 w-full items-center justify-between rounded-lg px-3 text-sm ${selectedTags.length === 0 ? 'bg-gray-100 font-medium text-gray-900' : 'text-gray-700 hover:bg-gray-100'}`}>
+                  <span>全部标签</span><span className="text-xs text-gray-400">{totalCount}</span>
+                </button>
+            </div>
+            <div className="feed-tags-scroll subtle-scrollbar">
+                {tags.length === 0 ? <p className="px-3 py-2 text-sm text-gray-500">暂无标签</p> :
+                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                    <SortableContext items={tags.map(tag => tag.id)} strategy={verticalListSortingStrategy}>
+                      <div className="space-y-1">{tags.map(tag => <SortableTagItem key={tag.id} tag={tag}
+                        isSelected={selectedTags.includes(tag.id)} count={tag.bbtalkCount || 0} onClick={() => toggleTag(tag.id)} />)}</div>
+                    </SortableContext>
+                  </DndContext>}
+            </div>
+          </section>
+            <div className="classic-feed-account">
+              {!isPublic ? <button type="button" onClick={() => navigate('/settings')} aria-label="账户与设置" title={currentUser?.display_name || currentUser?.username}
+                className="flex min-h-11 w-full items-center gap-3 rounded-lg text-left">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-blue-700">
+                  {currentUser?.avatar ? <img src={currentUser.avatar} alt="" className="h-full w-full object-cover" /> : (currentUser?.display_name || currentUser?.username || 'B').slice(0, 1)}
+                </span>
+                <span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium text-gray-900">{currentUser?.display_name || currentUser?.username || '账户'}</span><span className="block truncate text-xs text-gray-500">@{currentUser?.username}</span></span>
+                <span className="text-sm text-gray-500">设置</span>
+              </button> : <button type="button" onClick={handleLogin} className="min-h-11 w-full text-sm text-blue-700">登录</button>}
+            </div>
+          </aside>
           {/* 居中的内容流 */}
           <div ref={containerRef} role="main" aria-label="记录列表" className="feed-scroll">
             {/* 滚动内容区 */}
             <div className="feed-column">
-              <div className="feed-heading">
-                <h1>{activeFilters.length > 0 ? '筛选结果' : isPublic ? '公开记录' : '全部记录'}</h1>
-                {activeFilters.length === 0 && <span className="feed-record-count">{totalCount} 条记录</span>}
-              </div>
               <div className="mb-4 flex items-center gap-2 lg:hidden">
                 <div className="relative min-w-0 flex-1">
                   <input type="search" aria-label="搜索记录" placeholder="搜索 BBTalk..." value={searchKeyword}
@@ -632,24 +651,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
           </div>
           </div>
         </div>
-          <aside aria-label="标签列表" className="feed-tags-panel">
-            <div className="feed-tags-heading">
-                <div className="mb-5 flex items-center justify-between px-2"><h2 className="text-sm font-semibold text-gray-800">标签</h2><span className="text-xs tabular-nums text-gray-500">{tags.length}</span></div>
-                <button type="button" onClick={() => setSelectedTags([])} aria-pressed={selectedTags.length === 0}
-                  className={`mb-2 flex min-h-11 w-full items-center justify-between rounded-lg px-3 text-sm ${selectedTags.length === 0 ? 'bg-gray-100 font-medium text-gray-900' : 'text-gray-700 hover:bg-gray-100'}`}>
-                  <span>全部标签</span><span className="text-xs text-gray-400">{totalCount}</span>
-                </button>
-            </div>
-            <div className="feed-tags-scroll subtle-scrollbar">
-                {tags.length === 0 ? <p className="px-3 py-2 text-sm text-gray-500">暂无标签</p> :
-                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                    <SortableContext items={tags.map(tag => tag.id)} strategy={verticalListSortingStrategy}>
-                      <div className="space-y-1">{tags.map(tag => <SortableTagItem key={tag.id} tag={tag}
-                        isSelected={selectedTags.includes(tag.id)} count={tag.bbtalkCount || 0} onClick={() => toggleTag(tag.id)} />)}</div>
-                    </SortableContext>
-                  </DndContext>}
-            </div>
-          </aside>
+
       </div>
       
       {/* 防偷窥倒计时按钮（状态隔离，消除全局重渲染） */}

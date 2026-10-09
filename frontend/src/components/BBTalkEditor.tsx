@@ -683,7 +683,7 @@ function BBTalkEditorContent({ onPublish, isPublishing = false, editing = null, 
   return (
     <div
       ref={editorContainerRef}
-      className={`bbtalk-composer relative rounded-xl bg-white ${isDragOver ? 'bbtalk-composer--dragging' : ''}`}
+      className={`bbtalk-composer relative rounded-lg bg-white ${isDragOver ? 'bbtalk-composer--dragging' : ''}`}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}
@@ -747,7 +747,7 @@ function BBTalkEditorContent({ onPublish, isPublishing = false, editing = null, 
             setContent((e.target as HTMLTextAreaElement).value)
           }}
           placeholder="你要BB什么？"
-          className="bbtalk-composer__input block w-full min-h-[96px] max-h-[400px] resize-none rounded-lg border-0 bg-transparent px-2 py-2 text-gray-800 placeholder-gray-400 text-base leading-7"
+          className="bbtalk-composer__input block w-full min-h-[56px] max-h-[400px] resize-none rounded-lg border-0 bg-transparent px-2 py-2 text-gray-800 placeholder-gray-400 text-base leading-7"
           style={{ overflowY: 'auto' }}
           aria-label="记录内容"
           rows={2}

@@ -29,17 +29,19 @@ test('desktop keeps its sidebar and authenticated login visits return to the fee
       await expect(sidebar.getByRole('button', { name: '账户与设置' })).toBeVisible()
       const editor = await page.getByLabel('记录内容').boundingBox()
       const side = await sidebar.boundingBox()
-      const tags = page.getByRole('complementary', { name: '标签列表' })
+      const tags = sidebar.getByRole('region', { name: '标签列表' })
       await expect(tags).toBeVisible()
       const tagBox = await tags.boundingBox()
-      expect(tagBox!.x).toBeGreaterThan(editor!.x + editor!.width)
-      expect(tagBox!.height).toBeGreaterThan(800)
+      expect(tagBox!.x + tagBox!.width).toBeLessThan(editor!.x)
+      expect(side!.width).toBe(256)
+      expect(tagBox!.height).toBeGreaterThan(600)
       await expect(tags.locator('.tag-list-row')).toHaveCount(40)
       const visibleRows = await tags.locator('.tag-list-row').evaluateAll(rows => rows.filter(row => {
         const bounds = row.getBoundingClientRect()
         return bounds.top >= 0 && bounds.bottom <= innerHeight
       }).length)
-      expect(visibleRows).toBeGreaterThanOrEqual(14)
+      // Touch devices keep taller targets within the restored inset sidebar.
+      expect(visibleRows).toBeGreaterThanOrEqual(12)
       const scroll = tags.locator('.feed-tags-scroll')
       expect(await scroll.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
       await tags.locator('.tag-list-row').last().getByRole('button').first().focus()
@@ -51,7 +53,7 @@ test('desktop keeps its sidebar and authenticated login visits return to the fee
       await expect(page.getByRole('navigation', { name: '移动导航' })).toBeHidden()
     } else {
       await expect(sidebar).toBeHidden()
-      await expect(page.getByRole('complementary', { name: '标签列表' })).toBeHidden()
+      await expect(page.getByRole('region', { name: '标签列表' })).toBeHidden()
       await expect(page.getByRole('navigation', { name: '移动导航' })).toBeVisible()
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)

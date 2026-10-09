@@ -326,7 +326,7 @@ const BBTalkItem: React.FC<BBTalkItemProps> = React.memo(function BBTalkItem({
   })
 
   return (
-    <div data-record-id={bbtalk.id} className="feed-surface bg-white rounded-xl relative bbtalk-item group">
+    <div data-record-id={bbtalk.id} className="feed-surface bg-white rounded-2xl relative bbtalk-item group">
       {shareFeedback.feedback}
       <div className="p-5 sm:p-6">
         {/* 右上角更多操作菜单 */}
@@ -389,18 +389,6 @@ const BBTalkItem: React.FC<BBTalkItemProps> = React.memo(function BBTalkItem({
         </div>
 
         {/* 内容 Markdown */}
-        <div className="record-timestamp mb-3 pr-10 text-xs">
-            <span className="text-gray-500 relative group/time cursor-help" title={fullDateString}>
-              {formatRelativeTime(bbtalk.createdAt)}
-              <div className="absolute bottom-full left-0 mb-2 hidden group-hover/time:block z-10 whitespace-nowrap">
-                <div className="bg-gray-900 text-white px-3 py-2 rounded-lg shadow-lg text-sm">
-                  <div className="font-medium">创建时间</div>
-                  <div className="text-xs mt-1">{fullDateString}</div>
-                  <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
-                </div>
-              </div>
-            </span>
-        </div>
         <MarkdownRenderer content={bbtalk.content} search={searchKeyword} className="record-content" />
 
         {/* 标签 */}
@@ -501,6 +489,17 @@ const BBTalkItem: React.FC<BBTalkItemProps> = React.memo(function BBTalkItem({
         {/* 底部元数据栏 */}
         <div className="record-actions mt-4 flex items-center justify-between text-sm text-gray-500">
           <div className="flex items-center gap-3">
+            <span className="text-gray-500 relative group/time cursor-help" title={fullDateString}>
+              {formatRelativeTime(bbtalk.createdAt)}
+              <div className="absolute bottom-full left-0 mb-2 hidden group-hover/time:block z-10 whitespace-nowrap">
+                <div className="bg-gray-900 text-white px-3 py-2 rounded-lg shadow-lg text-sm">
+                  <div className="font-medium">创建时间</div>
+                  <div className="text-xs mt-1">{fullDateString}</div>
+                  <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                </div>
+              </div>
+            </span>
+
             {/* 时间与悬浮框 */}
 
 
