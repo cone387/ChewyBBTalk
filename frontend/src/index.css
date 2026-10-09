@@ -3,16 +3,16 @@
 @tailwind utilities;
 
 :root {
-  --color-page: #fafafa;
+  --color-page: #f5f6f8;
   --color-surface: #ffffff;
-  --color-ink: #202124;
-  --color-muted: #62656d;
-  --color-line: #e7e7eb;
+  --color-ink: #252a34;
+  --color-muted: #727987;
+  --color-line: #e9ecf1;
   --color-primary: #2563eb;
   --color-primary-hover: #1d4ed8;
   --radius-control: 0.5rem;
   --radius-surface: 0.75rem;
-  --shadow-surface: 0 1px 2px rgb(15 23 42 / 3%);
+  --shadow-surface: 0 2px 8px rgb(25 39 65 / 3%);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
@@ -61,21 +61,23 @@
   .settings-body { @apply space-y-5; }
   .settings-panel { @apply overflow-hidden rounded-xl border bg-white; border-color: var(--color-line); }
   .settings-icon { @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-600; }
-  .workspace-nav { @apply space-y-1 px-3; }
-  .workspace-nav-link { @apply flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm text-gray-600 transition-colors hover:bg-gray-200/60 hover:text-gray-900; }
-  .workspace-nav-link[aria-current="page"] { @apply bg-white font-medium text-gray-900; box-shadow: 0 1px 3px rgb(0 0 0 / 5%); }
+  .workspace-nav { @apply space-y-1 px-4; }
+  .workspace-nav-link { @apply flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-900; }
+  .workspace-nav-link[aria-current="page"] { @apply bg-blue-50 font-semibold text-blue-700; }
   .workspace-nav-link svg { @apply h-[18px] w-[18px] shrink-0; }
-  .workspace-brand { @apply px-6 py-6; }
-  .workspace-sidebar-content { @apply mt-5 min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-3; scrollbar-gutter: stable; }
-  .workspace-sidebar-footer { @apply mx-3 mt-4 border-t border-gray-200 px-2 py-4 text-xs text-gray-500; }
+  .workspace-brand { @apply px-6 pb-7 pt-8; }
+  .workspace-sidebar-content { @apply mb-5 min-h-0 overflow-x-hidden overflow-y-auto overscroll-contain px-4; }
+  .workspace-sidebar-footer { @apply mx-4 mt-auto border-t border-gray-100 px-1 py-4 text-xs text-gray-500; }
   .feed-layout { @apply flex h-full min-h-0 flex-col; background: var(--color-page); }
   .feed-workspace { @apply flex min-h-0 flex-1; }
   .feed-tags-panel { display: none; }
-  .feed-tags-scroll { @apply min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-3 pb-6; scrollbar-gutter: stable; }
+  .feed-tags-scroll { @apply min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-4 pb-6; scrollbar-gutter: stable; }
+  .feed-tags-heading { @apply shrink-0 px-4 pb-2 pt-9; }
   .feed-scroll { @apply min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-24 pt-6 sm:px-8; }
-  .feed-column { @apply mx-auto w-full max-w-5xl; }
+  .feed-column { @apply mx-auto w-full max-w-[800px]; }
   .feed-heading { @apply mb-6 hidden items-center justify-between gap-4; }
-  .feed-heading h1 { @apply text-xl font-semibold; }
+  .feed-heading h1 { @apply text-[22px] font-semibold tracking-tight text-gray-900; }
+  .feed-record-count { @apply rounded-full bg-white px-3 py-1 text-xs tabular-nums text-gray-500; }
   .feed-heading p { @apply mt-1 text-sm text-gray-500; }
   .auth-layout { @apply flex min-h-full items-center justify-center px-6 py-10; background: var(--color-page); }
   .auth-panel { @apply w-full max-w-[400px]; }
@@ -83,16 +85,16 @@
   .auth-heading h1 { @apply mt-5 text-2xl font-semibold tracking-tight; }
   .auth-heading p { @apply mt-2 text-sm leading-6 text-gray-500; }
   @media (min-width: 1024px) {
-    .workspace-layout { grid-template-columns: 240px minmax(0, 1fr); }
-    .workspace-sidebar { display: flex; position: sticky; top: 0; width: 240px; height: 100dvh; flex-shrink: 0; flex-direction: column; border-right: 1px solid var(--color-line); background: #f4f4f6; }
-    .feed-workspace > .workspace-sidebar { position: static; width: 200px; height: 100%; }
-    .feed-tags-panel { display: flex; flex-direction: column; width: 224px; min-height: 0; flex-shrink: 0; border-left: 1px solid var(--color-line); background: var(--color-page); }
+    .workspace-layout { grid-template-columns: 220px minmax(0, 1fr); }
+    .workspace-sidebar { display: flex; position: sticky; top: 0; width: 220px; height: 100dvh; flex-shrink: 0; flex-direction: column; border-right: 1px solid var(--color-line); background: white; }
+    .feed-workspace > .workspace-sidebar { position: static; width: 188px; height: 100%; }
+    .feed-tags-panel { display: flex; flex-direction: column; width: 240px; min-height: 0; flex-shrink: 0; border-left: 1px solid var(--color-line); background: white; }
     .feed-scroll { padding: 36px 24px; }
     .feed-heading { display: flex; }
     .auth-panel { padding: 36px; max-width: 440px; border: 1px solid var(--color-line); border-radius: 12px; background: white; box-shadow: var(--shadow-surface); }
   }
   @media (min-width: 1280px) {
-    .feed-workspace > .workspace-sidebar { width: 240px; }
+    .feed-workspace > .workspace-sidebar { width: 220px; }
     .feed-tags-panel { width: 272px; }
     .feed-scroll { padding: 36px 32px; }
   }
@@ -111,6 +113,12 @@
   .subtle-scrollbar:focus-within::-webkit-scrollbar-thumb { background: #c4c7ce; }
   .tag-drag-handle { opacity: 0; }
   .tag-list-row:hover .tag-drag-handle, .tag-list-row:focus-within .tag-drag-handle { opacity: 1; }
+  .feed-tags-panel .tag-filter-button { min-height: 36px; padding-top: 6px; padding-bottom: 6px; }
+  .feed-tags-panel .tag-drag-handle { position: absolute; left: 0; min-width: 32px; min-height: 36px; background: white; pointer-events: none; }
+  .feed-tags-panel .tag-list-row:hover .tag-drag-handle,
+  .feed-tags-panel .tag-list-row:focus-within .tag-drag-handle { pointer-events: auto; }
+  .feed-tags-panel .tag-list-row:hover .tag-symbol,
+  .feed-tags-panel .tag-list-row:focus-within .tag-symbol { opacity: 0; }
 }
 
 * {
@@ -189,6 +197,14 @@ body {
   border: 1px solid var(--color-line);
   box-shadow: var(--shadow-surface);
 }
+.composer-toolbar { border-top: 1px solid #f0f2f5; }
+.composer-tools svg { width: 18px; height: 18px; }
+.record-content p, .record-content li { font-size: 16px; line-height: 1.85; color: #343b48; }
+.record-content p + p { margin-top: 12px; }
+.record-tag { background: #f0f5ff; color: #5275a8; }
+.record-actions { padding-top: 12px; border-top: 1px solid #f4f5f7; }
+.record-actions svg { width: 14px; height: 14px; color: #8993a4; }
+.record-timestamp { font-variant-numeric: tabular-nums; }
 
 .bbtalk-composer__input,
 .bbtalk-composer__input:focus,
@@ -212,13 +228,13 @@ body {
 
 .feed-surface {
   border: 1px solid var(--color-line);
-  box-shadow: none;
+  box-shadow: var(--shadow-surface);
 }
 
 .feed-field {
   border: 0;
   outline: none;
-  background-color: #f3f4f6;
+  background-color: #f5f6f8;
   transition: background-color 160ms ease;
 }
 

@@ -14,16 +14,18 @@ test('workspace navigation stays consistent and S3 uses an accessible shared dia
   for (const content of [
     '把零散的想法记下来。\n\n走路时想到的一个点子、今天读到的一句话，都值得留在这里。 #日常 ',
     '周五，给自己留一点空白。\n\n先把手上的事做好，再慢慢整理下一步。 #想法 ',
+    '读书摘记｜把注意力留给重要的事\n\n> 记录的意义，不只是保存过去，也是在看清自己。\n\n读到这里停了一下。下周试着少开几个窗口，一次只做一件事。 #阅读 ',
+    '周末散步，发现街角开了一家新的面包店。\n\n买了一只刚出炉的可颂，在公园长椅上坐了半小时。没有特别的计划，反而记住了很多小事。 #日常 #生活 ',
   ]) {
     await page.getByLabel('记录内容').fill(content)
     await page.getByRole('button', { name: '发布', exact: true }).click()
     await expect(page.getByLabel('记录内容')).toHaveValue('')
   }
-  await expect(page.locator('.bbtalk-item')).toHaveCount(2)
+  await expect(page.locator('.bbtalk-item')).toHaveCount(4)
   await page.screenshot({ path: info.outputPath('workspace.png'), fullPage: true })
   const sidebar = page.getByRole('complementary', { name: '桌面侧栏' })
   for (const [label, path, title] of [
-    ['账户', '/settings', '设置'], ['隐私', '/settings/privacy', '防窥设置'],
+    ['设置', '/settings', '设置'], ['隐私', '/settings/privacy', '防窥设置'],
     ['存储', '/settings/storage', '存储设置'], ['数据', '/settings/data', '数据管理'],
     ['状态', '/settings/status', '运行状态'],
   ]) {

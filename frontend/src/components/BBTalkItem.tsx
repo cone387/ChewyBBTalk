@@ -332,7 +332,7 @@ const BBTalkItem: React.FC<BBTalkItemProps> = React.memo(function BBTalkItem({
         {/* 右上角更多操作菜单 */}
         <div className="absolute top-4 right-4" ref={menuOpen ? menuRef : null}>
           <button
-            className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors opacity-100"
+            className="flex h-8 w-8 items-center justify-center hover:bg-gray-100 rounded-lg transition-colors opacity-100"
             onClick={() => setMenuOpen(!menuOpen)}
             title="更多"
           >
@@ -389,7 +389,19 @@ const BBTalkItem: React.FC<BBTalkItemProps> = React.memo(function BBTalkItem({
         </div>
 
         {/* 内容 Markdown */}
-        <MarkdownRenderer content={bbtalk.content} search={searchKeyword} />
+        <div className="record-timestamp mb-3 pr-10 text-xs">
+            <span className="text-gray-500 relative group/time cursor-help" title={fullDateString}>
+              {formatRelativeTime(bbtalk.createdAt)}
+              <div className="absolute bottom-full left-0 mb-2 hidden group-hover/time:block z-10 whitespace-nowrap">
+                <div className="bg-gray-900 text-white px-3 py-2 rounded-lg shadow-lg text-sm">
+                  <div className="font-medium">创建时间</div>
+                  <div className="text-xs mt-1">{fullDateString}</div>
+                  <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                </div>
+              </div>
+            </span>
+        </div>
+        <MarkdownRenderer content={bbtalk.content} search={searchKeyword} className="record-content" />
 
         {/* 标签 */}
         {bbtalk.tags && bbtalk.tags.length > 0 && (
@@ -397,9 +409,9 @@ const BBTalkItem: React.FC<BBTalkItemProps> = React.memo(function BBTalkItem({
             {bbtalk.tags.map((tag, index) => (
               <span
                 key={tag.id || `tag-${index}`}
-                className="inline-flex items-center gap-1.5 rounded-md bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700"
+                className="record-tag inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium"
               >
-                <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: tag.color || '#3B82F6' }} />
+                <span aria-hidden="true">#</span>
                 {tag.name}
               </span>
             ))}
@@ -487,19 +499,10 @@ const BBTalkItem: React.FC<BBTalkItemProps> = React.memo(function BBTalkItem({
         )}
 
         {/* 底部元数据栏 */}
-        <div className="mt-4 flex items-center justify-between text-sm text-gray-500">
+        <div className="record-actions mt-4 flex items-center justify-between text-sm text-gray-500">
           <div className="flex items-center gap-3">
             {/* 时间与悬浮框 */}
-            <span className="text-gray-600 relative group/time cursor-help" title={fullDateString}>
-              {formatRelativeTime(bbtalk.createdAt)}
-              <div className="absolute bottom-full left-0 mb-2 hidden group-hover/time:block z-10 whitespace-nowrap">
-                <div className="bg-gray-900 text-white px-3 py-2 rounded-lg shadow-lg text-sm">
-                  <div className="font-medium">创建时间</div>
-                  <div className="text-xs mt-1">{fullDateString}</div>
-                  <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
-                </div>
-              </div>
-            </span>
+
 
             {/* 设备来源 */}
             <span className="flex items-center gap-1 text-gray-500 relative group/device cursor-help" title={isMobile ? '手机' : source}>

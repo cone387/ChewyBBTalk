@@ -68,22 +68,20 @@ function SortableTagItem({
   }
 
   return (
-    <div ref={setNodeRef} style={style} className="tag-list-row flex min-w-0 items-center gap-1 group">
+    <div ref={setNodeRef} style={style} className="tag-list-row relative flex min-w-0 items-center group">
       {/* 标签按钮 - 仅响应点击 */}
       <button
         onClick={onClick}
         aria-pressed={isSelected}
         title={tag.name}
-        className={`min-h-11 min-w-0 flex-1 gap-2 text-left px-3 py-2 rounded-lg transition-colors text-sm flex items-center justify-between ${
+        className={`tag-filter-button min-h-11 min-w-0 flex-1 gap-2 text-left px-3 py-2 rounded-lg transition-colors text-sm flex items-center justify-between ${
           isSelected
             ? 'bg-blue-50 text-blue-700 font-medium'
             : 'text-gray-600 hover:bg-gray-200/60 hover:text-gray-900'
         }`}
       >
         <span className="flex min-w-0 items-center gap-2">
-          <svg aria-hidden="true" className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-          </svg>
+          <span aria-hidden="true" className="tag-symbol shrink-0 text-base text-gray-400">#</span>
           <span className="truncate">{tag.name}</span>
         </span>
         {count > 0 && (
@@ -476,12 +474,13 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                   <span className="shrink-0 text-sm text-gray-500">设置</span>
                 </button> : <button type="button" onClick={handleLogin} className="min-h-11 w-full rounded-lg text-sm text-blue-700 hover:bg-blue-50">登录</button>
           }>
-            <div className="px-2 pb-5">
-                <label className="block text-sm font-medium text-gray-600">
-                  搜索
+            <div className="workspace-search">
+                <label className="relative block text-sm text-gray-600">
+                  <span className="sr-only">搜索</span>
+                  <svg aria-hidden="true" className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeWidth="1.7" d="m21 21-5-5m2-6a7 7 0 11-14 0 7 7 0 0114 0Z" /></svg>
                   <input type="search" placeholder="搜索 BBTalk..." value={searchKeyword}
                     onChange={event => setSearchKeyword(event.target.value)}
-                    className="feed-field mt-2 min-h-11 w-full rounded-xl px-3 text-sm text-gray-800" />
+                    className="feed-field min-h-11 w-full rounded-lg pl-9 pr-3 text-sm text-gray-800" />
                 </label>
             </div>
           </WorkspaceSidebar>
@@ -491,7 +490,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
             <div className="feed-column">
               <div className="feed-heading">
                 <h1>{activeFilters.length > 0 ? '筛选结果' : isPublic ? '公开记录' : '全部记录'}</h1>
-                {activeFilters.length === 0 && <span className="text-sm tabular-nums text-gray-500">{totalCount} 条记录</span>}
+                {activeFilters.length === 0 && <span className="feed-record-count">{totalCount} 条记录</span>}
               </div>
               <div className="mb-4 flex items-center gap-2 lg:hidden">
                 <div className="relative min-w-0 flex-1">
@@ -634,8 +633,8 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
           </div>
         </div>
           <aside aria-label="标签列表" className="feed-tags-panel">
-            <div className="shrink-0 px-3 pt-6 pb-2">
-                <h2 className="mb-3 px-3 text-sm font-medium text-gray-500">标签</h2>
+            <div className="feed-tags-heading">
+                <div className="mb-5 flex items-center justify-between px-2"><h2 className="text-sm font-semibold text-gray-800">标签</h2><span className="text-xs tabular-nums text-gray-500">{tags.length}</span></div>
                 <button type="button" onClick={() => setSelectedTags([])} aria-pressed={selectedTags.length === 0}
                   className={`mb-2 flex min-h-11 w-full items-center justify-between rounded-lg px-3 text-sm ${selectedTags.length === 0 ? 'bg-gray-100 font-medium text-gray-900' : 'text-gray-700 hover:bg-gray-100'}`}>
                   <span>全部标签</span><span className="text-xs text-gray-400">{totalCount}</span>
