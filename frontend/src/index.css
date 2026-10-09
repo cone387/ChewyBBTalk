@@ -70,6 +70,8 @@
   .workspace-sidebar-footer { @apply mx-3 mt-4 border-t border-gray-200 px-2 py-4 text-xs text-gray-500; }
   .feed-layout { @apply flex h-full min-h-0 flex-col; background: var(--color-page); }
   .feed-workspace { @apply flex min-h-0 flex-1; }
+  .feed-tags-panel { display: none; }
+  .feed-tags-scroll { @apply min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-3 pb-6; scrollbar-gutter: stable; }
   .feed-scroll { @apply min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-24 pt-6 sm:px-8; }
   .feed-column { @apply mx-auto w-full max-w-5xl; }
   .feed-heading { @apply mb-6 hidden items-center justify-between gap-4; }
@@ -83,10 +85,16 @@
   @media (min-width: 1024px) {
     .workspace-layout { grid-template-columns: 240px minmax(0, 1fr); }
     .workspace-sidebar { display: flex; position: sticky; top: 0; width: 240px; height: 100dvh; flex-shrink: 0; flex-direction: column; border-right: 1px solid var(--color-line); background: #f4f4f6; }
-    .feed-workspace > .workspace-sidebar { position: static; height: 100%; }
-    .feed-scroll { padding: 36px 48px; }
+    .feed-workspace > .workspace-sidebar { position: static; width: 200px; height: 100%; }
+    .feed-tags-panel { display: flex; flex-direction: column; width: 224px; min-height: 0; flex-shrink: 0; border-left: 1px solid var(--color-line); background: var(--color-page); }
+    .feed-scroll { padding: 36px 24px; }
     .feed-heading { display: flex; }
     .auth-panel { padding: 36px; max-width: 440px; border: 1px solid var(--color-line); border-radius: 12px; background: white; box-shadow: var(--shadow-surface); }
+  }
+  @media (min-width: 1280px) {
+    .feed-workspace > .workspace-sidebar { width: 240px; }
+    .feed-tags-panel { width: 272px; }
+    .feed-scroll { padding: 36px 32px; }
   }
 }
 

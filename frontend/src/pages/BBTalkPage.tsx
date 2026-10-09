@@ -484,20 +484,6 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                     className="feed-field mt-2 min-h-11 w-full rounded-xl px-3 text-sm text-gray-800" />
                 </label>
             </div>
-            <div className="border-t border-gray-200 pt-5">
-                <h2 className="mb-3 px-3 text-sm font-medium text-gray-500">标签</h2>
-                <button type="button" onClick={() => setSelectedTags([])} aria-pressed={selectedTags.length === 0}
-                  className={`mb-2 flex min-h-11 w-full items-center justify-between rounded-lg px-3 text-sm ${selectedTags.length === 0 ? 'bg-gray-100 font-medium text-gray-900' : 'text-gray-700 hover:bg-gray-100'}`}>
-                  <span>全部标签</span><span className="text-xs text-gray-400">{totalCount}</span>
-                </button>
-                {tags.length === 0 ? <p className="px-3 py-2 text-sm text-gray-500">暂无标签</p> :
-                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                    <SortableContext items={tags.map(tag => tag.id)} strategy={verticalListSortingStrategy}>
-                      <div className="space-y-1">{tags.map(tag => <SortableTagItem key={tag.id} tag={tag}
-                        isSelected={selectedTags.includes(tag.id)} count={tag.bbtalkCount || 0} onClick={() => toggleTag(tag.id)} />)}</div>
-                    </SortableContext>
-                  </DndContext>}
-            </div>
           </WorkspaceSidebar>
           {/* 居中的内容流 */}
           <div ref={containerRef} role="main" aria-label="记录列表" className="feed-scroll">
@@ -647,6 +633,24 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
           </div>
           </div>
         </div>
+          <aside aria-label="标签列表" className="feed-tags-panel">
+            <div className="shrink-0 px-3 pt-6 pb-2">
+                <h2 className="mb-3 px-3 text-sm font-medium text-gray-500">标签</h2>
+                <button type="button" onClick={() => setSelectedTags([])} aria-pressed={selectedTags.length === 0}
+                  className={`mb-2 flex min-h-11 w-full items-center justify-between rounded-lg px-3 text-sm ${selectedTags.length === 0 ? 'bg-gray-100 font-medium text-gray-900' : 'text-gray-700 hover:bg-gray-100'}`}>
+                  <span>全部标签</span><span className="text-xs text-gray-400">{totalCount}</span>
+                </button>
+            </div>
+            <div className="feed-tags-scroll subtle-scrollbar">
+                {tags.length === 0 ? <p className="px-3 py-2 text-sm text-gray-500">暂无标签</p> :
+                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                    <SortableContext items={tags.map(tag => tag.id)} strategy={verticalListSortingStrategy}>
+                      <div className="space-y-1">{tags.map(tag => <SortableTagItem key={tag.id} tag={tag}
+                        isSelected={selectedTags.includes(tag.id)} count={tag.bbtalkCount || 0} onClick={() => toggleTag(tag.id)} />)}</div>
+                    </SortableContext>
+                  </DndContext>}
+            </div>
+          </aside>
       </div>
       
       {/* 防偷窥倒计时按钮（状态隔离，消除全局重渲染） */}

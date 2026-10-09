@@ -65,7 +65,7 @@ test('search empty results offer clearing and clearing also removes tags', async
 
 test('tag filters switch selection and support keyboard dismissal at every size', async ({ page }, info) => {
   await setup(page)
-  const sidebar = page.getByRole('complementary', { name: '桌面侧栏' })
+  const sidebar = page.getByRole('complementary', { name: '标签列表' })
   if (await sidebar.isVisible()) {
     await sidebar.getByRole('button', { name: /^旅行/ }).click()
     const work = sidebar.getByRole('button', { name: /^工作/ })
