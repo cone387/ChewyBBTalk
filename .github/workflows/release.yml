@@ -72,12 +72,14 @@ jobs:
             image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ steps.version.outputs.VERSION }}
             container_name: chewybbtalk-backend
             env_file: .env
+            environment:
+              DATABASE_URL: \${DATABASE_URL:-sqlite:////app/data/db/db.sqlite3}
+              DATA_DIR: \${DATA_DIR:-/app/data}
+              MEDIA_ROOT: \${MEDIA_ROOT:-/app/data/media}
             expose:
               - "8020"
             volumes:
-              - \${DATA_DIR:-./data}:/app/data
-              - \${DATA_DIR:-./data}/backend/media:/app/media
-              - \${DATA_DIR:-./data}/backend/staticfiles:/app/staticfiles
+              - \${HOST_DATA_DIR:-./data}:/app/data
             restart: unless-stopped
             networks:
               - bbtalk-network
@@ -85,11 +87,13 @@ jobs:
           frontend:
             image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ steps.version.outputs.VERSION }}
             container_name: chewybbtalk-frontend
+            environment:
+              NGINX_CLIENT_MAX_BODY_SIZE: \${NGINX_CLIENT_MAX_BODY_SIZE:-513M}
             ports:
-              - "4010:4010"
+              - "\${PORT:-4010}:4010"
             volumes:
-              - \${DATA_DIR:-./data}/backend/media:/app/media:ro
-              - \${DATA_DIR:-./data}/backend/staticfiles:/app/staticfiles:ro
+              - \${HOST_DATA_DIR:-./data}/media:/app/media:ro
+              - \${HOST_DATA_DIR:-./data}/staticfiles:/app/staticfiles:ro
             depends_on:
               - backend
             restart: unless-stopped
@@ -153,9 +157,9 @@ jobs:
           ### 🔧 默认账号
           
           - 用户名: `admin`
-          - 密码: `admin123`
+          - 密码: 根 `.env` 的 `ADMIN_PASSWORD`；留空时自动生成，见数据目录的 `credentials/initial-admin.json`
           
-          **⚠️ 请在首次登录后立即修改默认密码！**
+          首次部署请从凭据文件读取随机密码。
           
           ### 📚 更多信息
           

@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/deploy-env.sh"
+load_deploy_env "$SCRIPT_DIR/../.env"
 
 # Host-side scheduler entrypoint. The backup itself runs inside the container
 # so the host does not need Python or access to the SQLite file.

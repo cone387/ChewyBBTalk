@@ -85,7 +85,7 @@ beforeEach(() => {
   tagsApi.getTags.mockResolvedValue(tags);
   tagsApi.updateTag.mockResolvedValue(tags[0]);
 });
-afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); delete window.__BBTALK_CONFIG__; });
 
 function page(isPublic = false) {
   const store = configureStore({ reducer: { bbtalk: bbtalkReducer, tag: tagReducer } });
@@ -107,6 +107,21 @@ function stubAsyncRaf() {
 const settle = () => act(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
 
 describe('initial rendering', () => {
+  it('uses deployment branding and countdown defaults with an empty timeout fallback', async () => {
+    window.__BBTALK_CONFIG__ = {
+      VITE_SITE_NAME: 'Deployment Notes', VITE_SITE_COPYRIGHT: 'Private workspace',
+      VITE_PRIVACY_TIMEOUT_MINUTES: '', VITE_SHOW_PRIVACY_COUNTDOWN: 'true',
+    };
+    const view = await loaded();
+    expect(screen.getAllByText('Deployment Notes').length).toBeGreaterThan(0);
+    expect(screen.getByText('倒计时')).toBeTruthy();
+    view.unmount();
+    localStorage.setItem('privacy_timeout_minutes', '15');
+    localStorage.setItem('show_privacy_countdown', 'false');
+    await loaded();
+    expect(screen.queryByText('倒计时')).toBeNull();
+  });
+
   it('loads the private feed and tags, and offers navigation to settings', async () => {
     await loaded();
     expect(api.getBBTalks).toHaveBeenCalledWith(expect.objectContaining({ page: 1 }));
@@ -275,13 +290,13 @@ describe('deletion with undo', () => {
     expect(api.deleteBBTalk).toHaveBeenCalledWith('b1');
   });
 
-  it('offers a retry that removes the record for good when the API fails', async () => {
-    api.deleteBBTalk.mockRejectedValueOnce(new Error('网关超时'));
+  it.each([[new Error('网关超时'), '网关超时'], [null, '请稍后重试']])('offers a retry after API failure %s', async (error, message) => {
+    api.deleteBBTalk.mockRejectedValueOnce(error);
     await loaded();
     fireEvent.click(screen.getByText('删除b1'));
     // The failure is only reported once the undo window commits the deletion.
     const alert = await screen.findByRole('alert', undefined, { timeout: 4500 });
-    expect(alert.textContent).toContain('删除失败：网关超时');
+    expect(alert.textContent).toContain(`删除失败：${message}`);
     api.deleteBBTalk.mockResolvedValue(undefined);
     fireEvent.click(within(alert).getByRole('button', { name: '重试操作' }));
     await waitFor(() => expect(api.deleteBBTalk).toHaveBeenCalledTimes(2));

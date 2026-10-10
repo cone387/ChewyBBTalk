@@ -117,6 +117,13 @@ def test_installed_entrypoints_forward_arguments(monkeypatch):
         cli.init();main.assert_called_with(['init','--example'])
     with patch('uvicorn.run') as run:
         cli.dev();assert run.call_args.args==('main:app',)
+        assert run.call_args.kwargs['reload'] is True
+        monkeypatch.setenv('WEB_CONCURRENCY', '3')
+        monkeypatch.setenv('BACKEND_PORT', '8123')
+        cli.main(['serve'])
+        assert run.call_args.kwargs['workers'] == 3
+        assert run.call_args.kwargs['port'] == 8123
+        assert run.call_args.kwargs['reload'] is False
     with patch('pytest.main',return_value=0) as run:
         with pytest.raises(SystemExit) as result: cli.test()
         assert result.value.code==0 and run.call_args.args[0]==['tests','--example']

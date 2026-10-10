@@ -20,9 +20,8 @@ class BackupBusy(Exception):
 
 
 def backup_root(settings, output_dir=None):
-    configured = output_dir or os.getenv('BACKUP_ROOT')
-    if configured:
-        return Path(configured).expanduser().resolve()
+    if output_dir:
+        return Path(output_dir).expanduser().resolve()
     return settings.backup_root
 
 

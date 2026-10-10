@@ -1,8 +1,9 @@
+import { getPublicSetting } from '../config';
 import { apiClient } from './api/apiClient';
 import { getAccessToken } from './auth';
 import type { Attachment } from '../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+const API_BASE_URL = getPublicSetting('VITE_API_BASE_URL') || '';
 
 function transformAttachment(data: any): Attachment {
   // 后端返回字段映射:
@@ -20,7 +21,7 @@ function transformAttachment(data: any): Attachment {
   
   // 协议转换：仅在显式配置 VITE_MEDIA_URL_PROTOCOL 时生效
   // 未配置时不做转换，避免本地开发 http→https 导致连接失败
-  const targetProtocol = import.meta.env.VITE_MEDIA_URL_PROTOCOL;
+  const targetProtocol = getPublicSetting('VITE_MEDIA_URL_PROTOCOL');
   if (targetProtocol && url) {
     if (targetProtocol === 'https' && url.startsWith('http://')) {
       url = url.replace('http://', 'https://');

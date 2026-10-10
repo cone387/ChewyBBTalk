@@ -7,22 +7,22 @@
 
 set -e
 cd /app/backend
-
-# 确保数据目录存在并设置权限
-mkdir -p /app/data/db /app/data/media /app/data/staticfiles
-chown -R www-data:www-data /app/data
-
-# 如果没有设置 SECRET_KEY，自动生成并持久化
-if [ -z "$SECRET_KEY" ]; then
-    KEY_FILE="/app/data/.secret_key"
-    if [ -f "$KEY_FILE" ] && [ -s "$KEY_FILE" ]; then
-        export SECRET_KEY=$(cat "$KEY_FILE")
-    else
-        export SECRET_KEY=$(python -c "import secrets,string; print(''.join(secrets.choice(string.ascii_letters+string.digits+'!@#\$%^&*(-_=+)') for _ in range(50)))")
-        echo -n "$SECRET_KEY" > "$KEY_FILE"
-    fi
-    echo "SECRET_KEY 已自动生成"
+export WEB_CONCURRENCY="${WEB_CONCURRENCY:-2}"
+export NGINX_CLIENT_MAX_BODY_SIZE="${NGINX_CLIENT_MAX_BODY_SIZE:-513M}"
+if [[ ! "$NGINX_CLIENT_MAX_BODY_SIZE" =~ ^[0-9]+[kKmMgG]?$ ]]; then
+    echo "Invalid NGINX_CLIENT_MAX_BODY_SIZE" >&2
+    exit 1
 fi
+sed "s/\${NGINX_CLIENT_MAX_BODY_SIZE}/$NGINX_CLIENT_MAX_BODY_SIZE/g" \
+    /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf
+
+# Normalize configured paths and let the native configuration persist its key.
+export SECRET_KEY="${SECRET_KEY:-}"
+DATA_DIR=$(python -c "from core.config import Settings; print(Settings().data_dir)")
+MEDIA_ROOT=$(python -c "from core.config import Settings; print(Settings().media_root)")
+export DATA_DIR MEDIA_ROOT
+mkdir -p /app/data/db /app/data/staticfiles "$DATA_DIR" "$MEDIA_ROOT"
+chown -R www-data:www-data /app/data "$DATA_DIR" "$MEDIA_ROOT"
 
 echo "等待数据库连接..."
 python -m cli check
@@ -34,7 +34,7 @@ echo "初始化系统..."
 python -m cli init
 
 # 初始化完成后确保数据目录权限正确（Uvicorn 以 www-data 运行）
-chown -R www-data:www-data /app/data
+chown -R www-data:www-data /app/data "$DATA_DIR" "$MEDIA_ROOT"
 
 # 根据参数决定启动模式
 if [ "$1" = "supervisor" ]; then

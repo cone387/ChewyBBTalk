@@ -1,9 +1,22 @@
+import json
 from pathlib import Path
 
 from fastapi import APIRouter
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
+
+from core.public_config import public_config
 
 router = APIRouter()
+
+
+@router.get('/api/public-config', include_in_schema=False)
+def browser_config():
+    payload = json.dumps(public_config(), ensure_ascii=True).replace('<', '\\u003c')
+    return Response(
+        'window.__BBTALK_CONFIG__ = ' + payload + ';',
+        media_type='application/javascript',
+        headers={'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff'},
+    )
 
 
 @router.get('/healthz', tags=['System'])

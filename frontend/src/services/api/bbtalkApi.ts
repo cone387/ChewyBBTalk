@@ -1,7 +1,8 @@
+import { getPublicSetting } from '../../config';
 import { apiClient } from './apiClient';
 import type { BBTalk, PaginatedResponse, Attachment, Comment } from '../../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+const API_BASE_URL = getPublicSetting('VITE_API_BASE_URL') || '';
 
 function transformAttachment(data: any): Attachment {
   let url = data.url || '';
@@ -12,7 +13,7 @@ function transformAttachment(data: any): Attachment {
   }
   
   // 协议转换：仅在显式配置 VITE_MEDIA_URL_PROTOCOL 时生效
-  const targetProtocol = import.meta.env.VITE_MEDIA_URL_PROTOCOL;
+  const targetProtocol = getPublicSetting('VITE_MEDIA_URL_PROTOCOL');
   if (targetProtocol && url) {
     if (targetProtocol === 'https' && url.startsWith('http://')) {
       url = url.replace('http://', 'https://');
@@ -176,7 +177,7 @@ export const bbtalkApi = {
   },
 
   async getPublicBBTalk(uid: string): Promise<BBTalk> {
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+    const baseUrl = getPublicSetting('VITE_API_BASE_URL') || '';
     const response = await fetch(`${baseUrl}/api/v1/bbtalk/public/${uid}/`, {
       method: 'GET',
       headers: {

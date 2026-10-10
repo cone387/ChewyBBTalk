@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { login, register, getAuthPolicy } from '../services/auth';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
+import { getPublicSetting } from '../config';
 
 const REMEMBER_USERNAME_KEY = 'bbtalk_remember_username';
 const SAVED_USERNAME_KEY = 'bbtalk_saved_username';
@@ -141,7 +142,7 @@ export default function LoginPage() {
       <main className="auth-panel">
           <section aria-labelledby="auth-title">
             <div className="auth-heading">
-              <h1 id="auth-title">{isLogin ? '登录 BBTalk' : '注册 BBTalk'}</h1>
+              <h1 id="auth-title">{isLogin ? '登录' : '注册'} {getPublicSetting('VITE_SITE_NAME')}</h1>
               <p>{isLogin ? '继续记录你的想法。' : '创建账户，开始你的第一条记录。'}</p>
             </div>
             <form onSubmit={handleSubmit} className="space-y-5" aria-describedby={error ? 'auth-error' : undefined}>

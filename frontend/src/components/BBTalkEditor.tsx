@@ -1,3 +1,4 @@
+import { getPublicSetting } from '../config';
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useAttachmentUploads } from '../hooks/useAttachmentUploads'
@@ -30,7 +31,7 @@ interface BBTalkEditorProps {
 
 export default function BBTalkEditor(props: BBTalkEditorProps) {
   const user = getCurrentUser()
-  const scope = user ? draftKey(import.meta.env.VITE_API_BASE_URL || '/', user.id, props.editing?.id) : null
+  const scope = user ? draftKey(getPublicSetting('VITE_API_BASE_URL') || '/', user.id, props.editing?.id) : null
   return <BBTalkEditorContent key={scope ?? 'anonymous'} {...props} draftScope={scope} />
 }
 
@@ -52,7 +53,7 @@ function BBTalkEditorContent({ onPublish, isPublishing = false, editing = null, 
   const [conflict, setConflict] = useState<BBTalk | null>(null)
   const assertIdentity = () => {
     const user = getCurrentUser()
-    if (!user || draftKey(import.meta.env.VITE_API_BASE_URL || '/', user.id, editing?.id) !== draftScope) {
+    if (!user || draftKey(getPublicSetting('VITE_API_BASE_URL') || '/', user.id, editing?.id) !== draftScope) {
       throw new Error('账号已切换，请在当前账号下重新操作')
     }
   }
@@ -136,7 +137,7 @@ function BBTalkEditorContent({ onPublish, isPublishing = false, editing = null, 
 
   // 处理图片URL，根据配置进行协议转换
   const getImageUrl = (url: string) => {
-    const targetProtocol = import.meta.env.VITE_MEDIA_URL_PROTOCOL
+    const targetProtocol = getPublicSetting('VITE_MEDIA_URL_PROTOCOL')
     if (targetProtocol === 'https' && url.startsWith('http://')) {
       return url.replace('http://', 'https://')
     } else if (targetProtocol === 'http' && url.startsWith('https://')) {

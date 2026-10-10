@@ -133,6 +133,8 @@ def main(argv=None):
     commands = parser.add_subparsers(dest='command', required=True)
     for name in ('migrate', 'init', 'check', 'encrypt-storage-secrets', 'shell'):
         commands.add_parser(name)
+    server = commands.add_parser('serve')
+    server.add_argument('--reload', action='store_true')
     backup = commands.add_parser('backup')
     backup.add_argument('--user-id', type=int)
     backup.add_argument('--keep', type=int, default=7)
@@ -143,6 +145,9 @@ def main(argv=None):
     user_parser.add_argument('--email', default='')
     user_parser.add_argument('--admin', action='store_true')
     options = parser.parse_args(argv)
+    if options.command == 'serve':
+        serve(reload=options.reload)
+        return
     settings = Settings()
     engine, sessions = database(settings)
     try:
@@ -197,13 +202,18 @@ def main(argv=None):
 
 
 def dev():
+    serve(reload=True)
+
+
+def serve(reload=False):
     import uvicorn
 
     uvicorn.run(
         'main:app',
         host=os.getenv('BACKEND_HOST', '0.0.0.0'),
         port=int(os.getenv('BACKEND_PORT', '8020')),
-        reload=True,
+        reload=reload,
+        workers=1 if reload else int(os.getenv('WEB_CONCURRENCY', '2')),
         proxy_headers=False,
     )
 

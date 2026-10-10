@@ -7,5 +7,4 @@ Requires=docker.service
 Type=oneshot
 User=root
 WorkingDirectory=/opt/chewybbtalk
-EnvironmentFile=-/etc/chewybbtalk/backup.env
 ExecStart=/opt/chewybbtalk/scripts/backup-host.sh

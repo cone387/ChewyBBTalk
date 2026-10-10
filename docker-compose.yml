@@ -12,11 +12,14 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: chewybbtalk-backend
+    env_file:
+      - path: ./.env
+        required: false
     environment:
       - DATABASE_URL=${DATABASE_URL:-sqlite:////app/data/db/db.sqlite3}
-      - MEDIA_ROOT=/app/data/media
+      - MEDIA_ROOT=${MEDIA_ROOT:-/app/data/media}
       - STATIC_ROOT=/app/data/staticfiles
-      - DATA_DIR=/app/data
+      - DATA_DIR=${DATA_DIR:-/app/data}
       - SECRET_KEY=${SECRET_KEY:-}
       - DEBUG=${DEBUG:-false}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS:-*}
@@ -40,7 +43,7 @@ services:
     expose:
       - "8020"
     volumes:
-      - ${DATA_DIR:-./data}:/app/data
+      - ${HOST_DATA_DIR:-${DATA_DIR:-./data}}:/app/data
     restart: unless-stopped
     networks:
       - bbtalk-network
@@ -52,12 +55,16 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_BASE_PATH: ${VITE_BASE_PATH:-/}
     container_name: chewybbtalk-frontend
+    environment:
+      NGINX_CLIENT_MAX_BODY_SIZE: ${NGINX_CLIENT_MAX_BODY_SIZE:-513M}
     ports:
       - "${PORT:-4010}:4010"
     volumes:
-      - ${DATA_DIR:-./data}/media:/app/data/media:ro
-      - ${DATA_DIR:-./data}/staticfiles:/app/data/staticfiles:ro
+      - ${HOST_DATA_DIR:-${DATA_DIR:-./data}}/media:/app/media:ro
+      - ${HOST_DATA_DIR:-${DATA_DIR:-./data}}/staticfiles:/app/staticfiles:ro
     depends_on:
       - backend
     restart: unless-stopped

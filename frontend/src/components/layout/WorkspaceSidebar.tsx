@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AppBrand from '../AppBrand'
+import { getPublicSetting } from '../../config'
 
 const destinations = [
   { path: '/', label: '记录', icon: 'M5 4h14v16H5zM8 8h8M8 12h8M8 16h5' },
@@ -29,6 +30,6 @@ export default function WorkspaceSidebar({ active, children, footer, isPublic = 
         {item.label}
       </button>)}
     </nav>
-    <div className="workspace-sidebar-footer">{footer || <span>BBTalk · 记录与回顾</span>}</div>
+    <div className="workspace-sidebar-footer">{footer || <span>{getPublicSetting('VITE_SITE_COPYRIGHT') || `${getPublicSetting('VITE_SITE_NAME')} · 记录与回顾`}</span>}</div>
   </aside>
 }

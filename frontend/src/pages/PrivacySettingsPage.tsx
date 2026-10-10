@@ -1,3 +1,4 @@
+import { getPublicSetting } from '../config';
 import SettingsLayout from '../components/layout/SettingsLayout';
 import { useState } from 'react';
 
@@ -5,12 +6,12 @@ export default function PrivacySettingsPage() {
 
   const [privacyTimeoutMinutes, setPrivacyTimeoutMinutes] = useState(() => {
     const saved = localStorage.getItem('privacy_timeout_minutes');
-    return saved ? parseInt(saved, 10) : parseInt(import.meta.env.VITE_PRIVACY_TIMEOUT_MINUTES || '5', 10);
+    return saved ? parseInt(saved, 10) : parseInt(getPublicSetting('VITE_PRIVACY_TIMEOUT_MINUTES') || '5', 10);
   });
 
   const [showCountdown, setShowCountdown] = useState(() => {
     const saved = localStorage.getItem('show_privacy_countdown');
-    return saved ? saved === 'true' : import.meta.env.VITE_SHOW_PRIVACY_COUNTDOWN === 'true';
+    return saved ? saved === 'true' : getPublicSetting('VITE_SHOW_PRIVACY_COUNTDOWN') === 'true';
   });
 
   return (

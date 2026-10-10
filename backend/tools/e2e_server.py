@@ -30,7 +30,8 @@ def main():
         import uvicorn
 
         try:
-            uvicorn.run(app, host='127.0.0.1', port=18020, proxy_headers=False)
+            # Deployment worker settings must not fork this disposable app.
+            uvicorn.run(app, host='127.0.0.1', port=18020, workers=1, proxy_headers=False)
         finally:
             app.state.engine.dispose()
 

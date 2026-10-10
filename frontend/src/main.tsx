@@ -2,8 +2,11 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
+import { getPublicSetting } from './config';
 
 import { retireLegacyPwa } from './services/retireLegacyPwa';
+
+document.title = getPublicSetting('VITE_SITE_NAME');
 
 if (!window.__POWERED_BY_WUJIE__) {
   void retireLegacyPwa().catch(error => console.warn('旧离线缓存清理失败，下次访问将重试', error));

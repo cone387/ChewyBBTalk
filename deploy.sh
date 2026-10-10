@@ -6,10 +6,16 @@
 ###############################################################
 
 set -e
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$ROOT"
+source "$ROOT/scripts/deploy-env.sh"
+load_deploy_env "$ROOT/.env"
 
 IMAGE_NAME="chewy-bbtalk"
 CONTAINER_NAME="chewy-bbtalk"
-PORT="4010"
+PORT="${PORT:-4010}"
+HOST_DATA_DIR="${HOST_DATA_DIR:-./data}"
+[[ "$PORT" =~ ^[1-9][0-9]{0,4}$ && "$PORT" -le 65535 ]] || { echo 'Invalid PORT' >&2; exit 1; }
 DOCKERFILE="Dockerfile"  # 默认使用普通版，可改为 Dockerfile.cn
 REMOTE_IMAGE="ghcr.io/cone387/chewy-bbtalk:latest"  # GitHub Container Registry 镜像
 
@@ -57,22 +63,15 @@ build() {
     log_info "构建 Docker 镜像..."
     log_info "使用 Dockerfile: $DOCKERFILE"
     
-    # 计算 .env 文件的 hash，用于触发前端缓存失效
-    if [ -f ".env" ]; then
-        ENV_HASH=$(md5sum .env 2>/dev/null | cut -d' ' -f1 || echo "no-env")
-    else
-        ENV_HASH="no-env"
-    fi
-    log_info "ENV_HASH: $ENV_HASH"
-    
-    # 使用 --build-arg 传递 hash，只在 .env 变化时重建前端
-    docker build --build-arg ENV_HASH="$ENV_HASH" -f "$DOCKERFILE" -t "$IMAGE_NAME" .
+    docker build --build-arg VITE_BASE_PATH="${VITE_BASE_PATH:-/}" -f "$DOCKERFILE" -t "$IMAGE_NAME" .
     log_info "镜像构建完成: $IMAGE_NAME"
 }
 
 # 启动容器
 start() {
     check_env
+    mkdir -p "$HOST_DATA_DIR"
+    HOST_DATA_DIR="$(cd -- "$HOST_DATA_DIR" && pwd)"
     
     # 检查容器是否已存在
     if docker ps -a --format 'table {{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
@@ -98,9 +97,9 @@ start() {
         docker run -d \
             --name "$CONTAINER_NAME" \
             --restart unless-stopped \
-            -p "$PORT:$PORT" \
+            -p "$PORT:4010" \
             $ENV_FILE_OPT \
-            -v "$(pwd)/data:/app/data" \
+            -v "$HOST_DATA_DIR:/app/data" \
             "$IMAGE_NAME"
     fi
     

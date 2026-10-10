@@ -1,3 +1,4 @@
+import { getPublicSetting } from '../config';
 import { useActionFeedback } from '../hooks/useActionFeedback'
 import { useUndoableDelete } from '../hooks/useUndoableDelete'
 import { useCallback, useEffect, useState, useRef } from 'react'
@@ -128,12 +129,12 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [privacyTimeoutMinutes] = useState(() => {
     const saved = localStorage.getItem('privacy_timeout_minutes')
-    return saved ? parseInt(saved, 10) : parseInt(import.meta.env.VITE_PRIVACY_TIMEOUT_MINUTES || '5', 10)
+    return saved ? parseInt(saved, 10) : parseInt(getPublicSetting('VITE_PRIVACY_TIMEOUT_MINUTES') || '5', 10)
   })
   const [currentUser] = useState(getCurrentUser())
   const [showCountdown] = useState(() => {
     const saved = localStorage.getItem('show_privacy_countdown')
-    return saved ? saved === 'true' : import.meta.env.VITE_SHOW_PRIVACY_COUNTDOWN === 'true'
+    return saved ? saved === 'true' : getPublicSetting('VITE_SHOW_PRIVACY_COUNTDOWN') === 'true'
   })
   
 // 防窥模式：使用可配置的超时时长（页面顶层关闭 trackCountdown，避免每秒重渲染列表）

@@ -1,3 +1,4 @@
+import { getPublicSetting } from '../config';
 /**
  * JWT Token 认证服务
  * 
@@ -45,7 +46,7 @@ let refreshPromise: Promise<boolean> | null = null;
  * 获取 API 基础 URL
  */
 function getApiBaseUrl(): string {
-  return import.meta.env.VITE_API_BASE_URL || '';
+  return getPublicSetting('VITE_API_BASE_URL') || '';
 }
 
 export async function getAuthPolicy(signal?: AbortSignal): Promise<{ registration_enabled: boolean }> {

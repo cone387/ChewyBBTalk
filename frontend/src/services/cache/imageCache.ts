@@ -1,3 +1,4 @@
+import { getPublicSetting } from '../../config';
 import { openDB, DBSchema, IDBPDatabase } from 'idb'
 import { apiClient } from '../api/apiClient'
 
@@ -27,7 +28,7 @@ class ImageCacheService {
    * 标准化 URL：根据环境变量配置转换协议
    */
   private normalizeUrl(url: string): string {
-    const targetProtocol = import.meta.env.VITE_MEDIA_URL_PROTOCOL
+    const targetProtocol = getPublicSetting('VITE_MEDIA_URL_PROTOCOL')
     if (targetProtocol === 'https' && url.startsWith('http://')) {
       return url.replace('http://', 'https://')
     } else if (targetProtocol === 'http' && url.startsWith('https://')) {
@@ -297,7 +298,7 @@ class ImageCacheService {
     // Attachment API blobs may be private. Never reuse a public URL-only disk
     // cache across accounts, and only send credentials to our configured API.
     const target = new URL(url, window.location.origin)
-    const api = new URL(import.meta.env.VITE_API_BASE_URL || window.location.origin)
+    const api = new URL(getPublicSetting('VITE_API_BASE_URL') || window.location.origin)
     if (target.origin === api.origin && target.pathname.startsWith('/api/v1/attachments/')) {
       return apiClient.download(target.pathname + target.search)
     }

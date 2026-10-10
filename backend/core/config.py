@@ -6,8 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-SOURCE_ROOT = Path(__file__).resolve().parents[1]
-BACKEND_DIR = SOURCE_ROOT if (SOURCE_ROOT / 'pyproject.toml').is_file() else Path.cwd()
+from core.environment import BACKEND_DIR, ROOT_DIR
 
 
 def default_runtime_root():
@@ -17,6 +16,11 @@ def default_runtime_root():
 
 def boolean(name, default=False):
     return os.getenv(name, str(default)).lower() in {'1', 'true', 'yes'}
+
+
+def runtime_path(value):
+    path = Path(value)
+    return (path if path.is_absolute() else ROOT_DIR / path).resolve()
 
 
 def secret_key(directory):
@@ -40,14 +44,14 @@ def secret_key(directory):
 @dataclass
 class Settings:
     data_dir: Path = field(
-        default_factory=lambda: Path(os.getenv('DATA_DIR', str(default_runtime_root() / 'data')))
+        default_factory=lambda: Path(os.getenv('DATA_DIR') or default_runtime_root() / 'data')
     )
     database_url: str = field(
-        default_factory=lambda: os.getenv('DATABASE_URL', 'sqlite:///db.sqlite3')
+        default_factory=lambda: os.getenv('DATABASE_URL') or 'sqlite:///db.sqlite3'
     )
     secret_key: str = ''
     media_root: Path = field(
-        default_factory=lambda: Path(os.getenv('MEDIA_ROOT', str(default_runtime_root() / 'media')))
+        default_factory=lambda: Path(os.getenv('MEDIA_ROOT') or default_runtime_root() / 'media')
     )
     debug: bool = field(default_factory=lambda: boolean('DEBUG', True))
     allowed_hosts: list[str] = field(
@@ -83,8 +87,8 @@ class Settings:
     cookie_secure: bool = field(default_factory=lambda: boolean('SESSION_COOKIE_SECURE'))
 
     def __post_init__(self):
-        self.data_dir = Path(self.data_dir).resolve()
-        self.media_root = Path(self.media_root).resolve()
+        self.data_dir = runtime_path(self.data_dir)
+        self.media_root = runtime_path(self.media_root)
         self.secret_key = self.secret_key or secret_key(self.data_dir)
         if self.database_url.startswith('sqlite:///'):
             value = self.database_url[len('sqlite:///') :]
@@ -106,4 +110,4 @@ class Settings:
 
     @property
     def backup_root(self):
-        return Path(os.getenv('BACKUP_ROOT', str(self.data_dir / 'backups'))).resolve()
+        return runtime_path(os.getenv('BACKUP_ROOT') or self.data_dir / 'backups')

@@ -19,8 +19,10 @@ uv run dev
 uv run uvicorn main:app --host 0.0.0.0 --port 8020 --no-proxy-headers
 ```
 
-`BACKEND_HOST`、`BACKEND_PORT` 调整开发监听地址。根目录 `start_backend.sh`
-加载 `.env`，支持 `dev`、`prod`、`test` 参数。Docker、Supervisor、浏览器测试使用同一 ASGI 入口。
+`BACKEND_HOST`、`BACKEND_PORT` 调整本地监听地址，`WEB_CONCURRENCY` 调整生产 worker 数量。
+所有后端入口（Uvicorn、CLI、`uv run dev`、`start_backend.sh`）均自动读取根目录 `.env`，
+进程环境变量优先，不执行文件中的 shell 表达式。前端也使用同一文件，详见[统一配置说明](../docs/configuration.md)。
+根目录脚本支持 `dev`、`prod`、`test` 参数。Docker、Supervisor、浏览器测试使用同一 ASGI 入口。
 
 ## 已有实例升级
 
@@ -43,7 +45,9 @@ S3 加密密钥。**旧 Cookie 会话和管理后台需要重新登录**；JWT �
 如存在 SQLite 的 `-wal` 文件，须先正常关闭数据库并完成检查点，不能仅复制主数据库文件。
 目标已有数据时先核对并备份，禁止直接覆盖。显式环境变量优先，已有绝对路径配置可继续使用。
 安装 wheel 后，未配置环境变量时以启动工作目录为基础解析 `var/`；生产环境应设置绝对路径。
-根目录启动脚本继续显式使用项目 `data/`，容器继续使用 `/app/data` 挂载卷。
+根目录启动脚本与直接运行后端统一使用 `backend/var/`。原先通过脚本使用项目 `data/` 的实例，
+应在根 `.env` 显式设置原来的 `DATABASE_URL`、`DATA_DIR` 和 `MEDIA_ROOT`，避免切换到另一份数据。
+容器继续使用 `/app/data` 挂载卷，宿主目录通过 `HOST_DATA_DIR` 设置。
 回退应恢复升级前的配套数据备份和旧代码。
 
 本次目录重组不改变数据库结构或 Alembic revision，也不使原生后端已签发的 Session/JWT 失效。

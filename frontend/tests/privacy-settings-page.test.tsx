@@ -9,7 +9,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   localStorage.clear();
 });
-afterEach(() => cleanup());
+afterEach(() => { cleanup(); delete window.__BBTALK_CONFIG__; });
 
 function slider(view: ReturnType<typeof render>) {
   return view.container.querySelector('input[type="range"]') as HTMLInputElement;
@@ -17,6 +17,24 @@ function slider(view: ReturnType<typeof render>) {
 function toggle() { return screen.getByRole('checkbox'); }
 
 describe('PrivacySettingsPage', () => {
+  it('uses deployment defaults while preserving personal preferences and empty-value fallback', () => {
+    window.__BBTALK_CONFIG__ = { VITE_PRIVACY_TIMEOUT_MINUTES: '12', VITE_SHOW_PRIVACY_COUNTDOWN: 'true' };
+    const first = render(<PrivacySettingsPage />);
+    expect(slider(first).value).toBe('12');
+    expect(toggle().checked).toBe(true);
+    first.unmount();
+    localStorage.setItem('privacy_timeout_minutes', '30');
+    localStorage.setItem('show_privacy_countdown', 'false');
+    const second = render(<PrivacySettingsPage />);
+    expect(slider(second).value).toBe('30');
+    expect(toggle().checked).toBe(false);
+    second.unmount();
+    localStorage.clear();
+    window.__BBTALK_CONFIG__.VITE_PRIVACY_TIMEOUT_MINUTES = '';
+    const third = render(<PrivacySettingsPage />);
+    expect(slider(third).value).toBe('5');
+  });
+
   it('falls back to environment defaults and navigates back to settings', () => {
     const view = render(<PrivacySettingsPage />);
     expect(slider(view).value).toBe('5');

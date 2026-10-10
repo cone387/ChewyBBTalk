@@ -8,12 +8,12 @@
 2. 部署 job 串行执行；远端确认当前 master 与构建提交一致，过期提交跳过。
 3. 从构建提交读取部署脚本，不覆盖服务器工作区、`.env` 或数据文件。
 4. 在部署目录取得 `flock` 锁，最多拉取 3 次，镜像可用后才停止旧容器。
-5. 旧容器改名为 `chewy-bbtalk-previous`，新容器使用原 `./data:/app/data`、可选 `.env`、4010 端口和 `unless-stopped` 策略启动。
+5. 旧容器改名为 `chewy-bbtalk-previous`，新容器读取部署目录 `.env`，使用 `HOST_DATA_DIR`（默认 `./data`）挂载 `/app/data`，以 `PORT`（默认 4010）映射内部 4010 端口，采用 `unless-stopped` 策略启动。
 6. 通过容器内 Python 检查 Nginx 首页 200 及 FastAPI 用户 API 的 200/401 JSON 响应。检查通过才删除旧容器并报告成功。
 
 服务器需要 Bash、Docker 兼容 CLI、`flock`（util-linux）、`timeout`（coreutils），以及访问 GitHub 和 GHCR 的网络。镜像目前允许匿名拉取；若仓库权限改变，应先在服务器配置凭据。拉取失败仍然可能发生，但不会停止旧服务。
 
-预构建镜像中的 `VITE_*` 值在构建时确定，服务器 `.env` 仅用于运行时配置。单容器默认同源 API 与根路径部署。需要定制 Web 构建配置时可手动使用源码构建命令，本轮不加入运行时 Vite 配置注入。
+前后端统一使用部署目录 `.env`。预构建镜像通过后端 `/api/public-config` 输出明确列出的前端公开配置，站点信息、API 地址和防窥默认值均可在容器重建后生效，无需重新编译前端。构建不复制 `.env` 或后端密钥。只有 `VITE_BASE_PATH` 等构建路径选项需要源码构建，详见[统一配置说明](configuration.md)。
 
 ## 手动更新
 

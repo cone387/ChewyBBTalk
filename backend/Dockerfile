@@ -27,5 +27,9 @@ EXPOSE 8020
 
 # 保留 GUNICORN_WORKERS 作为旧部署的兼容变量。
 ENV WEB_CONCURRENCY=2
+ENV DATABASE_URL=sqlite:////app/data/db/db.sqlite3
+ENV DATA_DIR=/app/data
+ENV MEDIA_ROOT=/app/data/media
+ENV DEBUG=false
 
 CMD ["sh", "-c", "uv run --frozen --no-dev python -m cli migrate && uv run --frozen --no-dev python -m cli init && exec uv run --frozen --no-dev uvicorn main:app --host 0.0.0.0 --port 8020 --workers ${GUNICORN_WORKERS:-${WEB_CONCURRENCY}} --no-proxy-headers"]

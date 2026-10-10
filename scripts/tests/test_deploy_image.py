@@ -41,7 +41,7 @@ esac
 
 
 class DeployImageTests(unittest.TestCase):
-    def run_deploy(self, mode="success", image=IMAGE, bad_env=False):
+    def run_deploy(self, mode="success", image=IMAGE, bad_env=False, env_text="SECRET_KEY=test-only\n"):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             work = root / "deployment directory"
@@ -49,7 +49,7 @@ class DeployImageTests(unittest.TestCase):
             if bad_env:
                 (work / ".env").mkdir()
             else:
-                (work / ".env").write_text("SECRET_KEY=test-only\n")
+                (work / ".env").write_text(env_text)
             binary = root / "bin"
             binary.mkdir()
             fixtures = {
@@ -69,6 +69,7 @@ class DeployImageTests(unittest.TestCase):
             # A copied LF script also makes the test independent of Windows autocrlf.
             script = root / "deploy-image.sh"
             script.write_text((ROOT / "scripts/deploy-image.sh").read_text(encoding="utf-8"), encoding="utf-8", newline="\n")
+            (root / "deploy-env.sh").write_text((ROOT / "scripts/deploy-env.sh").read_text(encoding="utf-8"), encoding="utf-8", newline="\n")
             result = subprocess.run([BASH, str(script), image], cwd=work, env=env,
                                     capture_output=True, text=True, encoding="utf-8", timeout=15)
             calls = log.read_text().splitlines() if log.exists() else []
@@ -90,6 +91,21 @@ class DeployImageTests(unittest.TestCase):
         result, calls = self.run_deploy("fresh")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse(any(call.startswith(("stop ", "rename ", "rm ")) for call in calls))
+
+    def test_root_env_controls_host_port_and_volume_without_executing_code(self):
+        result, calls = self.run_deploy(env_text='PORT=4510\nHOST_DATA_DIR=./custom data\nSECRET_KEY=$(exit 77)\nDEPLOY_PULL_TIMEOUT=999\n')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        run = next(call for call in calls if call.startswith('run '))
+        self.assertIn('-p 4510:4010', run)
+        self.assertIn('/custom data:/app/data', run.replace('\\', '/'))
+        self.assertNotIn('exit 77', result.stdout + result.stderr)
+        # The explicitly provided test process environment still takes priority.
+        self.assertIn('超时 1 秒', result.stdout)
+
+    def test_invalid_configured_port_fails_before_docker_changes(self):
+        result, calls = self.run_deploy(env_text='PORT=70000\n')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(calls, [])
 
     def test_container_cli_never_inherits_deployment_lock(self):
         result, calls = self.run_deploy()

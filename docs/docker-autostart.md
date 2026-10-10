@@ -28,14 +28,14 @@ systemctl status docker           # 应为 active (running)
 备份由宿主机负责调度，实际导出在 ChewyBBTalk 容器内执行。先确保脚本路径和容器名符合当前部署：
 
 ```bash
-sudo mkdir -p /etc/chewybbtalk
 sudo cp deploy/chewybbtalk-backup.service /etc/systemd/system/
 sudo cp deploy/chewybbtalk-backup.timer /etc/systemd/system/
 sudo cp scripts/backup-host.sh /opt/chewybbtalk/scripts/backup-host.sh
+sudo cp scripts/deploy-env.sh /opt/chewybbtalk/scripts/deploy-env.sh
 sudo chmod +x /opt/chewybbtalk/scripts/backup-host.sh
 ```
 
-如使用 Compose 后端容器，创建 `/etc/chewybbtalk/backup.env`：
+如使用 Compose 后端容器，在部署根目录 `/opt/chewybbtalk/.env` 中设置：
 
 ```bash
 BACKUP_CONTAINER=chewybbtalk-backend
@@ -43,6 +43,8 @@ BACKUP_KEEP=7
 ```
 
 单容器部署可将 `BACKUP_CONTAINER` 设置为 `chewy-bbtalk`（`deploy.sh` 默认名称）或 `chewybbtalk`。
+
+备份脚本自动读取同一份根 `.env`；升级时将原 `/etc/chewybbtalk/backup.env` 的配置合并到该文件，并重新安装 service。部署路径不同需同步调整 service 的 `WorkingDirectory` 和 `ExecStart`。
 
 启用并立即运行一次：
 
@@ -70,7 +72,7 @@ sudo systemctl disable --now chewybbtalk-backup.timer
 没有 systemd 时，可使用宿主机 cron（每天 03:30）：
 
 ```cron
-30 3 * * * cd /opt/chewybbtalk && BACKUP_CONTAINER=chewy-bbtalk BACKUP_KEEP=7 ./scripts/backup-host.sh >> /var/log/chewybbtalk-backup.log 2>&1
+30 3 * * * cd /opt/chewybbtalk && ./scripts/backup-host.sh >> /var/log/chewybbtalk-backup.log 2>&1
 ```
 
 部署并启动容器（任选其一）：

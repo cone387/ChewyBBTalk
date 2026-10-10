@@ -1,10 +1,11 @@
+import { getPublicSetting } from '../config';
 import { useEffect, useRef, useState, type ComponentProps } from 'react';
 import { apiClient } from '../services/api/apiClient';
 
 function attachmentPath(src: string): string | null {
   try {
     const url = new URL(src, window.location.origin);
-    const base = new URL(import.meta.env.VITE_API_BASE_URL || window.location.origin);
+    const base = new URL(getPublicSetting('VITE_API_BASE_URL') || window.location.origin);
     return url.origin === base.origin && url.pathname.startsWith('/api/v1/attachments/') ? url.pathname + url.search : null;
   } catch { return null; }
 }

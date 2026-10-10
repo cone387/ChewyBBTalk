@@ -28,14 +28,12 @@ docker run -d --name chewybbtalk -p 4010:4010 -v bbtalk_data:/app/data ghcr.io/c
 
 启动后访问 http://localhost:4010 ，管理员用户名默认为 `admin`，初始密码见下方说明。
 
-如需自定义配置：
+在仓库目录通过根 `.env` 自定义配置（包括端口与宿主机数据目录）：
 
 ```bash
-docker run -d --name chewybbtalk -p 4010:4010 \
-  -v bbtalk_data:/app/data \
-  -e ADMIN_PASSWORD=your-password \
-  -e SECRET_KEY=your-secret-key \
-  ghcr.io/cone387/chewy-bbtalk:latest
+cp .env.example .env
+# 编辑 .env 后部署预构建镜像
+bash deploy.sh pull
 ```
 
 ### 方式二：Docker Compose 部署
@@ -56,6 +54,7 @@ git clone https://github.com/cone387/ChewyBBTalk.git
 cd ChewyBBTalk
 
 # 2. 启动后端服务
+cp .env.example .env
 bash start_backend.sh
 
 # 3. 启动前端服务（新终端）
@@ -66,25 +65,28 @@ npm run dev
 
 ## 🔧 配置说明
 
-所有配置项均有合理默认值，无需 `.env` 文件即可启动。如需自定义，可通过环境变量或 `.env` 文件配置：
+前后端、本地开发与部署统一使用**根目录 `.env`**。完整配置项只维护在根 [`.env.example`](.env.example)，复制后编辑即可；不再使用 `frontend/.env` 或 `backend/.env`。
+
+后端所有启动入口自动加载根配置；Vite 从根目录读取。预构建镜像也支持前端公开配置，修改后重新创建容器并刷新页面即可生效，不需要为站点名称、API 地址等重新编译前端。详见[统一配置说明](docs/configuration.md)。
 
 ```bash
 # 后端配置
-SECRET_KEY=           # 留空则自动生成并持久化到 /app/data/.secret_key
-DEBUG=false           # 默认 false
-ALLOWED_HOSTS=*       # 默认允许所有域名
+SECRET_KEY=
+DEBUG=false
+ALLOWED_HOSTS=*
 
 # 数据库配置（支持 SQLite、PostgreSQL、MySQL）
-DATABASE_URL=sqlite:////app/data/db/db.sqlite3  # 默认 SQLite
+# 不配置时使用当前运行环境的默认 SQLite 路径
+# DATABASE_URL=sqlite:////app/data/db/db.sqlite3
 # DATABASE_URL=postgresql://user:pass@host:5432/chewybbtalk
 
 # 系统管理员账号（首次启动时创建）
-ADMIN_USERNAME=admin        # 默认 admin
-ADMIN_PASSWORD=            # 留空则随机生成并保存到受限文件
-CREATE_DEMO_USER=false      # 默认不创建固定凭据的演示账号
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=
+CREATE_DEMO_USER=false
 ```
 
-### 前端配置（frontend/.env）
+### 前端配置（同一份根目录 .env）
 
 ```bash
 # API 基础地址（留空使用相对路径）
@@ -125,7 +127,7 @@ VITE_SITE_COPYRIGHT=© 2024 ChewyBBTalk
 
 首次登录后修改初始密码并移除凭据文件。升级不会覆盖已有账号密码。
 
-容器管理员可执行 `docker exec chewybbtalk cat /app/data/credentials/initial-admin.json` 获取初始凭据。Compose 容器名为 `chewybbtalk-backend`。直接运行后端时，初始凭据默认保存在 `backend/var/data/credentials/`；旧本地数据按[后端升级说明](backend/README.md#已有实例升级)迁移。根目录启动脚本使用 `data/backend/credentials/`，可通过 `DATA_DIR` 指定数据目录。
+容器管理员可执行 `docker exec chewybbtalk cat /app/data/credentials/initial-admin.json` 获取初始凭据。Compose 容器名为 `chewybbtalk-backend`。本地运行（包括根目录启动脚本）的初始凭据默认保存在 `backend/var/data/credentials/`；旧本地数据按[后端升级说明](backend/README.md#已有实例升级)迁移。可通过根目录 `.env` 的 `DATA_DIR` 指定数据目录。
 
 也可通过环境变量提供 `ADMIN_USERNAME` 和 `ADMIN_PASSWORD`。仅明确设置 `CREATE_DEMO_USER=true` 时才会新建固定凭据的演示账号；现有演示账号不会自动删除。
 
@@ -149,7 +151,7 @@ VITE_SITE_COPYRIGHT=© 2024 ChewyBBTalk
 
 **配置方式**
 
-编辑 `frontend/.env`：
+编辑根目录 `.env`，重启后端（容器部署时重建容器）后刷新页面：
 
 ```bash
 # 防窥模式超时时长（分钟），支持范围：1-60

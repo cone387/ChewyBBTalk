@@ -109,9 +109,11 @@ jobs:
             exit 0
           fi
           timeout --kill-after=5 60 git fetch origin "$DEPLOY_COMMIT"
-          deploy_script=$(mktemp)
-          trap 'rm -f "$deploy_script"' EXIT
+          deploy_tools=$(mktemp -d)
+          deploy_script="$deploy_tools/deploy-image.sh"
+          trap 'rm -f "$deploy_script" "$deploy_tools/deploy-env.sh"; rmdir "$deploy_tools"' EXIT
           git show "$DEPLOY_COMMIT:scripts/deploy-image.sh" > "$deploy_script"
+          git show "$DEPLOY_COMMIT:scripts/deploy-env.sh" > "$deploy_tools/deploy-env.sh"
           # End the remote process group before the SSH action's 30 minute
           # observation deadline, including children left by a stalled pull.
           timeout --kill-after=15 1500 bash "$deploy_script" "$DEPLOY_IMAGE"

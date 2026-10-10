@@ -1,10 +1,11 @@
+import { getPublicSetting } from '../../config';
 import { getAccessToken, getCurrentUser, refreshAccessToken, logout } from '../auth';
 
 export class ApiError extends Error {
   constructor(message: string, public status: number, public code?: string, public current?: unknown) { super(message); }
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+const API_BASE_URL = getPublicSetting('VITE_API_BASE_URL') || '';
 
 class ApiClient {
   private baseUrl: string;

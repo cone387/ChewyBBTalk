@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Run from the deployment directory containing .env and data/.
 set -euo pipefail
+source "$(dirname -- "${BASH_SOURCE[0]}")/deploy-env.sh"
+load_deploy_env .env
 
 image="${1:-ghcr.io/cone387/chewy-bbtalk:latest}"
 container=chewy-bbtalk
@@ -10,8 +12,11 @@ pull_timeout="${DEPLOY_PULL_TIMEOUT:-300}"
 health_attempts="${DEPLOY_HEALTH_ATTEMPTS:-60}"
 retry_delay="${DEPLOY_RETRY_DELAY:-5}"
 health_interval="${DEPLOY_HEALTH_INTERVAL:-2}"
+port="${PORT:-4010}"
+data_directory="${HOST_DATA_DIR:-./data}"
 
 fail() { printf '[ERROR] %s\n' "$*" >&2; exit 1; }
+[[ "$port" =~ ^[1-9][0-9]{0,4}$ && "$port" -le 65535 ]] || fail 'PORT 必须是 1 到 65535 的整数'
 [[ "$image" =~ ^ghcr\.io/cone387/chewy-bbtalk(:[A-Za-z0-9_.-]+|@sha256:[a-f0-9]{64})$ ]] || fail '无效的镜像引用'
 [[ "$pull_attempts" =~ ^[1-9][0-9]*$ && "$health_attempts" =~ ^[1-9][0-9]*$ ]] || fail '检查次数必须为正整数'
 [[ "$retry_delay" =~ ^[0-9]+$ && "$health_interval" =~ ^[0-9]+$ ]] || fail '等待时间必须为非负整数'
@@ -41,8 +46,9 @@ if [[ -e .env ]]; then
   [[ -f .env && -r .env ]] || fail '.env 不是可读文件'
   env_args=(--env-file .env)
 fi
-[[ ! -e data || -d data ]] || fail 'data 必须为目录'
-mkdir -p data
+[[ ! -e "$data_directory" || -d "$data_directory" ]] || fail 'HOST_DATA_DIR 必须为目录'
+mkdir -p "$data_directory"
+data_directory="$(cd -- "$data_directory" && pwd)"
 
 printf '[INFO] 拉取镜像 %s\n' "$image"
 pulled=false
@@ -61,7 +67,7 @@ if [[ -n "$old" ]]; then
 fi
 
 if ! docker run -d --name "$container" --restart unless-stopped \
-  -p 4010:4010 "${env_args[@]}" -v "$(pwd)/data:/app/data" "$image"; then
+  -p "$port:4010" "${env_args[@]}" -v "$data_directory:/app/data" "$image"; then
   fail "新容器启动失败；旧容器保留为 $previous，请检查后人工恢复"
 fi
 
