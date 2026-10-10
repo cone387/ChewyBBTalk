@@ -131,6 +131,19 @@ VITE_SITE_COPYRIGHT=© 2024 ChewyBBTalk
 
 也可通过环境变量提供 `ADMIN_USERNAME` 和 `ADMIN_PASSWORD`。仅明确设置 `CREATE_DEMO_USER=true` 时才会新建固定凭据的演示账号；现有演示账号不会自动删除。
 
+### Demo 账号与示例数据
+
+在根目录 `.env` 设置 `CREATE_DEMO_USER=true`。本地执行以下命令，或重建 Docker 容器（启动时自动执行初始化）：
+
+```bash
+cd backend
+uv run python -m cli init
+```
+
+随后使用 **`demo` / `demo123`** 登录。首次创建时带有 **10 条记录、6 个标签、4 条评论**，涵盖公开与私密记录、置顶、多标签、Markdown 代码块与列表、地点和来源信息。演示账号是普通账号，可用于发布、编辑、搜索和评论测试。
+
+重复初始化不会重置已有 demo 密码或覆盖、重复添加数据；关闭开关也不会禁用或删除已创建的账号。此开关只控制初始化，用户名和初始密码目前固定。
+
 ## 🌐 Web 客户端
 
 `frontend/` 提供普通浏览器访问和响应式布局，不再提供 PWA 安装、Service Worker 离线缓存或离线可用承诺。

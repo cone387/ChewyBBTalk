@@ -5,11 +5,12 @@ import pytest
 from sqlalchemy import func, select
 
 from cli import commands as cli
-from models import BBTalk, Identity, StorageConfig, User
+from models import BBTalk, Comment, Identity, StorageConfig, Tag, User
 from services.security import check_password
 
 
 def test_initialization_is_idempotent_and_demo_opt_in(app,monkeypatch,capsys):
+    monkeypatch.setenv('CREATE_DEMO_USER','false')
     monkeypatch.setenv('ADMIN_USERNAME','native-admin')
     monkeypatch.setenv('ADMIN_PASSWORD','provided-password')
     with app.state.sessions() as db:
@@ -24,7 +25,13 @@ def test_initialization_is_idempotent_and_demo_opt_in(app,monkeypatch,capsys):
         monkeypatch.setenv('CREATE_DEMO_USER','true')
         cli.initialize(db,app.state.settings)
         count=db.scalar(select(func.count()).select_from(BBTalk))
-        assert count>0
+        assert count==10
+        demo=db.scalar(select(User).where(User.username=='demo'))
+        demo_identity=db.scalar(select(Identity).where(Identity.user_id==demo.id))
+        assert demo.is_active and not demo.is_staff and not demo.is_superuser
+        assert check_password('demo123',demo_identity.credential)
+        assert db.scalar(select(func.count()).select_from(Tag).where(Tag.user_id==demo.id))==6
+        assert db.scalar(select(func.count()).select_from(Comment).where(Comment.user_id==demo.id))==4
         cli.initialize(db,app.state.settings)
         assert db.scalar(select(func.count()).select_from(BBTalk))==count
     assert 'provided-password' not in capsys.readouterr().out
