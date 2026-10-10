@@ -36,8 +36,12 @@ __pycache__/
 *.egg
 *.egg-info/
 .Python
+.venv/
 venv/
 env/
+.uv-cache/
+.pytest_cache/
+.ruff_cache/
 *.sqlite3
 
 # Runtime data
