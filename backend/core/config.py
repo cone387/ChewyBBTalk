@@ -11,14 +11,7 @@ BACKEND_DIR = SOURCE_ROOT if (SOURCE_ROOT / 'pyproject.toml').is_file() else Pat
 
 
 def default_runtime_root():
-    """New installs use var/; existing local data stays at its original path."""
-    legacy = BACKEND_DIR / 'chewy_space'
-    if (
-        (legacy / 'db.sqlite3').is_file()
-        or (legacy / 'data/.secret_key').is_file()
-        or (legacy / 'media').exists()
-    ):
-        return legacy
+    """Keep local runtime data outside the application source directories."""
     return BACKEND_DIR / 'var'
 
 
@@ -98,8 +91,7 @@ class Settings:
             if value != ':memory:':
                 path = Path(value)
                 if not path.is_absolute():
-                    legacy = BACKEND_DIR / 'chewy_space' / path
-                    path = legacy if legacy.is_file() else default_runtime_root() / path
+                    path = default_runtime_root() / path
                 self.database_url = 'sqlite:///' + path.resolve().as_posix()
         elif self.database_url.startswith(('postgres://', 'postgresql://')):
             # Choose the installed driver explicitly; SQLAlchemy's default may

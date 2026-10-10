@@ -7,9 +7,7 @@ data/
 frontend/node_modules
 frontend/dist
 frontend/dev-dist
-backend/chewy_space/db.sqlite3
-backend/chewy_space/media
-backend/chewy_space/data
+backend/chewy_space
 backend/var
 backend/.venv
 backend/dist

@@ -125,7 +125,7 @@ VITE_SITE_COPYRIGHT=© 2024 ChewyBBTalk
 
 首次登录后修改初始密码并移除凭据文件。升级不会覆盖已有账号密码。
 
-容器管理员可执行 `docker exec chewybbtalk cat /app/data/credentials/initial-admin.json` 获取初始凭据。Compose 容器名为 `chewybbtalk-backend`。直接运行后端时，新安装的初始凭据默认保存在 `backend/var/data/credentials/`，已有数据沿用原路径；根目录启动脚本使用 `data/backend/credentials/`。可通过 `DATA_DIR` 指定数据目录。
+容器管理员可执行 `docker exec chewybbtalk cat /app/data/credentials/initial-admin.json` 获取初始凭据。Compose 容器名为 `chewybbtalk-backend`。直接运行后端时，初始凭据默认保存在 `backend/var/data/credentials/`；旧本地数据按[后端升级说明](backend/README.md#已有实例升级)迁移。根目录启动脚本使用 `data/backend/credentials/`，可通过 `DATA_DIR` 指定数据目录。
 
 也可通过环境变量提供 `ADMIN_USERNAME` 和 `ADMIN_PASSWORD`。仅明确设置 `CREATE_DEMO_USER=true` 时才会新建固定凭据的演示账号；现有演示账号不会自动删除。
 

@@ -44,12 +44,11 @@ env/
 db.sqlite3
 staticfiles/
 media/
-backend/chewy_space/data/
 backend/var/
 .secret_key
 
-# Custom configs (not committed)
-backend/chewy_space/configs/
+# Protect data left by older checkouts until it has been migrated
+backend/chewy_space/
 
 # Temporary files
 attachments.md

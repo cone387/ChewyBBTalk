@@ -18,33 +18,31 @@ def test_fresh_install_writes_only_to_var(monkeypatch, tmp_path):
     assert not (tmp_path/'chewy_space').exists()
 
 
-def test_existing_database_and_secret_keep_original_paths(monkeypatch, tmp_path):
+def test_migrated_database_and_secret_are_reused(monkeypatch, tmp_path):
     clean_environment(monkeypatch, tmp_path)
-    legacy = tmp_path/'chewy_space'
-    (legacy/'data').mkdir(parents=True)
-    (legacy/'db.sqlite3').write_bytes(b'existing database sentinel')
-    (legacy/'data/.secret_key').write_text('existing-signing-key')
+    runtime = tmp_path/'var'
+    (runtime/'data').mkdir(parents=True)
+    (runtime/'db.sqlite3').write_bytes(b'existing database sentinel')
+    (runtime/'data/.secret_key').write_text('existing-signing-key')
     settings = config.Settings()
     assert settings.secret_key == 'existing-signing-key'
-    assert settings.data_dir == legacy/'data'
-    assert settings.media_root == legacy/'media'
-    assert settings.database_url == 'sqlite:///' + (legacy/'db.sqlite3').as_posix()
-    assert (legacy/'db.sqlite3').read_bytes() == b'existing database sentinel'
-    assert not (tmp_path/'var').exists()
+    assert settings.data_dir == runtime/'data'
+    assert settings.media_root == runtime/'media'
+    assert settings.database_url == 'sqlite:///' + (runtime/'db.sqlite3').as_posix()
+    assert (runtime/'db.sqlite3').read_bytes() == b'existing database sentinel'
+    assert (runtime/'data/.secret_key').read_text() == 'existing-signing-key'
 
 
-def test_existing_secret_or_media_alone_is_detected(monkeypatch, tmp_path):
+def test_legacy_directory_does_not_override_runtime_paths(monkeypatch, tmp_path):
     clean_environment(monkeypatch, tmp_path)
     legacy = tmp_path/'chewy_space'
     (legacy/'media').mkdir(parents=True)
-    assert config.default_runtime_root() == legacy
-    (legacy/'media').rmdir()
     (legacy/'data').mkdir()
     (legacy/'data/.secret_key').write_text('persisted-key')
-    assert config.default_runtime_root() == legacy
+    assert config.default_runtime_root() == tmp_path/'var'
 
 
-def test_explicit_paths_override_discovery(monkeypatch, tmp_path):
+def test_explicit_paths_override_defaults(monkeypatch, tmp_path):
     clean_environment(monkeypatch, tmp_path)
     selected = tmp_path/'selected'
     monkeypatch.setenv('DATA_DIR', str(selected/'data'))
@@ -60,11 +58,11 @@ def test_explicit_paths_override_discovery(monkeypatch, tmp_path):
 
 def test_existing_custom_relative_database_is_preserved(monkeypatch, tmp_path):
     clean_environment(monkeypatch, tmp_path)
-    legacy = tmp_path/'chewy_space'
-    legacy.mkdir()
-    (legacy/'custom.sqlite3').touch()
+    runtime = tmp_path/'var'
+    runtime.mkdir()
+    (runtime/'custom.sqlite3').touch()
     settings = config.Settings(database_url='sqlite:///custom.sqlite3', secret_key='explicit')
-    assert settings.database_url == 'sqlite:///' + (legacy/'custom.sqlite3').as_posix()
+    assert settings.database_url == 'sqlite:///' + (runtime/'custom.sqlite3').as_posix()
 
 
 def test_postgresql_aliases_load_the_installed_driver(monkeypatch, tmp_path):
