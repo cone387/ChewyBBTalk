@@ -73,6 +73,8 @@ uv run python -m cli shell
 `init` 不重置已有管理员密码。`ADMIN_USERNAME` 默认为 `admin`；未提供 `ADMIN_PASSWORD`
 时生成随机密码，保存到受限文件 `DATA_DIR/credentials/initial-admin.json`。
 仅 `CREATE_DEMO_USER=true` 时创建演示账号 `demo / demo123` 和数据。
+首次创建包含 240 条记录与本地演示附件。已有账号用 `uv run python -m cli seed-demo`
+显式补充；不重置密码或覆盖仍存在的记录，详见[演示场景清单](../docs/demo-data.md)。
 
 `SECRET_KEY` 用于 JWT、Session 签名和 S3 密钥派生（`enc:v1:`）。未配置时自动生成并
 持久化到 `DATA_DIR/.secret_key`。保持密钥稳定并纳入备份；`encrypt-storage-secrets`

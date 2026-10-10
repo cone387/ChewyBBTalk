@@ -45,6 +45,9 @@ output = "coverage/coverage.xml"
 [tool.hatch.metadata]
 allow-direct-references = true
 
+[tool.hatch.build.force-include]
+"cli/demo_assets/sample.mp4" = "cli/demo_assets/sample.mp4"
+
 [tool.hatch.build.targets.wheel]
 only-include = ["main.py", "application.py", "api", "services", "models", "schemas", "core", "database", "storage", "backups", "admin", "cli", "templates"]
 

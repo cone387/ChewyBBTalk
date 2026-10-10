@@ -84,6 +84,7 @@ web-*.png
 .hyperframes/
 videos/
 *.mp4
+!backend/cli/demo_assets/sample.mp4
 
 # AI Agent skills (managed by tools, not committed)
 .workbuddy/

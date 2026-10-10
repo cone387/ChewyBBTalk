@@ -90,48 +90,55 @@ def initialize(db, settings):
             print(f'初始密码已保存到受限文件: {path}')
     else:
         print('管理员已存在，保留现有凭据')
-    if os.getenv('CREATE_DEMO_USER', '').lower() in {'1', 'true', 'yes'} and not db.scalar(
-        select(User.id).where(User.username == 'demo')
-    ):
-        from cli.seed_data import DEMO_BBTALKS, DEMO_COMMENTS, DEMO_TAGS
+    if os.getenv('CREATE_DEMO_USER', '').lower() in {'1', 'true', 'yes'}:
+        initialize_demo(db, settings)
 
-        user = create_user(
-            db, 'demo', 'demo123', email='demo@example.com', display_name='Demo User'
+
+def initialize_demo(db, settings):
+    user = db.scalar(select(User).where(User.username == 'demo'))
+    if user:
+        return user
+    from cli.seed_data import DEMO_BBTALKS, DEMO_COMMENTS, DEMO_TAGS
+
+    user = create_user(db, 'demo', 'demo123', email='demo@example.com', display_name='Demo User')
+    tags = {row['name']: Tag(user_id=user.id, **row) for row in DEMO_TAGS}
+    db.add_all(tags.values())
+    records = []
+    for row in DEMO_BBTALKS:
+        stamp = now() - timedelta(hours=row['hours_ago'])
+        record = BBTalk(
+            user_id=user.id,
+            content=row['content'],
+            visibility=row['visibility'],
+            is_pinned=row.get('is_pinned', False),
+            context=row.get('context', {}),
+            create_time=stamp,
+            update_time=stamp,
         )
-        tags = {row['name']: Tag(user_id=user.id, **row) for row in DEMO_TAGS}
-        db.add_all(tags.values())
-        records = []
-        for row in DEMO_BBTALKS:
-            stamp = now() - timedelta(hours=row['hours_ago'])
-            record = BBTalk(
+        record.tags = [tags[name] for name in row['tags']]
+        db.add(record)
+        db.flush()
+        records.append(record)
+    for row in DEMO_COMMENTS:
+        db.add(
+            Comment(
                 user_id=user.id,
+                bbtalk_id=records[row['bbtalk_index']].id,
                 content=row['content'],
-                visibility=row['visibility'],
-                is_pinned=row.get('is_pinned', False),
-                context=row.get('context', {}),
-                create_time=stamp,
-                update_time=stamp,
             )
-            record.tags = [tags[name] for name in row['tags']]
-            db.add(record)
-            db.flush()
-            records.append(record)
-        for row in DEMO_COMMENTS:
-            db.add(
-                Comment(
-                    user_id=user.id,
-                    bbtalk_id=records[row['bbtalk_index']].id,
-                    content=row['content'],
-                )
-            )
-        db.commit()
-        print('已创建 Demo 账号和演示数据')
+        )
+    from cli.demo import expand_demo
+
+    expand_demo(db, settings, user)
+    db.commit()
+    print('已创建 Demo 账号和演示数据')
+    return user
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description='ChewyBBTalk 原生后端管理')
     commands = parser.add_subparsers(dest='command', required=True)
-    for name in ('migrate', 'init', 'check', 'encrypt-storage-secrets', 'shell'):
+    for name in ('migrate', 'init', 'seed-demo', 'check', 'encrypt-storage-secrets', 'shell'):
         commands.add_parser(name)
     server = commands.add_parser('serve')
     server.add_argument('--reload', action='store_true')
@@ -161,6 +168,13 @@ def main(argv=None):
                 print('数据库连接正常')
             elif options.command == 'init':
                 initialize(db, settings)
+            elif options.command == 'seed-demo':
+                from cli.demo import expand_demo
+
+                user = initialize_demo(db, settings)
+                added = expand_demo(db, settings, user)
+                db.commit()
+                print(f'Demo: added {added} scenarios; existing records preserved')
             elif options.command == 'encrypt-storage-secrets':
                 for config in db.scalars(select(StorageConfig)):
                     config.s3_secret_access_key = encrypt_secret(
