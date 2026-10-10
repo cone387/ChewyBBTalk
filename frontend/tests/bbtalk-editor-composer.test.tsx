@@ -108,10 +108,11 @@ describe('editing mode', () => {
     const onCancelEdit = vi.fn();
     const view = editor({ editing: editingRecord(), onCancelEdit });
     await screen.findByRole('button', { name: '移除附件 p.png' });
+    await interactive();
     fireEvent.click(screen.getByRole('button', { name: '移除附件 p.png' }));
     expect(screen.queryByRole('button', { name: '移除附件 p.png' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: '取消' }));
-    expect(onCancelEdit).toHaveBeenCalledOnce();
+    await waitFor(() => expect(onCancelEdit).toHaveBeenCalledOnce());
     expect(view.publish).not.toHaveBeenCalled();
   });
 

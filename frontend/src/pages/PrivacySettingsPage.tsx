@@ -28,7 +28,7 @@ export default function PrivacySettingsPage() {
               </div>
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">防窥模式</h2>
-                <p className="text-sm text-gray-500">长时间不操作后自动模糊内容，保护隐私</p>
+                <p className="text-sm text-gray-500">长时间不操作后自动锁定记录，保护隐私</p>
               </div>
             </div>
           </div>
@@ -58,7 +58,7 @@ export default function PrivacySettingsPage() {
                 </span>
               </div>
               <p className="mt-2 text-xs text-gray-500">
-                长时间不活动后，内容将自动模糊以保护隐私
+                长时间不活动后将进入锁定页，输入密码后才能继续查看记录
               </p>
             </div>
 
@@ -70,7 +70,7 @@ export default function PrivacySettingsPage() {
                     显示防窥倒计时
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
-                    在页面底部显示倒计时提示
+                    在记录页导航区域显示倒计时提示
                   </p>
                 </div>
                 <div className="relative">

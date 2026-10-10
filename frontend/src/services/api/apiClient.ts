@@ -7,6 +7,11 @@ export class ApiError extends Error {
 
 const API_BASE_URL = getPublicSetting('VITE_API_BASE_URL') || '';
 
+async function fetchResponse(url: string, options: RequestInit): Promise<Response> {
+  try { return await fetch(url, options); }
+  catch { throw new Error('网络连接失败，请检查网络后重试'); }
+}
+
 class ApiClient {
   private baseUrl: string;
 
@@ -35,7 +40,7 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    let response = await fetch(`${this.baseUrl}${endpoint}`, {
+    let response = await fetchResponse(`${this.baseUrl}${endpoint}`, {
       ...options,
       headers,
     });
@@ -43,6 +48,7 @@ class ApiClient {
 
     // 处理 401 未认证：尝试刷新 token 或跳转登录
     if (response.status === 401) {
+      if (!token) throw new ApiError('此操作需要登录，请登录后重试', 401);
       console.log('[ApiClient] 未认证 (401)，尝试刷新 token...');
       
       // 如果是登录接口报 401，直接抛出错误
@@ -59,7 +65,7 @@ class ApiClient {
           const newToken = getAccessToken();
           if (newToken) {
             headers['Authorization'] = `Bearer ${newToken}`;
-            response = await fetch(`${this.baseUrl}${endpoint}`, {
+            response = await fetchResponse(`${this.baseUrl}${endpoint}`, {
               ...options,
               headers,
             });
@@ -91,7 +97,7 @@ class ApiClient {
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       checkIdentity();
-      throw new ApiError(errorData.error || errorData.message || `请求失败: ${response.status}`, response.status, errorData.code, errorData.current);
+      throw new ApiError(errorData.error || errorData.message || errorData.detail || `请求失败: ${response.status}`, response.status, errorData.code, errorData.current);
     }
 
     // 204 No Content 或没有响应体时不解析 JSON

@@ -114,7 +114,7 @@ describe('initial rendering', () => {
     };
     const view = await loaded();
     expect(screen.getAllByText('Deployment Notes').length).toBeGreaterThan(0);
-    expect(screen.getByText('倒计时')).toBeTruthy();
+    expect(screen.getAllByText('倒计时')).toHaveLength(2);
     view.unmount();
     localStorage.setItem('privacy_timeout_minutes', '15');
     localStorage.setItem('show_privacy_countdown', 'false');
@@ -172,7 +172,7 @@ describe('initial rendering', () => {
     localStorage.setItem('show_privacy_countdown', 'true');
     const second = page();
     await screen.findByText('第一条');
-    fireEvent.click(screen.getByText('倒计时'));
+    fireEvent.click(screen.getAllByText('倒计时')[0]);
     expect(boundary.activate).toHaveBeenCalledTimes(1);
     second.unmount();
   });
@@ -188,7 +188,7 @@ describe('search and tag filters', () => {
     expect(api.getBBTalks).toHaveBeenLastCalledWith(expect.objectContaining({ search: '关键' }));
   });
 
-  it('debounces tag filters and supports single-select toggling', async () => {
+  it('debounces tag filters and supports combining tags and clearing them', async () => {
     vi.useFakeTimers();
     page();
     await act(async () => { await vi.advanceTimersByTimeAsync(350); });
@@ -197,7 +197,7 @@ describe('search and tag filters', () => {
     expect(api.getBBTalks).toHaveBeenLastCalledWith(expect.objectContaining({ tags__name: '工作' }));
     fireEvent.click(screen.getByRole('button', { name: '生活' }));
     await act(async () => { await vi.advanceTimersByTimeAsync(300); });
-    expect(api.getBBTalks).toHaveBeenLastCalledWith(expect.objectContaining({ tags__name: '生活' }));
+    expect(api.getBBTalks).toHaveBeenLastCalledWith(expect.objectContaining({ tags__name: '工作,生活' }));
     fireEvent.click(screen.getByRole('button', { name: '全部', exact: true }));
     await act(async () => { await vi.advanceTimersByTimeAsync(300); });
     expect(api.getBBTalks).toHaveBeenLastCalledWith(expect.objectContaining({ tags__name: '' }));
@@ -370,7 +370,7 @@ describe('list refresh and paging', () => {
     Object.defineProperty(container, 'scrollTop', { value: 150, configurable: true, writable: true });
     fireEvent.scroll(container);
     await screen.findByText('更多公开');
-    expect(api.getPublicBBTalks).toHaveBeenLastCalledWith({ page: 2 });
+    expect(api.getPublicBBTalks).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2 }));
     expect(api.getBBTalks).not.toHaveBeenCalled();
     view.unmount();
   });

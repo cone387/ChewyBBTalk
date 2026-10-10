@@ -5,8 +5,9 @@ import { useCallback, useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
 import { invalidateFeed, loadBBTalks, createBBTalkAsync, updateBBTalkAsync, loadMoreBBTalks, loadPublicBBTalks, loadMorePublicBBTalks, optimisticDelete, undoDelete } from '../store/slices/bbtalkSlice'
-import { loadTags, updateTagAsync } from '../store/slices/tagSlice'
+import { loadTags } from '../store/slices/tagSlice'
 import BBTalkEditor from '../components/BBTalkEditor'
+import RecordFilters, { defaultRecordFilters } from '../components/RecordFilters'
 import BBTalkItem from '../components/BBTalkItem'
 import AppBrand from '../components/AppBrand'
 import Modal from '../components/ui/Modal'
@@ -34,7 +35,7 @@ import { CSS } from '@dnd-kit/utilities'
 import type { Tag, Attachment } from '../types'
 import UndoToast from '../components/UndoToast'
 import SkeletonCard from '../components/SkeletonCard'
-import { bbtalkApi } from '../services/api'
+import { bbtalkApi, tagApi } from '../services/api'
 
 // Props 接口
 interface BBTalkPageProps {
@@ -113,14 +114,16 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
   const [editingBBTalk, setEditingBBTalk] = useState<typeof bbtalks[0] | null>(null)
   const [searchKeyword, setSearchKeyword] = useState('')
   const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const [filters, setFilters] = useState(defaultRecordFilters)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [isInitialLoad, setIsInitialLoad] = useState(true)
+  const publicFiltersReady = useRef(false)
   const [copyTip, setCopyTip] = useState<{ show: boolean; id: string | null }>({ show: false, id: null })
-  const [previewImage, setPreviewImage] = useState<{ src: string; alt: string } | null>(null)
+  const [previewImage, setPreviewImage] = useState<{ src: string; alt: string; images?: { src: string; alt: string }[] } | null>(null)
   const deletion = useUndoableDelete<{ bbtalk: typeof bbtalks[0]; index: number }>({
     remove: ({ bbtalk }) => { dispatch(optimisticDelete(bbtalk.id)) },
     restore: (item) => { dispatch(undoDelete(item)) },
-    commit: ({ bbtalk }) => bbtalkApi.deleteBBTalk(bbtalk.id),
+    commit: async ({ bbtalk }) => { await bbtalkApi.deleteBBTalk(bbtalk.id); dispatch(loadTags()) },
     onError: (error, item) => feedback.report('删除失败：' + (error instanceof Error ? error.message : '请稍后重试'), async () => {
       await bbtalkApi.deleteBBTalk(item.bbtalk.id)
       dispatch(optimisticDelete(item.bbtalk.id))
@@ -204,14 +207,23 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
     return {
       search: searchKeyword.trim() || undefined,
       tags: tagNames,
+      visibility: filters.visibility || undefined,
+      hasAttachments: filters.attachments === '' ? undefined : filters.attachments === 'true',
+      dateFrom: filters.from || undefined, dateTo: filters.to || undefined, ordering: filters.ordering,
     }
-  }, [searchKeyword, selectedTags, tags])
+  }, [searchKeyword, selectedTags, tags, filters])
 
   const clearFilters = () => {
     setSearchKeyword('')
     setSelectedTags([])
+    setFilters(defaultRecordFilters)
   }
   const activeFilters = [
+    ...(filters.visibility ? [{ key: 'visibility', label: `可见性：${filters.visibility === 'public' ? '公开' : '私密'}`, remove: () => setFilters(previous => ({ ...previous, visibility: '' })) }] : []),
+    ...(filters.attachments ? [{ key: 'attachments', label: filters.attachments === 'true' ? '有附件' : '无附件', remove: () => setFilters(previous => ({ ...previous, attachments: '' })) }] : []),
+    ...(filters.from ? [{ key: 'from', label: `开始：${filters.from}`, remove: () => setFilters(previous => ({ ...previous, from: '' })) }] : []),
+    ...(filters.to ? [{ key: 'to', label: `结束：${filters.to}`, remove: () => setFilters(previous => ({ ...previous, to: '' })) }] : []),
+    ...(filters.ordering !== '-update_time' ? [{ key: 'ordering', label: `排序：${filters.ordering.includes('create') ? '创建时间' : '更新时间'}${filters.ordering.startsWith('-') ? '从新到旧' : '从旧到新'}`, remove: () => setFilters(previous => ({ ...previous, ordering: '-update_time' })) }] : []),
     ...(searchKeyword.trim() ? [{ key: 'search', label: `关键词：${searchKeyword.trim()}`, remove: () => setSearchKeyword('') }] : []),
     ...selectedTags.map(id => ({ key: `tag-${id}`, label: `标签：${tags.find(tag => tag.id === id)?.name ?? id}`, remove: () => setSelectedTags(previous => previous.filter(tag => tag !== id)) })),
   ]
@@ -219,17 +231,19 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
   // 监听搜索与筛选条件，防抖后重新加载数据
   useEffect(() => {
     // 跳过初始加载
-    if (isInitialLoad || isPublic) {
+    if (isInitialLoad) {
       console.log('[BBTalkPage] 搜索筛选 useEffect 跳过 - 初始加载中')
       return
     }
 
+    if (isPublic && !publicFiltersReady.current) { publicFiltersReady.current = true; return }
+    if (filters.from && filters.to && filters.from > filters.to) return
     dispatch(invalidateFeed())
     const timer = window.setTimeout(() => {
-      dispatch(loadBBTalks(buildFilterParams()))
+      dispatch(isPublic ? loadPublicBBTalks(buildFilterParams()) : loadBBTalks(buildFilterParams()))
     }, 300)
     return () => window.clearTimeout(timer)
-  }, [buildFilterParams, dispatch, isInitialLoad, isPublic])
+  }, [buildFilterParams, dispatch, isInitialLoad, isPublic, filters.from, filters.to])
 
 
 
@@ -239,7 +253,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
     const refresh = () => {
       if (document.visibilityState !== 'visible' || !navigator.onLine || Date.now() - lastRefresh < 1000) return
       lastRefresh = Date.now()
-      if (isPublic) dispatch(loadPublicBBTalks({}))
+      if (isPublic) dispatch(loadPublicBBTalks(buildFilterParams()))
       else if (getCurrentUser()) {
         dispatch(loadBBTalks(buildFilterParams()))
         dispatch(loadTags())
@@ -305,10 +319,6 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
     try {
       console.log('发布内容:', data)
       
-      // 检测是否有新标签
-      const hasNewTags = data.tags.some(tagName => 
-        !tags.some(existingTag => existingTag.name === tagName)
-      )
       
       if (target) {
         // 编辑模式：更新现有 BBTalk
@@ -346,10 +356,8 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
         }
       }
       
-      // 只在有新标签时刷新标签列表
-      if (hasNewTags) {
-        dispatch(loadTags())
-      }
+      // 创建或编辑均可能改变已有标签的记录数量。
+      dispatch(loadTags())
     } catch (error) {
       console.error(target ? '更新失败:' : '发布失败:', error)
       throw error
@@ -372,7 +380,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
     setIsLoadingMore(true)
     try {
       if (isPublic) {
-        await dispatch(loadMorePublicBBTalks({}))
+        await dispatch(loadMorePublicBBTalks(buildFilterParams()))
       } else {
         const tagNames = selectedTags.map(tagId => {
           const tag = tags.find(t => t.id === tagId)
@@ -389,10 +397,10 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
     }
   }
 
-  // 切换标签筛选（单选模式）
+  // 多个标签按交集筛选，再次点击取消该标签。
   const toggleTag = (tagId: string) => {
     setSelectedTags(prev => 
-      prev.includes(tagId) ? [] : [tagId]
+      prev.includes(tagId) ? prev.filter(id => id !== tagId) : [...prev, tagId]
     )
   }
 
@@ -415,27 +423,8 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
       const newIndex = tags.findIndex((item) => item.id === over.id)
       const reorderedTags = arrayMove(tags, oldIndex, newIndex)
       
-      // 使用分数插值策略更新 sortOrder
-      const movedTag = reorderedTags[newIndex]
-      let newSortOrder: number
-      
-      if (newIndex === 0) {
-        // 移动到第一位
-        const nextTag = reorderedTags[1]
-        newSortOrder = nextTag ? (nextTag.sortOrder ?? 0) - 1000 : 0
-      } else if (newIndex === reorderedTags.length - 1) {
-        // 移动到最后一位
-        const prevTag = reorderedTags[newIndex - 1]
-        newSortOrder = prevTag ? (prevTag.sortOrder ?? 0) + 1000 : 0
-      } else {
-        // 移动到中间位置，计算前后平均值
-        const prevTag = reorderedTags[newIndex - 1]
-        const nextTag = reorderedTags[newIndex + 1]
-        newSortOrder = ((prevTag.sortOrder ?? 0) + (nextTag.sortOrder ?? 0)) / 2
-      }
-      
       const saveOrder = async () => {
-        await dispatch(updateTagAsync({ id: movedTag.id, data: { sortOrder: newSortOrder } })).unwrap()
+        await tagApi.reorderTags(reorderedTags.map(tag => tag.id))
         await dispatch(loadTags()).unwrap()
       }
       void saveOrder().catch(() => {
@@ -455,6 +444,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
           <div>
             <p className="text-lg font-semibold tracking-tight text-gray-900">{isPublic ? '公开碎碎念' : '我的碎碎念'}</p>
           </div>
+          {!isPublic && showPrivacyCountdown && !isPrivacyMode && <PrivacyCountdownButton timeoutMs={privacyTimeoutMs} enabled onActivate={activatePrivacy} />}
         </div>
       </header>
       <div className="feed-workspace">
@@ -471,6 +461,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                 </span>
               </label>
             </div>
+          <button type="button" className="mx-4 mb-3 min-h-11 rounded-lg border border-gray-200 text-sm text-gray-700" onClick={() => setShowMobileMenu(true)}>筛选与排序{activeFilters.length ? ` (${activeFilters.length})` : ''}</button>
           <section aria-label="标签列表" className="feed-tags-panel">
             <div className="feed-tags-scroll subtle-scrollbar">
                 <button type="button" onClick={() => setSelectedTags([])} aria-pressed={selectedTags.length === 0}
@@ -487,6 +478,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
             </div>
           </section>
             <div className="classic-feed-account">
+              {!isPublic && showPrivacyCountdown && !isPrivacyMode && <div className="mb-3"><PrivacyCountdownButton timeoutMs={privacyTimeoutMs} enabled onActivate={activatePrivacy} /></div>}
               {!isPublic ? <button type="button" onClick={() => navigate('/settings')} aria-label="账户与设置" title={currentUser?.display_name || currentUser?.username}
                 className="flex min-h-11 w-full items-center gap-3 rounded-lg text-left">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-blue-700">
@@ -603,6 +595,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
 
                 return (
                   <BBTalkItem
+                    onTogglePin={isPublic ? undefined : record => { void dispatch(updateBBTalkAsync({ id: record.id, data: { isPinned: !record.isPinned }, expectedUpdatedAt: record.updatedAt })).unwrap().then(() => dispatch(loadBBTalks(buildFilterParams()))).catch(() => feedback.report('置顶状态更新失败，请刷新后重试')) }}
                     key={bbtalk.id}
                     bbtalk={bbtalk}
                     searchKeyword={searchKeyword.trim()}
@@ -640,14 +633,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
 
       </div>
       
-      {/* 防偷窥倒计时按钮（状态隔离，消除全局重渲染） */}
-      {!isPublic && showPrivacyCountdown && !isPrivacyMode && (
-        <PrivacyCountdownButton
-          timeoutMs={privacyTimeoutMs}
-          enabled={!isPublic}
-          onActivate={activatePrivacy}
-        />
-      )}
+      {/* 倒计时放在导航区域，避免遮挡记录操作。 */}
       
       {/* 回到顶部按钮 - 仅桌面端显示 */}
       {showBackToTop && (
@@ -681,6 +667,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
         <ImagePreview
           src={previewImage.src}
           alt={previewImage.alt}
+          images={previewImage.images}
           onClose={() => setPreviewImage(null)}
         />
       )}
@@ -743,7 +730,8 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
           <button type="button" onClick={clearFilters} className="min-h-11 px-3 text-sm text-gray-600 hover:text-gray-900">清除筛选</button>
           <button type="button" onClick={() => setShowMobileMenu(false)} className="min-h-11 rounded-xl bg-blue-600 px-5 text-sm font-medium text-white hover:bg-blue-700">查看结果</button>
         </div>}>
-        <p className="mb-4 text-sm text-gray-500">选择标签筛选记录，再次点击已选标签可取消筛选。</p>
+        <RecordFilters value={filters} onChange={setFilters} isPublic={isPublic} />
+        <p className="mb-4 text-sm text-gray-500">同时选择多个标签时，显示包含全部所选标签的记录。置顶记录优先展示。</p>
         <button type="button" onClick={() => setSelectedTags([])} aria-pressed={selectedTags.length === 0}
           className={`mb-2 flex min-h-11 w-full items-center justify-between rounded-xl px-3 text-sm ${selectedTags.length === 0 ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}>
           <span>全部标签</span><span>{totalCount}</span>

@@ -151,6 +151,9 @@ function CachedImageContent({
       alt={alt}
       className={className}
       onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={event => { if (onClick && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); event.currentTarget.click() } }}
       loading={loading}
       style={{ objectFit }}
     />

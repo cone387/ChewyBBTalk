@@ -11,6 +11,7 @@ const LoginPage = lazy(() => import('./pages/LoginPage'))
 const DesktopAuthorizePage = lazy(() => import('./pages/DesktopAuthorizePage'))
 const PrivacyLockPage = lazy(() => import('./pages/PrivacyLockPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
+const AccountSettingsPage = lazy(() => import('./pages/AccountSettingsPage'))
 const PrivacySettingsPage = lazy(() => import('./pages/PrivacySettingsPage'))
 const StatusPage = lazy(() => import('./pages/StatusPage'))
 const StorageSettingsPage = lazy(() => import('./pages/StorageSettingsPage'))
@@ -245,6 +246,7 @@ export default function App({ basename = '/' }: AppProps) {
             />
             
             <Route path="/settings/status" element={isAuthenticated ? <StatusPage /> : <Navigate to="/login" replace />} />
+            <Route path="/settings/account" element={isAuthenticated ? <AccountSettingsPage /> : <Navigate to="/login" replace />} />
           </Routes>
           </Suspense>
           </RouteViewport>

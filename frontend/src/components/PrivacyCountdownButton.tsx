@@ -30,7 +30,8 @@ export default React.memo(function PrivacyCountdownButton({
   return (
     <button
       onClick={onActivate}
-      className="fixed bottom-20 md:bottom-8 right-4 md:right-8 bg-blue-600 text-white px-3 py-2 rounded-full shadow-lg hover:bg-blue-700 transition-all duration-300 flex items-center gap-2 z-40 text-sm font-medium"
+      className="min-h-11 shrink-0 bg-blue-600 text-white px-3 py-2 rounded-xl hover:bg-blue-700 flex items-center gap-2 text-sm font-medium"
+      aria-label="立即锁定记录"
       title="点击立即进入防偷窥模式"
     >
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

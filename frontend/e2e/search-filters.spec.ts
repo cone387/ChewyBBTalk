@@ -63,7 +63,7 @@ test('search empty results offer clearing and clearing also removes tags', async
   await expect(page.locator('.bbtalk-item')).toHaveCount(2)
 })
 
-test('tag filters switch selection and support keyboard dismissal at every size', async ({ page }, info) => {
+test('tag filters combine selection and support keyboard dismissal at every size', async ({ page }, info) => {
   await setup(page)
   const sidebar = page.getByRole('region', { name: '标签列表' })
   if (await sidebar.isVisible()) {
@@ -72,7 +72,7 @@ test('tag filters switch selection and support keyboard dismissal at every size'
     await work.focus()
     await page.keyboard.press('Enter')
     await expect(work).toHaveAttribute('aria-pressed', 'true')
-    await expect(page.getByRole('button', { name: '移除标签：旅行' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: '移除标签：旅行' })).toBeVisible()
     await expect(page.getByRole('button', { name: '移除标签：工作' })).toBeVisible()
     await page.screenshot({ path: info.outputPath('tag-filters-sidebar.png') })
     return
@@ -86,7 +86,7 @@ test('tag filters switch selection and support keyboard dismissal at every size'
   await page.keyboard.press('Escape')
   await expect(dialog).toHaveCount(0)
   await expect(trigger).toBeFocused()
-  await expect(page.getByRole('button', { name: '移除标签：旅行' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '移除标签：旅行' })).toBeVisible()
   await expect(page.getByRole('button', { name: '移除标签：工作' })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
 })

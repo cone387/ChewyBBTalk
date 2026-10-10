@@ -50,7 +50,9 @@ S3 加密密钥。**旧 Cookie 会话和管理后台需要重新登录**；JWT �
 容器继续使用 `/app/data` 挂载卷，宿主目录通过 `HOST_DATA_DIR` 设置。
 回退应恢复升级前的配套数据备份和旧代码。
 
-本次目录重组不改变数据库结构或 Alembic revision，也不使原生后端已签发的 Session/JWT 失效。
+目录重组本身不使原生后端已签发的 Session/JWT 失效。升级到当前版本仍需执行迁移：
+`0002_web_sessions` 会补齐早期原生数据库可能缺失的 `cb_sessions` 表，修复 Cookie 登录返回 503。
+已有会话表会保留，迁移不会清空业务数据；不能仅更新代码而跳过 `python -m cli migrate`。
 自定义 Uvicorn 启动配置需改为 `main:app`；管理命令改为 `python -m cli`。
 安装包名为 `bbtalk-backend`，源码直接按职责放在 `backend/` 下，没有额外项目包或 `src/` 外层。
 

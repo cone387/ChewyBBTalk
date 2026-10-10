@@ -14,18 +14,21 @@ function InlineCommentSection({
   inputVisible,
   onToggleInput,
   onCountChange,
+  readOnly = false,
 }: {
   bbtalkId: string
   commentCount: number
   inputVisible: boolean
   onToggleInput: () => void
   onCountChange: (count: number) => void
+  readOnly?: boolean
 }) {
   const feedback = useActionFeedback()
   const [comments, setComments] = useState<Comment[]>([])
   const [loaded, setLoaded] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [expanded, setExpanded] = useState(true)
+  const [expanded, setExpanded] = useState(false)
+  useEffect(() => { if (readOnly) setExpanded(inputVisible) }, [readOnly, inputVisible])
   const [newComment, setNewComment] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const sendingRef = useRef(false)
@@ -37,13 +40,13 @@ function InlineCommentSection({
   const loadComments = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await bbtalkApi.getComments(bbtalkId)
+      const data = await bbtalkApi.getComments(bbtalkId, readOnly)
       setComments(data)
       setLoaded(true)
     } finally {
       setLoading(false)
     }
-  }, [bbtalkId])
+  }, [bbtalkId, readOnly])
 
   useEffect(() => {
     if (initialCount > 0 && !loaded && !loading && attemptedFor.current !== bbtalkId) {
@@ -107,45 +110,39 @@ function InlineCommentSection({
   return (
     <div>
       {feedback.feedback}
-      {expanded && comments.length > 0 && (
+      {comments.length > 0 && (
         <div className="mt-3 bg-gray-50 rounded-xl px-4 py-3 space-y-2.5">
-          {comments.map(comment => (
+          {(expanded ? comments : comments.slice(0, 3)).map(comment => (
             <div key={comment.uid} className="flex items-start justify-between gap-2 group/comment text-sm">
-              <p className="flex-1 text-gray-600 leading-relaxed">
+              <p className="min-w-0 flex-1 whitespace-pre-wrap break-words text-gray-600 leading-relaxed">
                 <span className="font-medium text-blue-700">{comment.userDisplayName || comment.userUsername}</span>
                 <span className="text-gray-300 mx-1">·</span>
                 {comment.content}
               </p>
               <div className="flex items-center gap-2 shrink-0">
                 <span className="text-xs text-gray-400">{formatTime(comment.createdAt)}</span>
-                <button
+                {!readOnly && <button
                   aria-label={`删除评论：${comment.content}`}
                   onClick={() => handleDelete(comment)}
                   className="min-h-[44px] min-w-[44px] rounded text-gray-600 hover:text-red-700 focus-visible:ring-2 focus-visible:ring-blue-500 text-xs"
                 >
                   ✕
-                </button>
+                </button>}
               </div>
             </div>
           ))}
           {comments.length > 3 && (
-            <button onClick={() => setExpanded(false)} className="text-xs text-gray-400 hover:text-gray-600">
-              收起
+            <button onClick={() => setExpanded(value => !value)} className="min-h-11 px-2 text-sm text-blue-700 hover:text-blue-800">
+              {expanded ? '收起评论' : `查看全部 ${comments.length} 条评论`}
             </button>
           )}
         </div>
       )}
 
-      {!expanded && comments.length > 0 && (
-        <button onClick={() => setExpanded(true)} className="mt-2 text-xs text-blue-700 hover:text-blue-700">
-          查看 {comments.length} 条评论
-        </button>
-      )}
-
-      {inputVisible && (
+      {inputVisible && !readOnly && (
         <div className="mt-3 flex gap-2">
-          <input
-            type="text"
+          <textarea
+            rows={2}
             value={newComment}
             onChange={e => setNewComment(e.target.value)}
             onKeyDown={e => {
@@ -159,8 +156,8 @@ function InlineCommentSection({
               }
             }}
             aria-label="评论内容"
-            placeholder="写一条评论... (Enter 发送, Esc 取消)"
-            className="flex-1 px-4 py-2 text-sm border border-gray-200 rounded-full focus:outline-none focus:border-indigo-400 bg-gray-50 placeholder-gray-400"
+            placeholder="写一条评论（Enter 发送，Shift+Enter 换行）"
+            className="min-w-0 flex-1 px-3 py-2 text-base border border-gray-200 rounded-xl focus:outline-none focus:border-indigo-400 bg-gray-50 placeholder-gray-400"
             disabled={submitting}
             autoFocus
           />
@@ -183,7 +180,8 @@ export interface BBTalkItemProps {
   isPublic?: boolean
   onEdit?: (bbtalk: BBTalk) => void
   onDelete?: (bbtalk: BBTalk) => void
-  onPreviewImage?: (preview: { src: string; alt: string }) => void
+  onTogglePin?: (bbtalk: BBTalk) => void
+  onPreviewImage?: (preview: { src: string; alt: string; images?: { src: string; alt: string }[] }) => void
   onShareSuccess?: (id: string) => void
 }
 
@@ -198,6 +196,7 @@ const BBTalkItem: React.FC<BBTalkItemProps> = React.memo(function BBTalkItem({
   isPublic = false,
   onEdit,
   onDelete,
+  onTogglePin,
   onPreviewImage,
   onShareSuccess,
 }) {
@@ -328,11 +327,12 @@ const BBTalkItem: React.FC<BBTalkItemProps> = React.memo(function BBTalkItem({
   return (
     <div data-record-id={bbtalk.id} className="feed-surface bg-white rounded-2xl relative bbtalk-item group">
       {shareFeedback.feedback}
-      <div className="p-5 sm:p-6">
+      <div className="p-4 sm:p-6">
         {/* 右上角更多操作菜单 */}
         <div className="absolute top-4 right-4" ref={menuOpen ? menuRef : null}>
           <button
-            className="flex h-8 w-8 items-center justify-center hover:bg-gray-100 rounded-lg transition-colors opacity-100"
+            className="flex h-11 w-11 items-center justify-center hover:bg-gray-100 rounded-lg transition-colors opacity-100"
+            aria-label="更多操作"
             onClick={() => setMenuOpen(!menuOpen)}
             title="更多"
           >
@@ -354,6 +354,7 @@ const BBTalkItem: React.FC<BBTalkItemProps> = React.memo(function BBTalkItem({
               </button>
               {!isPublic && (
                 <>
+                  {onTogglePin && <button className="min-h-11 w-full px-4 text-left text-sm text-gray-700 hover:bg-gray-100" onClick={() => { setMenuOpen(false); onTogglePin(bbtalk) }}>{bbtalk.isPinned ? '取消置顶' : '置顶'}</button>}
                   {onEdit && (
                     <button
                       className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
@@ -389,7 +390,8 @@ const BBTalkItem: React.FC<BBTalkItemProps> = React.memo(function BBTalkItem({
         </div>
 
         {/* 内容 Markdown */}
-        <MarkdownRenderer content={bbtalk.content} search={searchKeyword} className="record-content" />
+        {bbtalk.isPinned && <p className="mb-2 text-xs font-medium text-blue-700">已置顶</p>}
+        <MarkdownRenderer content={bbtalk.content} search={searchKeyword} className="record-content pr-10" />
 
         {/* 标签 */}
         {bbtalk.tags && bbtalk.tags.length > 0 && (
@@ -411,14 +413,14 @@ const BBTalkItem: React.FC<BBTalkItemProps> = React.memo(function BBTalkItem({
           <div className="mt-4">
             {/* 图片九宫格 */}
             {images.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-3">
+              <div className={`grid gap-2 mb-3 ${images.length > 1 ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-1'}`}>
                 {images.map(attachment => (
-                  <div key={attachment.uid || attachment.url} className="relative group">
+                  <div key={attachment.uid || attachment.url} className="relative min-w-0 group">
                     <CachedImage
                       src={attachment.url}
                       alt={attachment.originalFilename || ''}
-                      className="max-w-xs max-h-64 object-contain bg-gray-50 rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                      onClick={() => onPreviewImage?.({ src: attachment.url, alt: attachment.originalFilename || '' })}
+                      className={`w-full max-w-full ${images.length > 1 ? 'aspect-square' : 'max-h-80'} object-contain bg-gray-50 rounded-lg cursor-pointer hover:opacity-90 transition-opacity`}
+                      onClick={() => onPreviewImage?.({ src: attachment.url, alt: attachment.originalFilename || '', images: images.map(item => ({ src: item.url, alt: item.originalFilename || '' })) })}
                       objectFit="contain"
                     />
                     {attachment.originalFilename && (
@@ -460,7 +462,7 @@ const BBTalkItem: React.FC<BBTalkItemProps> = React.memo(function BBTalkItem({
                   <AttachmentDownload
                     key={attachment.uid || attachment.url}
                     href={attachment.url}
-                    download={attachment.originalFilename}
+                    download={attachment.originalFilename || attachment.filename || '附件'}
                     className="inline-flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 group"
                   >
                     <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -559,7 +561,9 @@ const BBTalkItem: React.FC<BBTalkItemProps> = React.memo(function BBTalkItem({
           {/* 评论按钮 */}
           <button
             onClick={() => setCommentInputVisible(!commentInputVisible)}
-            className="text-gray-400 hover:text-blue-700 flex items-center gap-1 transition-colors text-sm"
+            className="min-h-11 min-w-11 justify-center rounded-lg text-gray-600 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-1 transition-colors text-sm"
+            aria-label={isPublic ? `评论 ${commentCount} 条` : '写评论'}
+            aria-expanded={commentInputVisible}
             title="评论"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -571,6 +575,7 @@ const BBTalkItem: React.FC<BBTalkItemProps> = React.memo(function BBTalkItem({
 
         {/* 内联评论列表与输入框 */}
         <InlineCommentSection
+          readOnly={isPublic}
           bbtalkId={bbtalk.id}
           commentCount={commentCount}
           onCountChange={setCommentCount}

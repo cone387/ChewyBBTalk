@@ -36,7 +36,7 @@ export default function DesktopAuthorizePage() {
     <section className="auth-panel space-y-6">
       <p className="text-sm font-semibold text-blue-700">BBTalk · 桌面登录</p>
       <h1 className="text-2xl font-semibold text-gray-900">连接你的桌面端</h1>
-      {!valid ? <p role="alert" className="text-red-700">授权链接无效，请回到桌面端重新发起登录。</p> : <>
+      {!valid ? <><p role="alert" className="text-red-700">授权链接无效，请回到桌面端重新发起登录。</p><a href={user ? '/' : '/login'} className="flex min-h-11 items-center text-blue-700">{user ? '返回记录' : '前往登录'}</a></> : <>
         <p className="text-gray-600 leading-relaxed">{user ? `使用 ${user.display_name || user.username} 登录桌面端，随时记录和上传附件。` : '先登录网页账号，再确认连接桌面端。'}</p>
         <p className="text-sm text-gray-600">仅在你刚刚从 BBTalk 桌面端发起登录时继续。</p>
         {error && <p role="alert" className="text-red-700">{error}</p>}

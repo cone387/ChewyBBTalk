@@ -6,6 +6,8 @@ import Button from '../components/ui/Button';
 import SettingsLayout from '../components/layout/SettingsLayout';
 
 const settings = [
+  { title: '账户设置', description: '显示名称、邮箱、简介与登录密码', path: '/settings/account',
+    icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0M4 21v-2a8 8 0 0116 0v2' },
   { title: '防窥设置', description: '锁定时长、倒计时显示', path: '/settings/privacy',
     icon: 'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z' },
   { title: '存储设置', description: '服务器存储、S3 云存储配置', path: '/settings/storage',

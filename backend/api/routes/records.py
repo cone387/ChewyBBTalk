@@ -39,20 +39,26 @@ router = APIRouter(prefix='/api/v1/bbtalk', tags=['BBTalk'])
 
 @router.get('/')
 def feed(request: Request, db: DB, user: CurrentUser):
+    ordering = request.query_params.get('ordering', '-update_time')
+    sort = BBTalk.create_time if ordering.lstrip('-') == 'create_time' else BBTalk.update_time
     query = filter_records(select(BBTalk).where(BBTalk.user_id == user.id), request).order_by(
-        BBTalk.is_pinned.desc(), BBTalk.update_time.desc(), BBTalk.id.desc()
+        BBTalk.is_pinned.desc(), sort.desc() if ordering.startswith('-') else sort.asc(), BBTalk.id.desc()
     )
     result = paginate(db, query, request)
+    result['total_count'] = db.scalar(select(func.count()).select_from(BBTalk).where(BBTalk.user_id == user.id))
     result['results'] = record_data(db, result['results'])
     return result
 
 
 @router.get('/public/')
 def public_feed(request: Request, db: DB):
+    ordering = request.query_params.get('ordering', '-update_time')
+    sort = BBTalk.create_time if ordering.lstrip('-') == 'create_time' else BBTalk.update_time
     query = filter_records(select(BBTalk).where(BBTalk.visibility == 'public'), request).order_by(
-        BBTalk.update_time.desc(), BBTalk.id.desc()
+        sort.desc() if ordering.startswith('-') else sort.asc(), BBTalk.id.desc()
     )
     result = paginate(db, query, request)
+    result['total_count'] = db.scalar(select(func.count()).select_from(BBTalk).where(BBTalk.visibility == 'public'))
     result['results'] = record_data(db, result['results'])
     return result
 
@@ -63,6 +69,16 @@ def public_record(uid: str, db: DB):
     if not record:
         raise APIError(404, {'detail': '未找到。'})
     return record_data(db, [record])[0]
+
+
+@router.get('/public/{uid}/comments/')
+def public_comments(uid: str, db: DB):
+    record = db.scalar(select(BBTalk).where(BBTalk.uid == uid, BBTalk.visibility == 'public'))
+    if not record:
+        raise APIError(404, {'detail': '未找到。'})
+    return [comment_data(db, item) for item in db.scalars(
+        select(Comment).where(Comment.bbtalk_id == record.id).order_by(Comment.create_time)
+    )]
 
 
 def replay(db, user, receipt, response, payload_hash=None):
@@ -186,7 +202,7 @@ def date_counts(request: Request, db: DB, user: CurrentUser):
 def tags(request: Request, db: DB, user: CurrentUser):
     query = (
         select(Tag, func.count(RecordTag.id))
-        .join(RecordTag, RecordTag.tag_id == Tag.id)
+        .outerjoin(RecordTag, RecordTag.tag_id == Tag.id)
         .where(Tag.user_id == user.id)
         .group_by(Tag.id)
     )
@@ -219,6 +235,8 @@ def create_tag(data: TagInput, response: Response, db: DB, user: CurrentUser):
 
 @router.post('/tags/reorder/')
 def reorder(data: dict, db: DB, user: CurrentUser):
+    if 'uids' in data:
+        return reorder_tags(data, db, user)
     items = data.get('items', [])
     if not isinstance(items, list) or not items:
         fail(400, '请提供排序数据')
@@ -237,6 +255,20 @@ def reorder(data: dict, db: DB, user: CurrentUser):
 @router.get('/tags/{uid}/')
 def tag_detail(uid: str, db: DB, user: CurrentUser):
     return tag_data(get_tag(db, user, uid))
+
+
+def reorder_tags(data: dict, db: DB, user: CurrentUser):
+    uids = data.get('uids')
+    tags = list(db.scalars(select(Tag).where(Tag.user_id == user.id)))
+    if not isinstance(uids, list) or not all(isinstance(uid, str) for uid in uids):
+        fail(400, '标签顺序格式无效')
+    if len(uids) != len(set(uids)) or set(uids) != {tag.uid for tag in tags}:
+        fail(409, '标签列表已改变，请刷新后重新排序')
+    order = {uid: index * 1000 for index, uid in enumerate(uids)}
+    for tag in tags:
+        tag.sort_order = order[tag.uid]
+    db.commit()
+    return {'success': True}
 
 
 @router.patch('/tags/{uid}/')

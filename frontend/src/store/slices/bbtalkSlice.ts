@@ -2,6 +2,8 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit'
 import { bbtalkApi } from '../../services/api'
 import type { BBTalk, Attachment } from '../../types'
 
+export interface FeedFilters { page?: number; search?: string; tags?: string[]; visibility?: string; hasAttachments?: boolean; dateFrom?: string; dateTo?: string; ordering?: string }
+
 interface BBTalkState {
   activeRequestId?: string;
   hiddenRecordIds: string[];
@@ -32,9 +34,9 @@ const initialState: BBTalkState = {
 // 异步Actions
 export const loadBBTalks = createAsyncThunk(
   'bbtalk/loadBBTalks',
-  async (params: { page?: number; search?: string; tags?: string[]; hasAttachments?: boolean; dateFrom?: string; dateTo?: string } = {}, { rejectWithValue }) => {
+  async (params: FeedFilters = {}, { rejectWithValue }) => {
     try {
-      const { page = 1, search, tags, hasAttachments, dateFrom, dateTo } = params
+      const { page = 1, search, tags, hasAttachments, dateFrom, dateTo, visibility, ordering } = params
       const result = await bbtalkApi.getBBTalks({ 
         page, 
         search,
@@ -42,13 +44,14 @@ export const loadBBTalks = createAsyncThunk(
         has_attachments: hasAttachments,
         create_date__gte: dateFrom,
         create_date__lte: dateTo,
+        visibility, ordering,
       })
       return { 
         bbtalks: result.results, 
         page, 
         hasMore: !!result.next,
-        totalCount: result.count,
-        isFullLoad: !search && (!tags || tags.length === 0)  // 标记是否是全量加载
+        totalCount: result.totalCount ?? result.count,
+        isFullLoad: result.totalCount !== undefined || (!search && (!tags || tags.length === 0) && !visibility && hasAttachments === undefined && !dateFrom && !dateTo)  // 标记是否是全量加载
       }
     } catch (error: any) {
       return rejectWithValue(error.message || '加载BBTalk失败')
@@ -58,13 +61,13 @@ export const loadBBTalks = createAsyncThunk(
 
 export const loadMoreBBTalks = createAsyncThunk(
   'bbtalk/loadMoreBBTalks',
-  async (params: { search?: string; tags?: string[]; hasAttachments?: boolean; dateFrom?: string; dateTo?: string } = {}, { getState, rejectWithValue }) => {
+  async (params: FeedFilters = {}, { getState, rejectWithValue }) => {
     try {
       const state = getState() as any
       const currentPage = state.bbtalk.currentPage
       const nextPage = currentPage + 1
       
-      const { search, tags, hasAttachments, dateFrom, dateTo } = params
+      const { search, tags, hasAttachments, dateFrom, dateTo, visibility, ordering } = params
       const result = await bbtalkApi.getBBTalks({ 
         page: nextPage, 
         search,
@@ -72,6 +75,7 @@ export const loadMoreBBTalks = createAsyncThunk(
         has_attachments: hasAttachments,
         create_date__gte: dateFrom,
         create_date__lte: dateTo,
+        visibility, ordering,
       })
       return { 
         bbtalks: result.results, 
@@ -87,15 +91,15 @@ export const loadMoreBBTalks = createAsyncThunk(
 // 加载公开的 BBTalks（无需登录）
 export const loadPublicBBTalks = createAsyncThunk(
   'bbtalk/loadPublicBBTalks',
-  async (params: { page?: number } = {}, { rejectWithValue }) => {
+  async (params: FeedFilters = {}, { rejectWithValue }) => {
     try {
       const { page = 1 } = params
-      const result = await bbtalkApi.getPublicBBTalks({ page })
+      const result = await bbtalkApi.getPublicBBTalks({ page, search: params.search, tags__name: params.tags?.join(','), has_attachments: params.hasAttachments, create_date__gte: params.dateFrom, create_date__lte: params.dateTo, ordering: params.ordering })
       return { 
         bbtalks: result.results, 
         page, 
         hasMore: !!result.next,
-        totalCount: result.count,
+        totalCount: result.totalCount ?? result.count,
       }
     } catch (error: any) {
       return rejectWithValue(error.message || '加载公开BBTalk失败')
@@ -106,13 +110,13 @@ export const loadPublicBBTalks = createAsyncThunk(
 // 加载更多公开的 BBTalks
 export const loadMorePublicBBTalks = createAsyncThunk(
   'bbtalk/loadMorePublicBBTalks',
-  async (_params: Record<string, never> = {}, { getState, rejectWithValue }) => {
+  async (params: FeedFilters = {}, { getState, rejectWithValue }) => {
     try {
       const state = getState() as any
       const currentPage = state.bbtalk.currentPage
       const nextPage = currentPage + 1
       
-      const result = await bbtalkApi.getPublicBBTalks({ page: nextPage })
+      const result = await bbtalkApi.getPublicBBTalks({ page: nextPage, search: params.search, tags__name: params.tags?.join(','), has_attachments: params.hasAttachments, create_date__gte: params.dateFrom, create_date__lte: params.dateTo, ordering: params.ordering })
       return { 
         bbtalks: result.results, 
         page: nextPage, 

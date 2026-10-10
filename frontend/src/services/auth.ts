@@ -11,7 +11,7 @@ import { getPublicSetting } from '../config';
 
 import type { User as _User } from '../types';
 
-interface UserInfo {
+export interface UserInfo {
   id: number;
   username: string;
   email?: string;
@@ -437,6 +437,12 @@ async function fetchCurrentUser(): Promise<UserInfo | null> {
  */
 export function getCurrentUser(): UserInfo | null {
   return currentUser;
+}
+
+export function updateCachedUser(user: UserInfo): void {
+  if (currentUser?.id !== user.id) throw new Error('账号已切换，请重新加载页面');
+  currentUser = user;
+  localStorage.setItem(USER_INFO_KEY, JSON.stringify(user));
 }
 
 /**

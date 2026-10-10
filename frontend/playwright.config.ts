@@ -2,6 +2,8 @@ import { defineConfig } from '@playwright/test'
 
 export default defineConfig({
   testDir: './e2e',
+  // Playwright clears this directory before a run. Keep manual reviews intact.
+  outputDir: './test-results/playwright',
   fullyParallel: false,
   workers: 1,
   forbidOnly: !!process.env.CI,

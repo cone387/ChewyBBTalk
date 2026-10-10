@@ -12,6 +12,9 @@ function transformTag(data: any): Tag {
 }
 
 export const tagApi = {
+  async reorderTags(uids: string[]): Promise<void> {
+    await apiClient.post('/api/v1/bbtalk/tags/reorder/', { uids });
+  },
   async getTags(): Promise<Tag[]> {
     const data = await apiClient.get<any>('/api/v1/bbtalk/tags/');
     // API 返回分页结果

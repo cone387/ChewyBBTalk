@@ -354,13 +354,13 @@ function BBTalkEditorContent({ onPublish, isPublishing = false, editing = null, 
 
     // 使用正则表达式匹配 #标签名 格式（标签名后必须跟空格）
     // 注意：这里需要确保 # 前面是空格、开头或换行，避免匹配到词语中间的 #
-    const tagRegex = /(?:^|\s)#([^\s#]+)\s/g
+    const tagRegex = /(?:^|\s)#([^\s#]+)(?=\s)/g
     const matches = Array.from(content.matchAll(tagRegex))
     const parsedTags = matches.map(match => match[1])
     
     // 更新标签列表（去重）
     const uniqueTags = Array.from(new Set(parsedTags))
-    if (JSON.stringify(uniqueTags.sort()) !== JSON.stringify(tags.sort())) {
+    if (JSON.stringify([...uniqueTags].sort()) !== JSON.stringify([...tags].sort())) {
       setTags(uniqueTags)
     }
 
@@ -484,7 +484,7 @@ function BBTalkEditorContent({ onPublish, isPublishing = false, editing = null, 
     }
 
     // 清理内容：移除所有标签标记（#标签名 格式），只保留其他文本
-    const cleanedContent = content.replace(/(?:^|\s)#([^\s#]+)\s/g, ' ').trim()
+    const cleanedContent = content.replace(/(?:^|\s)#([^\s#]+)(?=\s)/g, ' ').trim()
 
     try {
       // 合并现有附件和新上传的文件
@@ -495,6 +495,7 @@ function BBTalkEditorContent({ onPublish, isPublishing = false, editing = null, 
           url: f.url,
           type: f.type,
           filename: f.name,
+          originalFilename: f.name,
           mimeType: f.mimeType,
           fileSize: f.fileSize,
         }))
@@ -557,9 +558,18 @@ function BBTalkEditorContent({ onPublish, isPublishing = false, editing = null, 
   }
   
   // 处理取消编辑
-  const handleCancel = () => {
-    if (onCancelEdit) {
-      onCancelEdit()
+  const handleCancel = async () => {
+    if (submittingRef.current) return
+    submittingRef.current = true
+    setBusy(true)
+    try {
+      await draft.clear()
+      onCancelEdit?.()
+    } catch {
+      setPublishError('无法清除编辑草稿，请保留页面并重试取消。')
+    } finally {
+      submittingRef.current = false
+      setBusy(false)
     }
   }
 
@@ -932,7 +942,7 @@ function BBTalkEditorContent({ onPublish, isPublishing = false, editing = null, 
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              创建标签 "{suggestedTag}"
+              {existingTags.some(tag => tag.name === suggestedTag) ? '添加标签' : '创建标签'} "{suggestedTag}"
             </button>
           </div>
         )}

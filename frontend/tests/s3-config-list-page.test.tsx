@@ -97,12 +97,12 @@ describe('creating a configuration', () => {
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.getByRole('dialog', { name: '创建 S3 配置' })).toBeTruthy();
   });
-  it('opens the form pre-activating the very first configuration', async () => {
+  it('keeps a new configuration inactive until explicitly selected', async () => {
     render(<S3ConfigListPage />);
     await screen.findByText('还没有 S3 配置');
     fireEvent.click(screen.getByRole('button', { name: '新建配置' }));
     expect(screen.getByText('创建 S3 配置')).toBeTruthy();
-    expect((screen.getByLabelText('激活此配置') as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByLabelText('激活此配置') as HTMLInputElement).checked).toBe(false);
   });
 
   it('validates required fields before contacting the API', async () => {
@@ -138,7 +138,7 @@ describe('creating a configuration', () => {
     expect(await screen.findByText('配置创建成功')).toBeTruthy();
     expect(api.create).toHaveBeenCalledWith(expect.objectContaining({
       name: 'MinIO', s3_access_key_id: 'AK', s3_secret_access_key: 'SECRET',
-      s3_bucket_name: 'bucket', storage_type: 's3', is_active: true,
+      s3_bucket_name: 'bucket', storage_type: 's3', is_active: false,
     }));
     expect(screen.queryByText('创建 S3 配置')).toBeNull();
     await waitFor(() => expect(api.list).toHaveBeenCalledTimes(2));

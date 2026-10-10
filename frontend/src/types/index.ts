@@ -58,6 +58,7 @@ export interface User {
 }
 
 export interface PaginatedResponse<T> {
+  totalCount?: number;
   count: number;
   next: string | null;
   previous: string | null;

@@ -38,7 +38,7 @@ export default function S3ConfigListPage() {
     try {
       setLoading(true);
       const configs = await settingsApi.listStorageSettings();
-      setConfigList(configs);
+      setConfigList(configs.filter(config => config.storage_type === 's3'));
     } catch (err) {
       console.error('加载配置列表失败:', err);
       setError('加载配置列表失败');
@@ -59,7 +59,7 @@ export default function S3ConfigListPage() {
       s3_region_name: 'us-east-1',
       s3_endpoint_url: '',
       s3_custom_domain: '',
-      is_active: configList.length === 0,
+      is_active: false,
     });
     setShowEditModal(true);
   };

@@ -18,7 +18,8 @@ def parse_date(value, settings):
 def filter_records(query, request):
     params, settings = request.query_params, request.app.state.settings
     if name := params.get('tags__name'):
-        query = query.where(BBTalk.tags.any(Tag.name == name))
+        for tag_name in name.split(','):
+            query = query.where(BBTalk.tags.any(Tag.name == tag_name))
     if visibility := params.get('visibility'):
         query = query.where(BBTalk.visibility == visibility)
     if search := params.get('search'):

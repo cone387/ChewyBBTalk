@@ -7,7 +7,7 @@ const boundary = vi.hoisted(() => ({ navigate: vi.fn(), api: {
 } }));
 vi.mock('react-router-dom', () => ({ useNavigate: () => boundary.navigate }));
 vi.mock('../src/services/api/settingsApi', () => ({ settingsApi: boundary.api }));
-const configs = [{ id: 7, name: 'Personal S3', is_active: true }, { id: 8, name: 'Archive', is_active: false }];
+const configs = [{ id: 7, name: 'Personal S3', storage_type: 's3', is_active: true }, { id: 8, name: 'Archive', storage_type: 's3', is_active: false }];
 beforeEach(() => {
   vi.resetAllMocks();
   boundary.api.listStorageSettings.mockResolvedValue(configs);

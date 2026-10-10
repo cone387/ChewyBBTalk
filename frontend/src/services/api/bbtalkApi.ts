@@ -27,7 +27,7 @@ function transformAttachment(data: any): Attachment {
     url: url,
     type: data.type || 'file',
     filename: data.filename,
-    originalFilename: data.original_filename,
+    originalFilename: data.original_filename || data.filename,
     fileSize: data.file_size,
     mimeType: data.mime_type,
   };
@@ -85,6 +85,7 @@ function transformBBTalkToBackend(bbtalk: Partial<BBTalk>): any {
   if (bbtalk.visibility) {
     result.visibility = bbtalk.visibility;
   }
+  if (bbtalk.isPinned !== undefined) result.is_pinned = bbtalk.isPinned;
 
   return result;
 }
@@ -98,9 +99,11 @@ export const bbtalkApi = {
     has_attachments?: boolean;
     create_date__gte?: string;
     create_date__lte?: string;
+    ordering?: string;
   }): Promise<PaginatedResponse<BBTalk>> {
     const data = await apiClient.get<any>('/api/v1/bbtalk/', params);
     return {
+      totalCount: data.total_count,
       count: data.count,
       next: data.next,
       previous: data.previous,
@@ -165,10 +168,11 @@ export const bbtalkApi = {
   },
 
   async getPublicBBTalks(params?: {
-    page?: number;
+    page?: number; search?: string; tags__name?: string; has_attachments?: boolean; create_date__gte?: string; create_date__lte?: string; ordering?: string;
   }): Promise<PaginatedResponse<BBTalk>> {
     const data = await apiClient.get<any>('/api/v1/bbtalk/public/', params);
     return {
+      totalCount: data.total_count,
       count: data.count,
       next: data.next,
       previous: data.previous,
@@ -193,8 +197,8 @@ export const bbtalkApi = {
     return transformBBTalk(data);
   },
 
-  async getComments(bbtalkUid: string): Promise<Comment[]> {
-    const data = await apiClient.get<any[]>(`/api/v1/bbtalk/${bbtalkUid}/comments/`);
+  async getComments(bbtalkUid: string, isPublic = false): Promise<Comment[]> {
+    const data = await apiClient.get<any[]>(`/api/v1/bbtalk/${isPublic ? 'public/' : ''}${bbtalkUid}/comments/`);
     return data.map((c: any) => ({
       uid: c.uid,
       user: c.user,

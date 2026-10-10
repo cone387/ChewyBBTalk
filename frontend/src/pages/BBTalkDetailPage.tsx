@@ -13,7 +13,8 @@ export default function BBTalkDetailPage() {
   const [bbtalk, setBBTalk] = useState<BBTalk | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [previewImage, setPreviewImage] = useState<{ src: string; alt: string } | null>(null)
+  const [previewImage, setPreviewImage] = useState<{ src: string; alt: string; images?: { src: string; alt: string }[] } | null>(null)
+  const [readOnly, setReadOnly] = useState(!getCurrentUser())
   const [copyTip, setCopyTip] = useState(false)
   const currentUser = getCurrentUser()
   const [attempt, setAttempt] = useState(0)
@@ -35,9 +36,11 @@ export default function BBTalkDetailPage() {
         if (currentUser) {
           try {
             data = await bbtalkApi.getBBTalk(id)
+            if (active) setReadOnly(false)
           } catch (error: any) {
             if (![401, 403, 404].includes(error.status)) throw error
             data = await bbtalkApi.getPublicBBTalk(id)
+            if (active) setReadOnly(true)
           }
         } else {
           data = await bbtalkApi.getPublicBBTalk(id)
@@ -132,7 +135,7 @@ export default function BBTalkDetailPage() {
         {/* 完整的碎碎念卡片 */}
         <BBTalkItem
           bbtalk={bbtalk}
-          isPublic={!currentUser}
+          isPublic={readOnly}
           onPreviewImage={setPreviewImage}
           onShareSuccess={() => {
             setCopyTip(true)
@@ -157,6 +160,7 @@ export default function BBTalkDetailPage() {
           <ImagePreview
             src={previewImage.src}
             alt={previewImage.alt}
+            images={previewImage.images}
             onClose={() => setPreviewImage(null)}
           />
         )}

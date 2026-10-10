@@ -69,7 +69,11 @@ def validate(request: Request, user: CurrentUser, file: UploadFile = File(...)):
         )
         if archive:
             archive.close()
-    except (ValueError, KeyError, UnicodeError, zipfile.BadZipFile) as error:
+    except json.JSONDecodeError as error:
+        result['error'] = f'JSON 格式不正确（第 {error.lineno} 行，第 {error.colno} 列），请检查文件或重新导出后再试'
+    except (UnicodeError, zipfile.BadZipFile):
+        result['error'] = '文件编码或压缩格式不正确，请选择系统导出的 JSON 或 ZIP 文件'
+    except (ValueError, KeyError) as error:
         result['error'] = str(error)
     return result
 
@@ -108,7 +112,11 @@ def import_file(
             'message': '导入部分完成，请核对跳过项与错误' if partial else '数据导入成功',
             'stats': stats,
         }
-    except (ValueError, KeyError, UnicodeError, zipfile.BadZipFile) as error:
+    except json.JSONDecodeError as error:
+        raise APIError(400, {'success': False, 'error': f'JSON 格式不正确（第 {error.lineno} 行，第 {error.colno} 列），请检查文件后重试'})
+    except (UnicodeError, zipfile.BadZipFile):
+        raise APIError(400, {'success': False, 'error': '文件编码或压缩格式不正确，请重新导出后再试'})
+    except (ValueError, KeyError) as error:
         raise APIError(400, {'success': False, 'error': str(error)})
     finally:
         if archive:

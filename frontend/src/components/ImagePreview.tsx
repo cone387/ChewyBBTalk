@@ -4,6 +4,7 @@ import { imageCacheService } from '../services/cache/imageCache'
 interface ImagePreviewProps {
   src: string
   alt?: string
+  images?: { src: string; alt: string }[]
   onClose: () => void
 }
 
@@ -12,7 +13,11 @@ function getTouchDistance(t1: React.Touch, t2: React.Touch) {
   return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY)
 }
 
-export default function ImagePreview({ src, alt, onClose }: ImagePreviewProps) {
+export default function ImagePreview({ src: initialSrc, alt: initialAlt, images, onClose }: ImagePreviewProps) {
+  const [index, setIndex] = useState(() => Math.max(0, images?.findIndex(image => image.src === initialSrc) ?? 0))
+  const src = images?.[index]?.src ?? initialSrc
+  const alt = images?.[index]?.alt ?? initialAlt
+  const count = images?.length ?? 1
   const [scale, setScale] = useState(1)
   const [position, setPosition] = useState({ x: 0, y: 0 })
   const [isDragging, setIsDragging] = useState(false)
@@ -28,6 +33,15 @@ export default function ImagePreview({ src, alt, onClose }: ImagePreviewProps) {
   const animating = useRef(false)
   const swipeStartRef = useRef({ y: 0, startPos: { x: 0, y: 0 } })
   const objectUrlRef = useRef<string | null>(null)
+  const closeRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null
+    closeRef.current?.focus()
+    return () => previous?.focus()
+  }, [])
+
+  useEffect(() => { setScale(1); setPosition({ x: 0, y: 0 }); setShowUI(true); setAttempt(0) }, [src])
 
   // 从缓存加载图片，避免重复网络请求
   useEffect(() => {
@@ -60,10 +74,14 @@ export default function ImagePreview({ src, alt, onClose }: ImagePreviewProps) {
 
   // ESC 关闭
   useEffect(() => {
-    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const h = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+      if (count > 1 && e.key === 'ArrowRight') setIndex(value => (value + 1) % count)
+      if (count > 1 && e.key === 'ArrowLeft') setIndex(value => (value + count - 1) % count)
+    }
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
-  }, [onClose])
+  }, [onClose, count])
 
   // 自动隐藏 UI
   useEffect(() => {
@@ -186,18 +204,35 @@ export default function ImagePreview({ src, alt, onClose }: ImagePreviewProps) {
   return (
     <div
       className="fixed inset-0 z-[9999] flex items-center justify-center bg-black"
+      role="dialog"
+      aria-modal="true"
+      aria-label="图片预览"
+      onKeyDown={event => {
+        if (event.key !== 'Tab') return
+        const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('button'))
+        const first = buttons[0], last = buttons[buttons.length - 1]
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
+        if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
+      }}
       onClick={onClose}
     >
       {/* 关闭按钮 - 始终显示 */}
       <button
+        ref={closeRef}
+        aria-label="关闭图片预览"
         onClick={(e) => { e.stopPropagation(); onClose() }}
-        className="absolute top-3 right-3 z-20 w-10 h-10 bg-black/40 backdrop-blur-sm rounded-full flex items-center justify-center active:bg-black/60 transition-opacity"
-        style={{ opacity: showUI ? 1 : 0.3 }}
+        className="absolute top-3 right-3 z-20 w-11 h-11 bg-black/60 rounded-full flex items-center justify-center focus-visible:ring-2 focus-visible:ring-white"
       >
         <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
         </svg>
       </button>
+
+      {count > 1 && <>
+        <div aria-live="polite" className="absolute top-4 left-1/2 -translate-x-1/2 z-20 rounded-full bg-black/60 px-4 py-2 text-white">{index + 1} / {count}</div>
+        <button aria-label="上一张图片" className="absolute left-2 z-20 min-h-11 min-w-11 rounded-full bg-black/60 text-2xl text-white focus-visible:ring-2 focus-visible:ring-white" onClick={event => { event.stopPropagation(); setIndex(value => (value + count - 1) % count) }}>‹</button>
+        <button aria-label="下一张图片" className="absolute right-2 z-20 min-h-11 min-w-11 rounded-full bg-black/60 text-2xl text-white focus-visible:ring-2 focus-visible:ring-white" onClick={event => { event.stopPropagation(); setIndex(value => (value + 1) % count) }}>›</button>
+      </>}
 
       {/* 缩放比例 - 非100%时显示 */}
       {Math.abs(scale - 1) > 0.05 && (

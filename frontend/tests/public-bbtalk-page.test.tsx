@@ -17,7 +17,7 @@ const boundary = vi.hoisted(() => ({
 const api = vi.hoisted(() => ({
   getBBTalks: vi.fn(), getPublicBBTalks: vi.fn(), createBBTalk: vi.fn(), updateBBTalk: vi.fn(), deleteBBTalk: vi.fn(),
 }));
-const tagsApi = vi.hoisted(() => ({ getTags: vi.fn(), updateTag: vi.fn() }));
+const tagsApi = vi.hoisted(() => ({ getTags: vi.fn(), updateTag: vi.fn(), reorderTags: vi.fn() }));
 
 vi.mock('../src/services/api', () => ({ bbtalkApi: api, tagApi: tagsApi }));
 vi.mock('../src/services/auth', () => ({ getCurrentUser: () => boundary.user }));
@@ -114,6 +114,7 @@ beforeEach(() => {
   api.updateBBTalk.mockResolvedValue(record('b1', '提交的内容'));
   api.deleteBBTalk.mockResolvedValue(undefined);
   tagsApi.getTags.mockResolvedValue(tags);
+  tagsApi.reorderTags.mockResolvedValue(undefined);
   tagsApi.updateTag.mockImplementation(async (_id: string, data: Partial<Tag>) => ({ ...tags[0], ...data } as Tag));
 });
 afterEach(() => {
@@ -320,7 +321,7 @@ describe('BBTalkPage tag reordering', () => {
     const dialog = await openFilterDialog();
     boundary.drag = { active: { id: 't3' }, over: { id: 't1' } };
     fireEvent.click(within(dialog).getByRole('button', { name: '触发拖拽' }));
-    await waitFor(() => expect(tagsApi.updateTag).toHaveBeenCalledWith('t3', { sortOrder: -1000 }));
+    await waitFor(() => expect(tagsApi.reorderTags).toHaveBeenCalledWith(['t3', 't1', 't2']));
     await waitFor(() => expect(tagsApi.getTags.mock.calls.length).toBeGreaterThanOrEqual(2));
     view.unmount();
   });
@@ -330,7 +331,7 @@ describe('BBTalkPage tag reordering', () => {
     const dialog = await openFilterDialog();
     boundary.drag = { active: { id: 't1' }, over: { id: 't2' } };
     fireEvent.click(within(dialog).getByRole('button', { name: '触发拖拽' }));
-    await waitFor(() => expect(tagsApi.updateTag).toHaveBeenCalledWith('t1', { sortOrder: 1500 }));
+    await waitFor(() => expect(tagsApi.reorderTags).toHaveBeenCalledWith(['t2', 't1', 't3']));
     view.unmount();
   });
 
@@ -339,7 +340,7 @@ describe('BBTalkPage tag reordering', () => {
     const dialog = await openFilterDialog();
     boundary.drag = { active: { id: 't1' }, over: { id: 't3' } };
     fireEvent.click(within(dialog).getByRole('button', { name: '触发拖拽' }));
-    await waitFor(() => expect(tagsApi.updateTag).toHaveBeenCalledWith('t1', { sortOrder: 3000 }));
+    await waitFor(() => expect(tagsApi.reorderTags).toHaveBeenCalledWith(['t2', 't3', 't1']));
     view.unmount();
   });
 
@@ -352,10 +353,10 @@ describe('BBTalkPage tag reordering', () => {
     const dialog = await openFilterDialog();
     boundary.drag = { active: { id: 't2' }, over: { id: 't1' } }; // to the front: neighbour order undefined → -1000
     fireEvent.click(within(dialog).getByRole('button', { name: '触发拖拽' }));
-    await waitFor(() => expect(tagsApi.updateTag).toHaveBeenCalledWith('t2', { sortOrder: -1000 }));
+    await waitFor(() => expect(tagsApi.reorderTags).toHaveBeenCalledWith(['t2', 't1']));
     boundary.drag = { active: { id: 't1' }, over: { id: 't2' } }; // to the end: neighbour order undefined → +1000
     fireEvent.click(within(dialog).getByRole('button', { name: '触发拖拽' }));
-    await waitFor(() => expect(tagsApi.updateTag).toHaveBeenCalledWith('t1', { sortOrder: 1000 }));
+    await waitFor(() => expect(tagsApi.reorderTags).toHaveBeenCalledWith(['t2', 't1']));
     view.unmount();
   });
 
@@ -369,7 +370,7 @@ describe('BBTalkPage tag reordering', () => {
     const dialog = await openFilterDialog();
     boundary.drag = { active: { id: 't3' }, over: { id: 't2' } }; // lands between 甲 and 乙: (0 + 0) / 2
     fireEvent.click(within(dialog).getByRole('button', { name: '触发拖拽' }));
-    await waitFor(() => expect(tagsApi.updateTag).toHaveBeenCalledWith('t3', { sortOrder: 0 }));
+    await waitFor(() => expect(tagsApi.reorderTags).toHaveBeenCalledWith(['t1', 't3', 't2']));
     view.unmount();
   });
 
@@ -379,15 +380,15 @@ describe('BBTalkPage tag reordering', () => {
     const dialog = await openFilterDialog();
     boundary.drag = { active: { id: 't1' }, over: { id: 't1' } }; // same id → ignored
     fireEvent.click(within(dialog).getByRole('button', { name: '触发拖拽' }));
-    expect(tagsApi.updateTag).not.toHaveBeenCalled();
+    expect(tagsApi.reorderTags).not.toHaveBeenCalled();
     boundary.drag = { active: { id: 't1' }, over: null }; // dropped outside any target
     fireEvent.click(within(dialog).getByRole('button', { name: '触发拖拽' }));
-    expect(tagsApi.updateTag).not.toHaveBeenCalled();
+    expect(tagsApi.reorderTags).not.toHaveBeenCalled();
     view.unmount();
   });
 
   it('reports reorder failures and reloads the stored order', async () => {
-    tagsApi.updateTag.mockRejectedValue(new Error('网络中断'));
+    tagsApi.reorderTags.mockRejectedValue(new Error('网络中断'));
     const view = await loadedPrivate();
     await waitFor(() => expect(tagsApi.getTags).toHaveBeenCalledTimes(1));
     const dialog = await openFilterDialog();

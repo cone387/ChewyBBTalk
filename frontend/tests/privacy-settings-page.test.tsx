@@ -78,6 +78,6 @@ describe('PrivacySettingsPage', () => {
   it('always shows the auto-save hint', () => {
     render(<PrivacySettingsPage />);
     expect(screen.getByText('设置自动保存，立即生效')).toBeTruthy();
-    expect(screen.getByText('长时间不活动后，内容将自动模糊以保护隐私')).toBeTruthy();
+    expect(screen.getByText('长时间不活动后将进入锁定页，输入密码后才能继续查看记录')).toBeTruthy();
   });
 });

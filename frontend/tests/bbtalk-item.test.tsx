@@ -111,7 +111,7 @@ describe('attachment galleries', () => {
       attachments: [{ uid: 'a1', url: '/img/a.png', type: 'image', originalFilename: 'a.png' }],
     })} onPreviewImage={onPreviewImage} />);
     fireEvent.click(screen.getByTestId('cached-image'));
-    expect(onPreviewImage).toHaveBeenCalledWith({ src: '/img/a.png', alt: 'a.png' });
+    expect(onPreviewImage).toHaveBeenCalledWith({ src: '/img/a.png', alt: 'a.png', images: [{ src: '/img/a.png', alt: 'a.png' }] });
   });
 
   it('shows the raw video element for non-attachment sources', () => {
@@ -195,10 +195,12 @@ describe('inline comments', () => {
   it('collapses long comment threads and expands them again', async () => {
     api.getComments.mockResolvedValue([comment('c1'), comment('c2'), comment('c3'), comment('c4')]);
     render(<BBTalkItem bbtalk={item({ commentCount: 4 })} />);
-    await screen.findByText('评论c4');
-    fireEvent.click(screen.getByText('收起'));
-    fireEvent.click(screen.getByText('查看 4 条评论'));
+    await screen.findByText('评论c1');
+    expect(screen.queryByText('评论c4')).toBeNull();
+    fireEvent.click(screen.getByText('查看全部 4 条评论'));
     expect(screen.getByText('评论c4')).toBeTruthy();
+    fireEvent.click(screen.getByText('收起评论'));
+    expect(screen.queryByText('评论c4')).toBeNull();
   });
 
   it('submits a comment with Enter, appends it and hides the input', async () => {

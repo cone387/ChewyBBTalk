@@ -45,7 +45,7 @@ export default function StorageSettingsPage() {
       setLoadError(false);
       const configs = await settingsApi.listStorageSettings();
       setAllConfigs(configs);
-      setS3Count(configs.length);
+      setS3Count(configs.filter(config => config.storage_type === 's3').length);
       const active = configs.find(c => c.is_active);
       setActiveConfig(active || null);
     } catch (err) {
@@ -58,6 +58,7 @@ export default function StorageSettingsPage() {
 
   // 当前使用的是服务器存储
   const isServerStorage = !activeConfig;
+  const isS3Storage = activeConfig?.storage_type === 's3';
 
   // 打开迁移弹窗
   const handleOpenMigration = async (targetId: number | null, targetName: string) => {
@@ -174,7 +175,7 @@ export default function StorageSettingsPage() {
         <button
           onClick={() => navigate('/settings/storage/s3')}
           className={`w-full p-5 bg-white rounded-xl border transition-all text-left ${
-            !isServerStorage
+            isS3Storage
               ? 'border-green-500 shadow-green-100'
               : 'border-gray-100 hover:border-gray-300'
           }`}
@@ -188,14 +189,14 @@ export default function StorageSettingsPage() {
             <div className="flex-1">
               <div className="flex items-center gap-2">
                 <span className="text-base font-semibold text-gray-900">S3 兼容存储</span>
-                {!isServerStorage && (
+                {isS3Storage && (
                   <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded-full">
                     当前使用
                   </span>
                 )}
               </div>
               <p className="text-sm text-gray-500 mt-1">
-                {!isServerStorage && activeConfig
+                {isS3Storage && activeConfig
                   ? `正在使用: ${activeConfig.name}`
                   : `AWS S3 / 阿里云 OSS / MinIO 等`}
                 {s3Count > 0 && ` (${s3Count} 个配置)`}
@@ -206,6 +207,12 @@ export default function StorageSettingsPage() {
             </svg>
           </div>
         </button>
+
+        {allConfigs.filter(config => config.storage_type === 'local').map(config => <div key={config.id} className="settings-panel mt-4 p-5">
+          <p className="font-semibold text-gray-900">{config.name} <span className="text-sm font-normal text-gray-600">本地存储</span></p>
+          <p className="mt-1 text-sm text-gray-600">附件保存在服务器本地目录，无需配置 S3 凭据。</p>
+          {config.is_active ? <span className="text-sm text-green-700">当前使用</span> : <button className="mt-2 min-h-11 text-sm text-blue-700" onClick={async () => { try { await settingsApi.activateStorageSettings(config.id); await loadStatus(); setSuccess(`已切换为 ${config.name}`) } catch { setError('切换失败，请重试') } }}>使用此本地存储</button>}
+        </div>)}
 
         {/* 数据迁移 */}
         <div className="mt-8">
