@@ -42,5 +42,5 @@ if [ "$1" = "supervisor" ]; then
     exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
 else
     echo "启动 FastAPI 服务（docker-compose模式）..."
-    exec uvicorn chewy_api.app:app --host 0.0.0.0 --port 8020 --workers "${WEB_CONCURRENCY:-2}" --no-proxy-headers
+    exec uvicorn chewy_api.main:app --host 0.0.0.0 --port 8020 --workers "${WEB_CONCURRENCY:-2}" --no-proxy-headers
 fi

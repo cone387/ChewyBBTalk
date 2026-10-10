@@ -27,4 +27,4 @@ uv run python -m chewy_api.cli backup --user-id 1 --keep 7
 
 ## 自动验证
 
-`backend/tests/test_data.py` 使用临时目录和真实本地存储完成跨账号恢复，并核对字段、文件字节、权限、锁及失败回滚；`test_backup_integrity.py` 验证摘要、缺件与篡改拒绝；`backups.spec.ts` 使用真实 FastAPI/IndexedDB 环境验证页面创建、下载、导入及错误报告。
+`backend/tests/integration/test_data.py` 使用临时目录和真实本地存储完成跨账号恢复，并核对字段、文件字节、权限、锁及失败回滚；`tests/unit/test_backup_integrity.py` 验证摘要、缺件与篡改拒绝；`backups.spec.ts` 使用真实 FastAPI/IndexedDB 环境验证页面创建、下载、导入及错误报告。

@@ -17,7 +17,7 @@ cd "$ROOT/backend"
 uv sync --frozen
 uv run --no-sync python -m chewy_api.cli migrate
 uv run --no-sync python -m chewy_api.cli init
-ARGS=(chewy_api.app:app --host "${BACKEND_HOST:-0.0.0.0}" --port "${BACKEND_PORT:-8020}" --no-proxy-headers)
+ARGS=(chewy_api.main:app --host "${BACKEND_HOST:-0.0.0.0}" --port "${BACKEND_PORT:-8020}" --no-proxy-headers)
 if [ "$MODE" = dev ]; then
     ARGS+=(--reload)
 else

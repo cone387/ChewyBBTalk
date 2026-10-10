@@ -92,7 +92,7 @@ jobs:
           version: '0.11.7'
       - run: uv sync --frozen
       - name: Verify durable submissions and conditional edits with real row locks
-        run: uv run pytest tests/test_concurrency.py -q
+        run: uv run pytest tests/integration/test_concurrency.py -q
 
   mobile:
     name: Mobile tests and types

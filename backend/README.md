@@ -16,7 +16,7 @@ uv run dev
 生产入口（先迁移，再启动 worker）：
 
 ```bash
-uv run uvicorn chewy_api.app:app --host 0.0.0.0 --port 8020 --no-proxy-headers
+uv run uvicorn chewy_api.main:app --host 0.0.0.0 --port 8020 --no-proxy-headers
 ```
 
 `BACKEND_HOST`、`BACKEND_PORT` 调整开发监听地址。根目录 `start_backend.sh`
@@ -35,8 +35,15 @@ Alembic 直接接管业务表，不复制或删除已有记录。旧数据库须
 保留原有 PBKDF2/scrypt 密码、JWT 和刷新令牌黑名单、记录/标签/评论 ID、附件路径及
 S3 加密密钥。**旧 Cookie 会话和管理后台需要重新登录**；JWT 客户端可继续使用有效令牌。
 已有数据库中的旧框架元数据和审计表保持原样，不再被框架使用，不属于运行依赖。
-本地默认路径仍指向 `backend/chewy_space/`，用于沿用既有数据库、媒体和数据目录，
-该目录不再包含应用代码。回退应恢复升级前的配套数据备份和旧代码。
+直接运行后端命令且未指定路径时，新安装的本地数据放在 `backend/var/`，数据库为 `var/db.sqlite3`，密钥及备份在
+`var/data/`，附件在 `var/media/`。如果检测到旧 `backend/chewy_space/` 中的数据库、
+持久化密钥或媒体目录，会继续使用原路径，不自动搬动或删除数据。显式环境变量优先。
+安装 wheel 后，未配置环境变量时以启动工作目录为基础解析 `var/`；生产环境应设置绝对路径。
+根目录启动脚本继续显式使用项目 `data/`，容器继续使用 `/app/data` 挂载卷。
+回退应恢复升级前的配套数据备份和旧代码。
+
+本次目录重组不改变数据库结构或 Alembic revision，也不使原生后端已签发的 Session/JWT 失效。
+自定义 Uvicorn 启动配置需改为 `chewy_api.main:app`；管理命令仍为 `python -m chewy_api.cli`。
 
 `/admin/` 改由 SQLAdmin 提供，支持账号资料及权限管理、业务数据只读查询。
 账号创建使用 CLI；记录、附件等修改经过账号 API，保证可见性、提交回执和文件操作一致。
@@ -66,7 +73,7 @@ uv run python -m chewy_api.cli shell
 
 | 变量 | 用途 / 默认值 |
 | --- | --- |
-| `DATABASE_URL` | `sqlite:///db.sqlite3`；也支持 `postgresql://...`、`mysql://...` |
+| `DATABASE_URL` | `sqlite:///db.sqlite3`；也支持 `postgresql://...`（明确使用 psycopg2）、`mysql://...` |
 | `DATA_DIR` | 密钥、初始化凭据及备份的持久化目录 |
 | `MEDIA_ROOT` | 附件根目录，实际文件在 `attachments/` 下 |
 | `BACKUP_ROOT` | 可选覆盖 `DATA_DIR/backups` |
@@ -102,7 +109,43 @@ OpenAPI：`/api/schema/`；存活检查：`/healthz`。
 
 ## 结构与测试
 
-`chewy_api/` 包含应用、路由、模型、认证、存储、备份、CLI 和 Alembic 迁移。
+```text
+backend/
+├── src/chewy_api/
+│   ├── main.py             # Uvicorn 入口
+│   ├── application.py      # 应用工厂和组件装配
+│   ├── api/                # HTTP 依赖、中间件、异常响应、分页和 OpenAPI
+│   │   └── routes/         # 认证、记录、附件、备份、状态及公共页面
+│   ├── schemas/            # 按业务划分的请求模型
+│   ├── services/           # 账号、认证和记录的复用逻辑
+│   ├── db/                 # SQLAlchemy 模型、会话及迁移入口
+│   │   └── migrations/     # Alembic 历史版本及冻结表结构
+│   ├── storage/            # 本地 / S3 驱动和账号存储配置
+│   ├── backups/            # 完整性校验、导入导出、锁和保留策略
+│   ├── core/               # 环境配置和业务异常
+│   ├── admin/              # SQLAdmin
+│   ├── cli/                # 管理命令及演示数据
+│   └── templates/          # 安装包内的公共页面模板
+├── tests/
+│   ├── unit/               # 纯逻辑、路径兼容及依赖边界
+│   ├── integration/        # HTTP、数据库、并发和 CLI
+│   └── fixtures/           # 合成的旧数据库
+├── tools/                  # 浏览器测试服务器、性能基准
+├── var/                    # 本地运行数据，不进入 Git 或镜像
+├── pyproject.toml
+├── uv.lock
+└── Dockerfile
+```
+
+依赖方向：路由和 CLI 调用服务；服务使用数据库、配置和存储。`core`、`db`、
+`services`、`storage`、`backups` 不导入路由或应用入口；架构测试持续检查这一边界。
+`application.py` 导入无运行文件副作用，只有创建应用或运行命令时才解析运行配置。
+迁移及模板随 wheel 一起发布，生产运行不依赖源码仓库或 `tools/`。
+
+新增接口在 `api/routes/` 注册，并在 `api/router.py` 装配；通用记录规则放在 `services/`，
+文件驱动放在 `storage/`。数据库结构调整应新增 Alembic revision，不修改冻结的 `schema_v1.py`。
+采用 `src` 布局后需要先 `uv sync --frozen` 安装项目，再运行命令和测试。
+
 `tests/fixtures/legacy.sql` 是合成旧数据库，用于在未安装 Django 时验证兼容升级。
 
 ```bash
@@ -111,11 +154,11 @@ uv run coverage run -m pytest
 uv run coverage json
 uv run coverage report
 node ../scripts/check-coverage.mjs backend
-uv run python benchmark_feed.py --sizes 1000 10000 --repeats 10
+uv run python tools/benchmark_feed.py --sizes 1000 10000 --repeats 10
 ```
 
 默认测试使用临时 SQLite。设置指向独立测试库的 `TEST_DATABASE_URL`，再执行
-`uv run pytest tests/test_concurrency.py` 可验证 PostgreSQL 行锁；CI 使用 PostgreSQL 16。
+`uv run pytest tests/integration/test_concurrency.py` 可验证 PostgreSQL 行锁；CI 使用 PostgreSQL 16。
 在 `frontend/` 执行 `npm run test:e2e` 会启动独立临时原生后端。
 
 SQLite 显式开启事务，使保存点参与外层回滚，参见

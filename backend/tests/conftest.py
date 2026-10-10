@@ -1,11 +1,11 @@
-from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
-from chewy_api.app import create_app
-from chewy_api.config import Settings
-from chewy_api.migrate import upgrade
-from chewy_api.models import User, Identity
-from chewy_api.security import make_password, token_pair
+
+from chewy_api.application import create_app
+from chewy_api.core.config import Settings
+from chewy_api.db.models import Identity, User
+from chewy_api.db.upgrade import upgrade
+from chewy_api.services.security import make_password, token_pair
 
 
 @pytest.fixture(scope='session')

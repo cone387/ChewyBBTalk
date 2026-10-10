@@ -223,8 +223,10 @@ ChewyBBTalk/
 │   │   └── types/           # TypeScript 类型
 │   └── Dockerfile
 ├── backend/                 # FastAPI 后端 API
-│   ├── chewy_api/           # 原生路由、模型、存储与迁移
-│   ├── tests/               # API、数据迁移与并发测试
+│   ├── src/chewy_api/       # API、服务、数据库、存储、备份及 CLI
+│   ├── tests/               # 单元测试、集成测试和数据夹具
+│   ├── tools/               # 浏览器测试后端、性能基准
+│   ├── var/                 # 本地运行数据（不提交）
 │   └── Dockerfile
 ├── data/                    # 数据存储目录
 ├── .github/workflows/       # GitHub Actions

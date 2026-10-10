@@ -48,3 +48,33 @@ for (const [name, options, message] of [
     assert.match(result.stderr, message);
   });
 }
+
+function runPythonGroup(t, { missing = false, duplicate = false, covered = 9 } = {}) {
+  const root = mkdtempSync(join(tmpdir(), 'bbtalk-python-coverage-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, 'scripts'));
+  copyFileSync(new URL('../check-coverage.mjs', import.meta.url), join(root, 'scripts/check-coverage.mjs'));
+  const summary = (covered_lines, num_statements) => ({ covered_lines, num_statements, covered_branches: 1, num_branches: 1 });
+  writeFileSync(join(root, 'scripts/coverage-baseline.json'), JSON.stringify({
+    backend: { report: 'coverage.json', minimum: { lines: 0 }, files: {}, groups: {
+      records: { sources: duplicate ? ['api.py', 'api.py'] : ['api.py', 'service.py'], minimum: { lines: 95, branches: 99 } },
+    } },
+  }));
+  writeFileSync(join(root, 'coverage.json'), JSON.stringify({ totals: summary(100, 100), files: {
+    'src/pkg/api.py': { summary: summary(covered, 10) },
+    ...(!missing && { 'src/pkg/service.py': { summary: summary(90, 90) } }),
+  } }));
+  return spawnSync(process.execPath, [join(root, 'scripts/check-coverage.mjs'), 'backend'], { encoding: 'utf8' });
+}
+
+test('weights split Python modules by statement counts', t => {
+  const result = runPythonGroup(t);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /backend\/records: lines 99\.00%/);
+});
+
+for (const options of [{ missing: true }, { duplicate: true }, { covered: 0 }]) {
+  test(`rejects invalid or under-covered Python groups: ${JSON.stringify(options)}`, t => {
+    assert.equal(runPythonGroup(t, options).status, 1);
+  });
+}

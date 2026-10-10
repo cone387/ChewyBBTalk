@@ -26,7 +26,7 @@ build-backend = "hatchling.build"
 
 [tool.coverage.run]
 branch = true
-source = ["chewy_api"]
+source = ["src/chewy_api"]
 omit = ["*/test*.py", "*/migrations/*", "*/__init__.py"]
 
 [tool.coverage.report]
@@ -45,10 +45,17 @@ output = "coverage/coverage.xml"
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["chewy_api"]
+packages = ["src/chewy_api"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+extend-exclude = ["src/chewy_api/db/migrations"]
+
+[tool.ruff.format]
+quote-style = "single"
 
 [dependency-groups]
 dev = [
@@ -59,8 +66,8 @@ dev = [
 
 [project.scripts]
 # 用法: uv run dev / uv run migrate / uv run init ...
-dev = "chewy_api.cli:dev"
-migrate = "chewy_api.cli:migrate"
-init = "chewy_api.cli:init"
-test = "chewy_api.cli:test"
-bbtalk = "chewy_api.cli:main"
+dev = "chewy_api.cli.commands:dev"
+migrate = "chewy_api.cli.commands:migrate"
+init = "chewy_api.cli.commands:init"
+test = "chewy_api.cli.commands:test"
+bbtalk = "chewy_api.cli.commands:main"

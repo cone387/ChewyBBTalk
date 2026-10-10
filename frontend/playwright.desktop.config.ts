@@ -4,7 +4,7 @@ export default defineConfig({
   expect: { timeout: 10000 }, reporter: [['list']],
   use: { browserName: 'chromium', channel: 'chromium' },
   webServer: [
-    { command: 'uv run python e2e_server.py', cwd: '../backend',
+    { command: 'uv run python tools/e2e_server.py', cwd: '../backend',
       url: 'http://127.0.0.1:18020/api/v1/bbtalk/user/me/', reuseExistingServer: false, timeout: 90000 },
     { command: 'node node_modules/vite/bin/vite.js --host 127.0.0.1 --port 14175 --strictPort --mode test',
       url: 'http://127.0.0.1:14175', reuseExistingServer: false,

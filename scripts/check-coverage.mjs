@@ -33,10 +33,27 @@ for (const part of parts) {
     const metrics = python ? pythonMetrics : jsMetrics;
     check(part, metrics(python ? report.totals : report.total), baseline.minimum);
     const files = Object.entries(python ? report.files : report).filter(([key]) => key !== 'total');
-    for (const [suffix, floor] of Object.entries(baseline.files)) {
+    const findSource = suffix => {
       const matches = files.filter(([path]) => `/${path.replaceAll('\\', '/')}`.endsWith(`/${suffix}`));
       if (matches.length !== 1) throw new Error(`${part}/${suffix}: expected exactly one source entry, found ${matches.length}`);
-      check(`${part}/${suffix}`, metrics(python ? matches[0][1].summary : matches[0][1]), floor);
+      return matches[0][1];
+    };
+    for (const [suffix, floor] of Object.entries(baseline.files)) {
+      const source = findSource(suffix);
+      check(`${part}/${suffix}`, metrics(python ? source.summary : source), floor);
+    }
+    // Preserve an existing module's weighted baseline after it is split into files.
+    for (const [name, group] of Object.entries(baseline.groups ?? {})) {
+      if (!python) throw new Error('Coverage groups currently require Python reports');
+      if (!Array.isArray(group.sources) || !group.sources.length || new Set(group.sources).size !== group.sources.length) {
+        throw new Error(`${part}/${name}: expected a nonempty list of unique sources`);
+      }
+      const sum = { covered_lines: 0, num_statements: 0, covered_branches: 0, num_branches: 0 };
+      for (const suffix of group.sources) {
+        const { summary } = findSource(suffix);
+        for (const metric of Object.keys(sum)) sum[metric] += summary[metric];
+      }
+      check(`${part}/${name}`, pythonMetrics(sum), group.minimum);
     }
   } catch (error) {
     failures.push(error instanceof Error ? error.message : String(error));

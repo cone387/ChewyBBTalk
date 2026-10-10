@@ -31,7 +31,7 @@ RUN pip install --no-cache-dir -i https://pypi.tuna.tsinghua.edu.cn/simple uv &&
     uv export --frozen --no-dev --no-emit-project --output-file requirements.txt && \
     uv pip install --system -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt
 
-COPY backend/chewy_api ./chewy_api
+COPY backend/src/chewy_api ./chewy_api
 
 # ================================
 # 前端构建阶段

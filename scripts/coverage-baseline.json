@@ -544,45 +544,85 @@
       "branches": 91
     },
     "files": {
-      "chewy_api/records.py": {
-        "lines": 95,
-        "branches": 97
-      },
-      "chewy_api/storage.py": {
-        "lines": 99,
-        "branches": 96
-      },
-      "chewy_api/auth.py": {
-        "lines": 96,
-        "branches": 92
-      },
-      "chewy_api/security.py": {
+      "chewy_api/services/security.py": {
         "lines": 99,
         "branches": 99
       },
-      "chewy_api/cli.py": {
+      "chewy_api/cli/commands.py": {
         "lines": 94,
         "branches": 84
       },
-      "chewy_api/app.py": {
+      "chewy_api/backups/integrity.py": {
         "lines": 99,
         "branches": 99
       },
-      "chewy_api/backup_integrity.py": {
-        "lines": 99,
-        "branches": 99
-      },
-      "chewy_api/backups.py": {
+      "chewy_api/backups/service.py": {
         "lines": 95,
         "branches": 89
       },
-      "chewy_api/data.py": {
-        "lines": 98,
-        "branches": 95
-      },
-      "chewy_api/status.py": {
+      "chewy_api/api/routes/status.py": {
         "lines": 99,
         "branches": 99
+      }
+    },
+    "groups": {
+      "records": {
+        "sources": [
+          "chewy_api/api/routes/records.py",
+          "chewy_api/services/records.py",
+          "chewy_api/api/filters.py",
+          "chewy_api/api/pagination.py"
+        ],
+        "minimum": {
+          "lines": 95,
+          "branches": 97
+        }
+      },
+      "storage": {
+        "sources": [
+          "chewy_api/api/routes/storage.py",
+          "chewy_api/storage/backends.py",
+          "chewy_api/storage/service.py"
+        ],
+        "minimum": {
+          "lines": 99,
+          "branches": 96
+        }
+      },
+      "auth": {
+        "sources": [
+          "chewy_api/api/routes/auth.py",
+          "chewy_api/services/accounts.py"
+        ],
+        "minimum": {
+          "lines": 96,
+          "branches": 92
+        }
+      },
+      "app": {
+        "sources": [
+          "chewy_api/application.py",
+          "chewy_api/main.py",
+          "chewy_api/api/errors.py",
+          "chewy_api/api/middleware.py",
+          "chewy_api/api/router.py",
+          "chewy_api/api/schema.py",
+          "chewy_api/api/routes/pages.py"
+        ],
+        "minimum": {
+          "lines": 99,
+          "branches": 99
+        }
+      },
+      "data": {
+        "sources": [
+          "chewy_api/api/routes/data.py",
+          "chewy_api/backups/transfer.py"
+        ],
+        "minimum": {
+          "lines": 98,
+          "branches": 95
+        }
       }
     }
   }

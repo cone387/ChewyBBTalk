@@ -21,7 +21,7 @@ export default defineConfig({
     { name: 'webkit', testMatch: /(?:core-flow|submissions|feedback|search-filters)\.spec\.ts/, use: { browserName: 'webkit', viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true } },
   ],
   webServer: [
-    { command: 'uv run python e2e_server.py', cwd: '../backend', url: 'http://127.0.0.1:18020/api/v1/bbtalk/user/me/',
+    { command: 'uv run python tools/e2e_server.py', cwd: '../backend', url: 'http://127.0.0.1:18020/api/v1/bbtalk/user/me/',
       reuseExistingServer: false, timeout: 90_000 },
     { command: 'node node_modules/vite/bin/vite.js --host 127.0.0.1 --port 14175 --strictPort --mode test', url: 'http://127.0.0.1:14175',
       // This server is noninteractive even during local runs. In this mode

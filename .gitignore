@@ -45,6 +45,7 @@ db.sqlite3
 staticfiles/
 media/
 backend/chewy_space/data/
+backend/var/
 .secret_key
 
 # Custom configs (not committed)
@@ -60,6 +61,7 @@ attachments.md
 test_*.py
 !scripts/tests/test_*.py
 !backend/tests/test_*.py
+!backend/tests/**/test_*.py
 simple_test.py
 test-*.txt
 test.txt

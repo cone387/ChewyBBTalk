@@ -29,7 +29,7 @@ RUN pip install --no-cache-dir uv && \
     uv export --frozen --no-dev --no-emit-project --output-file requirements.txt && \
     uv pip install --system -r requirements.txt
 
-COPY backend/chewy_api ./chewy_api
+COPY backend/src/chewy_api ./chewy_api
 
 # ================================
 # 前端构建阶段
