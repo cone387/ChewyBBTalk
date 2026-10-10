@@ -28,7 +28,7 @@ async function expectNeutralFocus(field: Locator) {
 test('form errors identify fields and controls retain usable geometry', async ({ page }, info) => {
   const username = `controls_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   const password = 'control-consistency-2026'
-  expect((await page.request.post('/api/v1/bbtalk/auth/register/', { data: { username, password } })).status()).toBe(201)
+  expect((await page.request.post('/api/v1/bbtalk/auth/register', { data: { username, password } })).status()).toBe(201)
   await page.goto('/login')
   await expectNeutralFocus(page.getByLabel('用户名', { exact: true }))
   await expectNeutralFocus(page.getByLabel('密码', { exact: true }))

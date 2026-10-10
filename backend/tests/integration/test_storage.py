@@ -96,10 +96,11 @@ def test_attachment_permissions_head_ranges_and_visibility(app,client):
         row=client.post(BASE,json={'content':'public','visibility':'public','attachments':[{'uid':file['id']}]}).json()
         assert anonymous.get(file['preview_url']).status_code==200
         assert anonymous.delete(FILES+file['id']+'/').status_code==404
-        assert anonymous.get(FILES,params={'page_size':'bad'}).json()['count']==1
+        assert anonymous.get(FILES,params={'page_size':'bad'}).status_code==422
+        assert anonymous.get(FILES).json()['count']==1
         assert client.delete(BASE+row['uid']+'/').status_code==204
         assert anonymous.get(file['preview_url']).status_code==404
-    assert client.get(FILES+'invalid/').status_code==404
+    assert client.get(FILES+'invalid/').status_code==422
     assert client.get(FILES+file['id']+'/').json()['original_name']=='image.png'
     with app.state.sessions() as db:
         stored=db.get(Attachment,file['id'])

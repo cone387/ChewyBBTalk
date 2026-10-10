@@ -18,7 +18,7 @@ export default function AccountSettingsPage() {
   const saveProfile = async (event: React.FormEvent) => {
     event.preventDefault(); setFeedbackArea('profile'); setBusy(true); setError(''); setMessage('');
     try {
-      const updated = await apiClient.patch<UserInfo>('/api/v1/bbtalk/user/me/', profile);
+      const updated = await apiClient.patch<UserInfo>('/api/v1/bbtalk/user/me', profile);
       updateCachedUser(updated); setMessage('账户资料已保存');
     } catch (e) { setError(e instanceof Error ? e.message : '保存失败，请重试'); }
     finally { setBusy(false); }
@@ -33,7 +33,7 @@ export default function AccountSettingsPage() {
     setConfirmError('');
     setBusy(true);
     try {
-      await apiClient.post('/api/v1/bbtalk/user/change-password/', { old_password: password.old, new_password: password.next });
+      await apiClient.post('/api/v1/bbtalk/user/change-password', { old_password: password.old, new_password: password.next });
       setPassword({ old: '', next: '', confirm: '' });
       await logout();
     } catch (e) { setError(e instanceof Error ? e.message : '修改失败，请重试'); }

@@ -71,6 +71,8 @@ export function arePropsEqual(prev: BBTalkCardProps, next: BBTalkCardProps): boo
   if (prev.item.updatedAt !== next.item.updatedAt) return false;
   if (prev.item.isPinned !== next.item.isPinned) return false;
   if (prev.item.commentCount !== next.item.commentCount) return false;
+  if (prev.item.commentsRevision !== next.item.commentsRevision) return false;
+  if (prev.item.commentPreview !== next.item.commentPreview) return false;
   if (prev.item.visibility !== next.item.visibility) return false;
 
   // Tags array
@@ -198,7 +200,7 @@ const BBTalkCard = React.memo(function BBTalkCard({
 
       {/* Inline comments */}
       {((item.commentCount ?? 0) > 0 || newComment) && (
-        <InlineComments bbtalkId={item.id} commentCount={item.commentCount ?? 0} newComment={newComment} theme={theme} />
+        <InlineComments bbtalkId={item.id} commentCount={item.commentCount ?? 0} commentPreview={item.commentPreview} commentsRevision={item.commentsRevision} newComment={newComment} theme={theme} />
       )}
     </View>
   );

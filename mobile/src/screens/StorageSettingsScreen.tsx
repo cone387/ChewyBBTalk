@@ -23,7 +23,7 @@ export default function StorageSettingsScreen() {
   const load = async () => {
     setError('');
     try {
-      const data = await apiClient.get<StorageSettings[]>('/api/v1/bbtalk/settings/storage/');
+      const data = await apiClient.get<StorageSettings[]>('/api/v1/bbtalk/settings/storage');
       setConfigs(data);
     } catch (e: any) { setError(e.message || '存储配置加载失败，请重试'); } finally { setLoading(false); }
   };
@@ -38,28 +38,28 @@ export default function StorageSettingsScreen() {
   };
   const activate = (id: number) => run(async () => {
     try {
-      await apiClient.post(`/api/v1/bbtalk/settings/storage/${id}/activate/`);
+      await apiClient.post(`/api/v1/bbtalk/settings/storage/${id}/activate`);
       xAlert('成功', '新上传的附件将使用此配置，已有附件保持原存储位置'); await load();
     } catch (e: any) { xAlert('失败', e.message); }
   });
 
   const deactivateAll = () => run(async () => {
     try {
-      await apiClient.post('/api/v1/bbtalk/settings/storage/deactivate-all/');
+      await apiClient.post('/api/v1/bbtalk/settings/storage/deactivate-all');
       xAlert('成功', '新上传的附件将使用服务器存储，已有附件保持原存储位置'); await load();
     } catch (e: any) { xAlert('失败', e.message); }
   });
 
   const testConnection = (id: number) => run(async () => {
     try {
-      const res = await apiClient.post<{ success: boolean; message: string }>(`/api/v1/bbtalk/settings/storage/${id}/test/`);
+      const res = await apiClient.post<{ success: boolean; message: string }>(`/api/v1/bbtalk/settings/storage/${id}/test`);
       xAlert(res.success ? '连接成功' : '连接失败', res.message);
     } catch (e: any) { xAlert('测试失败', e.message); }
   });
 
   const deleteConfig = (id: number) => {
     xConfirm('确认删除', '确定删除此存储配置？', () => run(async () => {
-      try { await apiClient.delete(`/api/v1/bbtalk/settings/storage/${id}/delete/`); await load(); } catch (e: any) { xAlert('失败', e.message); }
+      try { await apiClient.delete(`/api/v1/bbtalk/settings/storage/${id}`); await load(); } catch (e: any) { xAlert('失败', e.message); }
     }), undefined, { confirmText: '删除', destructive: true });
   };
 
@@ -68,7 +68,7 @@ export default function StorageSettingsScreen() {
       xAlert('请补全配置', '配置名称、存储桶、Access Key ID 和 Secret Access Key 都不能为空'); return;
     }
     try {
-      await apiClient.post('/api/v1/bbtalk/settings/storage/create/', { ...form, storage_type: 's3' });
+      await apiClient.post('/api/v1/bbtalk/settings/storage', { ...form, storage_type: 's3' });
       xAlert('成功', '配置已创建，测试连接成功后可激活使用'); setShowAdd(false); setForm({ name: '', s3_access_key_id: '', s3_secret_access_key: '', s3_bucket_name: '', s3_region_name: 'us-east-1', s3_endpoint_url: '' }); await load();
     } catch (e: any) { xAlert('失败', e.message); }
   });

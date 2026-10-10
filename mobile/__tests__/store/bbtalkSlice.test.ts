@@ -15,6 +15,7 @@ import reducer, {
 } from '../../src/store/slices/bbtalkSlice';
 import { bbtalkApi } from '../../src/services/api';
 import type { BBTalk } from '../../src/types';
+import { clearSession, setSession } from '../../src/services/session';
 
 const api = bbtalkApi as jest.Mocked<typeof bbtalkApi>;
 
@@ -83,7 +84,7 @@ describe('bbtalkSlice thunks', () => {
     api.getBBTalks.mockReturnValue(listResult([makeTalk('a', 'hello')], 'next-page', 42));
     const { store, state } = makeStore();
     await store.dispatch(loadBBTalks({ search: 'x', tags: ['t1', 't2'], date: '2026-10-08' }));
-    expect(api.getBBTalks).toHaveBeenCalledWith({ page: 1, search: 'x', tags__name: 't1,t2', create_time__date: '2026-10-08' });
+    expect(api.getBBTalks).toHaveBeenCalledWith({ page: 1, search: 'x', tags: ['t1', 't2'], created_on: '2026-10-08' }, { signal: expect.any(AbortSignal) });
     expect(state().bbtalks.map((item: any) => item.id)).toEqual(['a']);
     expect(state().isFiltered).toBe(true);
     expect(state().hasMore).toBe(true);
@@ -103,7 +104,7 @@ describe('bbtalkSlice thunks', () => {
     api.getBBTalks.mockReturnValue(listResult([makeTalk('a', 'hello')], null, 9));
     const { store, state } = makeStore();
     await store.dispatch(loadBBTalks({ tags: [] }));
-    expect(api.getBBTalks).toHaveBeenCalledWith({ page: 1, search: undefined, tags__name: '', create_time__date: undefined });
+    expect(api.getBBTalks).toHaveBeenCalledWith({ page: 1, search: undefined, tags: [], created_on: undefined }, { signal: expect.any(AbortSignal) });
     expect(state().isFiltered).toBe(false);
     expect(state().totalCount).toBe(9);
   });
@@ -114,9 +115,9 @@ describe('bbtalkSlice thunks', () => {
     const loadNextPage = loadMoreBBTalks as unknown as () => any;
     const { store, state } = makeStore();
     await store.dispatch(loadFirstPage());
-    expect(api.getBBTalks).toHaveBeenLastCalledWith({ page: 1, search: undefined, tags__name: undefined, create_time__date: undefined });
+    expect(api.getBBTalks).toHaveBeenLastCalledWith({ page: 1, search: undefined, tags: undefined, created_on: undefined }, { signal: expect.any(AbortSignal) });
     await store.dispatch(loadNextPage());
-    expect(api.getBBTalks).toHaveBeenLastCalledWith({ page: 2, search: undefined, tags__name: undefined, create_time__date: undefined });
+    expect(api.getBBTalks).toHaveBeenLastCalledWith({ page: 2, search: undefined, tags: undefined, created_on: undefined }, { signal: expect.any(AbortSignal) });
     expect(state().currentPage).toBe(2);
   });
   it('reports load failures and allows clearing the error', async () => {
@@ -136,8 +137,8 @@ describe('bbtalkSlice thunks', () => {
     api.getBBTalks.mockImplementationOnce(() => new Promise<any>(resolve => { resolveSlow = resolve; }));
     api.getBBTalks.mockImplementationOnce(() => listResult([makeTalk('fresh', 'x')]));
     const { store, state } = makeStore();
-    const slow = store.dispatch(loadBBTalks({}));
-    await store.dispatch(loadBBTalks({}));
+    const slow = store.dispatch(loadBBTalks({ search: 'old' }));
+    await store.dispatch(loadBBTalks({ search: 'new' }));
     resolveSlow({ results: [makeTalk('stale', 'y')], next: null, previous: null, count: 1 });
     await slow;
     expect(state().bbtalks.map((item: any) => item.id)).toEqual(['fresh']);
@@ -153,7 +154,7 @@ describe('bbtalkSlice thunks', () => {
     store.dispatch(optimisticDelete('a2'));
     expect(state().hiddenRecordIds).toEqual(['a2']);
     await store.dispatch(loadMoreBBTalks({}));
-    expect(api.getBBTalks).toHaveBeenLastCalledWith({ page: 2, search: undefined, tags__name: undefined, create_time__date: undefined });
+    expect(api.getBBTalks).toHaveBeenLastCalledWith({ page: 2, search: undefined, tags: undefined, created_on: undefined }, { signal: expect.any(AbortSignal) });
     expect(state().bbtalks.map((item: any) => item.id)).toEqual(['a', 'b']);
     expect(state().currentPage).toBe(2);
     expect(state().hasMore).toBe(false);
@@ -175,8 +176,8 @@ describe('bbtalkSlice thunks', () => {
     api.getBBTalks.mockReturnValueOnce(listResult([makeTalk('b', '2')], null, 2));
     const { store, state } = makeStore();
     await store.dispatch(loadBBTalks({}));
-    const slow = store.dispatch(loadMoreBBTalks({}));
-    await store.dispatch(loadMoreBBTalks({}));
+    const slow = store.dispatch(loadMoreBBTalks({ search: 'old' }));
+    await store.dispatch(loadMoreBBTalks({ search: 'new' }));
     rejectSlow(new Error('过期的失败'));
     await slow;
     expect(state().error).toBeNull();
@@ -316,5 +317,61 @@ describe('bbtalkSlice comment counters', () => {
     expect(state.bbtalks[0].commentCount).toBeUndefined();
     state = reducer(state, incrementCommentCount('a'));
     expect(state.bbtalks[0].commentCount).toBe(1);
+  });
+});
+
+describe('feed request budgets', () => {
+  it('inserts a newly created unpinned record after the existing pinned records', () => {
+    const pinned = { ...makeTalk('pinned', 'pinned'), isPinned: true };
+    let state = reducer(undefined, setBBTalksFromCache([pinned, makeTalk('old', 'old')]));
+    state = reducer(state, createBBTalkAsync.fulfilled(makeTalk('new', 'new'), 'create', { content: 'new' }));
+    expect(state.bbtalks.map(b => b.id)).toEqual(['pinned', 'new', 'old']);
+  });
+  it('cancels old account reads and refuses their response even outside the root middleware', async () => {
+    setSession('https://server.example', 'alice');
+    let finish!: (value: any) => void;
+    api.getBBTalks.mockClear().mockReturnValue(new Promise(resolve => { finish = resolve; }));
+    const store = configureStore({ reducer: { bbtalk: reducer } });
+    const first = store.dispatch(loadBBTalks({}));
+    const signal = (api.getBBTalks.mock.calls[0] as any)[1].signal;
+    clearSession();
+    expect(signal.aborted).toBe(true);
+    finish({ count: 1, next: null, previous: null, results: [makeTalk('private', 'secret')] });
+    await first;
+    expect(store.getState().bbtalk.bbtalks).toEqual([]);
+  });
+  it('updates the persisted preview with comment mutations without a feed reload', () => {
+    const comment = { uid: 'c1', content: 'comment', user: 1, userDisplayName: '', userAvatar: '', userUsername: '', createdAt: '', updatedAt: '' };
+    let state = reducer(undefined, setBBTalksFromCache([{ ...makeTalk('a', 'hello'), commentPreview: [] }]));
+    state = reducer(state, incrementCommentCount({ id: 'a', comment }));
+    expect(state.bbtalks[0]).toMatchObject({ commentCount: 1, commentPreview: [comment] });
+    state = reducer(state, decrementCommentCount({ id: 'a', commentId: 'c1' }));
+    expect(state.bbtalks[0]).toMatchObject({ commentCount: 0, commentPreview: [] });
+  });
+  it('coalesces concurrent identical queries and applies the result to the latest dispatch', async () => {
+    api.getBBTalks.mockClear();
+    let finish!: (value: any) => void;
+    api.getBBTalks.mockReturnValue(new Promise(resolve => { finish = resolve; }));
+    const store = configureStore({ reducer: { bbtalk: reducer } });
+    const first = store.dispatch(loadBBTalks({ tags: ['work'] }));
+    const second = store.dispatch(loadBBTalks({ tags: ['work'] }));
+    expect(api.getBBTalks).toHaveBeenCalledTimes(1);
+    finish({ count: 1, next: null, previous: null, results: [makeTalk('latest', 'result')] });
+    await Promise.all([first, second]);
+    expect(store.getState().bbtalk.bbtalks[0].id).toBe('latest');
+  });
+  it('aborts obsolete filters and ignores late old responses', async () => {
+    api.getBBTalks.mockClear();
+    let finish!: (value: any) => void;
+    api.getBBTalks.mockReturnValueOnce(new Promise(resolve => { finish = resolve; }))
+      .mockResolvedValueOnce({ count: 1, next: null, previous: null, results: [makeTalk('new', 'new')] });
+    const store = configureStore({ reducer: { bbtalk: reducer } });
+    const first = store.dispatch(loadBBTalks({ tags: ['old'] }));
+    const signal = (api.getBBTalks.mock.calls[0] as any)[1]?.signal;
+    await store.dispatch(loadBBTalks({ tags: ['new'] }));
+    expect(signal?.aborted).toBe(true);
+    finish({ count: 1, next: null, previous: null, results: [makeTalk('old', 'old')] });
+    await first;
+    expect(store.getState().bbtalk.bbtalks[0].id).toBe('new');
   });
 });

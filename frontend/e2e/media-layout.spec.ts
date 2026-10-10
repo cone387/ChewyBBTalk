@@ -3,7 +3,7 @@ import { test, expect, type Page } from '@playwright/test'
 async function login(page: Page) {
   const username = `files_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   const password = 'e2e-only-attachments-2026'
-  expect((await page.request.post('/api/v1/bbtalk/auth/register/', { data: { username, password } })).status()).toBe(201)
+  expect((await page.request.post('/api/v1/bbtalk/auth/register', { data: { username, password } })).status()).toBe(201)
   await page.goto('/login')
   await page.getByPlaceholder('请输入用户名').fill(username)
   await page.getByPlaceholder('请输入密码').fill(password)
@@ -15,7 +15,7 @@ test('image failure and corrupt cache recover through the visible retry action',
   await login(page)
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=', 'base64')
   let attempts = 0
-  await page.route('**/api/v1/attachments/files/', async route => {
+  await page.route('**/api/v1/attachments/files', async route => {
     if (route.request().method() !== 'POST') return route.continue()
     const response = await route.fetch()
     expect(response.status()).toBe(201)

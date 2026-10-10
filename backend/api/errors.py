@@ -1,5 +1,4 @@
 from fastapi.encoders import jsonable_encoder
-from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError, OperationalError
 
@@ -14,14 +13,6 @@ def error_response(request, error):
 
 def install_exception_handlers(app):
     app.add_exception_handler(APIError, error_response)
-
-    @app.exception_handler(RequestValidationError)
-    async def validation_error(request, error):
-        fields = {}
-        for item in error.errors():
-            name = str(item['loc'][-1]) if item['loc'] else 'detail'
-            fields.setdefault(name, []).append(item['msg'])
-        return JSONResponse(fields, status_code=400)
 
     @app.exception_handler(IntegrityError)
     async def integrity_error(request, error):

@@ -120,7 +120,7 @@ describe('DataManagementScreen export', () => {
     await press('导出 JSON（不含附件文件）');
     await settle();
     expect(mockFetch).toHaveBeenCalledWith(
-      'https://api.test/api/v1/bbtalk/data/export/?export_format=json',
+      'https://api.test/api/v1/bbtalk/data/export?format=json',
       { headers: { Authorization: 'Bearer tok123' } },
     );
     const file = FSNext.__instances.find((f: any) => f.name.endsWith('.json'));
@@ -196,7 +196,7 @@ describe('DataManagementScreen import', () => {
     await press('选择文件导入');
     await settle();
     const [url, options] = mockFetch.mock.calls[0];
-    expect(url).toBe('https://api.test/api/v1/bbtalk/data/import/');
+    expect(url).toBe('https://api.test/api/v1/bbtalk/data/import');
     expect(options.method).toBe('POST');
     expect(options.headers).toEqual({ Authorization: 'Bearer tok123' });
     expect(options.body).toBeInstanceOf(FormData);
@@ -229,7 +229,7 @@ describe('DataManagementScreen import', () => {
     await press('选择文件导入');
     await settle();
     expect(mockFetch).toHaveBeenNthCalledWith(1, 'blob:pick');
-    expect(mockFetch).toHaveBeenNthCalledWith(2, 'https://api.test/api/v1/bbtalk/data/import/', expect.objectContaining({ method: 'POST' }));
+    expect(mockFetch).toHaveBeenNthCalledWith(2, 'https://api.test/api/v1/bbtalk/data/import', expect.objectContaining({ method: 'POST' }));
     expect(mockXAlert).toHaveBeenCalledWith('导入完成', expect.stringContaining('标签: 新增 1'));
   });
 

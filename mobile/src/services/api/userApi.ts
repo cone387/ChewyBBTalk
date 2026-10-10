@@ -3,13 +3,13 @@ import type { User } from '../../types';
 
 export const userApi = {
   async changePassword(old_password: string, new_password: string): Promise<{ message: string }> {
-    return apiClient.post('/api/v1/bbtalk/user/change-password/', { old_password, new_password });
+    return apiClient.post('/api/v1/bbtalk/user/change-password', { old_password, new_password });
   },
   async updateProfile(data: { display_name?: string; bio?: string; email?: string; avatar?: string }): Promise<User> {
-    return apiClient.patch<User>('/api/v1/bbtalk/user/me/', data);
+    return apiClient.patch<User>('/api/v1/bbtalk/user/me', data);
   },
 
   async deleteAccount(password: string): Promise<{ message: string }> {
-    return apiClient.post<{ message: string }>('/api/v1/bbtalk/user/delete-account/', { password });
+    return apiClient.post<{ message: string }>('/api/v1/bbtalk/user/delete-account', { password });
   },
 };

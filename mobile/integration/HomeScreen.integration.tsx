@@ -55,7 +55,7 @@ beforeEach(async () => {
   jest.clearAllMocks(); mockFocus.clear(); mockCache.isOffline = false;
   mockPrivacy.locked = false; mockPrivacy.settingsReady = true;
   AppState.currentState = 'active';
-  (apiClient.get as jest.Mock).mockImplementation((url: string) => Promise.resolve(url.includes('/tags/') ? [] : result('初始记录')));
+  (apiClient.get as jest.Mock).mockImplementation((url: string) => Promise.resolve(url.endsWith('/tags') ? [{ uid: 'tag-1', name: '工作' }] : result('初始记录')));
 });
 afterEach(() => { cleanup(); jest.restoreAllMocks(); });
 
@@ -76,21 +76,21 @@ test('foreground and network recovery preserve applied filters and unsubmitted s
   jest.spyOn(AppState, 'addEventListener').mockImplementation((_event, callback) => { listeners.add(callback); return { remove: () => listeners.delete(callback) }; });
   let now = 10000;
   jest.spyOn(Date, 'now').mockImplementation(() => now);
-  (apiClient.get as jest.Mock).mockImplementation((url: string) => Promise.resolve(url.includes('/tags/') ? [{ uid: 'tag-1', name: '工作' }] : result('初始记录')));
+  (apiClient.get as jest.Mock).mockImplementation((url: string) => Promise.resolve(url.endsWith('/tags') ? [{ uid: 'tag-1', name: '工作' }] : result('初始记录')));
   const screen = mount();
   await screen.findByText('初始记录');
   fireEvent.press(screen.getByLabelText('搜索'));
   const input = screen.getByPlaceholderText('搜索碎碎念...');
   fireEvent.changeText(input, '已提交关键词');
   fireEvent(input, 'submitEditing');
-  await waitFor(() => expect(apiClient.get).toHaveBeenCalledWith('/api/v1/bbtalk/', expect.objectContaining({ search: '已提交关键词' })));
+  await waitFor(() => expect(apiClient.get).toHaveBeenCalledWith('/api/v1/bbtalk', expect.objectContaining({ search: '已提交关键词' }), { signal: expect.any(AbortSignal) }));
   fireEvent.changeText(input, '尚未提交的新关键词');
-  (apiClient.get as jest.Mock).mockImplementation((url: string) => Promise.resolve(url.includes('/tags/') ? [{ uid: 'tag-1', name: '工作' }] : result('另一端新增记录')));
+  (apiClient.get as jest.Mock).mockImplementation((url: string) => Promise.resolve(url.endsWith('/tags') ? [{ uid: 'tag-1', name: '工作' }] : result('另一端新增记录')));
   await act(async () => { active('active'); });
   await screen.findByText('另一端新增记录');
   expect(screen.getByDisplayValue('尚未提交的新关键词')).toBeTruthy();
-  const feedCalls = () => (apiClient.get as jest.Mock).mock.calls.filter(call => call[0] === '/api/v1/bbtalk/');
-  expect(feedCalls().at(-1)[1]).toMatchObject({ search: '已提交关键词', tags__name: '工作', create_time__date: '2026-09-07' });
+  const feedCalls = () => (apiClient.get as jest.Mock).mock.calls.filter(call => call[0] === '/api/v1/bbtalk');
+  expect(feedCalls().at(-1)[1]).toMatchObject({ search: '已提交关键词', tags: ['工作'], created_on: '2026-09-07' });
   const beforeFocus = feedCalls().length;
   await act(async () => { mockFocus.forEach(callback => callback()); });
   expect(feedCalls()).toHaveLength(beforeFocus);
@@ -100,7 +100,7 @@ test('foreground and network recovery preserve applied filters and unsubmitted s
   mockCache.isOffline = false;
   screen.rerender(screen.tree());
   await waitFor(() => expect(feedCalls().length).toBeGreaterThan(beforeFocus));
-  expect(feedCalls().at(-1)[1]).toMatchObject({ search: '已提交关键词', tags__name: '工作', create_time__date: '2026-09-07' });
+  expect(feedCalls().at(-1)[1]).toMatchObject({ search: '已提交关键词', tags: ['工作'], created_on: '2026-09-07' });
   expect(screen.getByDisplayValue('尚未提交的新关键词')).toBeTruthy();
 });
 
@@ -110,7 +110,7 @@ test('a late response for a previous search cannot replace the visible newer res
   fireEvent.press(screen.getByLabelText('搜索'));
   let finishOld: (value: any) => void = () => {};
   (apiClient.get as jest.Mock).mockImplementation((url: string, params: any) => {
-    if (url.includes('/tags/')) return Promise.resolve([]);
+    if (url.endsWith('/tags')) return Promise.resolve([{ uid: 'tag-1', name: '工作' }]);
     if (params.search === '旧查询') return new Promise(resolve => { finishOld = resolve; });
     return Promise.resolve(result('新查询结果'));
   });

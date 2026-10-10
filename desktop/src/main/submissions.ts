@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../shared/apiErrorMessage';
 import { randomUUID } from 'node:crypto';
 import { store } from './store';
 import { getSubmissionSession, getValidAccessToken, tryRestoreSession, authenticatedFetch } from './auth';
@@ -35,8 +36,8 @@ async function request(expected: SubmissionSession, intent: SubmissionIntent, re
   assertSession(expected);
   if (!token) throw new Error('请先登录');
   const response = await authenticatedFetch(retry
-    ? '/api/v1/bbtalk/'
-    : `/api/v1/bbtalk/submission-status/?key=${encodeURIComponent(intent.key)}`, {
+    ? '/api/v1/bbtalk'
+    : `/api/v1/bbtalk/submission-status?key=${encodeURIComponent(intent.key)}`, {
     method: retry ? 'POST' : 'GET',
     headers: { 'Content-Type': 'application/json', 'Idempotency-Key': intent.key },
     ...(retry ? { body: JSON.stringify(intent.payload) } : {}),
@@ -50,7 +51,7 @@ async function request(expected: SubmissionSession, intent: SubmissionIntent, re
   }
   if (!response.ok) throw new Error(response.status === 404
     ? '暂未查到原提交，可重试原提交；当前输入已保留'
-    : data.error || data.detail || `请求失败 (${response.status})，原提交已保留`);
+    : apiErrorMessage(data, `请求失败 (${response.status})，原提交已保留`));
   if (!data.uid) throw new Error('服务器返回的结果无法确认，请核对原提交');
   const confirmed: SubmissionIntent = { ...intent, state: 'confirmed' };
   write(expected.scope, confirmed);

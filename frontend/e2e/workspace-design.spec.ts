@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test'
 test('workspace navigation stays consistent and S3 uses an accessible shared dialog', async ({ page }, info) => {
   const username = `workspace_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
   const password = 'workspace-design-2026'
-  expect((await page.request.post('/api/v1/bbtalk/auth/register/', {
+  expect((await page.request.post('/api/v1/bbtalk/auth/register', {
     data: { username, password, display_name: '林间' },
   })).status()).toBe(201)
   await page.goto('/login')

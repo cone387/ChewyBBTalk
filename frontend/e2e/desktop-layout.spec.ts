@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test'
 test('desktop keeps its sidebar and authenticated login visits return to the feed', async ({ page }, info) => {
   const username = `layout_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
   const password = 'layout-regression-2026'
-  expect((await page.request.post('/api/v1/bbtalk/auth/register/', { data: { username, password } })).status()).toBe(201)
+  expect((await page.request.post('/api/v1/bbtalk/auth/register', { data: { username, password } })).status()).toBe(201)
   await page.addInitScript(() => localStorage.setItem('show_privacy_countdown', 'true'))
   await page.goto('/login')
   await page.getByLabel('用户名', { exact: true }).fill(username)
@@ -15,7 +15,7 @@ test('desktop keeps its sidebar and authenticated login visits return to the fee
   await expect(page.getByLabel('记录内容')).toBeVisible()
   await expect(page.getByRole('heading', { name: '登录 BBTalk' })).toHaveCount(0)
 
-  await page.route('**/api/v1/bbtalk/tags/', route => route.fulfill({ json: Array.from({ length: 40 }, (_, index) => ({
+  await page.route('**/api/v1/bbtalk/tags', route => route.fulfill({ json: Array.from({ length: 40 }, (_, index) => ({
     uid: `layout-tag-${index}`, name: index === 0 ? '一个用于验证布局的超长标签名称' : `日常记录 ${index + 1}`,
     color: '#2563eb', sort_order: index, bbtalk_count: index + 1,
   })) }))
@@ -102,7 +102,7 @@ test('settings keep a desktop workspace and adapt only when the window narrows',
   test.setTimeout(90_000)
   const username = 'settings_layout_' + Date.now()
   const password = 'settings-layout-2026'
-  expect((await page.request.post('/api/v1/bbtalk/auth/register/', { data: { username, password } })).status()).toBe(201)
+  expect((await page.request.post('/api/v1/bbtalk/auth/register', { data: { username, password } })).status()).toBe(201)
   await page.goto('/login')
   await page.getByLabel('用户名', { exact: true }).fill(username)
   await page.getByLabel('密码', { exact: true }).fill(password)

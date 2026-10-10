@@ -38,6 +38,41 @@ afterEach(() => {
 })
 
 describe('login and register error contracts', () => {
+  it('keeps profile edits in the same session but invalidates cross-tab account changes', async () => {
+    seed()
+    const auth = await import('../src/services/auth')
+    const initial = auth.getAuthSessionScope()
+    const changed = vi.fn()
+    const unsubscribe = auth.subscribeAuthSession(changed)
+    const before = localStorage.getItem(userKey)
+    const after = JSON.stringify({ ...user, display_name: 'Updated profile' })
+    localStorage.setItem(userKey, after)
+    window.dispatchEvent(new StorageEvent('storage', { key: userKey, oldValue: before, newValue: after }))
+    expect(auth.getAuthSessionScope()).toBe(initial)
+    expect(changed).not.toHaveBeenCalled()
+    const other = JSON.stringify({ id: 2, username: 'bob' })
+    localStorage.setItem(userKey, other)
+    window.dispatchEvent(new StorageEvent('storage', { key: userKey, oldValue: after, newValue: other }))
+    expect(auth.getAuthSessionScope()).not.toBe(initial)
+    expect(changed).toHaveBeenCalledTimes(1)
+    unsubscribe()
+  })
+  it('rotates same-account login sessions while preserving the scope during token refresh', async () => {
+    const auth = await import('../src/services/auth')
+    const changed = vi.fn()
+    const unsubscribe = auth.subscribeAuthSession(changed)
+    fetchMock.mockResolvedValue(response({ access: jwt(), refresh: 'refresh-old', user }))
+    await auth.login('alice', 'password')
+    const first = auth.getAuthSessionScope()
+    fetchMock.mockResolvedValue(response({ access: jwt(7200), refresh: 'refresh-new' }))
+    await auth.refreshAccessToken()
+    expect(auth.getAuthSessionScope()).toBe(first)
+    fetchMock.mockResolvedValue(response({ access: jwt(), refresh: 'refresh-old', user }))
+    await auth.login('alice', 'password')
+    expect(auth.getAuthSessionScope()).not.toBe(first)
+    expect(changed).toHaveBeenCalledTimes(2)
+    unsubscribe()
+  })
   it.each(['login', 'register'] as const)('falls back to a generic %s message when the server sends no error field', async (method) => {
     const auth = await import('../src/services/auth')
     fetchMock.mockResolvedValue(response({}, 400))
@@ -68,7 +103,7 @@ describe('JWT parsing and refresh scheduling', () => {
     // initAuth treats the token as valid and falls through to the user restore.
     fetchMock.mockResolvedValue(response(user))
     expect(await auth.initAuth()).toBe(true)
-    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/user/me/'), expect.anything())
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/user/me'), expect.anything())
   })
 
   it('refreshes immediately when the issued token is already within the refresh window', async () => {
@@ -79,7 +114,7 @@ describe('JWT parsing and refresh scheduling', () => {
     expect(await auth.login('alice', 'password')).toEqual({ success: true })
     await vi.advanceTimersByTimeAsync(1)
     expect(fetchMock).toHaveBeenCalledTimes(2)
-    expect(fetchMock.mock.calls[1][0]).toContain('/auth/token/refresh/')
+    expect(fetchMock.mock.calls[1][0]).toContain('/auth/token/refresh')
     expect(auth.getAccessToken()).toBe(rotated)
     // The rotated token is far from expiring, so the next refresh is scheduled ahead of time.
     expect(setTimeout).toHaveBeenCalledWith(expect.any(Function), 3300000)
@@ -158,7 +193,7 @@ describe('parent application bridges', () => {
     const auth = await import('../src/services/auth')
     fetchMock.mockResolvedValue(response(user))
     expect(await auth.getUserInfo()).toEqual(user)
-    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/user/me/'), expect.anything())
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/user/me'), expect.anything())
   })
 
   it('returns null from getUserInfo when no credentials remain', async () => {
@@ -174,7 +209,7 @@ describe('parent application bridges', () => {
     const auth = await import('../src/services/auth')
     fetchMock.mockResolvedValue(response(user))
     expect(await auth.getUserInfo()).toEqual(user)
-    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/user/me/'), expect.anything())
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/user/me'), expect.anything())
   })
 
   it('swallows backend errors while fetching the current user', async () => {
@@ -215,6 +250,51 @@ describe('initAuth with an expired token', () => {
 })
 
 describe('initAuth robustness', () => {
+  it.each(['initAuth', 'getUserInfo'] as const)('ignores a late me response from %s after another login', async method => {
+    seed(); const auth = await import('../src/services/auth')
+    let finish!: (value: ReturnType<typeof response>) => void
+    fetchMock.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+    const pending = auth[method]()
+    const newerUser = { ...user, id: 2, username: 'bob' }
+    fetchMock.mockResolvedValueOnce(response({ access: jwt(), refresh: 'refresh-new', user: newerUser }))
+    await auth.login('bob', 'password')
+    finish(response(user))
+    await pending
+    expect(auth.getCurrentUser()).toEqual(newerUser)
+    expect(JSON.parse(localStorage.getItem(userKey)!)).toEqual(newerUser)
+    expect(localStorage.getItem(refreshKey)).toBe('refresh-new')
+  })
+
+  it('ignores an old me body that finishes parsing after logout', async () => {
+    seed(); const auth = await import('../src/services/auth')
+    let finish!: (value: typeof user) => void
+    const oldResponse = response(user)
+    oldResponse.json.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+    fetchMock.mockResolvedValueOnce(oldResponse).mockResolvedValueOnce(response({}))
+    const pending = auth.initAuth()
+    await Promise.resolve()
+    await auth.logout()
+    finish(user)
+    expect(await pending).toBe(false)
+    expect(auth.getCurrentUser()).toBeNull()
+    expect(localStorage.getItem(userKey)).toBeNull()
+  })
+
+  it.each(['initAuth', 'getUserInfo'] as const)('ignores a late host user from %s after another login', async method => {
+    seed(); const auth = await import('../src/services/auth')
+    let finish!: (value: typeof user) => void
+    window.__POWERED_BY_WUJIE__ = true
+    window.__WUJIE = { props: { getUserInfo: () => new Promise(resolve => { finish = resolve }) } }
+    const pending = auth[method]()
+    const newerUser = { ...user, id: 2, username: 'bob' }
+    fetchMock.mockResolvedValueOnce(response({ access: jwt(), refresh: 'refresh-new', user: newerUser }))
+    await auth.login('bob', 'password')
+    finish(user)
+    await pending
+    expect(auth.getCurrentUser()).toEqual(newerUser)
+    expect(JSON.parse(localStorage.getItem(userKey)!)).toEqual(newerUser)
+  })
+
   it('returns false when local storage itself fails', async () => {
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('quota exceeded') })
     const auth = await import('../src/services/auth')
@@ -224,12 +304,29 @@ describe('initAuth robustness', () => {
 })
 
 describe('logout', () => {
+  it('does not clear or redirect a newer login when an old blacklist request finishes', async () => {
+    seed(); const auth = await import('../src/services/auth')
+    let finish!: (value: ReturnType<typeof response>) => void
+    fetchMock.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+    const pending = auth.logout()
+    const newerUser = { ...user, id: 2, username: 'bob' }
+    fetchMock.mockResolvedValueOnce(response({ access: jwt(), refresh: 'refresh-new', user: newerUser }))
+    await auth.login('bob', 'password')
+    const currentScope = auth.getAuthSessionScope()
+    finish(response({}))
+    await pending
+    expect(auth.getCurrentUser()).toEqual(newerUser)
+    expect(localStorage.getItem(refreshKey)).toBe('refresh-new')
+    expect(auth.getAuthSessionScope()).toBe(currentScope)
+    expect(navigatedTo).toBeUndefined()
+  })
+
   it('blacklists the refresh token, clears local state and redirects to the login page', async () => {
     seed(); const auth = await import('../src/services/auth')
     fetchMock.mockResolvedValue(response({}))
     await auth.logout()
     expect(fetchMock).toHaveBeenCalledTimes(1)
-    expect(fetchMock.mock.calls[0][0]).toContain('/auth/token/blacklist/')
+    expect(fetchMock.mock.calls[0][0]).toContain('/auth/token/blacklist')
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ refresh: 'refresh-old' })
     expect(auth.getAccessToken()).toBeNull()
     expect(auth.getCurrentUser()).toBeNull()

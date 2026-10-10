@@ -24,7 +24,7 @@ describe('authentication session boundaries', () => {
 
   it('completes local logout while blacklist is offline and rejects an earlier refresh response', async () => {
     let resolveRefresh!: (response: Response) => void;
-    global.fetch = jest.fn((url: string) => url.includes('/refresh/')
+    global.fetch = jest.fn((url: string) => url.includes('/refresh')
       ? new Promise<Response>(resolve => { resolveRefresh = resolve; })
       : new Promise<Response>(() => {})) as any;
     const { setSession, getSession } = require('../../src/services/session');
@@ -90,7 +90,7 @@ describe('authentication session boundaries', () => {
     }));
     const bob = { id: 2, username: 'bob' };
     global.fetch = jest.fn().mockImplementation(async (url: string) => new Response(
-      url.includes('/blacklist/') ? '{}' : JSON.stringify({ access: 'bob-access', refresh: 'bob-refresh', user: bob }), { status: 200 }));
+      url.includes('/blacklist') ? '{}' : JSON.stringify({ access: 'bob-access', refresh: 'bob-refresh', user: bob }), { status: 200 }));
     const auth = require('../../src/services/auth');
     expect(await auth.initAuth()).toBe(true);
     const save = auth.updateCachedUser({ id: 1, username: 'alice', display_name: 'Edited Alice' });

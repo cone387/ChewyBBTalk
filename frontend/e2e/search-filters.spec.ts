@@ -3,7 +3,7 @@ import { test, expect, type Page } from '@playwright/test'
 async function setup(page: Page) {
   const username = `search_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
   const password = 'search-regression-2026'
-  const registration = await page.request.post('/api/v1/bbtalk/auth/register/', { data: { username, password } })
+  const registration = await page.request.post('/api/v1/bbtalk/auth/register', { data: { username, password } })
   expect(registration.status()).toBe(201)
   await page.goto('/login')
   await page.getByPlaceholder('请输入用户名').fill(username)

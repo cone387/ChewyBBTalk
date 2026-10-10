@@ -40,10 +40,10 @@ export const loadBBTalks = createAsyncThunk(
       const result = await bbtalkApi.getBBTalks({ 
         page, 
         search,
-        tags__name: tags?.join(','),
+        tags: tags,
         has_attachments: hasAttachments,
-        create_date__gte: dateFrom,
-        create_date__lte: dateTo,
+        created_date_from: dateFrom,
+        created_date_to: dateTo,
         visibility, ordering,
       })
       return { 
@@ -54,6 +54,7 @@ export const loadBBTalks = createAsyncThunk(
         isFullLoad: result.totalCount !== undefined || (!search && (!tags || tags.length === 0) && !visibility && hasAttachments === undefined && !dateFrom && !dateTo)  // 标记是否是全量加载
       }
     } catch (error: any) {
+      if (error?.name === 'AbortError') throw error
       return rejectWithValue(error.message || '加载BBTalk失败')
     }
   }
@@ -71,10 +72,10 @@ export const loadMoreBBTalks = createAsyncThunk(
       const result = await bbtalkApi.getBBTalks({ 
         page: nextPage, 
         search,
-        tags__name: tags?.join(','),
+        tags: tags,
         has_attachments: hasAttachments,
-        create_date__gte: dateFrom,
-        create_date__lte: dateTo,
+        created_date_from: dateFrom,
+        created_date_to: dateTo,
         visibility, ordering,
       })
       return { 
@@ -83,6 +84,7 @@ export const loadMoreBBTalks = createAsyncThunk(
         hasMore: !!result.next 
       }
     } catch (error: any) {
+      if (error?.name === 'AbortError') throw error
       return rejectWithValue(error.message || '加载更多BBTalk失败')
     }
   }
@@ -94,7 +96,7 @@ export const loadPublicBBTalks = createAsyncThunk(
   async (params: FeedFilters = {}, { rejectWithValue }) => {
     try {
       const { page = 1 } = params
-      const result = await bbtalkApi.getPublicBBTalks({ page, search: params.search, tags__name: params.tags?.join(','), has_attachments: params.hasAttachments, create_date__gte: params.dateFrom, create_date__lte: params.dateTo, ordering: params.ordering })
+      const result = await bbtalkApi.getPublicBBTalks({ page, search: params.search, tags: params.tags, has_attachments: params.hasAttachments, created_date_from: params.dateFrom, created_date_to: params.dateTo, ordering: params.ordering })
       return { 
         bbtalks: result.results, 
         page, 
@@ -102,6 +104,7 @@ export const loadPublicBBTalks = createAsyncThunk(
         totalCount: result.totalCount ?? result.count,
       }
     } catch (error: any) {
+      if (error?.name === 'AbortError') throw error
       return rejectWithValue(error.message || '加载公开BBTalk失败')
     }
   }
@@ -116,13 +119,14 @@ export const loadMorePublicBBTalks = createAsyncThunk(
       const currentPage = state.bbtalk.currentPage
       const nextPage = currentPage + 1
       
-      const result = await bbtalkApi.getPublicBBTalks({ page: nextPage, search: params.search, tags__name: params.tags?.join(','), has_attachments: params.hasAttachments, create_date__gte: params.dateFrom, create_date__lte: params.dateTo, ordering: params.ordering })
+      const result = await bbtalkApi.getPublicBBTalks({ page: nextPage, search: params.search, tags: params.tags, has_attachments: params.hasAttachments, created_date_from: params.dateFrom, created_date_to: params.dateTo, ordering: params.ordering })
       return { 
         bbtalks: result.results, 
         page: nextPage, 
         hasMore: !!result.next 
       }
     } catch (error: any) {
+      if (error?.name === 'AbortError') throw error
       return rejectWithValue(error.message || '加载更多公开BBTalk失败')
     }
   }
@@ -205,6 +209,10 @@ const bbtalkSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      .addCase(updateBBTalkAsync.pending, state => {
+        state.activeRequestId = undefined;
+        state.isLoading = false;
+      })
       // loadBBTalks
       .addCase(loadBBTalks.pending, (state, action) => {
         state.activeRequestId = action.meta.requestId;
@@ -227,7 +235,7 @@ const bbtalkSlice = createSlice({
         if (state.activeRequestId !== action.meta.requestId) return;
         state.activeRequestId = undefined;
         state.isLoading = false
-        state.error = action.payload as string
+        state.error = action.error.name === 'AbortError' ? null : action.payload as string
       })
       // loadMoreBBTalks
       .addCase(loadMoreBBTalks.pending, (state, action) => {
@@ -246,7 +254,7 @@ const bbtalkSlice = createSlice({
         if (state.activeRequestId !== action.meta.requestId) return;
         state.activeRequestId = undefined;
         state.isLoading = false
-        state.error = action.payload as string
+        state.error = action.error.name === 'AbortError' ? null : action.payload as string
       })
       // createBBTalkAsync
       .addCase(createBBTalkAsync.fulfilled, (state, action) => {
@@ -254,18 +262,22 @@ const bbtalkSlice = createSlice({
         state.activeRequestId = undefined
         state.isLoading = false
         if (!state.bbtalks.some(item => item.id === action.payload.id)) {
-          state.bbtalks.unshift(action.payload)
+          const firstUnpinned = state.bbtalks.findIndex(item => !item.isPinned)
+          const index = action.payload.isPinned ? 0 : firstUnpinned < 0 ? state.bbtalks.length : firstUnpinned
+          state.bbtalks.splice(index, 0, action.payload)
           state.totalCount += 1
         }
       })
       .addCase(createBBTalkAsync.rejected, (state, action) => {
-        state.error = action.payload as string
+        state.error = action.error.name === 'AbortError' ? null : action.payload as string
       })
       // updateBBTalkAsync
       .addCase(updateBBTalkAsync.fulfilled, (state, action) => {
         const index = state.bbtalks.findIndex((b) => b.id === action.payload.id)
         if (index !== -1) {
           state.bbtalks[index] = action.payload
+          state.bbtalks.sort((a, b) => Number(!!b.isPinned) - Number(!!a.isPinned) ||
+            new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
         }
       })
       .addCase(updateBBTalkAsync.rejected, (state, action) => {
@@ -276,7 +288,7 @@ const bbtalkSlice = createSlice({
         state.bbtalks = state.bbtalks.filter((b) => b.id !== action.payload)
       })
       .addCase(deleteBBTalkAsync.rejected, (state, action) => {
-        state.error = action.payload as string
+        state.error = action.error.name === 'AbortError' ? null : action.payload as string
       })
       // loadPublicBBTalks
       .addCase(loadPublicBBTalks.pending, (state, action) => {
@@ -297,7 +309,7 @@ const bbtalkSlice = createSlice({
         if (state.activeRequestId !== action.meta.requestId) return;
         state.activeRequestId = undefined;
         state.isLoading = false
-        state.error = action.payload as string
+        state.error = action.error.name === 'AbortError' ? null : action.payload as string
       })
       // loadMorePublicBBTalks
       .addCase(loadMorePublicBBTalks.pending, (state, action) => {
@@ -316,7 +328,7 @@ const bbtalkSlice = createSlice({
         if (state.activeRequestId !== action.meta.requestId) return;
         state.activeRequestId = undefined;
         state.isLoading = false
-        state.error = action.payload as string
+        state.error = action.error.name === 'AbortError' ? null : action.payload as string
       })
   },
 })

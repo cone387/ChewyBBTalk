@@ -68,7 +68,7 @@ function record(id: string, content: string): BBTalk {
     createdAt: '2026-01-01T00:00:00Z', updatedAt: `2026-01-02T00:00:00Z-${id}`,
   };
 }
-const page1 = { count: 2, next: '/api/v1/bbtalks/?page=2', previous: null, results: [record('b1', '第一条'), record('b2', '第二条')] };
+const page1 = { count: 2, next: '/api/v1/bbtalks?page=2', previous: null, results: [record('b1', '第一条'), record('b2', '第二条')] };
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -107,6 +107,26 @@ function stubAsyncRaf() {
 const settle = () => act(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
 
 describe('initial rendering', () => {
+  it('uses one refresh when focus arrives during a debounced filter change', async () => {
+    await loaded();
+    api.getBBTalks.mockClear();
+    fireEvent.change(screen.getByLabelText('搜索记录'), { target: { value: 'needle' } });
+    fireEvent.focus(window);
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 400)); });
+    expect(api.getBBTalks).toHaveBeenCalledTimes(1);
+    expect(api.getBBTalks).toHaveBeenLastCalledWith(expect.objectContaining({ search: 'needle' }));
+  });
+  it('loads once even after tags arrive and coalesces focus events across tag refreshes', async () => {
+    await loaded();
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 350)); });
+    expect(api.getBBTalks).toHaveBeenCalledTimes(1);
+    fireEvent.focus(window);
+    await settle();
+    fireEvent.focus(window);
+    await settle();
+    expect(api.getBBTalks).toHaveBeenCalledTimes(2);
+    expect(tagsApi.getTags).toHaveBeenCalledTimes(2);
+  });
   it('uses deployment branding and countdown defaults with an empty timeout fallback', async () => {
     window.__BBTALK_CONFIG__ = {
       VITE_SITE_NAME: 'Deployment Notes', VITE_SITE_COPYRIGHT: 'Private workspace',
@@ -136,8 +156,8 @@ describe('initial rendering', () => {
     const pending = new Promise<typeof page1>(resolve => { finish = resolve; });
     api.getBBTalks.mockReturnValue(pending);
     page();
-    // The empty state flashes before the first request is marked pending.
-    expect(screen.getByText('暂无碎碎念')).toBeTruthy();
+    // Keep loading visible until the single initial request resolves.
+    expect(screen.queryByText('暂无碎碎念')).toBeNull();
     await waitFor(() => expect(screen.getAllByText('skeleton')).toHaveLength(3));
     await act(async () => { finish({ ...page1, results: [] }); });
     expect(screen.getByText('暂无碎碎念')).toBeTruthy();
@@ -194,14 +214,14 @@ describe('search and tag filters', () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(350); });
     fireEvent.click(screen.getByRole('button', { name: '工作' }));
     await act(async () => { await vi.advanceTimersByTimeAsync(300); });
-    expect(api.getBBTalks).toHaveBeenLastCalledWith(expect.objectContaining({ tags__name: '工作' }));
+    expect(api.getBBTalks).toHaveBeenLastCalledWith(expect.objectContaining({ tags: ['工作'] }));
     scrollContainer().scrollTop = 240;
     fireEvent.click(screen.getByRole('button', { name: '生活' }));
     expect(scrollContainer().scrollTop).toBe(0);
     expect(screen.getByRole('button', { name: '工作' }).getAttribute('aria-pressed')).toBe('false');
     expect(screen.getByRole('button', { name: '生活' }).getAttribute('aria-pressed')).toBe('true');
     await act(async () => { await vi.advanceTimersByTimeAsync(300); });
-    expect(api.getBBTalks).toHaveBeenLastCalledWith(expect.objectContaining({ tags__name: '生活' }));
+    expect(api.getBBTalks).toHaveBeenLastCalledWith(expect.objectContaining({ tags: ['生活'] }));
     const requests = api.getBBTalks.mock.calls.length;
     fireEvent.click(screen.getByRole('button', { name: '生活' }));
     await act(async () => { await vi.advanceTimersByTimeAsync(300); });
@@ -209,7 +229,7 @@ describe('search and tag filters', () => {
     expect(screen.getByRole('button', { name: '生活' }).getAttribute('aria-pressed')).toBe('true');
     fireEvent.click(screen.getByRole('button', { name: '全部', exact: true }));
     await act(async () => { await vi.advanceTimersByTimeAsync(300); });
-    expect(api.getBBTalks).toHaveBeenLastCalledWith(expect.objectContaining({ tags__name: '' }));
+    expect(api.getBBTalks).toHaveBeenLastCalledWith(expect.objectContaining({ tags: [] }));
   });
 
   it('ignores a delayed response for the previous tag after switching', async () => {
@@ -217,7 +237,7 @@ describe('search and tag filters', () => {
     page();
     await act(async () => { await vi.advanceTimersByTimeAsync(350); });
     let finishOld!: (value: typeof page1) => void;
-    api.getBBTalks.mockImplementation((params: { tags__name?: string }) => params.tags__name === '工作'
+    api.getBBTalks.mockImplementation((params: { tags?: string }) => params.tags?.includes('工作')
       ? new Promise(resolve => { finishOld = resolve; })
       : Promise.resolve({ ...page1, results: [record('life', '生活结果')] }));
     fireEvent.click(screen.getByRole('button', { name: '工作' }));
@@ -334,7 +354,7 @@ describe('list refresh and paging', () => {
 
   it('loads the next page when scrolling near the bottom and reports the end', async () => {
     const view = await loaded();
-    await waitFor(() => expect(api.getBBTalks).toHaveBeenCalledTimes(2)); // initial load + debounced re-run
+    await waitFor(() => expect(api.getBBTalks).toHaveBeenCalledTimes(1));
     api.getBBTalks.mockClear();
     api.getBBTalks.mockResolvedValueOnce({ count: 3, next: null, previous: null, results: [record('b3', '第三条')] });
 

@@ -43,7 +43,7 @@ describe('upload request shape', () => {
       media_type: 'image', description: '一朵云', is_public: false, signal,
     })
     const [url, options] = fetchMock.mock.calls[0]
-    expect(url).toBe('/api/v1/attachments/files/')
+    expect(url).toBe('/api/v1/attachments/files')
     expect(options.method).toBe('POST')
     expect(options.credentials).toBe('include')
     expect(options.signal).toBe(signal)
@@ -184,8 +184,8 @@ describe('attachment transformations', () => {
     const relative = await uploadReturns({ id: 'r1', url: '/media/r1.png' })
     expect(relative.url).toBe('/media/r1.png')
     expect(relative.url.startsWith('/')).toBe(true)
-    const nested = await uploadReturns({ id: 'r2', file: '/api/v1/attachments/files/r2/download/' })
-    expect(nested.url).toBe('/api/v1/attachments/files/r2/download/')
+    const nested = await uploadReturns({ id: 'r2', file: '/api/v1/attachments/files/r2/download' })
+    expect(nested.url).toBe('/api/v1/attachments/files/r2/download')
   })
 
   it('rewrites the protocol only when VITE_MEDIA_URL_PROTOCOL is configured', async () => {
@@ -207,7 +207,7 @@ describe('delete and list', () => {
   it('deletes through the shared API client', async () => {
     client.delete.mockResolvedValue(undefined)
     await attachmentApi.delete('uid-1')
-    expect(client.delete).toHaveBeenCalledWith('/api/v1/attachments/files/uid-1/')
+    expect(client.delete).toHaveBeenCalledWith('/api/v1/attachments/files/uid-1')
   })
 
   it('lists attachments from a paginated payload', async () => {
@@ -215,7 +215,7 @@ describe('delete and list', () => {
     expect(await attachmentApi.list()).toEqual([
       expect.objectContaining({ uid: 'p1', url: '/media/p1.png' }),
     ])
-    expect(client.get).toHaveBeenCalledWith('/api/v1/attachments/files/')
+    expect(client.get).toHaveBeenCalledWith('/api/v1/attachments/files')
   })
 
   it('accepts a bare array and falls back to an empty list for malformed payloads', async () => {

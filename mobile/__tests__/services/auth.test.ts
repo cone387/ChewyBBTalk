@@ -69,7 +69,7 @@ describe('auth flows', () => {
     expect(h.auth.getAccessTokenSync()).toBeNull();
 
     expect(await h.auth.login('alice', 'pw')).toEqual({ success: true });
-    expect(h.fetchMock).toHaveBeenCalledWith('https://example.test/api/v1/bbtalk/auth/token/', expect.objectContaining({ method: 'POST' }));
+    expect(h.fetchMock).toHaveBeenCalledWith('https://example.test/api/v1/bbtalk/auth/token', expect.objectContaining({ method: 'POST' }));
     expect(h.secureStore.get('bbtalk_auth_server')).toBe('https://example.test');
     expect(h.secureStore.get('bbtalk_access_token')).toBe('tok-a');
     expect(h.secureStore.get('bbtalk_user_info')).toContain('alice');
@@ -127,7 +127,7 @@ describe('auth flows', () => {
     const h = setupAuth();
     h.fetchMock.mockImplementation(async () => okLogin('reg-a', 'reg-r'));
     expect(await h.auth.register({ username: 'new', password: 'pw', email: 'a@b.c' })).toEqual({ success: true });
-    expect(h.fetchMock).toHaveBeenCalledWith('https://example.test/api/v1/bbtalk/auth/register/', expect.objectContaining({ method: 'POST' }));
+    expect(h.fetchMock).toHaveBeenCalledWith('https://example.test/api/v1/bbtalk/auth/register', expect.objectContaining({ method: 'POST' }));
     expect(h.secureStore.get('bbtalk_access_token')).toBe('reg-a');
     expect(h.auth.getCurrentUser()?.username).toBe('alice');
   });
@@ -179,7 +179,7 @@ describe('auth token refresh edge cases', () => {
 
     await jest.advanceTimersByTimeAsync(30_000);
     expect(h.fetchMock).toHaveBeenCalledTimes(2);
-    expect(h.fetchMock.mock.calls[1]![0]).toBe('https://example.test/api/v1/bbtalk/auth/token/refresh/');
+    expect(h.fetchMock.mock.calls[1]![0]).toBe('https://example.test/api/v1/bbtalk/auth/token/refresh');
   });
 
   it('bails out when the session changes during the refresh request', async () => {
@@ -237,7 +237,7 @@ describe('auth refresh scheduling', () => {
     // completed refresh reschedules 30s later, which stays beyond this window.
     await jest.advanceTimersByTimeAsync(3_300_000);
     expect(h.fetchMock).toHaveBeenCalledTimes(2);
-    expect(h.fetchMock.mock.calls[1]![0]).toBe('https://example.test/api/v1/bbtalk/auth/token/refresh/');
+    expect(h.fetchMock.mock.calls[1]![0]).toBe('https://example.test/api/v1/bbtalk/auth/token/refresh');
     expect(JSON.parse(h.fetchMock.mock.calls[1]![1].body)).toEqual({ refresh: 'r1' });
   });
 
@@ -277,7 +277,7 @@ describe('auth logout and user cache', () => {
     await h.auth.logout();
     await new Promise<void>((resolve) => { setImmediate(resolve); });
     expect(h.fetchMock).toHaveBeenCalledWith(
-      'https://example.test/api/v1/bbtalk/auth/token/blacklist/',
+      'https://example.test/api/v1/bbtalk/auth/token/blacklist',
       expect.objectContaining({
         method: 'POST',
         headers: expect.objectContaining({ Authorization: 'Bearer old-a' }),

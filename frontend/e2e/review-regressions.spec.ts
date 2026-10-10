@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test'
 
 test('account settings persist profile and require the new password after changing it', async ({ page }) => {
   const headers = await account(page)
-  const me = await (await page.request.get('/api/v1/bbtalk/user/me/', { headers })).json()
+  const me = await (await page.request.get('/api/v1/bbtalk/user/me', { headers })).json()
   await page.goto('/settings')
   await page.getByRole('button', { name: /账户设置/ }).click()
   await page.getByLabel('显示名称', { exact: true }).fill('账户回归测试')
@@ -38,7 +38,7 @@ test('account settings persist profile and require the new password after changi
 async function account(page: Page) {
   const username = `review_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   const password = 'review-regression-2026'
-  const response = await page.request.post('/api/v1/bbtalk/auth/register/', { data: { username, password } })
+  const response = await page.request.post('/api/v1/bbtalk/auth/register', { data: { username, password } })
   expect(response.status()).toBe(201)
   const session = await response.json()
   await page.goto('/login')
@@ -77,10 +77,10 @@ test('cancelled editor drafts never reappear or overwrite a later visibility cha
 
 test('anonymous public feed and comments stay readable while private comments remain unavailable', async ({ page, browser }) => {
   const headers = await account(page)
-  const create = await page.request.post('/api/v1/bbtalk/', { headers, data: { content: 'public review comments', visibility: 'public' } })
+  const create = await page.request.post('/api/v1/bbtalk', { headers, data: { content: 'public review comments', visibility: 'public' } })
   const record = await create.json()
   for (let index = 0; index < 4; index++) {
-    expect((await page.request.post(`/api/v1/bbtalk/${record.uid}/comments/`, { headers, data: { content: `comment-${index}\nnext line` } })).status()).toBe(201)
+    expect((await page.request.post(`/api/v1/bbtalk/${record.uid}/comments`, { headers, data: { content: `comment-${index}\nnext line` } })).status()).toBe(201)
   }
   const context = await browser.newContext()
   const anonymous = await context.newPage()
@@ -97,29 +97,29 @@ test('anonymous public feed and comments stay readable while private comments re
   await expect(anonymous.getByText('public review comments')).toBeVisible()
   await expect(anonymous.getByText(/comment-0/)).toBeVisible()
   expect(unauthorized).toEqual([])
-  await page.request.patch(`/api/v1/bbtalk/${record.uid}/`, { headers, data: { visibility: 'private' } })
-  expect((await anonymous.request.get(new URL(`/api/v1/bbtalk/public/${record.uid}/comments/`, page.url()).href)).status()).toBe(404)
+  await page.request.patch(`/api/v1/bbtalk/${record.uid}`, { headers, data: { visibility: 'private' } })
+  expect((await anonymous.request.get(new URL(`/api/v1/bbtalk/public/${record.uid}/comments`, page.url()).href)).status()).toBe(404)
   await context.close()
 })
 
 test('attachment images fit small cards and downloading preserves the original filename', async ({ page }, info) => {
   const headers = await account(page)
   const filename = '带 空格 & 中文.txt'
-  const upload = await page.request.post('/api/v1/attachments/files/', {
+  const upload = await page.request.post('/api/v1/attachments/files', {
     headers, multipart: { file: { name: filename, mimeType: 'text/plain', buffer: Buffer.from('review download') } },
   })
   expect(upload.ok()).toBe(true)
   const file = await upload.json()
   const attachments = [{ uid: file.id, url: file.preview_url, type: 'file', filename }]
   for (const name of ['first.png', 'second.png']) {
-    const response = await page.request.post('/api/v1/attachments/files/', { headers, multipart: { file: {
+    const response = await page.request.post('/api/v1/attachments/files', { headers, multipart: { file: {
       name, mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aXioAAAAASUVORK5CYII=', 'base64'),
     } } })
     expect(response.status()).toBe(201)
     const image = await response.json()
     attachments.push({ uid: image.id, url: image.preview_url, type: 'image', filename: name })
   }
-  const create = await page.request.post('/api/v1/bbtalk/', { headers, data: { content: 'download review', attachments } })
+  const create = await page.request.post('/api/v1/bbtalk', { headers, data: { content: 'download review', attachments } })
   expect(create.status()).toBe(201)
   await page.reload()
   const card = page.locator('[data-record-id]').filter({ hasText: 'download review' })

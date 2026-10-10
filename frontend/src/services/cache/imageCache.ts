@@ -1,6 +1,7 @@
 import { getPublicSetting } from '../../config';
 import { openDB, DBSchema, IDBPDatabase } from 'idb'
 import { apiClient } from '../api/apiClient'
+import { getAuthSessionScope, subscribeAuthSession } from '../authSessionScope'
 
 // 定义图片缓存数据库Schema
 interface ImageCacheDB extends DBSchema {
@@ -23,6 +24,90 @@ class ImageCacheService {
   private version = 1
   private readonly MAX_CACHE_SIZE = 100 * 1024 * 1024 // 100MB 最大缓存大小
   private readonly CACHE_EXPIRY = 30 * 24 * 60 * 60 * 1000 // 30天过期时间
+  private readonly PROTECTED_EXPIRY = 60_000
+  private readonly PROTECTED_MAX_BYTES = 32 * 1024 * 1024
+  private readonly PROTECTED_MAX_ENTRIES = 128
+  private protectedScope = ''
+  private protectedBytes = 0
+  private protectedImages = new Map<string, { blob: Blob; expiresAt: number }>()
+  private protectedRequests = new Map<string, Promise<Blob>>()
+
+  constructor() {
+    subscribeAuthSession(() => this.invalidateProtected())
+  }
+
+  /** Discard permission-bound blobs and prevent pending responses from restoring them. */
+  invalidateProtected(): void {
+    this.protectedImages.clear()
+    this.protectedRequests.clear()
+    this.protectedBytes = 0
+  }
+
+  private removeProtected(key: string): void {
+    const entry = this.protectedImages.get(key)
+    if (entry) this.protectedBytes -= entry.blob.size
+    this.protectedImages.delete(key)
+  }
+
+  private currentProtectedScope(): string {
+    const server = new URL(getPublicSetting('VITE_API_BASE_URL') || window.location.origin).href
+    return JSON.stringify([server, getAuthSessionScope()])
+  }
+
+  private getProtected(target: URL, refresh: boolean): Promise<Blob> {
+    const scope = this.currentProtectedScope()
+    if (scope !== this.protectedScope) {
+      this.invalidateProtected()
+      this.protectedScope = scope
+    }
+    const key = JSON.stringify([scope, target.href])
+    const now = Date.now()
+    for (const [cachedKey, entry] of this.protectedImages) {
+      if (entry.expiresAt <= now) this.removeProtected(cachedKey)
+    }
+    if (refresh) {
+      this.removeProtected(key)
+      this.protectedRequests.delete(key)
+    } else {
+      const cached = this.protectedImages.get(key)
+      if (cached) {
+        // Move reads to the end for LRU eviction, without extending their TTL.
+        this.protectedImages.delete(key)
+        this.protectedImages.set(key, cached)
+        return Promise.resolve(cached.blob)
+      }
+      const pending = this.protectedRequests.get(key)
+      if (pending) return pending
+    }
+    const endpoint = target.pathname + target.search
+    const download = refresh
+      ? apiClient.download(endpoint, { cache: 'reload' })
+      : apiClient.download(endpoint)
+    const request = download.then(blob => {
+      if (this.currentProtectedScope() !== scope || this.protectedRequests.get(key) !== request) {
+        throw new Error('图片请求已失效，请重新加载')
+      }
+      if (blob.type.startsWith('image/') && blob.size <= this.PROTECTED_MAX_BYTES) {
+        while (this.protectedImages.size >= this.PROTECTED_MAX_ENTRIES ||
+          this.protectedBytes + blob.size > this.PROTECTED_MAX_BYTES) {
+          const oldest = this.protectedImages.keys().next().value
+          if (oldest === undefined) break
+          this.removeProtected(oldest)
+        }
+        this.protectedImages.set(key, { blob, expiresAt: Date.now() + this.PROTECTED_EXPIRY })
+        this.protectedBytes += blob.size
+      }
+      return blob
+    }).catch(error => {
+      if (this.currentProtectedScope() === scope && this.protectedRequests.get(key) === request &&
+        (error?.status === 401 || error?.status === 403)) this.invalidateProtected()
+      throw error
+    }).finally(() => {
+      if (this.protectedRequests.get(key) === request) this.protectedRequests.delete(key)
+    })
+    this.protectedRequests.set(key, request)
+    return request
+  }
 
   /**
    * 标准化 URL：根据环境变量配置转换协议
@@ -42,6 +127,7 @@ class ImageCacheService {
    */
   async init(): Promise<void> {
     if (this.db) return
+    if (typeof indexedDB === 'undefined') return
 
     this.db = await openDB<ImageCacheDB>(this.dbName, this.version, {
       upgrade(db) {
@@ -188,6 +274,7 @@ class ImageCacheService {
    * 清除所有缓存
    */
   async clear(): Promise<void> {
+    this.invalidateProtected()
     try {
       await this.init()
       if (!this.db) return
@@ -300,7 +387,7 @@ class ImageCacheService {
     const target = new URL(url, window.location.origin)
     const api = new URL(getPublicSetting('VITE_API_BASE_URL') || window.location.origin)
     if (target.origin === api.origin && target.pathname.startsWith('/api/v1/attachments/')) {
-      return apiClient.download(target.pathname + target.search)
+      return this.getProtected(target, refresh)
     }
     // 先尝试从缓存获取
     if (refresh) await this.delete(url)

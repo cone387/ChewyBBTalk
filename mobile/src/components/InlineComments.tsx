@@ -9,17 +9,21 @@ import type { Theme } from '../theme/ThemeContext';
 import { xAlert, xConfirm } from '../utils/crossAlert';
 import { getSession, isCurrentSession, onSessionChange } from '../services/session';
 
+import { commentEntry, loadCommentEntry, invalidateCommentPages } from '../services/commentCache';
+
 const MAX_COLLAPSED = 3;
 
 interface Props {
   bbtalkId: string;
   commentCount: number;
+  commentPreview?: Comment[];
+  commentsRevision?: string;
   /** Externally added comment (from CommentInputModal) — append to list */
   newComment?: Comment | null;
   theme: Theme;
 }
 
-export default function InlineComments({ bbtalkId, commentCount, newComment, theme }: Props) {
+export default function InlineComments({ bbtalkId, commentCount, commentPreview, commentsRevision, newComment, theme }: Props) {
   const c = theme.colors;
   const dispatch = useAppDispatch();
   const [comments, setComments] = useState<Comment[]>([]);
@@ -28,6 +32,14 @@ export default function InlineComments({ bbtalkId, commentCount, newComment, the
   const [expanded, setExpanded] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [sessionVersion, setSessionVersion] = useState(0);
+  const [initialEntry] = useState(() => commentEntry(bbtalkId, commentPreview, commentsRevision));
+  const entry = useRef(initialEntry);
+  const blockedPreview = useRef<{ value: Comment[] | undefined } | null>(null);
+  const previewRef = useRef(commentPreview);
+  previewRef.current = commentPreview;
+  const identity = useRef({ id: bbtalkId, generation: getSession().generation, revision: commentsRevision });
+  const hydrated = useRef(false);
+  const [nextPage, setNextPage] = useState(false);
   const operation = useRef(0);
   const alive = useRef(true);
   const fetching = useRef(false);
@@ -41,6 +53,7 @@ export default function InlineComments({ bbtalkId, commentCount, newComment, the
     deleted.current = new Set();
     setComments([]);
     setLoaded(false);
+    setNextPage(false);
     setLoading(false);
     setLoadError(false);
     setExpanded(false);
@@ -49,13 +62,12 @@ export default function InlineComments({ bbtalkId, commentCount, newComment, the
   useEffect(() => {
     alive.current = true;
     const unsubscribe = onSessionChange(() => {
+      blockedPreview.current = { value: previewRef.current };
       reset();
       setSessionVersion(value => value + 1);
     });
     return () => { alive.current = false; operation.current++; unsubscribe(); };
   }, [reset]);
-
-  useEffect(reset, [bbtalkId, reset]);
 
   const loadComments = useCallback(async () => {
     if (fetching.current) return;
@@ -66,13 +78,12 @@ export default function InlineComments({ bbtalkId, commentCount, newComment, the
     setLoading(true);
     setLoadError(false);
     try {
-      const data = await bbtalkApi.getComments(bbtalkId);
+      const target = commentEntry(bbtalkId, commentPreview, commentsRevision);
+      entry.current = target;
+      await loadCommentEntry(bbtalkId, target, commentPreview === undefined);
       if (!isCurrent()) return;
-      setComments(current => {
-        const merged = new Map(data.filter(comment => !deleted.current.has(comment.uid)).map(comment => [comment.uid, comment]));
-        current.forEach(comment => { if (!merged.has(comment.uid)) merged.set(comment.uid, comment); });
-        return [...merged.values()];
-      });
+      setComments(target.comments);
+      setNextPage(target.next);
       setLoaded(true);
     } catch {
       if (isCurrent()) setLoadError(true);
@@ -82,21 +93,44 @@ export default function InlineComments({ bbtalkId, commentCount, newComment, the
         setLoading(false);
       }
     }
-  }, [bbtalkId, sessionVersion]);
+  }, [bbtalkId, sessionVersion, commentPreview, commentsRevision]);
+
+  useEffect(() => {
+    const previous = identity.current;
+    const generation = getSession().generation;
+    if (hydrated.current && previous.id === bbtalkId && previous.generation === generation && previous.revision === commentsRevision && !blockedPreview.current) return;
+    const keepExpanded = previous.id === bbtalkId && previous.generation === generation && expanded;
+    const revisionChanged = previous.revision !== commentsRevision;
+    identity.current = { id: bbtalkId, generation, revision: commentsRevision };
+    reset();
+    if (commentPreview !== undefined && blockedPreview.current?.value === commentPreview) return;
+    blockedPreview.current = null;
+    hydrated.current = true;
+    entry.current = commentEntry(bbtalkId, commentPreview, commentsRevision);
+    setComments(entry.current.comments);
+    setLoaded(entry.current.loaded);
+    setNextPage(entry.current.next);
+    setExpanded(keepExpanded);
+    if (keepExpanded && revisionChanged && commentCount > entry.current.comments.length) void loadComments();
+  }, [bbtalkId, commentPreview, commentsRevision, sessionVersion, reset]);
 
   // Auto-load when commentCount > 0 and not yet loaded
   useEffect(() => {
-    if (commentCount > 0 && !loaded && !loading && !loadError) {
+    if (commentPreview === undefined && commentCount > 0 && !loaded && !loading && !loadError) {
       loadComments();
     }
-  }, [commentCount, loaded, loading, loadError, loadComments]);
+  }, [commentCount, commentPreview, loaded, loading, loadError, loadComments]);
 
   // Append externally added comment
   useEffect(() => {
     if (newComment && !deleted.current.has(newComment.uid)) {
-      setComments(prev => prev.some(comment => comment.uid === newComment.uid)
-        ? prev.map(comment => comment.uid === newComment.uid ? newComment : comment)
-        : [...prev, newComment]);
+      if (!entry.current.added.has(newComment.uid)) invalidateCommentPages(entry.current);
+      entry.current.added.set(newComment.uid, newComment);
+      const merged = new Map(entry.current.comments.map(c => [c.uid, c]));
+      merged.set(newComment.uid, newComment);
+      entry.current.comments = [...merged.values()];
+      entry.current.loaded = true;
+      setComments(entry.current.comments);
       setLoaded(true);
     }
   }, [newComment]);
@@ -113,8 +147,12 @@ export default function InlineComments({ bbtalkId, commentCount, newComment, the
             await bbtalkApi.deleteComment(bbtalkId, comment.uid);
             if (!isCurrent()) return;
             deleted.current.add(comment.uid);
-            setComments(prev => prev.filter(c => c.uid !== comment.uid));
-            dispatch(decrementCommentCount(bbtalkId));
+            entry.current.deleted.add(comment.uid);
+            entry.current.added.delete(comment.uid);
+            entry.current.comments = entry.current.comments.filter(c => c.uid !== comment.uid);
+            invalidateCommentPages(entry.current);
+            setComments(entry.current.comments);
+            dispatch(decrementCommentCount({ id: bbtalkId, commentId: comment.uid }));
           } catch (e: any) {
             if (isCurrent()) xAlert('删除失败', e?.message || '请稍后重试');
           } finally {
@@ -123,10 +161,16 @@ export default function InlineComments({ bbtalkId, commentCount, newComment, the
     }, undefined, { confirmText: '删除', destructive: true });
   };
 
-  if (comments.length === 0 && !loading && !loadError) return null;
+  if (blockedPreview.current?.value === commentPreview && blockedPreview.current) return null;
+  if (comments.length === 0 && !loading && !loadError && (commentCount === 0 || commentPreview === undefined)) return null;
 
   const visible = expanded ? comments : comments.slice(0, MAX_COLLAPSED);
-  const hasMore = comments.length > MAX_COLLAPSED;
+  const total = Math.max(comments.length, commentCount);
+  const hasMore = total > MAX_COLLAPSED || total > comments.length;
+  const toggleExpanded = () => {
+    setExpanded(!expanded);
+    if (!expanded && entry.current.next && entry.current.page === 0 && commentCount > comments.length) void loadComments();
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: c.border + '30', borderTopColor: c.border }]}>
@@ -134,7 +178,7 @@ export default function InlineComments({ bbtalkId, commentCount, newComment, the
         <ActivityIndicator size="small" color={c.textTertiary} style={{ paddingVertical: 8 }} />
       ) : (
         <>
-          {loadError && <TouchableOpacity accessibilityRole="button" accessibilityLabel="重试加载评论" onPress={loadComments}>
+          {loadError && <TouchableOpacity accessibilityRole="button" accessibilityLabel="重试加载评论" onPress={() => void loadComments()}>
             <Text style={{ color: c.textSecondary }}>评论加载失败，点击重试</Text>
           </TouchableOpacity>}
           {visible.map(comment => (
@@ -155,10 +199,15 @@ export default function InlineComments({ bbtalkId, commentCount, newComment, the
               <Text style={[styles.commentTime, { color: c.textTertiary }]}>{formatTime(comment.createdAt)}</Text>
             </TouchableOpacity>
           ))}
+          {expanded && nextPage && !loading && (
+            <TouchableOpacity accessibilityLabel="加载更多评论" disabled={loading} onPress={() => void loadComments()}>
+              <Text style={{ color: c.primary }}>{loading ? '加载中…' : '加载更多评论'}</Text>
+            </TouchableOpacity>
+          )}
           {hasMore && (
-            <TouchableOpacity onPress={() => setExpanded(!expanded)} style={styles.toggleBtn}>
+            <TouchableOpacity onPress={toggleExpanded} style={styles.toggleBtn}>
               <Text style={[styles.toggleText, { color: c.primary }]}>
-                {expanded ? '收起' : `查看全部 ${comments.length} 条评论`}
+                {expanded ? '收起' : `查看全部 ${total} 条评论`}
               </Text>
             </TouchableOpacity>
           )}

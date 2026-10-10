@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises'
 async function login(page: Page) {
   const username = `backup_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   const password = 'backup-browser-2026'
-  expect((await page.request.post('/api/v1/bbtalk/auth/register/', { data: { username, password } })).status()).toBe(201)
+  expect((await page.request.post('/api/v1/bbtalk/auth/register', { data: { username, password } })).status()).toBe(201)
   await page.goto('/login')
   await page.getByPlaceholder('请输入用户名').fill(username)
   await page.getByPlaceholder('请输入密码').fill(password)
@@ -21,7 +21,7 @@ test('create, download and restore a real backup to a separate account', async (
   await expect(page.getByLabel('记录内容')).toHaveValue('')
   const id = await page.locator('.bbtalk-item').first().getAttribute('data-record-id')
   const token = await page.evaluate(() => localStorage.getItem('bbtalk_access_token'))
-  expect((await page.request.post(`/api/v1/bbtalk/${id}/comments/`, { headers: { Authorization: `Bearer ${token}` }, data: { content: '恢复评论' } })).ok()).toBe(true)
+  expect((await page.request.post(`/api/v1/bbtalk/${id}/comments`, { headers: { Authorization: `Bearer ${token}` }, data: { content: '恢复评论' } })).ok()).toBe(true)
   await page.goto('/settings/data')
   await expect(page.getByRole('heading', { name: '服务器备份' })).toBeVisible()
   await page.getByRole('button', { name: '创建完整备份' }).click()
@@ -53,13 +53,13 @@ test('create, download and restore a real backup to a separate account', async (
 test('backup request and download failures remain visible and retryable', async ({ page }) => {
   await login(page)
   await page.goto('/settings/data')
-  await page.route('**/api/v1/bbtalk/data/backups/', route => route.request().method() === 'POST' ? route.fulfill({ status: 500, json: { error: '备份创建失败' } }) : route.continue())
+  await page.route('**/api/v1/bbtalk/data/backups', route => route.request().method() === 'POST' ? route.fulfill({ status: 500, json: { error: '备份创建失败' } }) : route.continue())
   await page.getByRole('button', { name: '创建完整备份' }).click()
   await expect(page.getByRole('alert')).toContainText('备份创建失败')
-  await page.unroute('**/api/v1/bbtalk/data/backups/')
+  await page.unroute('**/api/v1/bbtalk/data/backups')
   await page.getByRole('button', { name: '创建完整备份' }).click()
   await expect(page.getByRole('status')).toContainText('完整备份已创建')
-  await page.route('**/api/v1/bbtalk/data/backups/*.zip/', route => route.abort())
+  await page.route('**/api/v1/bbtalk/data/backups/*.zip', route => route.abort())
   await page.getByRole('button', { name: /^下载备份 / }).click()
   await expect(page.getByRole('alert')).toBeVisible()
   await expect(page.getByRole('button', { name: /^下载备份 / })).toBeEnabled()

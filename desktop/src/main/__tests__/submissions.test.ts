@@ -22,6 +22,20 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
+it('uses the canonical array contract and displays FastAPI validation locations', async () => {
+  const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ detail: [
+    { loc: ['body', 'tags', 0], msg: 'String should have at most 50 characters', input: 'private input' },
+  ] }), { status: 422 }));
+  vi.stubGlobal('fetch', fetchMock);
+  const api = await import('../submissions');
+  const nativePayload = { content: 'new', tags: ['tag'], attachments: [], visibility: 'private' as const, context: {} };
+  await expect(api.publishSubmission(state.session, nativePayload))
+    .rejects.toThrow('tags.0: String should have at most 50 characters');
+  expect(fetchMock.mock.calls[0][0]).toBe('https://a.test/api/v1/bbtalk');
+  expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual(nativePayload);
+  expect((await api.submissionSnapshot())?.intent?.state).toBe('pending');
+});
+
 it('persists before POST, survives restart, and retries the same key and attachment payload', async () => {
   const fetchMock = vi.fn().mockRejectedValueOnce(new Error('response lost'))
     .mockResolvedValueOnce(new Response(JSON.stringify({ uid: 'original-record' })));

@@ -3,7 +3,7 @@ import { test, expect, type Page } from '@playwright/test'
 async function login(page: Page) {
   const username = `ui_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
   const password = 'ui-review-2026'
-  expect((await page.request.post('/api/v1/bbtalk/auth/register/', { data: { username, password } })).status()).toBe(201)
+  expect((await page.request.post('/api/v1/bbtalk/auth/register', { data: { username, password } })).status()).toBe(201)
   await page.goto('/login')
   await page.getByPlaceholder('请输入用户名').fill(username)
   await page.getByPlaceholder('请输入密码').fill(password)
@@ -54,7 +54,7 @@ test('comment loading failure waits for explicit retry instead of requesting in 
   await card.getByRole('button', { name: '发送', exact: true }).click()
   await expect(card.getByLabel('删除评论：已保存的评论')).toBeVisible()
   let requests = 0
-  await page.route('**/comments/', route => {
+  await page.route('**/comments', route => {
     if (route.request().method() === 'GET') { requests++; return route.abort() }
     return route.continue()
   })
@@ -63,7 +63,7 @@ test('comment loading failure waits for explicit retry instead of requesting in 
   await expect(card.getByRole('alert')).toContainText('评论加载失败')
   await page.waitForTimeout(1000)
   expect(requests).toBe(1)
-  await page.unroute('**/comments/')
+  await page.unroute('**/comments')
   await card.getByRole('button', { name: '重试操作' }).click()
   await expect(card.getByLabel('删除评论：已保存的评论')).toBeVisible()
   await expect(card.getByRole('alert')).toHaveCount(0)
@@ -76,10 +76,10 @@ test('record detail provides a working retry after a network failure', async ({ 
   const card = page.locator('.bbtalk-item').first()
   await expect(card).toBeVisible()
   const id = await card.getAttribute('data-record-id')
-  await page.route(`**/bbtalk/${id}/`, route => route.abort())
+  await page.route(`**/bbtalk/${id}`, route => route.abort())
   await page.goto(`/detail/${id}`)
   await expect(page.getByRole('heading', { name: '暂时无法打开记录' })).toBeVisible()
-  await page.unroute(`**/bbtalk/${id}/`)
+  await page.unroute(`**/bbtalk/${id}`)
   await page.getByRole('button', { name: '重新加载', exact: true }).click()
   await expect(page.locator('.bbtalk-item')).toContainText('详情重试测试')
   await page.screenshot({ path: info.outputPath('record-detail.png') })

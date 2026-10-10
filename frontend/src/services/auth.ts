@@ -1,3 +1,6 @@
+import { getAuthSessionScope, rotateAuthSession } from './authSessionScope';
+export { getAuthSessionScope, subscribeAuthSession } from './authSessionScope';
+import { apiErrorMessage } from './apiErrorMessage';
 import { getPublicSetting } from '../config';
 /**
  * JWT Token 认证服务
@@ -50,7 +53,7 @@ function getApiBaseUrl(): string {
 }
 
 export async function getAuthPolicy(signal?: AbortSignal): Promise<{ registration_enabled: boolean }> {
-  const response = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/auth/policy/`, { signal, cache: 'no-store' });
+  const response = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/auth/policy`, { signal, cache: 'no-store' });
   if (!response.ok) throw new Error('无法读取注册设置');
   const policy = await response.json();
   if (typeof policy.registration_enabled !== 'boolean') throw new Error('注册设置格式错误');
@@ -90,6 +93,7 @@ function storeAuth(response: LoginResponse): void {
   localStorage.setItem(REFRESH_TOKEN_KEY, response.refresh);
   localStorage.setItem(USER_INFO_KEY, JSON.stringify(response.user));
   currentUser = response.user;
+  rotateAuthSession();
   
   // 启动自动刷新
   startTokenRefresh();
@@ -99,6 +103,7 @@ function storeAuth(response: LoginResponse): void {
  * 清除认证信息
  */
 function clearAuth(): void {
+  rotateAuthSession();
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
   localStorage.removeItem(USER_INFO_KEY);
@@ -150,7 +155,7 @@ async function doRefresh(): Promise<boolean> {
   const isCurrent = () => getRefreshToken() === refreshToken;
   
   try {
-    const response = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/auth/token/refresh/`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/auth/token/refresh`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -246,7 +251,7 @@ function scheduleRefreshRetry(): void {
  */
 export async function login(username: string, password: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const response = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/auth/token/`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/auth/token`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -262,7 +267,7 @@ export async function login(username: string, password: string): Promise<{ succe
     } else {
       // 增加 JSON 解析错误处理
       const errorData = await response.json().catch(() => ({ error: `请求失败: ${response.status}` }));
-      return { success: false, error: errorData.error || '登录失败' };
+      return { success: false, error: apiErrorMessage(errorData, '登录失败') };
     }
   } catch (error) {
     console.error('[Auth] 登录错误:', error);
@@ -275,7 +280,7 @@ export async function login(username: string, password: string): Promise<{ succe
  */
 export async function register(data: RegisterRequest): Promise<{ success: boolean; error?: string }> {
   try {
-    const response = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/auth/register/`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/auth/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -291,7 +296,7 @@ export async function register(data: RegisterRequest): Promise<{ success: boolea
     } else {
       // 增加 JSON 解析错误处理
       const errorData = await response.json().catch(() => ({ error: `注册失败: ${response.status}` }));
-      return { success: false, error: errorData.error || '注册失败' };
+      return { success: false, error: apiErrorMessage(errorData, '注册失败') };
     }
   } catch (error) {
     console.error('[Auth] 注册错误:', error);
@@ -304,6 +309,7 @@ export async function register(data: RegisterRequest): Promise<{ success: boolea
  */
 export async function initAuth(): Promise<boolean> {
   try {
+    const session = getAuthSessionScope();
     // 检查是否有 access token
     const accessToken = getAccessToken();
     if (!accessToken) {
@@ -318,6 +324,7 @@ export async function initAuth(): Promise<boolean> {
         // Token 已过期，尝试刷新
         console.log('[Auth] Token 已过期，尝试刷新');
         const refreshed = await refreshAccessToken();
+        if (getAuthSessionScope() !== session) return false;
         if (!refreshed) {
           // 网络暂不可用时保留缓存用户，后台刷新任务会继续重试。
           const saved = localStorage.getItem(USER_INFO_KEY);
@@ -340,6 +347,7 @@ export async function initAuth(): Promise<boolean> {
     // 如果是子应用，从主应用获取用户信息
     if (window.__POWERED_BY_WUJIE__) {
       const userInfo = await getUserInfoFromParent();
+      if (getAuthSessionScope() !== session) return false;
       if (userInfo) {
         currentUser = userInfo;
         return true;
@@ -358,6 +366,7 @@ export async function initAuth(): Promise<boolean> {
     
     // 获取最新用户信息
     const userInfo = await fetchCurrentUser();
+    if (getAuthSessionScope() !== session) return false;
     if (userInfo) {
       currentUser = userInfo;
       localStorage.setItem(USER_INFO_KEY, JSON.stringify(userInfo));
@@ -403,10 +412,11 @@ async function getUserInfoFromParent(): Promise<UserInfo | null> {
  */
 async function fetchCurrentUser(): Promise<UserInfo | null> {
   try {
+    const session = getAuthSessionScope();
     const token = getAccessToken();
     if (!token) return null;
     
-    const response = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/user/me/`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/user/me`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
@@ -415,6 +425,7 @@ async function fetchCurrentUser(): Promise<UserInfo | null> {
     
     if (response.ok) {
       const data = await response.json();
+      if (getAuthSessionScope() !== session) return null;
       return {
         id: data.id,
         username: data.username,
@@ -452,10 +463,13 @@ export async function getUserInfo(): Promise<UserInfo | null> {
   if (currentUser) {
     return currentUser;
   }
+  let session: string;
+  try { session = getAuthSessionScope(); } catch { return null; }
   
   // 如果是子应用，尝试从主应用获取
   if (window.__POWERED_BY_WUJIE__) {
     const userInfo = await getUserInfoFromParent();
+    if (getAuthSessionScope() !== session) return null;
     if (userInfo) {
       currentUser = userInfo;
       return userInfo;
@@ -464,6 +478,7 @@ export async function getUserInfo(): Promise<UserInfo | null> {
   
   // 尝试从后端获取
   const userInfo = await fetchCurrentUser();
+  if (getAuthSessionScope() !== session) return null;
   if (userInfo) {
     currentUser = userInfo;
   }
@@ -475,13 +490,14 @@ export async function getUserInfo(): Promise<UserInfo | null> {
  * 登出
  */
 export async function logout(): Promise<void> {
+  const session = getAuthSessionScope();
   const refreshToken = getRefreshToken();
   
   // 如果有 refresh token，将其加入黑名单
   if (refreshToken) {
     try {
       const accessToken = getAccessToken();
-      await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/auth/token/blacklist/`, {
+      await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/auth/token/blacklist`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -495,6 +511,7 @@ export async function logout(): Promise<void> {
   }
   
   // 清除本地认证信息
+  if (getAuthSessionScope() !== session) return;
   clearAuth();
   
   // 重定向到登录页
@@ -527,7 +544,7 @@ export async function verifyPassword(password: string): Promise<{ success: boole
     }
     
     // 使用登录 API 验证密码
-    const response = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/auth/token/`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/auth/token`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

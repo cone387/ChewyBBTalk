@@ -7,12 +7,17 @@ from sqlalchemy import text
 from api.dependencies import DB, CurrentUser
 from backups.service import list_backups
 from models import now
+from schemas.responses import RuntimeStatusOutput
 from storage.service import upload_store
 
 router = APIRouter(tags=['System'])
 
 
-@router.get('/api/v1/bbtalk/settings/status/')
+@router.get(
+    '/api/v1/bbtalk/settings/status',
+    response_model=RuntimeStatusOutput,
+    response_model_exclude_unset=True,
+)
 def runtime_status(request: Request, response: Response, db: DB, user: CurrentUser):
     config = request.app.state.settings
     storage = {'mode': 'unknown'}

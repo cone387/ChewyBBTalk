@@ -5,9 +5,9 @@ export interface BackupList {
   latest: { status: 'running' | 'success' | 'failed' | 'interrupted' | 'unknown'; message?: string; started_at?: string; finished_at?: string } | null
 }
 
-const endpoint = '/api/v1/bbtalk/data/backups/'
+const endpoint = '/api/v1/bbtalk/data/backups'
 export const backupApi = {
   list: () => apiClient.get<BackupList>(endpoint),
   create: () => apiClient.post<BackupList>(endpoint),
-  download: (filename: string) => apiClient.download(`${endpoint}${encodeURIComponent(filename)}/`),
+  download: (filename: string) => apiClient.download(`${endpoint}/${encodeURIComponent(filename)}`),
 }

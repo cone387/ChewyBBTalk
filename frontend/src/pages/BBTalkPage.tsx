@@ -115,8 +115,9 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
   const [searchKeyword, setSearchKeyword] = useState('')
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
-  const [isInitialLoad, setIsInitialLoad] = useState(true)
-  const publicFiltersReady = useRef(false)
+  const lastFilterKey = useRef<string | null>(null)
+  const lastRefresh = useRef(0)
+  const filterTimer = useRef<number | null>(null)
   const [copyTip, setCopyTip] = useState<{ show: boolean; id: string | null }>({ show: false, id: null })
   const [previewImage, setPreviewImage] = useState<{ src: string; alt: string; images?: { src: string; alt: string }[] } | null>(null)
   const deletion = useUndoableDelete<{ bbtalk: typeof bbtalks[0]; index: number }>({
@@ -189,25 +190,16 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
     })
   )
 
-  useEffect(() => {
-    // 加载初始数据
-    console.log('[BBTalkPage] 初始加载 useEffect 触发, isPublic:', isPublic)
-    if (isPublic) {
-      dispatch(loadPublicBBTalks({}))
-    } else {
-      dispatch(loadBBTalks({}))
-      dispatch(loadTags())
-    }
-    setIsInitialLoad(false)
-  }, [dispatch, isPublic])
+  const selectedTagName = tags.find(tag => tag.id === selectedTagId)?.name
+  const search = searchKeyword.trim()
+  const buildFilterParams = useCallback(() => ({
+    search: search || undefined,
+    tags: selectedTagName ? [selectedTagName] : [],
+  }), [search, selectedTagName])
 
-  const buildFilterParams = useCallback(() => {
-    const tagName = tags.find(tag => tag.id === selectedTagId)?.name
-    return {
-      search: searchKeyword.trim() || undefined,
-      tags: tagName ? [tagName] : [],
-    }
-  }, [searchKeyword, selectedTagId, tags])
+  useEffect(() => {
+    if (!isPublic) dispatch(loadTags())
+  }, [dispatch, isPublic])
 
   const clearFilters = () => {
     setSearchKeyword('')
@@ -216,29 +208,28 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
   const hasSearchOrTags = !!searchKeyword.trim() || selectedTagId !== null
 
   // 监听搜索与筛选条件，防抖后重新加载数据
+  // One initial read; only actual query values trigger later reads.
   useEffect(() => {
-    // 跳过初始加载
-    if (isInitialLoad) {
-      console.log('[BBTalkPage] 搜索筛选 useEffect 跳过 - 初始加载中')
-      return
-    }
-
-    if (isPublic && !publicFiltersReady.current) { publicFiltersReady.current = true; return }
+    const key = JSON.stringify([isPublic, search, selectedTagName || ''])
+    if (lastFilterKey.current === key) return
+    const initial = lastFilterKey.current === null
+    lastFilterKey.current = key
+    const load = () => dispatch(isPublic ? loadPublicBBTalks(buildFilterParams()) : loadBBTalks(buildFilterParams()))
+    if (initial) { load(); return }
     dispatch(invalidateFeed())
-    const timer = window.setTimeout(() => {
-      dispatch(isPublic ? loadPublicBBTalks(buildFilterParams()) : loadBBTalks(buildFilterParams()))
-    }, 300)
-    return () => window.clearTimeout(timer)
-  }, [buildFilterParams, dispatch, isInitialLoad, isPublic])
-
-
-
+    filterTimer.current = window.setTimeout(() => { filterTimer.current = null; load() }, 300)
+    return () => {
+      if (filterTimer.current !== null) window.clearTimeout(filterTimer.current)
+      filterTimer.current = null
+    }
+  }, [buildFilterParams, dispatch, isPublic, search, selectedTagName])
 
   useEffect(() => {
-    let lastRefresh = 0
     const refresh = () => {
-      if (document.visibilityState !== 'visible' || !navigator.onLine || Date.now() - lastRefresh < 1000) return
-      lastRefresh = Date.now()
+      if (document.visibilityState !== 'visible' || !navigator.onLine || Date.now() - lastRefresh.current < 1000) return
+      lastRefresh.current = Date.now()
+      if (filterTimer.current !== null) window.clearTimeout(filterTimer.current)
+      filterTimer.current = null
       if (isPublic) dispatch(loadPublicBBTalks(buildFilterParams()))
       else if (getCurrentUser()) {
         dispatch(loadBBTalks(buildFilterParams()))
@@ -344,6 +335,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
       
       // 创建或编辑均可能改变已有标签的记录数量。
       dispatch(loadTags())
+      if (isLoading || search || (selectedTagName && !data.tags.includes(selectedTagName))) dispatch(loadBBTalks(buildFilterParams()))
     } catch (error) {
       console.error(target ? '更新失败:' : '发布失败:', error)
       throw error

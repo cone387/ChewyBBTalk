@@ -1,6 +1,29 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { bbtalkApi } from '../../services/api';
-import type { BBTalk, Attachment } from '../../types';
+import { getSession, isCurrentSession, onSessionChange } from '../../services/session';
+import type { BBTalk, Attachment, Comment } from '../../types';
+
+// One active feed read per store. Equal queries share the network request; a new
+// filter/page cancels its predecessor without letting stale results reach Redux.
+type FeedParams = Parameters<typeof bbtalkApi.getBBTalks>[0];
+type FeedResult = Awaited<ReturnType<typeof bbtalkApi.getBBTalks>>;
+const reads = new Map<unknown, { key: string; controller: AbortController; promise: Promise<FeedResult> }>();
+onSessionChange(() => { reads.forEach(read => read.controller.abort()); reads.clear(); });
+function readFeed(owner: unknown, params: FeedParams): Promise<FeedResult> {
+  const session = getSession();
+  const key = JSON.stringify([session.generation, params?.page ?? 1, params?.search || '',
+    [...new Set(params?.tags ?? [])].sort(), params?.created_on || '']);
+  const previous = reads.get(owner);
+  if (previous?.key === key) return previous.promise;
+  previous?.controller.abort();
+  const controller = new AbortController();
+  const promise = bbtalkApi.getBBTalks(params, { signal: controller.signal }).then(result => {
+    if (controller.signal.aborted || !isCurrentSession(session)) throw Object.assign(new Error('请求已取消'), { name: 'AbortError' });
+    return result;
+  }).finally(() => { if (reads.get(owner)?.promise === promise) reads.delete(owner); });
+  reads.set(owner, { key, controller, promise });
+  return promise;
+}
 
 interface BBTalkState {
   activeRequestId?: string;
@@ -29,12 +52,12 @@ const initialState: BBTalkState = {
 
 export const loadBBTalks = createAsyncThunk(
   'bbtalk/loadBBTalks',
-  async (params: { page?: number; search?: string; tags?: string[]; date?: string } = {}, { rejectWithValue }) => {
+  async (params: { page?: number; search?: string; tags?: string[]; date?: string } = {}, { getState, rejectWithValue }) => {
     try {
       const { page = 1, search, tags, date } = params;
-      const result = await bbtalkApi.getBBTalks({
-        page, search, tags__name: tags?.join(','),
-        create_time__date: date,
+      const result = await readFeed(getState, {
+        page, search, tags: tags,
+        created_on: date,
       });
       return {
         bbtalks: result.results, page, hasMore: !!result.next,
@@ -53,9 +76,9 @@ export const loadMoreBBTalks = createAsyncThunk(
     try {
       const state = getState() as any;
       const nextPage = state.bbtalk.currentPage + 1;
-      const result = await bbtalkApi.getBBTalks({
-        page: nextPage, search: params.search, tags__name: params.tags?.join(','),
-        create_time__date: params.date,
+      const result = await readFeed(getState, {
+        page: nextPage, search: params.search, tags: params.tags,
+        created_on: params.date,
       });
       return { bbtalks: result.results, page: nextPage, hasMore: !!result.next };
     } catch (error: any) {
@@ -136,13 +159,23 @@ const bbtalkSlice = createSlice({
       state.bbtalks.splice(action.payload.index, 0, action.payload.bbtalk);
       state.totalCount += 1;
     },
-    incrementCommentCount: (state, action: PayloadAction<string>) => {
-      const item = state.bbtalks.find(b => b.id === action.payload);
-      if (item) item.commentCount = (item.commentCount ?? 0) + 1;
+    incrementCommentCount: (state, action: PayloadAction<string | { id: string; comment: Comment }>) => {
+      const payload = action.payload;
+      const item = state.bbtalks.find(b => b.id === (typeof payload === 'string' ? payload : payload.id));
+      if (item) {
+        item.commentCount = (item.commentCount ?? 0) + 1;
+        if (typeof payload !== 'string' && item.commentPreview && item.commentPreview.length < 3 && !item.commentPreview.some(c => c.uid === payload.comment.uid)) {
+          item.commentPreview.push(payload.comment);
+        }
+      }
     },
-    decrementCommentCount: (state, action: PayloadAction<string>) => {
-      const item = state.bbtalks.find(b => b.id === action.payload);
-      if (item && (item.commentCount ?? 0) > 0) item.commentCount = (item.commentCount ?? 0) - 1;
+    decrementCommentCount: (state, action: PayloadAction<string | { id: string; commentId: string }>) => {
+      const payload = action.payload;
+      const item = state.bbtalks.find(b => b.id === (typeof payload === 'string' ? payload : payload.id));
+      if (item) {
+        if ((item.commentCount ?? 0) > 0) item.commentCount = (item.commentCount ?? 0) - 1;
+        if (typeof payload !== 'string' && item.commentPreview) item.commentPreview = item.commentPreview.filter(c => c.uid !== payload.commentId);
+      }
     },
   },
   extraReducers: (builder) => {
@@ -183,7 +216,9 @@ const bbtalkSlice = createSlice({
       })
       .addCase(createBBTalkAsync.fulfilled, (state, action) => {
         if (!state.bbtalks.some(item => item.id === action.payload.id)) {
-          state.bbtalks.unshift(action.payload);
+          const firstUnpinned = state.bbtalks.findIndex(item => !item.isPinned);
+          const index = action.payload.isPinned ? 0 : firstUnpinned < 0 ? state.bbtalks.length : firstUnpinned;
+          state.bbtalks.splice(index, 0, action.payload);
           state.totalCount += 1;
         }
       })

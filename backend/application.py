@@ -8,7 +8,6 @@ from admin.views import install_admin
 from api.errors import install_exception_handlers
 from api.middleware import install_middleware
 from api.router import install_routes
-from api.schema import install_openapi
 from core.config import Settings
 from database.session import database
 from services.accounts import send_recovery_email
@@ -38,6 +37,5 @@ def create_app(settings=None):
     install_exception_handlers(app)
     install_middleware(app, settings)
     install_routes(app)
-    install_openapi(app)
     install_admin(app)
     return app

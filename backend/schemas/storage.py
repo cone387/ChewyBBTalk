@@ -15,3 +15,7 @@ class StorageInput(Input):
     s3_endpoint_url: str = Field(default='', max_length=500)
     s3_custom_domain: str = Field(default='', max_length=255)
     is_active: bool = False
+
+
+class StorageMigrationInput(Input):
+    target_config_id: int | None = Field(default=None, gt=0)

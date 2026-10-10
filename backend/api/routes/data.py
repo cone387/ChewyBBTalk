@@ -2,14 +2,18 @@
 
 import json
 import zipfile
+from typing import Annotated
 
-from fastapi import APIRouter, File, Form, Request, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Query, Request, Response, UploadFile
 from fastapi.responses import FileResponse
 
+from api.compat import reject_legacy_query_conflicts
 from api.dependencies import DB, CurrentUser
 from backups.transfer import FIELDS, DataExporter, import_data, read_import
 from core.errors import APIError, fail
 from models import now
+from schemas.query import ExportQuery
+from schemas.responses import BackupListOutput, ImportOutput, ImportValidationOutput
 
 router = APIRouter(prefix='/api/v1/bbtalk/data', tags=['Data'])
 
@@ -21,14 +25,24 @@ def upload_content(file, settings):
     return content
 
 
-@router.get('/export/')
-def export(request: Request, db: DB, user: CurrentUser):
+@router.get(
+    '/export',
+    dependencies=[Depends(reject_legacy_query_conflicts)],
+    response_class=Response,
+    responses={
+        200: {
+            'content': {
+                'application/json': {},
+                'application/zip': {'schema': {'type': 'string', 'format': 'binary'}},
+            }
+        }
+    },
+)
+def export(request: Request, db: DB, user: CurrentUser, params: Annotated[ExportQuery, Query()]):
     exporter = DataExporter(user, db, request.app.state.settings)
-    mode = request.query_params.get('export_format', request.query_params.get('format', 'json'))
+    mode = params.format
     if mode == 'zip':
-        payload = exporter.export_to_zip(
-            request.query_params.get('include_attachments', '').lower() == 'true'
-        ).getvalue()
+        payload = exporter.export_to_zip(params.include_attachments).getvalue()
         media = 'application/zip'
     else:
         mode = 'json'
@@ -43,8 +57,8 @@ def export(request: Request, db: DB, user: CurrentUser):
     )
 
 
-@router.post('/validate/')
-def validate(request: Request, user: CurrentUser, file: UploadFile = File(...)):
+@router.post('/validate', response_model=ImportValidationOutput)
+def validate(request: Request, user: CurrentUser, file: Annotated[UploadFile, File()]):
     result = {
         'valid': False,
         'file_type': None,
@@ -70,7 +84,9 @@ def validate(request: Request, user: CurrentUser, file: UploadFile = File(...)):
         if archive:
             archive.close()
     except json.JSONDecodeError as error:
-        result['error'] = f'JSON 格式不正确（第 {error.lineno} 行，第 {error.colno} 列），请检查文件或重新导出后再试'
+        result['error'] = (
+            f'JSON 格式不正确（第 {error.lineno} 行，第 {error.colno} 列），请检查文件或重新导出后再试'
+        )
     except (UnicodeError, zipfile.BadZipFile):
         result['error'] = '文件编码或压缩格式不正确，请选择系统导出的 JSON 或 ZIP 文件'
     except (ValueError, KeyError) as error:
@@ -78,15 +94,15 @@ def validate(request: Request, user: CurrentUser, file: UploadFile = File(...)):
     return result
 
 
-@router.post('/import/')
+@router.post('/import', response_model=ImportOutput)
 def import_file(
     request: Request,
     db: DB,
     user: CurrentUser,
-    file: UploadFile = File(...),
-    overwrite_tags: bool = Form(False),
-    skip_duplicates: bool = Form(True),
-    import_storage_settings: bool = Form(False),
+    file: Annotated[UploadFile, File()],
+    overwrite_tags: Annotated[bool, Form()] = False,
+    skip_duplicates: Annotated[bool, Form()] = True,
+    import_storage_settings: Annotated[bool, Form()] = False,
 ):
     archive = None
     try:
@@ -113,9 +129,17 @@ def import_file(
             'stats': stats,
         }
     except json.JSONDecodeError as error:
-        raise APIError(400, {'success': False, 'error': f'JSON 格式不正确（第 {error.lineno} 行，第 {error.colno} 列），请检查文件后重试'})
+        raise APIError(
+            400,
+            {
+                'success': False,
+                'error': f'JSON 格式不正确（第 {error.lineno} 行，第 {error.colno} 列），请检查文件后重试',
+            },
+        )
     except (UnicodeError, zipfile.BadZipFile):
-        raise APIError(400, {'success': False, 'error': '文件编码或压缩格式不正确，请重新导出后再试'})
+        raise APIError(
+            400, {'success': False, 'error': '文件编码或压缩格式不正确，请重新导出后再试'}
+        )
     except (ValueError, KeyError) as error:
         raise APIError(400, {'success': False, 'error': str(error)})
     finally:
@@ -123,14 +147,16 @@ def import_file(
             archive.close()
 
 
-@router.get('/backups/')
+@router.get('/backups', response_model=BackupListOutput, response_model_exclude_unset=True)
 def backups_list(request: Request, user: CurrentUser):
     from backups.service import list_backups
 
     return list_backups(user, request.app.state.settings)
 
 
-@router.post('/backups/', status_code=201)
+@router.post(
+    '/backups', status_code=201, response_model=BackupListOutput, response_model_exclude_unset=True
+)
 def backup_create(request: Request, response: Response, db: DB, user: CurrentUser):
     from backups.service import BackupBusy, create_backup, list_backups
 
@@ -144,7 +170,13 @@ def backup_create(request: Request, response: Response, db: DB, user: CurrentUse
         fail(500, '备份操作失败，请检查附件可用性和服务器磁盘')
 
 
-@router.get('/backups/{filename}/')
+@router.get(
+    '/backups/{filename}',
+    response_class=FileResponse,
+    responses={
+        200: {'content': {'application/zip': {'schema': {'type': 'string', 'format': 'binary'}}}}
+    },
+)
 def backup_download(filename: str, request: Request, user: CurrentUser):
     from backups.service import backup_path
 

@@ -70,6 +70,12 @@ beforeEach(() => {
 afterEach(() => { act(() => { tree?.unmount(); }); tree = undefined; });
 
 describe('BBTalkCard rendering', () => {
+  it('forwards a changed comments revision even when record timestamp and comment count stay unchanged', async () => {
+    const item = talk({ commentCount: 1, commentPreview: [], commentsRevision: 'r1' });
+    await mountCard(item);
+    await act(async () => tree.update(<BBTalkCard item={{ ...item, commentsRevision: 'r2' }} theme={THEMES[0]} {...cb} />));
+    expect(mockInlineComments.mock.calls.at(-1)?.[0].commentsRevision).toBe('r2');
+  });
   it('renders markdown content, tags and the pinned marker', async () => {
     const item = talk({
       content: '一条 **加粗** 的内容',

@@ -8,10 +8,10 @@ test('deployment configuration loads before branding and API initialization', as
       VITE_SITE_NAME: siteName, VITE_API_BASE_URL: '/configured-api',
     }) + ';',
   }))
-  await page.route('**/configured-api/api/v1/bbtalk/auth/policy/', route => route.fulfill({
+  await page.route('**/configured-api/api/v1/bbtalk/auth/policy', route => route.fulfill({
     json: { registration_enabled: false },
   }))
-  const policy = page.waitForRequest('**/configured-api/api/v1/bbtalk/auth/policy/')
+  const policy = page.waitForRequest('**/configured-api/api/v1/bbtalk/auth/policy')
   await page.goto('/login')
   await policy
   await expect(page).toHaveTitle('部署站点 A')

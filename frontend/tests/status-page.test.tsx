@@ -29,7 +29,7 @@ describe('status loading', () => {
     expect(screen.getByRole('status').textContent).toContain('正在检查服务、存储和备份');
     expect((screen.getByRole('button', { name: '正在检查…' }) as HTMLButtonElement).disabled).toBe(true);
     await screen.findByText('服务连接');
-    expect(client.get).toHaveBeenCalledWith('/api/v1/bbtalk/settings/status/');
+    expect(client.get).toHaveBeenCalledWith('/api/v1/bbtalk/settings/status');
     expect(screen.getByRole('button', { name: '重新检查' })).toBeTruthy();
     expect(screen.queryByRole('status')).toBeNull();
     expect(screen.getByText(/检查时间：/).textContent).toContain('2026');

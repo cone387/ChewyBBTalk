@@ -4,7 +4,7 @@ const password = 'e2e-only-records-2026'
 
 async function prepareUser(page: Page) {
   const username = `e2e_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
-  const response = await page.request.post('/api/v1/bbtalk/auth/register/', { data: { username, password } })
+  const response = await page.request.post('/api/v1/bbtalk/auth/register', { data: { username, password } })
   expect(response.status()).toBe(201)
   await page.goto('/login')
   await page.getByPlaceholder('请输入用户名').fill(username)
@@ -105,7 +105,7 @@ test('a second deletion does not cancel or hide the undo state for the latest re
 
 
 test('closed registration keeps existing login available', async ({ page }) => {
-  await page.route('**/auth/policy/', route => route.fulfill({ json: { registration_enabled: false } }))
+  await page.route('**/auth/policy', route => route.fulfill({ json: { registration_enabled: false } }))
   await prepareUser(page)
   await expect(page.getByText('当前服务未开放注册，请联系管理员')).toBeVisible()
   await expect(page.getByRole('button', { name: '创建新账户' })).toHaveCount(0)
@@ -114,7 +114,7 @@ test('closed registration keeps existing login available', async ({ page }) => {
 
 test('registration policy failure can be retried and throttling preserves credentials', async ({ page }) => {
   let policyFails = true
-  await page.route('**/auth/policy/', route => policyFails
+  await page.route('**/auth/policy', route => policyFails
     ? route.fulfill({ status: 503, json: { error: 'unavailable' } })
     : route.fulfill({ json: { registration_enabled: true } }))
   await page.goto('/login')
@@ -124,7 +124,7 @@ test('registration policy failure can be retried and throttling preserves creden
   await page.getByRole('button', { name: '创建新账户' }).click()
   await expect(page.getByRole('heading', { name: '注册 BBTalk' })).toBeVisible()
   await page.getByRole('button', { name: '登录已有账户' }).click()
-  await page.route('**/auth/token/', route => route.fulfill({ status: 429,
+  await page.route('**/auth/token', route => route.fulfill({ status: 429,
     headers: { 'Retry-After': '42' }, json: { code: 'rate_limited', error: '请求过于频繁，请 42 秒后重试', retry_after: 42 } }))
   await page.getByPlaceholder('请输入用户名').fill('existing-account')
   await page.getByPlaceholder('请输入密码').fill(password)
@@ -144,11 +144,11 @@ test('runtime status shows own checks and supports retry without exposing admin 
   await expect(page.getByText('服务器附件目录读写检查通过')).toBeVisible()
   await expect(page.getByText('可用备份：0 份')).toBeVisible()
   await expect(page.getByRole('heading', { name: '管理员诊断' })).toHaveCount(0)
-  await page.route('**/settings/status/', route => route.fulfill({ status: 503, json: { error: 'unavailable' } }))
+  await page.route('**/api/v1/bbtalk/settings/status', route => route.fulfill({ status: 503, json: { error: 'unavailable' } }))
   await page.getByRole('button', { name: '重新检查' }).click()
   await expect(page.getByRole('alert')).toContainText('无法获取运行状态')
   await expect(page.getByText(/（上次结果）/)).toBeVisible()
-  await page.unroute('**/settings/status/')
+  await page.unroute('**/api/v1/bbtalk/settings/status')
   await page.getByRole('button', { name: '重新检查' }).click()
   await expect(page.getByRole('alert')).toHaveCount(0)
   await expect(page.getByRole('button', { name: '重新检查' })).toBeEnabled()
@@ -161,7 +161,7 @@ test('runtime status shows own checks and supports retry without exposing admin 
 test('runtime status renders partial failures and administrator checks', async ({ page }, testInfo) => {
   await prepareUser(page)
   await login(page)
-  await page.route('**/settings/status/', route => route.fulfill({ json: {
+  await page.route('**/api/v1/bbtalk/settings/status', route => route.fulfill({ json: {
     checked_at: '2026-09-07T09:00:00Z',
     service: { status: 'ok', message: '已连接到服务并通过身份验证' },
     storage: { mode: 's3', status: 'error', message: '存储检查失败，请检查配置、连接或目录权限后重试' },

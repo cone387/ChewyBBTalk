@@ -1,6 +1,6 @@
 from fastapi import APIRouter
-from fastapi.routing import APIRoute
 
+from api.compat import compatible_routes
 from api.routes import auth, data, pages, records, status, storage
 
 
@@ -13,12 +13,6 @@ def install_routes(app):
         status.router,
         records.router,
     ):
-        # Copy before adding HEAD so repeated app factories never mutate shared routers.
         native = APIRouter()
-        native.include_router(router)
-        for route in list(router.routes):
-            if isinstance(route, APIRoute) and 'GET' in route.methods:
-                native.add_api_route(
-                    route.path, route.endpoint, methods=['HEAD'], include_in_schema=False
-                )
+        native.routes.extend(compatible_routes(router))
         app.include_router(native)

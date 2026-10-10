@@ -3,7 +3,7 @@ import { test, expect, type Page } from '@playwright/test'
 async function login(page: Page) {
   const username = `files_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   const password = 'e2e-only-attachments-2026'
-  expect((await page.request.post('/api/v1/bbtalk/auth/register/', { data: { username, password } })).status()).toBe(201)
+  expect((await page.request.post('/api/v1/bbtalk/auth/register', { data: { username, password } })).status()).toBe(201)
   await page.goto('/login')
   await page.getByPlaceholder('请输入用户名').fill(username)
   await page.getByPlaceholder('请输入密码').fill(password)
@@ -17,7 +17,7 @@ test('partial upload and failed publish preserve input and retry without reuploa
   await page.getByPlaceholder('你要BB什么？').fill(content)
   await page.getByTitle('仅自己可见', { exact: true }).click()
   let uploadCount = 0
-  await page.route('**/api/v1/attachments/files/', async route => {
+  await page.route('**/api/v1/attachments/files', async route => {
     if (route.request().method() !== 'POST') return route.continue()
     uploadCount++
     if (uploadCount === 2) return route.fulfill({ status: 413, contentType: 'text/html', body: 'Too large' })
@@ -35,7 +35,7 @@ test('partial upload and failed publish preserve input and retry without reuploa
   await expect(page.getByRole('button', { name: /^移除附件 / })).toHaveCount(2)
   expect(uploadCount).toBe(3)
 
-  await page.route('**/api/v1/bbtalk/', async route => {
+  await page.route('**/api/v1/bbtalk', async route => {
     if (route.request().method() === 'POST') return route.abort('internetdisconnected')
     return route.continue()
   })
@@ -44,7 +44,7 @@ test('partial upload and failed publish preserve input and retry without reuploa
   await expect(page.getByPlaceholder('你要BB什么？')).toHaveValue(content)
   await expect(page.getByTitle('公开可见', { exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: /^移除附件 / })).toHaveCount(2)
-  await page.unroute('**/api/v1/bbtalk/')
+  await page.unroute('**/api/v1/bbtalk')
   await page.getByRole('button', { name: '发布', exact: true }).click()
   await expect(page.getByPlaceholder('你要BB什么？')).toHaveValue('')
   await page.reload()
@@ -57,7 +57,7 @@ test('partial upload and failed publish preserve input and retry without reuploa
   await card.getByTitle('更多', { exact: true }).click()
   await card.getByRole('button', { name: '编辑', exact: true }).click()
   await card.getByPlaceholder('你要BB什么？').fill('#保留标签 更新失败恢复')
-  await page.route('**/api/v1/bbtalk/*/', async route => {
+  await page.route('**/api/v1/bbtalk/*', async route => {
     if (route.request().method() === 'PATCH' || route.request().method() === 'PUT') return route.fulfill({ status: 500, json: { error: 'test failure' } })
     return route.continue()
   })
@@ -65,7 +65,7 @@ test('partial upload and failed publish preserve input and retry without reuploa
   await expect(card.getByRole('alert')).toContainText('更新失败，内容已保留')
   await expect(card.getByPlaceholder('你要BB什么？')).toHaveValue('#保留标签 更新失败恢复')
   await expect(card.getByRole('button', { name: /^移除附件 / })).toHaveCount(2)
-  await page.unroute('**/api/v1/bbtalk/*/')
+  await page.unroute('**/api/v1/bbtalk/*')
   await card.getByRole('button', { name: '保存', exact: true }).click()
   await expect(card.getByPlaceholder('你要BB什么？')).toHaveCount(0)
   await page.reload()
@@ -75,13 +75,13 @@ test('partial upload and failed publish preserve input and retry without reuploa
 test('failed uploads can be removed and the same file selected again', async ({ page }) => {
   await login(page)
   await page.getByPlaceholder('你要BB什么？').fill('取消上传测试')
-  await page.route('**/api/v1/attachments/files/', route => route.abort('internetdisconnected'))
+  await page.route('**/api/v1/attachments/files', route => route.abort('internetdisconnected'))
   const file = { name: 'retry.txt', mimeType: 'text/plain', buffer: Buffer.from('retry me') }
   await page.getByLabel('上传附件', { exact: true }).setInputFiles(file)
   await expect(page.getByText('网络连接失败，请检查网络后重试')).toBeVisible()
   await page.getByRole('button', { name: '移除文件', exact: true }).click()
   await expect(page.getByRole('button', { name: '发布', exact: true })).toBeEnabled()
-  await page.unroute('**/api/v1/attachments/files/')
+  await page.unroute('**/api/v1/attachments/files')
   await page.getByLabel('上传附件', { exact: true }).setInputFiles(file)
   await expect(page.getByRole('button', { name: '移除附件 retry.txt', exact: true })).toBeVisible()
   await page.getByRole('button', { name: '移除附件 retry.txt', exact: true }).click()
@@ -117,12 +117,12 @@ test('privacy lock editor also retains content after publish failure', async ({ 
   await page.goto('/locked')
   await expect(page).toHaveURL(/\/locked$/)
   await page.getByPlaceholder('你要BB什么？').fill('防窥页面失败恢复')
-  await page.route('**/api/v1/bbtalk/', route => route.request().method() === 'POST'
+  await page.route('**/api/v1/bbtalk', route => route.request().method() === 'POST'
     ? route.fulfill({ status: 500, json: { error: 'test failure' } }) : route.continue())
   await page.getByRole('button', { name: '发布', exact: true }).click()
   await expect(page.getByRole('alert')).toContainText('发布失败，内容已保留')
   await expect(page.getByPlaceholder('你要BB什么？')).toHaveValue('防窥页面失败恢复')
-  await page.unroute('**/api/v1/bbtalk/')
+  await page.unroute('**/api/v1/bbtalk')
   await page.getByRole('button', { name: '发布', exact: true }).click()
   await expect(page.getByPlaceholder('你要BB什么？')).toHaveValue('')
 })
@@ -132,7 +132,7 @@ test('import dialog remains usable in portrait and landscape with large text', a
   await login(page)
   await page.goto('/settings/data')
   // This fixture opens the existing dialog only; no import is executed.
-  await page.route('**/api/v1/bbtalk/data/validate/', route => route.fulfill({ json: {
+  await page.route('**/api/v1/bbtalk/data/validate', route => route.fulfill({ json: {
     valid: true, file_type: 'json', export_time: '2026-09-07T00:00:00Z',
     preview: { bbtalks_count: 100, tags_count: 10, storage_settings_count: 0 },
   } }))

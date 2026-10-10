@@ -32,14 +32,41 @@ beforeEach(() => {
 });
 
 describe('loadBBTalks', () => {
+  it('moves an edited record according to pinned status and server update time', async () => {
+    api.getBBTalks.mockResolvedValue(paged([
+      { ...record('pin'), isPinned: true, updatedAt: '2026-01-01T00:00:00Z' },
+      { ...record('recent'), updatedAt: '2026-02-01T00:00:00Z' },
+      { ...record('old'), updatedAt: '2026-01-01T00:00:00Z' },
+    ]));
+    const s = store();
+    await s.dispatch(loadBBTalks());
+    api.updateBBTalk.mockResolvedValue({ ...record('old'), updatedAt: '2026-03-01T00:00:00Z' });
+    await s.dispatch(updateBBTalkAsync({ id: 'old', data: { content: 'edited' } }));
+    expect(state(s).bbtalks.map(item => item.id)).toEqual(['pin', 'old', 'recent']);
+  });
+  it('does not report cancelled reads as a network failure', async () => {
+    api.getBBTalks.mockRejectedValue(Object.assign(new Error('Aborted'), { name: 'AbortError' }));
+    const s = store();
+    await s.dispatch(loadBBTalks());
+    expect(state(s)).toMatchObject({ error: null, isLoading: false });
+  });
+
+  it('keeps pinned records ahead of a new locally inserted record', async () => {
+    api.getBBTalks.mockResolvedValue(paged([{ ...record('pin'), isPinned: true }, record('old')]));
+    const s = store();
+    await s.dispatch(loadBBTalks());
+    api.createBBTalk.mockResolvedValue(record('new'));
+    await s.dispatch(createBBTalkAsync({ content: 'new' }));
+    expect(state(s).bbtalks.map(item => item.id)).toEqual(['pin', 'new', 'old']);
+  });
   it('maps filters to query parameters and stores the first page', async () => {
     const s = store();
     await s.dispatch(loadBBTalks({
       page: 2, search: '关键', tags: ['工作', '生活'], hasAttachments: true, dateFrom: '2026-01-01', dateTo: '2026-01-31',
     }));
     expect(api.getBBTalks).toHaveBeenCalledWith({
-      page: 2, search: '关键', tags__name: '工作,生活', has_attachments: true,
-      create_date__gte: '2026-01-01', create_date__lte: '2026-01-31',
+      page: 2, search: '关键', tags: ['工作', '生活'], has_attachments: true,
+      created_date_from: '2026-01-01', created_date_to: '2026-01-31',
     });
     expect(state(s)).toMatchObject({
       bbtalks: [record('b1'), record('b2')], currentPage: 2, hasMore: false, isLoading: false,
@@ -98,7 +125,7 @@ describe('loadMoreBBTalks', () => {
     await s.dispatch(loadBBTalks({ page: 1 }));
     api.getBBTalks.mockResolvedValue(paged([record('b3')], '/?page=3'));
     await s.dispatch(loadMoreBBTalks({ search: 'x', tags: ['t'] }));
-    expect(api.getBBTalks).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2, search: 'x', tags__name: 't' }));
+    expect(api.getBBTalks).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2, search: 'x', tags: ['t'] }));
     expect(state(s).bbtalks.map(item => item.id)).toEqual(['b1', 'b2', 'b3']);
     expect(state(s)).toMatchObject({ currentPage: 2, hasMore: true });
   });

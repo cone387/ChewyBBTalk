@@ -1,18 +1,31 @@
 """Account-scoped local/S3 storage; all paths and reads stay behind authorization."""
 
 from pathlib import Path
+from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, File, Form, Request, Response, UploadFile
+from fastapi import APIRouter, File, Form, Query, Request, Response, UploadFile
+from fastapi import Path as PathParam
 from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy import select, update
 
-from api.dependencies import DB, CurrentUser
+from api.dependencies import DB, CurrentUser, OptionalUser
 from api.pagination import paginate
 from core.errors import APIError, fail
 from models import Attachment, StorageConfig
-from schemas.storage import StorageInput
-from services.security import encrypt_secret, request_user
+from schemas.query import AttachmentQuery
+from schemas.responses import (
+    AttachmentOutput,
+    DefaultStorageOutput,
+    MessageOutput,
+    MigrationOutput,
+    MigrationPreviewOutput,
+    Page,
+    StorageOutput,
+    StorageTestOutput,
+)
+from schemas.storage import StorageInput, StorageMigrationInput
+from services.security import encrypt_secret
 from storage.backends import Store
 from storage.service import (
     config_values,
@@ -25,6 +38,20 @@ from storage.service import (
 router = APIRouter(tags=['Storage'])
 BASE = '/api/v1/bbtalk'
 FILES = '/api/v1/attachments/files'
+FILE_RESPONSES = {
+    200: {
+        'content': {'application/octet-stream': {'schema': {'type': 'string', 'format': 'binary'}}},
+        'description': '附件字节，Content-Type 按实际文件类型返回',
+    },
+    206: {
+        'description': '本地文件 Range 部分内容',
+        'content': {'application/octet-stream': {'schema': {'type': 'string', 'format': 'binary'}}},
+    },
+    302: {
+        'description': 'S3 临时签名地址',
+        'headers': {'Location': {'schema': {'type': 'string'}}},
+    },
+}
 EXTENSIONS = {
     '.jpg',
     '.jpeg',
@@ -52,7 +79,7 @@ EXTENSIONS = {
 }
 
 
-@router.get(BASE + '/settings/storage/')
+@router.get(BASE + '/settings/storage', response_model=list[StorageOutput])
 def storage_list(db: DB, user: CurrentUser):
     return [
         storage_data(config)
@@ -64,7 +91,7 @@ def storage_list(db: DB, user: CurrentUser):
     ]
 
 
-@router.get(BASE + '/settings/storage/active/')
+@router.get(BASE + '/settings/storage/active', response_model=StorageOutput | DefaultStorageOutput)
 def active_storage(db: DB, user: CurrentUser):
     config = db.scalar(
         select(StorageConfig)
@@ -74,7 +101,7 @@ def active_storage(db: DB, user: CurrentUser):
     return storage_data(config) if config else {'storage_type': 'local', 'is_active': False}
 
 
-@router.post(BASE + '/settings/storage/create/', status_code=201)
+@router.post(BASE + '/settings/storage', status_code=201, response_model=StorageOutput)
 def create_storage(data: StorageInput, request: Request, db: DB, user: CurrentUser):
     values = data.model_dump()
     values['s3_secret_access_key'] = encrypt_secret(
@@ -90,9 +117,15 @@ def create_storage(data: StorageInput, request: Request, db: DB, user: CurrentUs
     return storage_data(config)
 
 
-@router.patch(BASE + '/settings/storage/{pk:int}/')
-@router.put(BASE + '/settings/storage/{pk:int}/')
-def edit_storage(pk: int, data: StorageInput, request: Request, db: DB, user: CurrentUser):
+@router.patch(BASE + '/settings/storage/{pk}', response_model=StorageOutput)
+@router.put(BASE + '/settings/storage/{pk}', response_model=StorageOutput)
+def edit_storage(
+    pk: Annotated[int, PathParam(gt=0)],
+    data: StorageInput,
+    request: Request,
+    db: DB,
+    user: CurrentUser,
+):
     config = owned_config(db, user, pk)
     values = data.model_dump(exclude_unset=True)
     if not values.get('s3_secret_access_key'):
@@ -111,8 +144,8 @@ def edit_storage(pk: int, data: StorageInput, request: Request, db: DB, user: Cu
     return storage_data(config)
 
 
-@router.delete(BASE + '/settings/storage/{pk:int}/delete/', status_code=204)
-def delete_storage(pk: int, db: DB, user: CurrentUser):
+@router.delete(BASE + '/settings/storage/{pk}', status_code=204)
+def delete_storage(pk: Annotated[int, PathParam(gt=0)], db: DB, user: CurrentUser):
     config = owned_config(db, user, pk)
     if db.scalar(select(Attachment.id).where(Attachment.storage_config_id == str(pk)).limit(1)):
         fail(409, '此配置仍有附件，请先迁移附件再删除')
@@ -121,8 +154,8 @@ def delete_storage(pk: int, db: DB, user: CurrentUser):
     return Response(status_code=204)
 
 
-@router.post(BASE + '/settings/storage/{pk:int}/activate/')
-def activate(pk: int, db: DB, user: CurrentUser):
+@router.post(BASE + '/settings/storage/{pk}/activate', response_model=StorageOutput)
+def activate(pk: Annotated[int, PathParam(gt=0)], db: DB, user: CurrentUser):
     config = owned_config(db, user, pk)
     db.execute(
         update(StorageConfig).where(StorageConfig.user_id == user.id).values(is_active=False)
@@ -132,7 +165,7 @@ def activate(pk: int, db: DB, user: CurrentUser):
     return storage_data(config)
 
 
-@router.post(BASE + '/settings/storage/deactivate-all/')
+@router.post(BASE + '/settings/storage/deactivate-all', response_model=MessageOutput)
 def deactivate(db: DB, user: CurrentUser):
     db.execute(
         update(StorageConfig).where(StorageConfig.user_id == user.id).values(is_active=False)
@@ -153,7 +186,7 @@ def test_config(config, request):
         raise APIError(400, {'success': False, 'message': '连接失败，请检查存储配置、凭证和网络'})
 
 
-@router.post(BASE + '/settings/storage/test/')
+@router.post(BASE + '/settings/storage/test', response_model=StorageTestOutput)
 def test_active(request: Request, db: DB, user: CurrentUser):
     return test_config(
         db.scalar(
@@ -165,8 +198,8 @@ def test_active(request: Request, db: DB, user: CurrentUser):
     )
 
 
-@router.post(BASE + '/settings/storage/{pk:int}/test/')
-def test_by_id(pk: int, request: Request, db: DB, user: CurrentUser):
+@router.post(BASE + '/settings/storage/{pk}/test', response_model=StorageTestOutput)
+def test_by_id(pk: Annotated[int, PathParam(gt=0)], request: Request, db: DB, user: CurrentUser):
     return test_config(owned_config(db, user, pk), request)
 
 
@@ -187,20 +220,20 @@ def attachment_data(file, request):
             )
         },
         'created_at': file.created_at.strftime('%Y-%m-%d %H:%M:%S'),
-        'preview_url': base + path + '/preview/',
-        'download_url': base + path + '/content/',
-        'file_url': base + path + '/content/',
+        'preview_url': base + path + '/preview',
+        'download_url': base + path + '/content',
+        'file_url': base + path + '/content',
     }
 
 
-@router.post(FILES + '/', status_code=201)
+@router.post(FILES + '', status_code=201, response_model=AttachmentOutput)
 def upload(
     request: Request,
     db: DB,
     user: CurrentUser,
-    file: UploadFile = File(...),
-    is_public: bool = Form(False),
-    storage_config_id: str | None = Form(None),
+    file: Annotated[UploadFile, File()],
+    is_public: Annotated[bool, Form()] = False,
+    storage_config_id: Annotated[int | None, Form(gt=0)] = None,
 ):
     config = request.app.state.settings
     filename = Path((file.filename or '').replace('\\', '/')).name
@@ -209,7 +242,9 @@ def upload(
     content = file.file.read(config.max_file_size + 1)
     if not content or len(content) > config.max_file_size:
         fail(400, '文件为空或超过大小限制')
-    store, config_id = upload_store(db, config, user, storage_config_id)
+    store, config_id = upload_store(
+        db, config, user, str(storage_config_id) if storage_config_id else None
+    )
     key, mime = store.save(content, filename)
     try:
         attachment = Attachment(
@@ -230,22 +265,22 @@ def upload(
     return attachment_data(attachment, request)
 
 
-def accessible_file(db, request, pk, write=False):
-    try:
-        pk = str(UUID(pk))
-    except ValueError:
-        raise APIError(404, {'detail': '未找到。'})
-    user = request_user(request, db, required=False)
-    file = db.get(Attachment, pk)
+def accessible_file(db, user, pk, write=False):
+    file = db.get(Attachment, str(pk))
     owner = file and user and file.owner_id == str(user.id)
     if not file or not (owner or (file.is_public and not write)):
         raise APIError(404, {'detail': '未找到。'})
     return file
 
 
-@router.get(FILES + '/')
-def attachment_list(request: Request, db: DB):
-    user = request_user(request, db, required=False)
+@router.get(
+    FILES + '',
+    response_model=Page[AttachmentOutput],
+    openapi_extra={'security': [{}, {'jwtAuth': []}, {'sessionAuth': []}]},
+)
+def attachment_list(
+    request: Request, db: DB, user: OptionalUser, params: Annotated[AttachmentQuery, Query()]
+):
     query = (
         select(Attachment)
         .where(
@@ -254,23 +289,23 @@ def attachment_list(request: Request, db: DB):
         )
         .order_by(Attachment.created_at.desc())
     )
-    try:
-        size = min(100, max(1, int(request.query_params.get('page_size', 20))))
-    except ValueError:
-        size = 20
-    result = paginate(db, query, request, size)
+    result = paginate(db, query, request, params)
     result['results'] = [attachment_data(file, request) for file in result['results']]
     return result
 
 
-@router.get(FILES + '/{pk}/')
-def attachment_detail(pk: str, request: Request, db: DB):
-    return attachment_data(accessible_file(db, request, pk), request)
+@router.get(
+    FILES + '/{pk}',
+    response_model=AttachmentOutput,
+    openapi_extra={'security': [{}, {'jwtAuth': []}, {'sessionAuth': []}]},
+)
+def attachment_detail(pk: UUID, request: Request, db: DB, user: OptionalUser):
+    return attachment_data(accessible_file(db, user, pk), request)
 
 
-@router.delete(FILES + '/{pk}/', status_code=204)
-def delete_attachment(pk: str, request: Request, db: DB):
-    file = accessible_file(db, request, pk, write=True)
+@router.delete(FILES + '/{pk}', status_code=204)
+def delete_attachment(pk: UUID, request: Request, db: DB, user: OptionalUser):
+    file = accessible_file(db, user, pk, write=True)
     store_for(db, request.app.state.settings, file.storage_config_id, file.owner_id).delete(
         file.storage_path
     )
@@ -279,8 +314,8 @@ def delete_attachment(pk: str, request: Request, db: DB):
     return Response(status_code=204)
 
 
-def serve_file(pk, request, db, disposition):
-    file = accessible_file(db, request, pk)
+def serve_file(pk, request, db, user, disposition):
+    file = accessible_file(db, user, pk)
     store = store_for(db, request.app.state.settings, file.storage_config_id, file.owner_id)
     if store.cloud:
         return RedirectResponse(store.url(file.storage_path), status_code=302)
@@ -295,33 +330,43 @@ def serve_file(pk, request, db, disposition):
     )
 
 
-@router.get(FILES + '/{pk}/preview/')
-def preview(pk: str, request: Request, db: DB):
-    return serve_file(pk, request, db, 'inline')
+@router.get(
+    FILES + '/{pk}/preview',
+    response_class=FileResponse,
+    responses=FILE_RESPONSES,
+    openapi_extra={'security': [{}, {'jwtAuth': []}, {'sessionAuth': []}]},
+)
+def preview(pk: UUID, request: Request, db: DB, user: OptionalUser):
+    return serve_file(pk, request, db, user, 'inline')
 
 
-@router.get(FILES + '/{pk}/content/')
-def download(pk: str, request: Request, db: DB):
-    return serve_file(pk, request, db, 'attachment')
+@router.get(
+    FILES + '/{pk}/content',
+    response_class=FileResponse,
+    responses=FILE_RESPONSES,
+    openapi_extra={'security': [{}, {'jwtAuth': []}, {'sessionAuth': []}]},
+)
+def download(pk: UUID, request: Request, db: DB, user: OptionalUser):
+    return serve_file(pk, request, db, user, 'attachment')
 
 
 def migration_target(data, db, user, settings):
-    target = data.get('target_config_id')
+    target = data.target_config_id
     if target is not None:
         owned_config(db, user, target)
     return store_for(db, settings, target, user.id), str(target) if target else None
 
 
-@router.post(BASE + '/storage/migration/preview/')
-def migration_preview(data: dict, request: Request, db: DB, user: CurrentUser):
+@router.post(BASE + '/storage/migration/preview', response_model=MigrationPreviewOutput)
+def migration_preview(data: StorageMigrationInput, request: Request, db: DB, user: CurrentUser):
     _, target = migration_target(data, db, user, request.app.state.settings)
     files = list(db.scalars(select(Attachment).where(Attachment.owner_id == str(user.id))))
     already = sum((file.storage_config_id or None) == target for file in files)
     return {'total': len(files), 'need_migrate': len(files) - already, 'already_on_target': already}
 
 
-@router.post(BASE + '/storage/migration/execute/')
-def migrate_storage(data: dict, request: Request, db: DB, user: CurrentUser):
+@router.post(BASE + '/storage/migration/execute', response_model=MigrationOutput)
+def migrate_storage(data: StorageMigrationInput, request: Request, db: DB, user: CurrentUser):
     store, target = migration_target(data, db, user, request.app.state.settings)
     files = list(db.scalars(select(Attachment).where(Attachment.owner_id == str(user.id))))
     stats = {'total': len(files), 'migrated': 0, 'skipped': 0, 'failed': 0, 'errors': []}

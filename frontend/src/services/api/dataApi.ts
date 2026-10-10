@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../apiErrorMessage';
 import { getPublicSetting } from '../../config';
 import { getAccessToken } from '../auth';
 
@@ -48,10 +49,10 @@ export const dataApi = {
    */
   async exportData(options: ExportOptions = {}): Promise<Blob> {
     const params = new URLSearchParams();
-    if (options.format) params.append('export_format', options.format);
+    if (options.format) params.append('format', options.format);
     if (options.include_attachments) params.append('include_attachments', 'true');
     
-    const url = `${API_BASE_URL}/api/v1/bbtalk/data/export/?${params.toString()}`;
+    const url = `${API_BASE_URL}/api/v1/bbtalk/data/export?${params.toString()}`;
     const token = getAccessToken();
     
     if (!token) {
@@ -66,7 +67,7 @@ export const dataApi = {
     
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
-      throw new Error(data.error || data.detail || '导出失败');
+      throw new Error(apiErrorMessage(data, '导出失败'));
     }
     
     return response.blob();
@@ -95,7 +96,7 @@ export const dataApi = {
       throw new Error('未登录，请先登录');
     }
     
-    const response = await fetch(`${API_BASE_URL}/api/v1/bbtalk/data/import/`, {
+    const response = await fetch(`${API_BASE_URL}/api/v1/bbtalk/data/import`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -106,9 +107,11 @@ export const dataApi = {
     const data = await response.json();
     
     if (!response.ok) {
-      throw new Error(data.error || data.detail || '导入失败');
+      throw new Error(apiErrorMessage(data, '导入失败'));
     }
     
+    const { imageCacheService } = await import('../cache/imageCache');
+    imageCacheService.invalidateProtected();
     return data;
   },
 
@@ -125,7 +128,7 @@ export const dataApi = {
       throw new Error('未登录，请先登录');
     }
     
-    const response = await fetch(`${API_BASE_URL}/api/v1/bbtalk/data/validate/`, {
+    const response = await fetch(`${API_BASE_URL}/api/v1/bbtalk/data/validate`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -136,7 +139,7 @@ export const dataApi = {
     const data = await response.json();
     
     if (!response.ok) {
-      throw new Error(data.error || data.detail || '文件验证失败');
+      throw new Error(apiErrorMessage(data, '文件验证失败'));
     }
     
     return data;

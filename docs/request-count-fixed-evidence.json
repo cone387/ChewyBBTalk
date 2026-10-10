@@ -1,0 +1,1048 @@
+{
+  "measured_on": "2026-10-10T09:27:39.656901+00:00",
+  "scope": "Production npm run build + Vite preview; isolated FastAPI SQLite; Chromium 1440x1000.",
+  "command": "cd frontend && npx playwright test --config playwright.request-budget.config.ts",
+  "counting": "Browser-initiated /api/v1/ requests only; APIRequestContext account/data setup and /api/public-config are excluded. HTTP status and request failure are recorded separately.",
+  "fixtures": "Six tagged records with comments for filters/writes; 25 comments for paging; 100 commented records; 105 records for feed paging; two records sharing one authenticated PNG. No user business database is used.",
+  "test_summary": {
+    "startTime": "2026-10-10T09:25:14.882Z",
+    "duration": 100039.44799999999,
+    "expected": 8,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "production_scenarios": 52,
+  "scenarios": [
+    {
+      "name": "comment_during_inflight_tag_change",
+      "expected": 2,
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk?page=1&tags=B",
+          "ms": 379,
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/bbtalk/LxTZuyRhRYWIdHQ6YISVGQ/comments",
+          "ms": 415,
+          "status": 201
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget/request-budget-comment-wri-d50be-lected-in-flight-feed-query/request-budget.json",
+      "api_v1_count": 2,
+      "groups": {
+        "GET /api/v1/bbtalk?page=1&tags=B": 1,
+        "POST /api/v1/bbtalk/LxTZuyRhRYWIdHQ6YISVGQ/comments": 1
+      }
+    },
+    {
+      "name": "hundred_commented_records",
+      "expected": 3,
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk/user/me",
+          "ms": 58,
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk/tags",
+          "ms": 167,
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk?page=1",
+          "ms": 167,
+          "status": 200
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget/request-budget-one-hundred-7ec1a-o-per-card-comment-requests/request-budget.json",
+      "api_v1_count": 3,
+      "groups": {
+        "GET /api/v1/bbtalk/user/me": 1,
+        "GET /api/v1/bbtalk/tags": 1,
+        "GET /api/v1/bbtalk?page=1": 1
+      }
+    },
+    {
+      "name": "scroll_at_end",
+      "expected": 0,
+      "requests": [],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget/request-budget-one-hundred-7ec1a-o-per-card-comment-requests/request-budget.json",
+      "api_v1_count": 0,
+      "groups": {}
+    },
+    {
+      "name": "open_record_editor",
+      "expected": 0,
+      "requests": [],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget/request-budget-production--04567-tes-do-not-refetch-comments/request-budget.json",
+      "api_v1_count": 0,
+      "groups": {}
+    },
+    {
+      "name": "edit_cancel",
+      "expected": 0,
+      "requests": [],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget/request-budget-production--04567-tes-do-not-refetch-comments/request-budget.json",
+      "api_v1_count": 0,
+      "groups": {}
+    },
+    {
+      "name": "delete_undo",
+      "expected": 0,
+      "requests": [],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget/request-budget-production--04567-tes-do-not-refetch-comments/request-budget.json",
+      "api_v1_count": 0,
+      "groups": {}
+    },
+    {
+      "name": "save_body_same_tag",
+      "expected": [
+        1,
+        2
+      ],
+      "requests": [
+        {
+          "method": "PATCH",
+          "path": "/api/v1/bbtalk/tn3Xu_UdT1S11e1FVexrMg",
+          "ms": 3697,
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk/tags",
+          "ms": 3721,
+          "status": 200
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget/request-budget-production--04567-tes-do-not-refetch-comments/request-budget.json",
+      "api_v1_count": 2,
+      "groups": {
+        "PATCH /api/v1/bbtalk/tn3Xu_UdT1S11e1FVexrMg": 1,
+        "GET /api/v1/bbtalk/tags": 1
+      }
+    },
+    {
+      "name": "publish",
+      "expected": [
+        1,
+        2
+      ],
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/v1/bbtalk",
+          "ms": 4741,
+          "status": 201
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk/tags",
+          "ms": 4767,
+          "status": 200
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget/request-budget-production--04567-tes-do-not-refetch-comments/request-budget.json",
+      "api_v1_count": 2,
+      "groups": {
+        "POST /api/v1/bbtalk": 1,
+        "GET /api/v1/bbtalk/tags": 1
+      }
+    },
+    {
+      "name": "pin",
+      "expected": [
+        1,
+        2
+      ],
+      "requests": [
+        {
+          "method": "PATCH",
+          "path": "/api/v1/bbtalk/tn3Xu_UdT1S11e1FVexrMg",
+          "ms": 5778,
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk?page=1",
+          "ms": 5798,
+          "status": 200
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget/request-budget-production--04567-tes-do-not-refetch-comments/request-budget.json",
+      "api_v1_count": 2,
+      "groups": {
+        "PATCH /api/v1/bbtalk/tn3Xu_UdT1S11e1FVexrMg": 1,
+        "GET /api/v1/bbtalk?page=1": 1
+      }
+    },
+    {
+      "name": "delete_commit",
+      "expected": [
+        1,
+        2
+      ],
+      "requests": [
+        {
+          "method": "DELETE",
+          "path": "/api/v1/bbtalk/tn3Xu_UdT1S11e1FVexrMg",
+          "ms": 9822,
+          "status": 204,
+          "failure": "net::ERR_ABORTED"
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk/tags",
+          "ms": 9842,
+          "status": 200
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget/request-budget-production--04567-tes-do-not-refetch-comments/request-budget.json",
+      "api_v1_count": 2,
+      "groups": {
+        "DELETE /api/v1/bbtalk/tn3Xu_UdT1S11e1FVexrMg": 1,
+        "GET /api/v1/bbtalk/tags": 1
+      }
+    },
+    {
+      "name": "login_page",
+      "expected": 1,
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk/auth/policy",
+          "ms": 192,
+          "status": 200
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget/request-budget-production--0934f--focus-meet-request-budgets/request-budget.json",
+      "api_v1_count": 1,
+      "groups": {
+        "GET /api/v1/bbtalk/auth/policy": 1
+      }
+    },
+    {
+      "name": "login_submit",
+      "expected": 4,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/v1/bbtalk/auth/token",
+          "ms": 1234,
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk/user/me",
+          "ms": 2831,
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk/tags",
+          "ms": 2913,
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk?page=1",
+          "ms": 2913,
+          "status": 200
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget/request-budget-production--0934f--focus-meet-request-budgets/request-budget.json",
+      "api_v1_count": 4,
+      "groups": {
+        "POST /api/v1/bbtalk/auth/token": 1,
+        "GET /api/v1/bbtalk/user/me": 1,
+        "GET /api/v1/bbtalk/tags": 1,
+        "GET /api/v1/bbtalk?page=1": 1
+      }
+    },
+    {
+      "name": "cold_home",
+      "expected": 3,
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk/user/me",
+          "ms": 4127,
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk/tags",
+          "ms": 4188,
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk?page=1",
+          "ms": 4188,
+          "status": 200
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget/request-budget-production--0934f--focus-meet-request-budgets/request-budget.json",
+      "api_v1_count": 3,
+      "groups": {
+        "GET /api/v1/bbtalk/user/me": 1,
+        "GET /api/v1/bbtalk/tags": 1,
+        "GET /api/v1/bbtalk?page=1": 1
+      }
+    },
+    {
+      "name": "tag_A_3",
+      "expected": 1,
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk?page=1&tags=A",
+          "ms": 5550,
+          "status": 200
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget/request-budget-production--0934f--focus-meet-request-budgets/request-budget.json",
+      "api_v1_count": 1,
+      "groups": {
+        "GET /api/v1/bbtalk?page=1&tags=A": 1
+      }
+    },
+    {
+      "name": "tag_A_4",
+      "expected": 0,
+      "requests": [],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget/request-budget-production--0934f--focus-meet-request-budgets/request-budget.json",
+      "api_v1_count": 0,
+      "groups": {}
+    },
+    {
+      "name": "tag_B_5",
+      "expected": 1,
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk?page=1&tags=B",
+          "ms": 8313,
+          "status": 200
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget/request-budget-production--0934f--focus-meet-request-budgets/request-budget.json",
+      "api_v1_count": 1,
+      "groups": {
+        "GET /api/v1/bbtalk?page=1&tags=B": 1
+      }
+    },
+    {
+      "name": "tag_A_6",
+      "expected": 1,
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk?page=1&tags=A",
+          "ms": 9266,
+          "status": 200
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget/request-budget-production--0934f--focus-meet-request-budgets/request-budget.json",
+      "api_v1_count": 1,
+      "groups": {
+        "GET /api/v1/bbtalk?page=1&tags=A": 1
+      }
+    },
+    {
+      "name": "tag_全部_7",
+      "expected": 1,
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk?page=1",
+          "ms": 10241,
+          "status": 200
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget/request-budget-production--0934f--focus-meet-request-budgets/request-budget.json",
+      "api_v1_count": 1,
+      "groups": {
+        "GET /api/v1/bbtalk?page=1": 1
+      }
+    },
+    {
+      "name": "quick_A_B_A",
+      "expected": 1,
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk?page=1&tags=A",
+          "ms": 12134,
+          "status": 200
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget/request-budget-production--0934f--focus-meet-request-budgets/request-budget.json",
+      "api_v1_count": 1,
+      "groups": {
+        "GET /api/v1/bbtalk?page=1&tags=A": 1
+      }
+    },
+    {
+      "name": "return_all",
+      "expected": 1,
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk?page=1",
+          "ms": 13909,
+          "status": 200
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget/request-budget-production--0934f--focus-meet-request-budgets/request-budget.json",
+      "api_v1_count": 1,
+      "groups": {
+        "GET /api/v1/bbtalk?page=1": 1
+      }
+    },
+    {
+      "name": "search_typing",
+      "expected": 1,
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk?page=1&search=record+0",
+          "ms": 15910,
+          "status": 200
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget/request-budget-production--0934f--focus-meet-request-budgets/request-budget.json",
+      "api_v1_count": 1,
+      "groups": {
+        "GET /api/v1/bbtalk?page=1&search=record+0": 1
+      }
+    },
+    {
+      "name": "search_clear",
+      "expected": 1,
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk?page=1",
+          "ms": 17187,
+          "status": 200
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget/request-budget-production--0934f--focus-meet-request-budgets/request-budget.json",
+      "api_v1_count": 1,
+      "groups": {
+        "GET /api/v1/bbtalk?page=1": 1
+      }
+    },
+    {
+      "name": "focus_refresh",
+      "expected": 2,
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk?page=1",
+          "ms": 18655,
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk/tags",
+          "ms": 18657,
+          "status": 200
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget/request-budget-production--0934f--focus-meet-request-budgets/request-budget.json",
+      "api_v1_count": 2,
+      "groups": {
+        "GET /api/v1/bbtalk?page=1": 1,
+        "GET /api/v1/bbtalk/tags": 1
+      }
+    },
+    {
+      "name": "focus_again_after_500ms",
+      "expected": 0,
+      "requests": [],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget/request-budget-production--0934f--focus-meet-request-budgets/request-budget.json",
+      "api_v1_count": 0,
+      "groups": {}
+    },
+    {
+      "name": "focus_during_pending_tag_debounce",
+      "expected": 2,
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk?page=1&tags=B",
+          "ms": 20159,
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk/tags",
+          "ms": 20159,
+          "status": 200
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget/request-budget-production--0934f--focus-meet-request-budgets/request-budget.json",
+      "api_v1_count": 2,
+      "groups": {
+        "GET /api/v1/bbtalk?page=1&tags=B": 1,
+        "GET /api/v1/bbtalk/tags": 1
+      }
+    },
+    {
+      "name": "cold_detail",
+      "expected": 2,
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk/user/me",
+          "ms": 95,
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk/SuZxwB_lTjekv6qSamzj0w",
+          "ms": 142,
+          "status": 200
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget/request-budget-production--6298c--public-and-detail-previews/request-budget.json",
+      "api_v1_count": 2,
+      "groups": {
+        "GET /api/v1/bbtalk/user/me": 1,
+        "GET /api/v1/bbtalk/SuZxwB_lTjekv6qSamzj0w": 1
+      }
+    },
+    {
+      "name": "cold_public",
+      "expected": 2,
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk/user/me",
+          "ms": 1136,
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk/public?page=1",
+          "ms": 1171,
+          "status": 200
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget/request-budget-production--6298c--public-and-detail-previews/request-budget.json",
+      "api_v1_count": 2,
+      "groups": {
+        "GET /api/v1/bbtalk/user/me": 1,
+        "GET /api/v1/bbtalk/public?page=1": 1
+      }
+    },
+    {
+      "name": "expand_comments_page_1",
+      "expected": 1,
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk/SuZxwB_lTjekv6qSamzj0w/comments?page=1&page_size=20",
+          "ms": 3254,
+          "status": 200,
+          "results": 20
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget/request-budget-production--6298c--public-and-detail-previews/request-budget.json",
+      "api_v1_count": 1,
+      "groups": {
+        "GET /api/v1/bbtalk/SuZxwB_lTjekv6qSamzj0w/comments?page=1&page_size=20": 1
+      }
+    },
+    {
+      "name": "comments_page_2",
+      "expected": 1,
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk/SuZxwB_lTjekv6qSamzj0w/comments?page=2&page_size=20",
+          "ms": 4218,
+          "status": 200,
+          "results": 5
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget/request-budget-production--6298c--public-and-detail-previews/request-budget.json",
+      "api_v1_count": 1,
+      "groups": {
+        "GET /api/v1/bbtalk/SuZxwB_lTjekv6qSamzj0w/comments?page=2&page_size=20": 1
+      }
+    },
+    {
+      "name": "reexpand_cached_comments",
+      "expected": 0,
+      "requests": [],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget/request-budget-production--6298c--public-and-detail-previews/request-budget.json",
+      "api_v1_count": 0,
+      "groups": {}
+    },
+    {
+      "name": "open_comment_input",
+      "expected": 0,
+      "requests": [],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget/request-budget-production--6298c--public-and-detail-previews/request-budget.json",
+      "api_v1_count": 0,
+      "groups": {}
+    },
+    {
+      "name": "send_comment",
+      "expected": 1,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/v1/bbtalk/SuZxwB_lTjekv6qSamzj0w/comments",
+          "ms": 7186,
+          "status": 201
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget/request-budget-production--6298c--public-and-detail-previews/request-budget.json",
+      "api_v1_count": 1,
+      "groups": {
+        "POST /api/v1/bbtalk/SuZxwB_lTjekv6qSamzj0w/comments": 1
+      }
+    },
+    {
+      "name": "delete_comment",
+      "expected": 1,
+      "requests": [
+        {
+          "method": "DELETE",
+          "path": "/api/v1/bbtalk/SuZxwB_lTjekv6qSamzj0w/comments/2eZOJFvwRl6xG7sjvvuy5A",
+          "ms": 8217,
+          "status": 204,
+          "failure": "net::ERR_ABORTED"
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget/request-budget-production--6298c--public-and-detail-previews/request-budget.json",
+      "api_v1_count": 1,
+      "groups": {
+        "DELETE /api/v1/bbtalk/SuZxwB_lTjekv6qSamzj0w/comments/2eZOJFvwRl6xG7sjvvuy5A": 1
+      }
+    },
+    {
+      "name": "next_page_no_comments",
+      "expected": 1,
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk?page=2",
+          "ms": 85,
+          "status": 200
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget/request-budget-record-pagi-95fb8-t-page-and-stops-at-the-end/request-budget.json",
+      "api_v1_count": 1,
+      "groups": {
+        "GET /api/v1/bbtalk?page=2": 1
+      }
+    },
+    {
+      "name": "bottom_again_no_more",
+      "expected": 0,
+      "requests": [],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget/request-budget-record-pagi-95fb8-t-page-and-stops-at-the-end/request-budget.json",
+      "api_v1_count": 0,
+      "groups": {}
+    },
+    {
+      "name": "upload_text_file",
+      "expected": 1,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/v1/attachments/files",
+          "ms": 26,
+          "status": 201
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget-cache-final/request-budget-settings-at-067b8--keep-their-request-budgets/request-budget.json",
+      "api_v1_count": 1,
+      "groups": {
+        "POST /api/v1/attachments/files": 1
+      }
+    },
+    {
+      "name": "remove_draft_attachment",
+      "expected": 0,
+      "requests": [],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget-cache-final/request-budget-settings-at-067b8--keep-their-request-budgets/request-budget.json",
+      "api_v1_count": 0,
+      "groups": {}
+    },
+    {
+      "name": "settings_storage_cold",
+      "expected": 2,
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk/user/me",
+          "ms": 2004,
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk/settings/storage",
+          "ms": 2029,
+          "status": 200
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget-cache-final/request-budget-settings-at-067b8--keep-their-request-budgets/request-budget.json",
+      "api_v1_count": 2,
+      "groups": {
+        "GET /api/v1/bbtalk/user/me": 1,
+        "GET /api/v1/bbtalk/settings/storage": 1
+      }
+    },
+    {
+      "name": "settings_s3_cold",
+      "expected": 2,
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk/user/me",
+          "ms": 3027,
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk/settings/storage",
+          "ms": 3054,
+          "status": 200
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget-cache-final/request-budget-settings-at-067b8--keep-their-request-budgets/request-budget.json",
+      "api_v1_count": 2,
+      "groups": {
+        "GET /api/v1/bbtalk/user/me": 1,
+        "GET /api/v1/bbtalk/settings/storage": 1
+      }
+    },
+    {
+      "name": "settings_status_cold",
+      "expected": 2,
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk/user/me",
+          "ms": 4032,
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk/settings/status",
+          "ms": 4057,
+          "status": 200
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget-cache-final/request-budget-settings-at-067b8--keep-their-request-budgets/request-budget.json",
+      "api_v1_count": 2,
+      "groups": {
+        "GET /api/v1/bbtalk/user/me": 1,
+        "GET /api/v1/bbtalk/settings/status": 1
+      }
+    },
+    {
+      "name": "status_manual_refresh",
+      "expected": 1,
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk/settings/status",
+          "ms": 5011,
+          "status": 200
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget-cache-final/request-budget-settings-at-067b8--keep-their-request-budgets/request-budget.json",
+      "api_v1_count": 1,
+      "groups": {
+        "GET /api/v1/bbtalk/settings/status": 1
+      }
+    },
+    {
+      "name": "settings_data_cold",
+      "expected": 2,
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk/user/me",
+          "ms": 5979,
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk/data/backups",
+          "ms": 6008,
+          "status": 200
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget-cache-final/request-budget-settings-at-067b8--keep-their-request-budgets/request-budget.json",
+      "api_v1_count": 2,
+      "groups": {
+        "GET /api/v1/bbtalk/user/me": 1,
+        "GET /api/v1/bbtalk/data/backups": 1
+      }
+    },
+    {
+      "name": "export_json",
+      "expected": 1,
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk/data/export?format=json",
+          "ms": 6977,
+          "status": 200
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget-cache-final/request-budget-settings-at-067b8--keep-their-request-budgets/request-budget.json",
+      "api_v1_count": 1,
+      "groups": {
+        "GET /api/v1/bbtalk/data/export?format=json": 1
+      }
+    },
+    {
+      "name": "validate_import",
+      "expected": 1,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/v1/bbtalk/data/validate",
+          "ms": 8008,
+          "status": 200
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget-cache-final/request-budget-settings-at-067b8--keep-their-request-budgets/request-budget.json",
+      "api_v1_count": 1,
+      "groups": {
+        "POST /api/v1/bbtalk/data/validate": 1
+      }
+    },
+    {
+      "name": "confirm_import",
+      "expected": 1,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/v1/bbtalk/data/import",
+          "ms": 8980,
+          "status": 200
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget-cache-final/request-budget-settings-at-067b8--keep-their-request-budgets/request-budget.json",
+      "api_v1_count": 1,
+      "groups": {
+        "POST /api/v1/bbtalk/data/import": 1
+      }
+    },
+    {
+      "name": "create_backup_small",
+      "expected": 1,
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/api/v1/bbtalk/data/backups",
+          "ms": 9960,
+          "status": 201
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget-cache-final/request-budget-settings-at-067b8--keep-their-request-budgets/request-budget.json",
+      "api_v1_count": 1,
+      "groups": {
+        "POST /api/v1/bbtalk/data/backups": 1
+      }
+    },
+    {
+      "name": "download_backup",
+      "expected": 1,
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk/data/backups/bbtalk-20261010-092830-406191.zip",
+          "ms": 10961,
+          "status": 200
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget-cache-final/request-budget-settings-at-067b8--keep-their-request-budgets/request-budget.json",
+      "api_v1_count": 1,
+      "groups": {
+        "GET /api/v1/bbtalk/data/backups/bbtalk-20261010-092830-406191.zip": 1
+      }
+    },
+    {
+      "name": "save_profile",
+      "expected": 1,
+      "requests": [
+        {
+          "method": "PATCH",
+          "path": "/api/v1/bbtalk/user/me",
+          "ms": 12997,
+          "status": 200
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget-cache-final/request-budget-settings-at-067b8--keep-their-request-budgets/request-budget.json",
+      "api_v1_count": 1,
+      "groups": {
+        "PATCH /api/v1/bbtalk/user/me": 1
+      }
+    },
+    {
+      "name": "shared_image_cold",
+      "expected": 4,
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk/user/me",
+          "ms": 179,
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk/tags",
+          "ms": 333,
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk?page=1",
+          "ms": 333,
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/attachments/files/15ae094c-cfcc-461c-9d23-a94117f84712/preview",
+          "ms": 458,
+          "status": 200
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget-cache-final/request-budget-shared-auth-2aaed-ce-and-survive-tag-remounts/request-budget.json",
+      "api_v1_count": 4,
+      "groups": {
+        "GET /api/v1/bbtalk/user/me": 1,
+        "GET /api/v1/bbtalk/tags": 1,
+        "GET /api/v1/bbtalk?page=1": 1,
+        "GET /api/v1/attachments/files/15ae094c-cfcc-461c-9d23-a94117f84712/preview": 1
+      }
+    },
+    {
+      "name": "shared_image_tag_A_1",
+      "expected": 1,
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk?page=1&tags=A",
+          "ms": 1835,
+          "status": 200
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget-cache-final/request-budget-shared-auth-2aaed-ce-and-survive-tag-remounts/request-budget.json",
+      "api_v1_count": 1,
+      "groups": {
+        "GET /api/v1/bbtalk?page=1&tags=A": 1
+      }
+    },
+    {
+      "name": "shared_image_tag_B_2",
+      "expected": 1,
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk?page=1&tags=B",
+          "ms": 3158,
+          "status": 200
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget-cache-final/request-budget-shared-auth-2aaed-ce-and-survive-tag-remounts/request-budget.json",
+      "api_v1_count": 1,
+      "groups": {
+        "GET /api/v1/bbtalk?page=1&tags=B": 1
+      }
+    },
+    {
+      "name": "shared_image_tag_A_3",
+      "expected": 1,
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/v1/bbtalk?page=1&tags=A",
+          "ms": 4166,
+          "status": 200
+        }
+      ],
+      "mode": "production",
+      "source_artifact": "frontend/test-results/request-budget-cache-final/request-budget-shared-auth-2aaed-ce-and-survive-tag-remounts/request-budget.json",
+      "api_v1_count": 1,
+      "groups": {
+        "GET /api/v1/bbtalk?page=1&tags=A": 1
+      }
+    }
+  ],
+  "followup_verification": {
+    "measured_on": "2026-10-10T09:29:05.660742+00:00",
+    "reason": "Protected blob downloads now bypass browser URL cache; production rebuilt for affected image and data-download scenarios.",
+    "tests_passed": 2,
+    "scenarios_remeasured": 17,
+    "output_directory": "frontend/test-results/request-budget-cache-final"
+  }
+}

@@ -1,7 +1,6 @@
 import base64
 import hashlib
 import logging
-import re
 import secrets
 from datetime import timedelta
 
@@ -20,12 +19,24 @@ from models import (
     now,
 )
 from schemas.auth import (
+    DeleteAccountInput,
+    DesktopAuthorizeInput,
+    DesktopExchangeInput,
     LoginInput,
     PasswordInput,
     RecoveryConfirm,
     RecoveryInput,
     RefreshInput,
     RegisterInput,
+)
+from schemas.responses import (
+    CodeOutput,
+    DesktopExchangeOutput,
+    LoginOutput,
+    MessageOutput,
+    PolicyOutput,
+    TokenPairOutput,
+    UserOutput,
 )
 from schemas.users import UserPatch
 from services.accounts import (
@@ -47,7 +58,7 @@ from services.security import (
 router = APIRouter(prefix='/api/v1/bbtalk', tags=['Auth'])
 
 
-@router.get('/auth/policy/')
+@router.get('/auth/policy', response_model=PolicyOutput)
 def policy(request: Request, response: Response):
     response.headers['Cache-Control'] = 'no-store'
     config = request.app.state.settings
@@ -67,7 +78,7 @@ def authenticate(data, request, db):
     return user
 
 
-@router.post('/auth/token/')
+@router.post('/auth/token', response_model=LoginOutput)
 def token(data: LoginInput, request: Request, db: DB):
     user = authenticate(data, request, db)
     result = {**token_pair(db, user, request.app.state.settings), 'user': user_data(user)}
@@ -75,7 +86,7 @@ def token(data: LoginInput, request: Request, db: DB):
     return result
 
 
-@router.post('/auth/register/', status_code=201)
+@router.post('/auth/register', status_code=201, response_model=LoginOutput)
 def register(data: RegisterInput, request: Request, db: DB):
     config = request.app.state.settings
     limit(request, 'register', config.registration_rate)
@@ -99,7 +110,7 @@ def register(data: RegisterInput, request: Request, db: DB):
         fail(400, '用户名已存在')
 
 
-@router.post('/auth/token/refresh/')
+@router.post('/auth/token/refresh', response_model=TokenPairOutput)
 def refresh(data: RefreshInput, request: Request, db: DB):
     limit(request, 'refresh', request.app.state.settings.refresh_rate)
     try:
@@ -112,7 +123,7 @@ def refresh(data: RefreshInput, request: Request, db: DB):
         raise APIError(401, {'detail': 'Token 已失效', 'code': 'token_not_valid'})
 
 
-@router.post('/auth/token/blacklist/')
+@router.post('/auth/token/blacklist', response_model=MessageOutput)
 def blacklist(data: RefreshInput, request: Request, db: DB, user: CurrentUser):
     if not data.refresh:
         fail(400, 'Refresh Token 不能为空')
@@ -127,7 +138,7 @@ def blacklist(data: RefreshInput, request: Request, db: DB, user: CurrentUser):
         fail(400, 'Token 无效')
 
 
-@router.post('/auth/login/')
+@router.post('/auth/login', response_model=UserOutput)
 def login(data: LoginInput, request: Request, response: Response, db: DB):
     user = authenticate(data, request, db)
     key, csrf = secrets.token_urlsafe(32), secrets.token_hex(32)
@@ -161,7 +172,7 @@ def login(data: LoginInput, request: Request, response: Response, db: DB):
     return user_data(user)
 
 
-@router.post('/auth/logout/')
+@router.post('/auth/logout', response_model=MessageOutput)
 def logout(request: Request, response: Response, db: DB, user: CurrentUser):
     db.execute(
         delete(SessionToken).where(
@@ -174,12 +185,12 @@ def logout(request: Request, response: Response, db: DB, user: CurrentUser):
     return {'message': '登出成功'}
 
 
-@router.get('/user/me/')
+@router.get('/user/me', response_model=UserOutput)
 def me(user: CurrentUser):
     return user_data(user)
 
 
-@router.patch('/user/me/')
+@router.patch('/user/me', response_model=UserOutput)
 def edit_me(data: UserPatch, db: DB, user: CurrentUser):
     for name, value in data.model_dump(exclude_unset=True).items():
         setattr(user, name, value)
@@ -187,16 +198,16 @@ def edit_me(data: UserPatch, db: DB, user: CurrentUser):
     return user_data(user)
 
 
-@router.post('/user/delete-account/')
-def delete_account(data: dict, db: DB, user: CurrentUser):
-    if not password_user(db, user.username, data.get('password', '')):
+@router.post('/user/delete-account', response_model=MessageOutput)
+def delete_account(data: DeleteAccountInput, db: DB, user: CurrentUser):
+    if not password_user(db, user.username, data.password):
         fail(400, '密码错误，请重新输入')
     delete_user(db, user)
     db.commit()
     return {'message': '账号已成功删除'}
 
 
-@router.post('/user/change-password/')
+@router.post('/user/change-password', response_model=MessageOutput)
 def change(data: PasswordInput, request: Request, db: DB, user: CurrentUser):
     limit(request, 'recovery', request.app.state.settings.recovery_rate)
     user = db.scalar(select(User).where(User.id == user.id).with_for_update())
@@ -218,7 +229,7 @@ def recovery_limits(request, username):
         fail(503, '当前服务暂未启用邮件找回，请联系服务提供方', code='recovery_disabled')
 
 
-@router.post('/auth/password/request/')
+@router.post('/auth/password/request', response_model=MessageOutput)
 def recovery_request(data: RecoveryInput, request: Request, response: Response, db: DB):
     recovery_limits(request, data.username)
     user = db.scalar(select(User).where(User.username == data.username, User.is_active.is_(True)))
@@ -258,7 +269,7 @@ def recovery_request(data: RecoveryInput, request: Request, response: Response, 
     }
 
 
-@router.post('/auth/password/confirm/')
+@router.post('/auth/password/confirm', response_model=MessageOutput)
 def recovery_confirm(data: RecoveryConfirm, request: Request, db: DB):
     recovery_limits(request, data.username)
     user = db.scalar(
@@ -295,16 +306,13 @@ def recovery_confirm(data: RecoveryConfirm, request: Request, db: DB):
     return {'message': '密码已重置，请使用新密码登录'}
 
 
-@router.post('/auth/desktop/authorize/')
-def authorize(data: dict, request: Request, response: Response, db: DB, user: CurrentUser):
+@router.post('/auth/desktop/authorize', response_model=CodeOutput)
+def authorize(
+    data: DesktopAuthorizeInput, request: Request, response: Response, db: DB, user: CurrentUser
+):
     limit(request, 'login', request.app.state.settings.login_rate)
-    challenge, redirect = data.get('code_challenge', ''), data.get('redirect_uri', '')
-    if (
-        not isinstance(challenge, str)
-        or not re.fullmatch(r'[A-Za-z0-9_-]{43}', challenge)
-        or data.get('code_challenge_method') != 'S256'
-        or not valid_redirect(redirect)
-    ):
+    challenge, redirect = data.code_challenge, data.redirect_uri
+    if not valid_redirect(redirect):
         fail(400, '授权请求无效，请从桌面端重新发起')
     code = secrets.token_urlsafe(32)
     db.execute(delete(DesktopAuthorization).where(DesktopAuthorization.expires_at < now()))
@@ -322,21 +330,11 @@ def authorize(data: dict, request: Request, response: Response, db: DB, user: Cu
     return {'code': code}
 
 
-@router.post('/auth/desktop/exchange/')
-def exchange(data: dict, request: Request, response: Response, db: DB):
+@router.post('/auth/desktop/exchange', response_model=DesktopExchangeOutput)
+def exchange(data: DesktopExchangeInput, request: Request, response: Response, db: DB):
     limit(request, 'login', request.app.state.settings.login_rate)
-    code, verifier, redirect = (
-        data.get('code', ''),
-        data.get('code_verifier', ''),
-        data.get('redirect_uri', ''),
-    )
-    if (
-        not isinstance(code, str)
-        or not re.fullmatch(r'[A-Za-z0-9_-]{43}', code)
-        or not isinstance(verifier, str)
-        or not re.fullmatch(r'[A-Za-z0-9._~-]{43,128}', verifier)
-        or not valid_redirect(redirect)
-    ):
+    code, verifier, redirect = data.code, data.code_verifier, data.redirect_uri
+    if not valid_redirect(redirect):
         fail(400, '授权码无效或已过期')
     challenge = (
         base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).decode().rstrip('=')

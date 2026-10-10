@@ -125,7 +125,7 @@ it('refreshes once on a 401 and replays the request with the new token', async (
     .mockResolvedValueOnce(new Response('{}')));
   const auth = await import('../auth');
   await auth.login('alice', 'password');
-  expect((await auth.authenticatedFetch('/api/v1/bbtalk/')).status).toBe(200);
+  expect((await auth.authenticatedFetch('/api/v1/bbtalk')).status).toBe(200);
   expect(vi.mocked(fetch)).toHaveBeenCalledTimes(4);
   expect((vi.mocked(fetch).mock.calls[3][1]?.headers as any).Authorization).toBe(`Bearer ${fresh}`);
   auth.logout(); vi.clearAllTimers(); vi.useRealTimers(); vi.unstubAllGlobals();
@@ -191,7 +191,7 @@ describe('desktop auth state machine', () => {
       .mockRejectedValueOnce(new Error('network down')));
     const auth = await import('../auth');
     expect((await auth.login('alice', 'password')).ok).toBe(true);
-    await expect(auth.authenticatedFetch('/api/v1/bbtalk/')).rejects.toThrow('network down');
+    await expect(auth.authenticatedFetch('/api/v1/bbtalk')).rejects.toThrow('network down');
     expect(auth.getAuthState().status).toBe('offline');
   });
 });

@@ -85,7 +85,7 @@ function record(id: string, content: string): BBTalk {
     createdAt: '2026-01-01T00:00:00Z', updatedAt: `2026-01-02T00:00:00Z-${id}`,
   };
 }
-const page1 = { count: 2, next: '/api/v1/bbtalks/?page=2', previous: null, results: [record('b1', '第一条'), record('b2', '第二条')] };
+const page1 = { count: 2, next: '/api/v1/bbtalks?page=2', previous: null, results: [record('b1', '第一条'), record('b2', '第二条')] };
 const publicPage = { count: 1, next: null, previous: null, results: [record('p1', '公开记录')] };
 
 let navigatedTo: string | undefined;
@@ -182,7 +182,7 @@ describe('PublicBBTalkPage', () => {
 describe('BBTalkPage focus refresh guards', () => {
   it('skips refreshes while the document is hidden', async () => {
     await loadedPrivate();
-    await waitFor(() => expect(api.getBBTalks.mock.calls.length).toBeGreaterThanOrEqual(2)); // initial + debounced re-run
+    await waitFor(() => expect(api.getBBTalks.mock.calls.length).toBeGreaterThanOrEqual(1));
     const before = api.getBBTalks.mock.calls.length;
     Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
     fireEvent(document, new Event('visibilitychange'));
@@ -192,7 +192,7 @@ describe('BBTalkPage focus refresh guards', () => {
 
   it('skips refreshes while offline and throttles repeat focus events', async () => {
     await loadedPrivate();
-    await waitFor(() => expect(api.getBBTalks.mock.calls.length).toBeGreaterThanOrEqual(2));
+    await waitFor(() => expect(api.getBBTalks.mock.calls.length).toBeGreaterThanOrEqual(1));
     const before = api.getBBTalks.mock.calls.length;
     Object.defineProperty(navigator, 'onLine', { value: false, configurable: true });
     fireEvent(window, new Event('online'));
@@ -207,7 +207,7 @@ describe('BBTalkPage focus refresh guards', () => {
   it('does not reload a private feed for signed-out visitors', async () => {
     boundary.user = null;
     const view = await loadedPrivate();
-    await waitFor(() => expect(api.getBBTalks.mock.calls.length).toBeGreaterThanOrEqual(2));
+    await waitFor(() => expect(api.getBBTalks.mock.calls.length).toBeGreaterThanOrEqual(1));
     const before = api.getBBTalks.mock.calls.length;
     fireEvent(window, new Event('focus'));
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
@@ -298,9 +298,9 @@ describe('BBTalkPage pagination with filters', () => {
   it('loads the next page while a tag filter is active', async () => {
     vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => { callback(0); return 0; });
     const view = await loadedPrivate();
-    await waitFor(() => expect(api.getBBTalks).toHaveBeenCalledTimes(2)); // initial load + debounced re-run
+    await waitFor(() => expect(api.getBBTalks).toHaveBeenCalledTimes(1));
     fireEvent.click(screen.getByRole('button', { name: '工作' }));
-    await waitFor(() => expect(api.getBBTalks.mock.calls.length).toBeGreaterThanOrEqual(3));
+    await waitFor(() => expect(api.getBBTalks.mock.calls.length).toBeGreaterThanOrEqual(2));
     api.getBBTalks.mockClear();
     api.getBBTalks.mockResolvedValueOnce({ count: 3, next: null, previous: null, results: [record('b3', '第三条')] });
 
@@ -310,7 +310,7 @@ describe('BBTalkPage pagination with filters', () => {
     Object.defineProperty(container, 'scrollTop', { value: 150, configurable: true, writable: true });
     fireEvent.scroll(container);
     await screen.findByText('第三条');
-    expect(api.getBBTalks).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2, tags__name: '工作' }));
+    expect(api.getBBTalks).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2, tags: ['工作'] }));
     view.unmount();
   });
 });

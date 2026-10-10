@@ -3,7 +3,7 @@ jest.mock('../../src/services/api', () => ({
 }));
 
 import { configureStore } from '@reduxjs/toolkit';
-import reducer, { loadTags, updateTagAsync } from '../../src/store/slices/tagSlice';
+import reducer, { loadTags, updateTagAsync, setTags } from '../../src/store/slices/tagSlice';
 import type { Tag } from '../../src/types';
 
 const { tagApi } = require('../../src/services/api');
@@ -31,6 +31,17 @@ describe('tagSlice state', () => {
 });
 
 describe('loadTags', () => {
+  it('coalesces overlapping refreshes and does not overwrite a later mutation refresh', async () => {
+    let finish!: (value: Tag[]) => void;
+    tagApi.getTags.mockReturnValue(new Promise(resolve => { finish = resolve; }));
+    const store = makeStore();
+    const first = store.dispatch(loadTags());
+    const second = store.dispatch(loadTags());
+    expect(tagApi.getTags).toHaveBeenCalledTimes(1);
+    store.dispatch(setTags([tag('new', 'new')]));
+    finish([tag('old', 'old')]); await Promise.all([first, second]);
+    expect(store.getState().tag.tags.map(t => t.id)).toEqual(['new']);
+  });
   it('stores the fetched tag list', async () => {
     (tagApi.getTags as jest.Mock).mockResolvedValue([tag('1', '工作'), tag('2', '生活')]);
     const store = makeStore();

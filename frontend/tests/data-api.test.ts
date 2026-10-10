@@ -9,7 +9,7 @@ afterEach(() => vi.unstubAllGlobals())
 it('exports binary data with explicit archive options and authentication', async () => {
   const result = await dataApi.exportData({ format: 'zip', include_attachments: true })
   expect(result.size).toBe(8)
-  expect(fetchMock.mock.calls[0][0]).toContain('export_format=zip&include_attachments=true')
+  expect(fetchMock.mock.calls[0][0]).toContain('format=zip&include_attachments=true')
   expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe('Bearer access')
 })
 it.each(['export', 'import', 'validate'])('does not send unauthenticated %s requests', async action => {
@@ -41,7 +41,7 @@ it('returns validation preview and counts without importing the file', async () 
   const preview = { valid: true, version: '1.0', preview: { bbtalks_count: 3 } }
   fetchMock.mockResolvedValue(response(preview))
   expect(await dataApi.validateImport(file)).toEqual(preview)
-  expect(fetchMock.mock.calls[0][0]).toMatch(/\/data\/validate\/$/)
+  expect(fetchMock.mock.calls[0][0]).toMatch(/\/data\/validate$/)
 })
 it('does not accept a failed HTTP validation response as a valid file', async () => {
   fetchMock.mockResolvedValue(response({ valid: true }, 500))

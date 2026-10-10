@@ -1,6 +1,6 @@
 import Icon from './ui/Icon'
 import Button from './ui/Button'
-import React, { useState, useRef, useEffect, useCallback } from 'react'
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import type { BBTalk, Comment, Attachment } from '../types'
 import { bbtalkApi } from '../services/api'
 import MarkdownRenderer from './MarkdownRenderer'
@@ -8,11 +8,16 @@ import CachedImage from './CachedImage'
 import { AttachmentVideo, AttachmentDownload } from './AuthenticatedMedia'
 import { useActionFeedback } from '../hooks/useActionFeedback'
 import { useHref } from 'react-router-dom'
+import { commentCache } from '../services/cache/commentCache'
+import { getAuthSessionScope } from '../services/authSessionScope'
 
 // 内联评论按钮与列表组件
 function InlineCommentSection({
   bbtalkId,
   commentCount: initialCount,
+  preview,
+  revision,
+  recordSession,
   inputVisible,
   onToggleInput,
   onCountChange,
@@ -20,61 +25,103 @@ function InlineCommentSection({
 }: {
   bbtalkId: string
   commentCount: number
+  preview?: Comment[]
+  revision?: string
+  recordSession: string
   inputVisible: boolean
   onToggleInput: () => void
   onCountChange: (count: number) => void
   readOnly?: boolean
 }) {
   const feedback = useActionFeedback()
-  const [comments, setComments] = useState<Comment[]>([])
-  const [loaded, setLoaded] = useState(false)
+  const feedbackRef = useRef(feedback)
+  feedbackRef.current = feedback
+  const seed = useCallback(() => {
+    if (getAuthSessionScope() !== recordSession) return { comments: [], count: 0, loaded: true, nextPage: null, source: '', recordId: bbtalkId }
+    return commentCache.seed(bbtalkId, initialCount, preview, revision, readOnly)
+  }, [bbtalkId, initialCount, preview, revision, readOnly, recordSession])
+  const [snapshot, setSnapshot] = useState(seed)
+  const { comments, count, loaded, nextPage } = snapshot
   const [loading, setLoading] = useState(false)
   const [expanded, setExpanded] = useState(false)
-  useEffect(() => { if (readOnly) setExpanded(inputVisible) }, [readOnly, inputVisible])
   const [newComment, setNewComment] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const sendingRef = useRef(false)
-  const attemptedFor = useRef<string | null>(null)
+  const mounted = useRef(true)
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
   const commentValueRef = useRef(newComment)
   commentValueRef.current = newComment
-  useEffect(() => { if (loaded) onCountChange(comments.length) }, [loaded, comments, onCountChange])
+  useEffect(() => { onCountChange(count) }, [count, onCountChange])
+  useEffect(() => {
+    setSnapshot(seed())
+    return commentCache.subscribe(bbtalkId, readOnly, () => setSnapshot(seed()))
+  }, [seed, bbtalkId, readOnly])
 
-  const loadComments = useCallback(async () => {
+  const loadComments = useCallback(async (page = 1) => {
+    if (getAuthSessionScope() !== recordSession) return
+    seed()
     setLoading(true)
     try {
-      const data = await bbtalkApi.getComments(bbtalkId, readOnly)
-      setComments(data)
-      setLoaded(true)
+      await commentCache.load(bbtalkId, readOnly, page, async requestedPage => {
+        if (preview !== undefined) return bbtalkApi.getCommentPage(bbtalkId, requestedPage, readOnly)
+        const data = await bbtalkApi.getComments(bbtalkId, readOnly)
+        return { count: data.length, next: null, previous: null, results: data, revision: '' }
+      })
     } finally {
-      setLoading(false)
+      if (mounted.current) setLoading(false)
     }
-  }, [bbtalkId, readOnly])
+  }, [bbtalkId, readOnly, preview, seed, recordSession])
+
+  const requestComments = useCallback((page = 1) => {
+    void loadComments(page).catch(() => {
+      if (mounted.current) feedbackRef.current.report('评论加载失败', () => loadComments(page))
+    })
+  }, [loadComments])
+
+  // Preview-bearing lists need no per-card reads. Legacy servers still work.
+  const attemptedFor = useRef('')
+  useEffect(() => {
+    const attemptKey = JSON.stringify([bbtalkId, revision, initialCount, readOnly])
+    if (preview === undefined && initialCount > 0 && !loaded && attemptedFor.current !== attemptKey) {
+      attemptedFor.current = attemptKey
+      requestComments()
+    }
+  }, [bbtalkId, revision, initialCount, readOnly, preview, loaded, requestComments])
+
+  const previousRevision = useRef(revision)
+  useEffect(() => {
+    if (previousRevision.current !== revision) {
+      previousRevision.current = revision
+      if (expanded) requestComments()
+    }
+  }, [revision, expanded, requestComments])
 
   useEffect(() => {
-    if (initialCount > 0 && !loaded && !loading && attemptedFor.current !== bbtalkId) {
-      attemptedFor.current = bbtalkId
-      void loadComments().catch(() => feedback.report('评论加载失败', loadComments))
-    }
-  }, [bbtalkId, initialCount, loaded, loading, loadComments, feedback])
+    if (!readOnly) return
+    setExpanded(inputVisible)
+    if (inputVisible) requestComments()
+  }, [readOnly, inputVisible, requestComments])
 
   const sendComment = async () => {
     const text = newComment.trim()
-    if (!text || sendingRef.current) return
+    if (!text || sendingRef.current || getAuthSessionScope() !== recordSession) return
     sendingRef.current = true
     setSubmitting(true)
+    const session = getAuthSessionScope()
     try {
       const comment = await bbtalkApi.createComment(bbtalkId, text)
-      setComments(prev => [...prev, comment])
+      if (getAuthSessionScope() !== session) return
+      commentCache.mutate(bbtalkId, readOnly, { add: comment })
+      if (!mounted.current) return
       if (commentValueRef.current.trim() === text) {
         setNewComment('')
         onToggleInput()
       }
       feedback.dismiss()
-      setLoaded(true)
       setExpanded(true)
     } finally {
       sendingRef.current = false
-      setSubmitting(false)
+      if (mounted.current) setSubmitting(false)
     }
   }
 
@@ -90,8 +137,10 @@ function InlineCommentSection({
       message: `确定删除这条评论？\n\n${comment.content}`,
       confirmLabel: '确认删除',
       action: async () => {
+        if (getAuthSessionScope() !== recordSession) return
+        const session = getAuthSessionScope()
         await bbtalkApi.deleteComment(bbtalkId, comment.uid)
-        setComments(prev => prev.filter(c => c.uid !== comment.uid))
+        if (getAuthSessionScope() === session) commentCache.mutate(bbtalkId, readOnly, { remove: comment.uid })
       },
     })
   }
@@ -112,7 +161,7 @@ function InlineCommentSection({
   return (
     <div>
       {feedback.feedback}
-      {comments.length > 0 && (
+      {count > 0 && (
         <div className="mt-3 bg-gray-50 rounded-xl px-4 py-3 space-y-2.5">
           {(expanded ? comments : comments.slice(0, 3)).map(comment => (
             <div key={comment.uid} className="flex items-start justify-between gap-2 group/comment text-sm">
@@ -133,11 +182,12 @@ function InlineCommentSection({
               </div>
             </div>
           ))}
-          {comments.length > 3 && (
-            <button onClick={() => setExpanded(value => !value)} className="min-h-11 px-2 text-sm text-blue-700 hover:text-blue-800">
-              {expanded ? '收起评论' : `查看全部 ${comments.length} 条评论`}
+          {(count > 3 || count > comments.length) && (
+            <button onClick={() => { if (!expanded) requestComments(); setExpanded(value => !value) }} className="min-h-11 px-2 text-sm text-blue-700 hover:text-blue-800">
+              {expanded ? '收起评论' : `查看全部 ${count} 条评论`}
             </button>
           )}
+          {expanded && nextPage !== null && <button disabled={loading} onClick={() => requestComments(nextPage)} className="min-h-11 px-2 text-sm text-blue-700 hover:text-blue-800">{loading ? '正在加载评论…' : '加载更多评论'}</button>}
         </div>
       )}
 
@@ -199,7 +249,9 @@ const BBTalkItem: React.FC<BBTalkItemProps> = React.memo(function BBTalkItem({
   const [menuOpen, setMenuOpen] = useState(false)
   const [commentInputVisible, setCommentInputVisible] = useState(false)
   const [commentCount, setCommentCount] = useState(bbtalk.commentCount ?? 0)
-  useEffect(() => { setCommentCount(bbtalk.commentCount ?? 0) }, [bbtalk.id, bbtalk.commentCount])
+  // A new server record authorizes new previews. Session events alone must not
+  // re-label a mounted record's old private props as belonging to a new account.
+  const recordSession = useMemo(() => getAuthSessionScope(), [bbtalk])
   const menuRef = useRef<HTMLDivElement>(null)
   const shareFeedback = useActionFeedback()
   const detailPath = useHref(`/detail/${bbtalk.id}`)
@@ -565,9 +617,13 @@ const BBTalkItem: React.FC<BBTalkItemProps> = React.memo(function BBTalkItem({
 
         {/* 内联评论列表与输入框 */}
         <InlineCommentSection
+          key={`${bbtalk.id}:${isPublic}:${recordSession}`}
           readOnly={isPublic}
           bbtalkId={bbtalk.id}
-          commentCount={commentCount}
+          commentCount={bbtalk.commentCount ?? 0}
+          preview={bbtalk.commentPreview}
+          revision={bbtalk.commentsRevision}
+          recordSession={recordSession}
           onCountChange={setCommentCount}
           inputVisible={commentInputVisible}
           onToggleInput={() => setCommentInputVisible(false)}

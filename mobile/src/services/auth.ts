@@ -1,3 +1,4 @@
+import { apiErrorMessage } from './apiErrorMessage';
 /**
  * JWT Token 认证服务 (React Native 版)
  * 原生端用 expo-secure-store，Web 端 fallback 到 localStorage
@@ -131,7 +132,7 @@ async function doRefresh(): Promise<boolean> {
   if (!refreshToken || !isCurrentSession(session)) return false;
 
   try {
-    const response = await fetch(`${server}/api/v1/bbtalk/auth/token/refresh/`, {
+    const response = await fetch(`${server}/api/v1/bbtalk/auth/token/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh: refreshToken }),
@@ -209,7 +210,7 @@ export async function login(
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10000);
   try {
-    const response = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/auth/token/`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/auth/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password }),
@@ -225,7 +226,7 @@ export async function login(
     }
 
     const err = await response.json().catch(() => ({}));
-    return { success: false, error: err.error || '登录失败' };
+    return { success: false, error: apiErrorMessage(err, '登录失败') };
   } catch (e: any) {
     if (e.name === 'AbortError') {
       return { success: false, error: '连接超时，请检查服务地址是否正确' };
@@ -246,7 +247,7 @@ export async function register(data: {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10000);
   try {
-    const response = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/auth/register/`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -261,7 +262,7 @@ export async function register(data: {
     }
 
     const err = await response.json().catch(() => ({}));
-    return { success: false, error: err.error || '注册失败' };
+    return { success: false, error: apiErrorMessage(err, '注册失败') };
   } catch (e: any) {
     if (e.name === 'AbortError') {
       return { success: false, error: '连接超时，请检查服务地址是否正确' };
@@ -282,7 +283,7 @@ export async function logout(): Promise<void> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
     // Local logout completes immediately, even if the server cannot be reached.
-    void fetch(`${server}/api/v1/bbtalk/auth/token/blacklist/`, {
+    void fetch(`${server}/api/v1/bbtalk/auth/token/blacklist`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh: refreshToken }), signal: controller.signal,
@@ -367,7 +368,7 @@ async function fetchCurrentUser(): Promise<User | null> {
     const token = await getAccessToken();
     if (!token) return null;
 
-    const response = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/user/me/`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/user/me`, {
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',

@@ -1,0 +1,1534 @@
+﻿{
+    "measured_on":  "2026-10-10",
+    "scope":  "Current working tree; isolated FastAPI SQLite and Chromium; production build and development comparison",
+    "counting":  "Browser-initiated /api/v1 requests. /api/public-config is retained separately. Seed API requests are excluded. Request failure events may overwrite response status in the raw recorder; counts are initiation counts, not success counts.",
+    "production_scenarios":  43,
+    "development_scenarios":  7,
+    "scenarios":  [
+                      {
+                          "name":  "login_page",
+                          "mode":  "production",
+                          "start":  1791622319291,
+                          "requests":  [
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/public-config",
+                                               "ms":  27,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/auth/policy",
+                                               "ms":  96,
+                                               "status":  200
+                                           }
+                                       ],
+                          "groups":  {
+                                         "GET /api/public-config":  1,
+                                         "GET /api/v1/bbtalk/auth/policy":  1
+                                     }
+                      },
+                      {
+                          "name":  "login_submit",
+                          "mode":  "production",
+                          "start":  1791622321811,
+                          "requests":  [
+                                           {
+                                               "method":  "POST",
+                                               "path":  "/api/v1/bbtalk/auth/token",
+                                               "ms":  47,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/public-config",
+                                               "ms":  1341,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/user/me",
+                                               "ms":  1362,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk?page=1",
+                                               "ms":  1456,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/tags",
+                                               "ms":  1456,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk?page=1",
+                                               "ms":  1792,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/dYhgtJRPSqyZvPEdKM01yw/comments",
+                                               "ms":  1863,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/8W7OeJEmS2yPvKE1FxpL7w/comments",
+                                               "ms":  1863,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/EqHrbRhhSdGNSaXaTgswzA/comments",
+                                               "ms":  1863,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/vicFQVwERN2p6BX2DOFQ4A/comments",
+                                               "ms":  1863,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/1D0hEhHWT2moY3sy3Q9gzg/comments",
+                                               "ms":  1863,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/cIjK1umMTKmnlRQ7OrxlKw/comments",
+                                               "ms":  1863,
+                                               "status":  200
+                                           }
+                                       ],
+                          "groups":  {
+                                         "POST /api/v1/bbtalk/auth/token":  1,
+                                         "GET /api/public-config":  1,
+                                         "GET /api/v1/bbtalk/user/me":  1,
+                                         "GET /api/v1/bbtalk?page=1":  2,
+                                         "GET /api/v1/bbtalk/tags":  1,
+                                         "GET /api/v1/bbtalk/dYhgtJRPSqyZvPEdKM01yw/comments":  1,
+                                         "GET /api/v1/bbtalk/8W7OeJEmS2yPvKE1FxpL7w/comments":  1,
+                                         "GET /api/v1/bbtalk/EqHrbRhhSdGNSaXaTgswzA/comments":  1,
+                                         "GET /api/v1/bbtalk/vicFQVwERN2p6BX2DOFQ4A/comments":  1,
+                                         "GET /api/v1/bbtalk/1D0hEhHWT2moY3sy3Q9gzg/comments":  1,
+                                         "GET /api/v1/bbtalk/cIjK1umMTKmnlRQ7OrxlKw/comments":  1
+                                     }
+                      },
+                      {
+                          "name":  "reload_feed",
+                          "mode":  "production",
+                          "start":  1791622326183,
+                          "requests":  [
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/public-config",
+                                               "ms":  35,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/user/me",
+                                               "ms":  49,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk?page=1",
+                                               "ms":  81,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/tags",
+                                               "ms":  81,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk?page=1",
+                                               "ms":  410,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/dYhgtJRPSqyZvPEdKM01yw/comments",
+                                               "ms":  453,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/8W7OeJEmS2yPvKE1FxpL7w/comments",
+                                               "ms":  453,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/EqHrbRhhSdGNSaXaTgswzA/comments",
+                                               "ms":  455,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/vicFQVwERN2p6BX2DOFQ4A/comments",
+                                               "ms":  455,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/1D0hEhHWT2moY3sy3Q9gzg/comments",
+                                               "ms":  455,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/cIjK1umMTKmnlRQ7OrxlKw/comments",
+                                               "ms":  455,
+                                               "status":  200
+                                           }
+                                       ],
+                          "groups":  {
+                                         "GET /api/public-config":  1,
+                                         "GET /api/v1/bbtalk/user/me":  1,
+                                         "GET /api/v1/bbtalk?page=1":  2,
+                                         "GET /api/v1/bbtalk/tags":  1,
+                                         "GET /api/v1/bbtalk/dYhgtJRPSqyZvPEdKM01yw/comments":  1,
+                                         "GET /api/v1/bbtalk/8W7OeJEmS2yPvKE1FxpL7w/comments":  1,
+                                         "GET /api/v1/bbtalk/EqHrbRhhSdGNSaXaTgswzA/comments":  1,
+                                         "GET /api/v1/bbtalk/vicFQVwERN2p6BX2DOFQ4A/comments":  1,
+                                         "GET /api/v1/bbtalk/1D0hEhHWT2moY3sy3Q9gzg/comments":  1,
+                                         "GET /api/v1/bbtalk/cIjK1umMTKmnlRQ7OrxlKw/comments":  1
+                                     }
+                      },
+                      {
+                          "name":  "tag_A_from_all",
+                          "mode":  "production",
+                          "start":  1791622329504,
+                          "requests":  [
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk?page=1\u0026tags=A",
+                                               "ms":  379,
+                                               "status":  200
+                                           }
+                                       ],
+                          "groups":  {
+                                         "GET /api/v1/bbtalk?page=1\u0026tags=A":  1
+                                     }
+                      },
+                      {
+                          "name":  "tag_A_repeat",
+                          "mode":  "production",
+                          "start":  1791622332802,
+                          "requests":  [
+
+                                       ],
+                          "groups":  {
+
+                                     }
+                      },
+                      {
+                          "name":  "tag_B_from_A",
+                          "mode":  "production",
+                          "start":  1791622335257,
+                          "requests":  [
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk?page=1\u0026tags=B",
+                                               "ms":  357,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/dYhgtJRPSqyZvPEdKM01yw/comments",
+                                               "ms":  377,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/8W7OeJEmS2yPvKE1FxpL7w/comments",
+                                               "ms":  377,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/EqHrbRhhSdGNSaXaTgswzA/comments",
+                                               "ms":  377,
+                                               "status":  200
+                                           }
+                                       ],
+                          "groups":  {
+                                         "GET /api/v1/bbtalk?page=1\u0026tags=B":  1,
+                                         "GET /api/v1/bbtalk/dYhgtJRPSqyZvPEdKM01yw/comments":  1,
+                                         "GET /api/v1/bbtalk/8W7OeJEmS2yPvKE1FxpL7w/comments":  1,
+                                         "GET /api/v1/bbtalk/EqHrbRhhSdGNSaXaTgswzA/comments":  1
+                                     }
+                      },
+                      {
+                          "name":  "tag_A_return",
+                          "mode":  "production",
+                          "start":  1791622338057,
+                          "requests":  [
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk?page=1\u0026tags=A",
+                                               "ms":  346,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/vicFQVwERN2p6BX2DOFQ4A/comments",
+                                               "ms":  362,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/1D0hEhHWT2moY3sy3Q9gzg/comments",
+                                               "ms":  362,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/cIjK1umMTKmnlRQ7OrxlKw/comments",
+                                               "ms":  362,
+                                               "status":  200
+                                           }
+                                       ],
+                          "groups":  {
+                                         "GET /api/v1/bbtalk?page=1\u0026tags=A":  1,
+                                         "GET /api/v1/bbtalk/vicFQVwERN2p6BX2DOFQ4A/comments":  1,
+                                         "GET /api/v1/bbtalk/1D0hEhHWT2moY3sy3Q9gzg/comments":  1,
+                                         "GET /api/v1/bbtalk/cIjK1umMTKmnlRQ7OrxlKw/comments":  1
+                                     }
+                      },
+                      {
+                          "name":  "all_from_A",
+                          "mode":  "production",
+                          "start":  1791622341367,
+                          "requests":  [
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk?page=1",
+                                               "ms":  357,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/dYhgtJRPSqyZvPEdKM01yw/comments",
+                                               "ms":  392,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/8W7OeJEmS2yPvKE1FxpL7w/comments",
+                                               "ms":  393,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/EqHrbRhhSdGNSaXaTgswzA/comments",
+                                               "ms":  393,
+                                               "status":  200
+                                           }
+                                       ],
+                          "groups":  {
+                                         "GET /api/v1/bbtalk?page=1":  1,
+                                         "GET /api/v1/bbtalk/dYhgtJRPSqyZvPEdKM01yw/comments":  1,
+                                         "GET /api/v1/bbtalk/8W7OeJEmS2yPvKE1FxpL7w/comments":  1,
+                                         "GET /api/v1/bbtalk/EqHrbRhhSdGNSaXaTgswzA/comments":  1
+                                     }
+                      },
+                      {
+                          "name":  "rapid_A_B_A",
+                          "mode":  "production",
+                          "start":  1791622344679,
+                          "requests":  [
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk?page=1\u0026tags=A",
+                                               "ms":  502,
+                                               "status":  200
+                                           }
+                                       ],
+                          "groups":  {
+                                         "GET /api/v1/bbtalk?page=1\u0026tags=A":  1
+                                     }
+                      },
+                      {
+                          "name":  "search_typing_fast",
+                          "mode":  "production",
+                          "start":  1791622349393,
+                          "requests":  [
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk?page=1\u0026search=record+0",
+                                               "ms":  785,
+                                               "status":  200
+                                           }
+                                       ],
+                          "groups":  {
+                                         "GET /api/v1/bbtalk?page=1\u0026search=record+0":  1
+                                     }
+                      },
+                      {
+                          "name":  "clear_search",
+                          "mode":  "production",
+                          "start":  1791622352665,
+                          "requests":  [
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk?page=1",
+                                               "ms":  333,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/dYhgtJRPSqyZvPEdKM01yw/comments",
+                                               "ms":  350,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/8W7OeJEmS2yPvKE1FxpL7w/comments",
+                                               "ms":  350,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/EqHrbRhhSdGNSaXaTgswzA/comments",
+                                               "ms":  350,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/vicFQVwERN2p6BX2DOFQ4A/comments",
+                                               "ms":  350,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/1D0hEhHWT2moY3sy3Q9gzg/comments",
+                                               "ms":  350,
+                                               "status":  200
+                                           }
+                                       ],
+                          "groups":  {
+                                         "GET /api/v1/bbtalk?page=1":  1,
+                                         "GET /api/v1/bbtalk/dYhgtJRPSqyZvPEdKM01yw/comments":  1,
+                                         "GET /api/v1/bbtalk/8W7OeJEmS2yPvKE1FxpL7w/comments":  1,
+                                         "GET /api/v1/bbtalk/EqHrbRhhSdGNSaXaTgswzA/comments":  1,
+                                         "GET /api/v1/bbtalk/vicFQVwERN2p6BX2DOFQ4A/comments":  1,
+                                         "GET /api/v1/bbtalk/1D0hEhHWT2moY3sy3Q9gzg/comments":  1
+                                     }
+                      },
+                      {
+                          "name":  "focus_refresh",
+                          "mode":  "production",
+                          "start":  1791622355935,
+                          "requests":  [
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk?page=1",
+                                               "ms":  7,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/tags",
+                                               "ms":  7,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk?page=1",
+                                               "ms":  335,
+                                               "status":  200
+                                           }
+                                       ],
+                          "groups":  {
+                                         "GET /api/v1/bbtalk?page=1":  2,
+                                         "GET /api/v1/bbtalk/tags":  1
+                                     }
+                      },
+                      {
+                          "name":  "focus_again_after_500ms",
+                          "mode":  "production",
+                          "start":  1791622358373,
+                          "requests":  [
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk?page=1",
+                                               "ms":  6,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/tags",
+                                               "ms":  6,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk?page=1",
+                                               "ms":  343,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk?page=1",
+                                               "ms":  526,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/tags",
+                                               "ms":  526,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk?page=1",
+                                               "ms":  849,
+                                               "status":  200
+                                           }
+                                       ],
+                          "groups":  {
+                                         "GET /api/v1/bbtalk?page=1":  4,
+                                         "GET /api/v1/bbtalk/tags":  2
+                                     }
+                      },
+                      {
+                          "name":  "expand_comments",
+                          "mode":  "production",
+                          "start":  1791622361320,
+                          "requests":  [
+
+                                       ],
+                          "groups":  {
+
+                                     }
+                      },
+                      {
+                          "name":  "open_comment_input",
+                          "mode":  "production",
+                          "start":  1791622363771,
+                          "requests":  [
+
+                                       ],
+                          "groups":  {
+
+                                     }
+                      },
+                      {
+                          "name":  "send_comment",
+                          "mode":  "production",
+                          "start":  1791622366263,
+                          "requests":  [
+                                           {
+                                               "method":  "POST",
+                                               "path":  "/api/v1/bbtalk/cIjK1umMTKmnlRQ7OrxlKw/comments",
+                                               "ms":  41,
+                                               "status":  201
+                                           }
+                                       ],
+                          "groups":  {
+                                         "POST /api/v1/bbtalk/cIjK1umMTKmnlRQ7OrxlKw/comments":  1
+                                     }
+                      },
+                      {
+                          "name":  "delete_comment",
+                          "mode":  "production",
+                          "start":  1791622368732,
+                          "requests":  [
+                                           {
+                                               "method":  "DELETE",
+                                               "path":  "/api/v1/bbtalk/cIjK1umMTKmnlRQ7OrxlKw/comments/_3a8sCBgR3yPFBVmWh29VQ",
+                                               "ms":  103,
+                                               "status":  "net::ERR_ABORTED"
+                                           }
+                                       ],
+                          "groups":  {
+                                         "DELETE /api/v1/bbtalk/cIjK1umMTKmnlRQ7OrxlKw/comments/_3a8sCBgR3yPFBVmWh29VQ":  1
+                                     }
+                      },
+                      {
+                          "name":  "open_record_editor",
+                          "mode":  "production",
+                          "start":  1791622371292,
+                          "requests":  [
+
+                                       ],
+                          "groups":  {
+
+                                     }
+                      },
+                      {
+                          "name":  "cancel_record_editor",
+                          "mode":  "production",
+                          "start":  1791622373766,
+                          "requests":  [
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/cIjK1umMTKmnlRQ7OrxlKw/comments",
+                                               "ms":  48,
+                                               "status":  200
+                                           }
+                                       ],
+                          "groups":  {
+                                         "GET /api/v1/bbtalk/cIjK1umMTKmnlRQ7OrxlKw/comments":  1
+                                     }
+                      },
+                      {
+                          "name":  "save_record_edit",
+                          "mode":  "production",
+                          "start":  1791622377559,
+                          "requests":  [
+                                           {
+                                               "method":  "PATCH",
+                                               "path":  "/api/v1/bbtalk/cIjK1umMTKmnlRQ7OrxlKw",
+                                               "ms":  35,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/tags",
+                                               "ms":  57,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/cIjK1umMTKmnlRQ7OrxlKw/comments",
+                                               "ms":  60,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk?page=1",
+                                               "ms":  383,
+                                               "status":  200
+                                           }
+                                       ],
+                          "groups":  {
+                                         "PATCH /api/v1/bbtalk/cIjK1umMTKmnlRQ7OrxlKw":  1,
+                                         "GET /api/v1/bbtalk/tags":  1,
+                                         "GET /api/v1/bbtalk/cIjK1umMTKmnlRQ7OrxlKw/comments":  1,
+                                         "GET /api/v1/bbtalk?page=1":  1
+                                     }
+                      },
+                      {
+                          "name":  "publish_record",
+                          "mode":  "production",
+                          "start":  1791622380049,
+                          "requests":  [
+                                           {
+                                               "method":  "POST",
+                                               "path":  "/api/v1/bbtalk",
+                                               "ms":  48,
+                                               "status":  201
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/tags",
+                                               "ms":  80,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk?page=1",
+                                               "ms":  414,
+                                               "status":  200
+                                           }
+                                       ],
+                          "groups":  {
+                                         "POST /api/v1/bbtalk":  1,
+                                         "GET /api/v1/bbtalk/tags":  1,
+                                         "GET /api/v1/bbtalk?page=1":  1
+                                     }
+                      },
+                      {
+                          "name":  "pin_record",
+                          "mode":  "production",
+                          "start":  1791622382607,
+                          "requests":  [
+                                           {
+                                               "method":  "PATCH",
+                                               "path":  "/api/v1/bbtalk/cIjK1umMTKmnlRQ7OrxlKw",
+                                               "ms":  75,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk?page=1",
+                                               "ms":  96,
+                                               "status":  200
+                                           }
+                                       ],
+                          "groups":  {
+                                         "PATCH /api/v1/bbtalk/cIjK1umMTKmnlRQ7OrxlKw":  1,
+                                         "GET /api/v1/bbtalk?page=1":  1
+                                     }
+                      },
+                      {
+                          "name":  "delete_then_undo_commented_record",
+                          "mode":  "production",
+                          "start":  1791622385106,
+                          "requests":  [
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/cIjK1umMTKmnlRQ7OrxlKw/comments",
+                                               "ms":  131,
+                                               "status":  200
+                                           }
+                                       ],
+                          "groups":  {
+                                         "GET /api/v1/bbtalk/cIjK1umMTKmnlRQ7OrxlKw/comments":  1
+                                     }
+                      },
+                      {
+                          "name":  "delete_record_commit",
+                          "mode":  "production",
+                          "start":  1791622387672,
+                          "requests":  [
+                                           {
+                                               "method":  "DELETE",
+                                               "path":  "/api/v1/bbtalk/FdhH-94WSreVZL3LtJQ5eQ",
+                                               "ms":  3063,
+                                               "status":  "net::ERR_ABORTED"
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/tags",
+                                               "ms":  3091,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk?page=1",
+                                               "ms":  3418,
+                                               "status":  200
+                                           }
+                                       ],
+                          "groups":  {
+                                         "DELETE /api/v1/bbtalk/FdhH-94WSreVZL3LtJQ5eQ":  1,
+                                         "GET /api/v1/bbtalk/tags":  1,
+                                         "GET /api/v1/bbtalk?page=1":  1
+                                     }
+                      },
+                      {
+                          "name":  "deep_link_detail",
+                          "mode":  "production",
+                          "start":  1791622393762,
+                          "requests":  [
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/public-config",
+                                               "ms":  94,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/user/me",
+                                               "ms":  118,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/cIjK1umMTKmnlRQ7OrxlKw",
+                                               "ms":  149,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/cIjK1umMTKmnlRQ7OrxlKw/comments",
+                                               "ms":  172,
+                                               "status":  200
+                                           }
+                                       ],
+                          "groups":  {
+                                         "GET /api/public-config":  1,
+                                         "GET /api/v1/bbtalk/user/me":  1,
+                                         "GET /api/v1/bbtalk/cIjK1umMTKmnlRQ7OrxlKw":  1,
+                                         "GET /api/v1/bbtalk/cIjK1umMTKmnlRQ7OrxlKw/comments":  1
+                                     }
+                      },
+                      {
+                          "name":  "settings_storage_cold",
+                          "mode":  "production",
+                          "start":  1791622396365,
+                          "requests":  [
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/public-config",
+                                               "ms":  30,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/user/me",
+                                               "ms":  39,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/settings/storage",
+                                               "ms":  67,
+                                               "status":  200
+                                           }
+                                       ],
+                          "groups":  {
+                                         "GET /api/public-config":  1,
+                                         "GET /api/v1/bbtalk/user/me":  1,
+                                         "GET /api/v1/bbtalk/settings/storage":  1
+                                     }
+                      },
+                      {
+                          "name":  "settings_s3_cold",
+                          "mode":  "production",
+                          "start":  1791622398828,
+                          "requests":  [
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/public-config",
+                                               "ms":  73,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/user/me",
+                                               "ms":  103,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/settings/storage",
+                                               "ms":  128,
+                                               "status":  200
+                                           }
+                                       ],
+                          "groups":  {
+                                         "GET /api/public-config":  1,
+                                         "GET /api/v1/bbtalk/user/me":  1,
+                                         "GET /api/v1/bbtalk/settings/storage":  1
+                                     }
+                      },
+                      {
+                          "name":  "settings_data_cold",
+                          "mode":  "production",
+                          "start":  1791622401345,
+                          "requests":  [
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/public-config",
+                                               "ms":  39,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/user/me",
+                                               "ms":  53,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/data/backups",
+                                               "ms":  90,
+                                               "status":  200
+                                           }
+                                       ],
+                          "groups":  {
+                                         "GET /api/public-config":  1,
+                                         "GET /api/v1/bbtalk/user/me":  1,
+                                         "GET /api/v1/bbtalk/data/backups":  1
+                                     }
+                      },
+                      {
+                          "name":  "settings_status_cold",
+                          "mode":  "production",
+                          "start":  1791622403817,
+                          "requests":  [
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/public-config",
+                                               "ms":  69,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/user/me",
+                                               "ms":  91,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/settings/status",
+                                               "ms":  123,
+                                               "status":  200
+                                           }
+                                       ],
+                          "groups":  {
+                                         "GET /api/public-config":  1,
+                                         "GET /api/v1/bbtalk/user/me":  1,
+                                         "GET /api/v1/bbtalk/settings/status":  1
+                                     }
+                      },
+                      {
+                          "name":  "status_manual_refresh",
+                          "mode":  "production",
+                          "start":  1791622406327,
+                          "requests":  [
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/settings/status",
+                                               "ms":  58,
+                                               "status":  200
+                                           }
+                                       ],
+                          "groups":  {
+                                         "GET /api/v1/bbtalk/settings/status":  1
+                                     }
+                      },
+                      {
+                          "name":  "public_feed_authenticated_cold",
+                          "mode":  "production",
+                          "start":  1791622408807,
+                          "requests":  [
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/public-config",
+                                               "ms":  27,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/user/me",
+                                               "ms":  40,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/public?page=1",
+                                               "ms":  79,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/public/cIjK1umMTKmnlRQ7OrxlKw/comments",
+                                               "ms":  102,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/public/dYhgtJRPSqyZvPEdKM01yw/comments",
+                                               "ms":  102,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/public/8W7OeJEmS2yPvKE1FxpL7w/comments",
+                                               "ms":  102,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/public/EqHrbRhhSdGNSaXaTgswzA/comments",
+                                               "ms":  102,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/public/vicFQVwERN2p6BX2DOFQ4A/comments",
+                                               "ms":  102,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/public/1D0hEhHWT2moY3sy3Q9gzg/comments",
+                                               "ms":  102,
+                                               "status":  200
+                                           }
+                                       ],
+                          "groups":  {
+                                         "GET /api/public-config":  1,
+                                         "GET /api/v1/bbtalk/user/me":  1,
+                                         "GET /api/v1/bbtalk/public?page=1":  1,
+                                         "GET /api/v1/bbtalk/public/cIjK1umMTKmnlRQ7OrxlKw/comments":  1,
+                                         "GET /api/v1/bbtalk/public/dYhgtJRPSqyZvPEdKM01yw/comments":  1,
+                                         "GET /api/v1/bbtalk/public/8W7OeJEmS2yPvKE1FxpL7w/comments":  1,
+                                         "GET /api/v1/bbtalk/public/EqHrbRhhSdGNSaXaTgswzA/comments":  1,
+                                         "GET /api/v1/bbtalk/public/vicFQVwERN2p6BX2DOFQ4A/comments":  1,
+                                         "GET /api/v1/bbtalk/public/1D0hEhHWT2moY3sy3Q9gzg/comments":  1
+                                     }
+                      },
+                      {
+                          "name":  "next_page_no_comments",
+                          "mode":  "production",
+                          "start":  1791622550366,
+                          "requests":  [
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk?page=2",
+                                               "ms":  69,
+                                               "status":  200
+                                           }
+                                       ],
+                          "groups":  {
+                                         "GET /api/v1/bbtalk?page=2":  1
+                                     }
+                      },
+                      {
+                          "name":  "bottom_again_no_more",
+                          "mode":  "production",
+                          "start":  1791622552931,
+                          "requests":  [
+
+                                       ],
+                          "groups":  {
+
+                                     }
+                      },
+                      {
+                          "name":  "reload_two_cards_same_image",
+                          "mode":  "production",
+                          "start":  1791622559155,
+                          "requests":  [
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/public-config",
+                                               "ms":  29,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/user/me",
+                                               "ms":  48,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk?page=1",
+                                               "ms":  110,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/tags",
+                                               "ms":  111,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk?page=1",
+                                               "ms":  438,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/attachments/files/5783e501-c2d9-4045-8b33-cddd1f58cc79/preview",
+                                               "ms":  463,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/attachments/files/5783e501-c2d9-4045-8b33-cddd1f58cc79/preview",
+                                               "ms":  464,
+                                               "status":  200
+                                           }
+                                       ],
+                          "groups":  {
+                                         "GET /api/public-config":  1,
+                                         "GET /api/v1/bbtalk/user/me":  1,
+                                         "GET /api/v1/bbtalk?page=1":  2,
+                                         "GET /api/v1/bbtalk/tags":  1,
+                                         "GET /api/v1/attachments/files/5783e501-c2d9-4045-8b33-cddd1f58cc79/preview":  2
+                                     }
+                      },
+                      {
+                          "name":  "switch_to_other_tag_with_same_image",
+                          "mode":  "production",
+                          "start":  1791622562912,
+                          "requests":  [
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk?page=1\u0026tags=B",
+                                               "ms":  358,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/attachments/files/5783e501-c2d9-4045-8b33-cddd1f58cc79/preview",
+                                               "ms":  374,
+                                               "status":  200
+                                           }
+                                       ],
+                          "groups":  {
+                                         "GET /api/v1/bbtalk?page=1\u0026tags=B":  1,
+                                         "GET /api/v1/attachments/files/5783e501-c2d9-4045-8b33-cddd1f58cc79/preview":  1
+                                     }
+                      },
+                      {
+                          "name":  "upload_text_file",
+                          "mode":  "production",
+                          "start":  1791622565397,
+                          "requests":  [
+                                           {
+                                               "method":  "POST",
+                                               "path":  "/api/v1/attachments/files",
+                                               "ms":  17,
+                                               "status":  201
+                                           }
+                                       ],
+                          "groups":  {
+                                         "POST /api/v1/attachments/files":  1
+                                     }
+                      },
+                      {
+                          "name":  "remove_draft_attachment",
+                          "mode":  "production",
+                          "start":  1791622567845,
+                          "requests":  [
+
+                                       ],
+                          "groups":  {
+
+                                     }
+                      },
+                      {
+                          "name":  "export_json",
+                          "mode":  "production",
+                          "start":  1791622571812,
+                          "requests":  [
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/data/export?format=json",
+                                               "ms":  151,
+                                               "status":  200
+                                           }
+                                       ],
+                          "groups":  {
+                                         "GET /api/v1/bbtalk/data/export?format=json":  1
+                                     }
+                      },
+                      {
+                          "name":  "validate_import",
+                          "mode":  "production",
+                          "start":  1791622574424,
+                          "requests":  [
+                                           {
+                                               "method":  "POST",
+                                               "path":  "/api/v1/bbtalk/data/validate",
+                                               "ms":  75,
+                                               "status":  200
+                                           }
+                                       ],
+                          "groups":  {
+                                         "POST /api/v1/bbtalk/data/validate":  1
+                                     }
+                      },
+                      {
+                          "name":  "confirm_import",
+                          "mode":  "production",
+                          "start":  1791622576941,
+                          "requests":  [
+                                           {
+                                               "method":  "POST",
+                                               "path":  "/api/v1/bbtalk/data/import",
+                                               "ms":  64,
+                                               "status":  200
+                                           }
+                                       ],
+                          "groups":  {
+                                         "POST /api/v1/bbtalk/data/import":  1
+                                     }
+                      },
+                      {
+                          "name":  "create_backup_small",
+                          "mode":  "production",
+                          "start":  1791622579482,
+                          "requests":  [
+                                           {
+                                               "method":  "POST",
+                                               "path":  "/api/v1/bbtalk/data/backups",
+                                               "ms":  84,
+                                               "status":  201
+                                           }
+                                       ],
+                          "groups":  {
+                                         "POST /api/v1/bbtalk/data/backups":  1
+                                     }
+                      },
+                      {
+                          "name":  "download_backup",
+                          "mode":  "production",
+                          "start":  1791622582370,
+                          "requests":  [
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/data/backups/bbtalk-20261010-085619-596963.zip",
+                                               "ms":  136,
+                                               "status":  200
+                                           }
+                                       ],
+                          "groups":  {
+                                         "GET /api/v1/bbtalk/data/backups/bbtalk-20261010-085619-596963.zip":  1
+                                     }
+                      },
+                      {
+                          "name":  "save_profile",
+                          "mode":  "production",
+                          "start":  1791622586771,
+                          "requests":  [
+                                           {
+                                               "method":  "PATCH",
+                                               "path":  "/api/v1/bbtalk/user/me",
+                                               "ms":  120,
+                                               "status":  200
+                                           }
+                                       ],
+                          "groups":  {
+                                         "PATCH /api/v1/bbtalk/user/me":  1
+                                     }
+                      },
+                      {
+                          "name":  "login_page",
+                          "mode":  "development",
+                          "start":  1791622707123,
+                          "requests":  [
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/public-config",
+                                               "ms":  49,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/auth/policy",
+                                               "ms":  1028,
+                                               "status":  "net::ERR_ABORTED"
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/auth/policy",
+                                               "ms":  1028,
+                                               "status":  200
+                                           }
+                                       ],
+                          "groups":  {
+                                         "GET /api/public-config":  1,
+                                         "GET /api/v1/bbtalk/auth/policy":  2
+                                     }
+                      },
+                      {
+                          "name":  "login_submit",
+                          "mode":  "development",
+                          "start":  1791622710147,
+                          "requests":  [
+                                           {
+                                               "method":  "POST",
+                                               "path":  "/api/v1/bbtalk/auth/token",
+                                               "ms":  421,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/public-config",
+                                               "ms":  2784,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/user/me",
+                                               "ms":  2945,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk?page=1",
+                                               "ms":  5187,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/tags",
+                                               "ms":  5187,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk?page=1",
+                                               "ms":  5205,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/tags",
+                                               "ms":  5206,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk?page=1",
+                                               "ms":  5566,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk?page=1",
+                                               "ms":  6058,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/gqDftHpQRy6EgSo09uQROg/comments",
+                                               "ms":  6224,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/FUv5qLLOReWkMS0oTO-ccQ/comments",
+                                               "ms":  6224,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/S3nGzyDoQ5SaSm1S60ENBA/comments",
+                                               "ms":  6224,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/mV6FQU4LR2iMTH_RCEhqXQ/comments",
+                                               "ms":  6224,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/fZpWyk3MQ1G-tmUdzyVCXg/comments",
+                                               "ms":  6225,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/wuf693qQQo6rtTbiQ7htIw/comments",
+                                               "ms":  6225,
+                                               "status":  200
+                                           }
+                                       ],
+                          "groups":  {
+                                         "POST /api/v1/bbtalk/auth/token":  1,
+                                         "GET /api/public-config":  1,
+                                         "GET /api/v1/bbtalk/user/me":  1,
+                                         "GET /api/v1/bbtalk?page=1":  4,
+                                         "GET /api/v1/bbtalk/tags":  2,
+                                         "GET /api/v1/bbtalk/gqDftHpQRy6EgSo09uQROg/comments":  1,
+                                         "GET /api/v1/bbtalk/FUv5qLLOReWkMS0oTO-ccQ/comments":  1,
+                                         "GET /api/v1/bbtalk/S3nGzyDoQ5SaSm1S60ENBA/comments":  1,
+                                         "GET /api/v1/bbtalk/mV6FQU4LR2iMTH_RCEhqXQ/comments":  1,
+                                         "GET /api/v1/bbtalk/fZpWyk3MQ1G-tmUdzyVCXg/comments":  1,
+                                         "GET /api/v1/bbtalk/wuf693qQQo6rtTbiQ7htIw/comments":  1
+                                     }
+                      },
+                      {
+                          "name":  "reload_feed",
+                          "mode":  "development",
+                          "start":  1791622718985,
+                          "requests":  [
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/public-config",
+                                               "ms":  105,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/user/me",
+                                               "ms":  295,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk?page=1",
+                                               "ms":  549,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/tags",
+                                               "ms":  554,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk?page=1",
+                                               "ms":  565,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/tags",
+                                               "ms":  566,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk?page=1",
+                                               "ms":  992,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/gqDftHpQRy6EgSo09uQROg/comments",
+                                               "ms":  1065,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/FUv5qLLOReWkMS0oTO-ccQ/comments",
+                                               "ms":  1065,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/S3nGzyDoQ5SaSm1S60ENBA/comments",
+                                               "ms":  1065,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/mV6FQU4LR2iMTH_RCEhqXQ/comments",
+                                               "ms":  1065,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/fZpWyk3MQ1G-tmUdzyVCXg/comments",
+                                               "ms":  1065,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/wuf693qQQo6rtTbiQ7htIw/comments",
+                                               "ms":  1065,
+                                               "status":  200
+                                           }
+                                       ],
+                          "groups":  {
+                                         "GET /api/public-config":  1,
+                                         "GET /api/v1/bbtalk/user/me":  1,
+                                         "GET /api/v1/bbtalk?page=1":  3,
+                                         "GET /api/v1/bbtalk/tags":  2,
+                                         "GET /api/v1/bbtalk/gqDftHpQRy6EgSo09uQROg/comments":  1,
+                                         "GET /api/v1/bbtalk/FUv5qLLOReWkMS0oTO-ccQ/comments":  1,
+                                         "GET /api/v1/bbtalk/S3nGzyDoQ5SaSm1S60ENBA/comments":  1,
+                                         "GET /api/v1/bbtalk/mV6FQU4LR2iMTH_RCEhqXQ/comments":  1,
+                                         "GET /api/v1/bbtalk/fZpWyk3MQ1G-tmUdzyVCXg/comments":  1,
+                                         "GET /api/v1/bbtalk/wuf693qQQo6rtTbiQ7htIw/comments":  1
+                                     }
+                      },
+                      {
+                          "name":  "tag_A_from_all",
+                          "mode":  "development",
+                          "start":  1791622722682,
+                          "requests":  [
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk?page=1\u0026tags=A",
+                                               "ms":  464,
+                                               "status":  200
+                                           }
+                                       ],
+                          "groups":  {
+                                         "GET /api/v1/bbtalk?page=1\u0026tags=A":  1
+                                     }
+                      },
+                      {
+                          "name":  "tag_A_repeat",
+                          "mode":  "development",
+                          "start":  1791622726098,
+                          "requests":  [
+
+                                       ],
+                          "groups":  {
+
+                                     }
+                      },
+                      {
+                          "name":  "tag_B_from_A",
+                          "mode":  "development",
+                          "start":  1791622728594,
+                          "requests":  [
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk?page=1\u0026tags=B",
+                                               "ms":  457,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/gqDftHpQRy6EgSo09uQROg/comments",
+                                               "ms":  519,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/FUv5qLLOReWkMS0oTO-ccQ/comments",
+                                               "ms":  519,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/S3nGzyDoQ5SaSm1S60ENBA/comments",
+                                               "ms":  519,
+                                               "status":  200
+                                           }
+                                       ],
+                          "groups":  {
+                                         "GET /api/v1/bbtalk?page=1\u0026tags=B":  1,
+                                         "GET /api/v1/bbtalk/gqDftHpQRy6EgSo09uQROg/comments":  1,
+                                         "GET /api/v1/bbtalk/FUv5qLLOReWkMS0oTO-ccQ/comments":  1,
+                                         "GET /api/v1/bbtalk/S3nGzyDoQ5SaSm1S60ENBA/comments":  1
+                                     }
+                      },
+                      {
+                          "name":  "tag_A_return",
+                          "mode":  "development",
+                          "start":  1791622731559,
+                          "requests":  [
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk?page=1\u0026tags=A",
+                                               "ms":  575,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/mV6FQU4LR2iMTH_RCEhqXQ/comments",
+                                               "ms":  624,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/fZpWyk3MQ1G-tmUdzyVCXg/comments",
+                                               "ms":  624,
+                                               "status":  200
+                                           },
+                                           {
+                                               "method":  "GET",
+                                               "path":  "/api/v1/bbtalk/wuf693qQQo6rtTbiQ7htIw/comments",
+                                               "ms":  624,
+                                               "status":  200
+                                           }
+                                       ],
+                          "groups":  {
+                                         "GET /api/v1/bbtalk?page=1\u0026tags=A":  1,
+                                         "GET /api/v1/bbtalk/mV6FQU4LR2iMTH_RCEhqXQ/comments":  1,
+                                         "GET /api/v1/bbtalk/fZpWyk3MQ1G-tmUdzyVCXg/comments":  1,
+                                         "GET /api/v1/bbtalk/wuf693qQQo6rtTbiQ7htIw/comments":  1
+                                     }
+                      }
+                  ]
+}

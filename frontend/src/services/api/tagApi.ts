@@ -13,10 +13,10 @@ function transformTag(data: any): Tag {
 
 export const tagApi = {
   async reorderTags(uids: string[]): Promise<void> {
-    await apiClient.post('/api/v1/bbtalk/tags/reorder/', { uids });
+    await apiClient.post('/api/v1/bbtalk/tags/reorder', { uids });
   },
   async getTags(): Promise<Tag[]> {
-    const data = await apiClient.get<any>('/api/v1/bbtalk/tags/');
+    const data = await apiClient.get<any>('/api/v1/bbtalk/tags');
     // API 返回分页结果
     const results = data.results || data;
     return (Array.isArray(results) ? results : []).map(transformTag);
@@ -28,7 +28,7 @@ export const tagApi = {
       color: tag.color,
       sort_order: tag.sortOrder,
     };
-    const data = await apiClient.post<any>('/api/v1/bbtalk/tags/', payload);
+    const data = await apiClient.post<any>('/api/v1/bbtalk/tags', payload);
     return transformTag(data);
   },
 
@@ -38,11 +38,11 @@ export const tagApi = {
     if (tag.color !== undefined) payload.color = tag.color;
     if (tag.sortOrder !== undefined) payload.sort_order = tag.sortOrder;
     
-    const data = await apiClient.patch<any>(`/api/v1/bbtalk/tags/${uid}/`, payload);
+    const data = await apiClient.patch<any>(`/api/v1/bbtalk/tags/${uid}`, payload);
     return transformTag(data);
   },
 
   async deleteTag(uid: string): Promise<void> {
-    await apiClient.delete(`/api/v1/bbtalk/tags/${uid}/`);
+    await apiClient.delete(`/api/v1/bbtalk/tags/${uid}`);
   },
 };

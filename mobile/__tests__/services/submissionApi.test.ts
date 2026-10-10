@@ -25,8 +25,8 @@ it('sends the reviewed edit version and exposes status lookup without posting', 
   (apiClient.patch as jest.Mock).mockResolvedValue(record);
   (apiClient.get as jest.Mock).mockResolvedValue(record);
   await bbtalkApi.updateBBTalk('record', { content: 'mine', attachments: [] }, record.update_time);
-  expect(apiClient.patch).toHaveBeenCalledWith('/api/v1/bbtalk/record/', { content: 'mine', attachments: [] }, { 'If-Match': record.update_time });
+  expect(apiClient.patch).toHaveBeenCalledWith('/api/v1/bbtalk/record', { content: 'mine', attachments: [] }, { 'If-Match': record.update_time });
   expect((await bbtalkApi.submissionStatus('saved_key')).id).toBe('record');
-  expect(apiClient.get).toHaveBeenCalledWith('/api/v1/bbtalk/submission-status/', { key: 'saved_key' });
+  expect(apiClient.get).toHaveBeenCalledWith('/api/v1/bbtalk/submission-status', { key: 'saved_key' });
   expect(apiClient.post).not.toHaveBeenCalled();
 });

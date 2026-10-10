@@ -26,7 +26,7 @@ export default function DesktopAuthorizePage() {
   const authorize = async () => {
     setBusy(true); setError('');
     try {
-      const result = await apiClient.post<{ code: string }>('/api/v1/bbtalk/auth/desktop/authorize/', {
+      const result = await apiClient.post<{ code: string }>('/api/v1/bbtalk/auth/desktop/authorize', {
         redirect_uri: redirect, code_challenge: challenge, code_challenge_method: 'S256',
       });
       returnToDesktop({ code: result.code });

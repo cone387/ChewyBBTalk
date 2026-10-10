@@ -133,7 +133,7 @@ describe('StorageSettingsScreen actions', () => {
     await mountScreen();
     await press('激活配置 MinIO');
     await settle();
-    expect(mockApi.post).toHaveBeenCalledWith('/api/v1/bbtalk/settings/storage/2/activate/');
+    expect(mockApi.post).toHaveBeenCalledWith('/api/v1/bbtalk/settings/storage/2/activate');
     expect(mockXAlert).toHaveBeenCalledWith('成功', '新上传的附件将使用此配置，已有附件保持原存储位置');
     expect(mockApi.get).toHaveBeenCalledTimes(2);
   });
@@ -142,7 +142,7 @@ describe('StorageSettingsScreen actions', () => {
     await mountScreen();
     await press('使用服务器本地存储');
     await settle();
-    expect(mockApi.post).toHaveBeenCalledWith('/api/v1/bbtalk/settings/storage/deactivate-all/');
+    expect(mockApi.post).toHaveBeenCalledWith('/api/v1/bbtalk/settings/storage/deactivate-all');
     expect(mockXAlert).toHaveBeenCalledWith('成功', '新上传的附件将使用服务器存储，已有附件保持原存储位置');
   });
 
@@ -183,7 +183,7 @@ describe('StorageSettingsScreen actions', () => {
     expect(mockApi.delete).not.toHaveBeenCalled();
     await act(async () => { await mockXConfirm.mock.calls[0]![2](); });
     await settle();
-    expect(mockApi.delete).toHaveBeenCalledWith('/api/v1/bbtalk/settings/storage/2/delete/');
+    expect(mockApi.delete).toHaveBeenCalledWith('/api/v1/bbtalk/settings/storage/2');
     expect(tappable('删除配置 MinIO')).toBeUndefined();
   });
 });
@@ -209,7 +209,7 @@ describe('StorageSettingsScreen creation', () => {
     await type('端点 URL（可选）', 'https://minio.local');
     await press('创建');
     await settle();
-    expect(mockApi.post).toHaveBeenCalledWith('/api/v1/bbtalk/settings/storage/create/', {
+    expect(mockApi.post).toHaveBeenCalledWith('/api/v1/bbtalk/settings/storage', {
       name: '新OSS', s3_access_key_id: 'ak-new', s3_secret_access_key: 'sk-new',
       s3_bucket_name: 'bucket-new', s3_region_name: 'us-east-1', s3_endpoint_url: 'https://minio.local',
       storage_type: 's3',

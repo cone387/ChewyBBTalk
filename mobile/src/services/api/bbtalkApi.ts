@@ -1,6 +1,6 @@
 import { apiClient } from './apiClient';
 import { getApiBaseUrl } from '../../config';
-import type { BBTalk, PaginatedResponse, Attachment, Comment } from '../../types';
+import type { BBTalk, PaginatedResponse, Attachment, Comment, CommentPage } from '../../types';
 
 function transformAttachment(data: any): Attachment {
   const apiBase = getApiBaseUrl();
@@ -24,7 +24,7 @@ function transformAttachment(data: any): Attachment {
     }
   } else if (data.uid || data.id) {
     // 用 uid 构造 preview URL
-    url = `${apiBase}/api/v1/attachments/files/${data.uid || data.id}/preview/`;
+    url = `${apiBase}/api/v1/attachments/files/${data.uid || data.id}/preview`;
   } else if (data.url && (data.url.startsWith('http') || data.url.startsWith('/'))) {
     // 兼容旧数据：url 是完整 URL 或相对路径
     url = data.url.startsWith('/') ? apiBase + data.url : data.url;
@@ -38,6 +38,12 @@ function transformAttachment(data: any): Attachment {
     fileSize: data.file_size,
     mimeType: data.mime_type,
   };
+}
+
+function transformComment(c: any): Comment {
+  return { uid: c.uid, user: c.user, userDisplayName: c.user_display_name || '',
+    userAvatar: c.user_avatar || '', userUsername: c.user_username || '',
+    content: c.content, createdAt: c.create_time, updatedAt: c.update_time };
 }
 
 export function transformBBTalk(data: any): BBTalk {
@@ -56,6 +62,8 @@ export function transformBBTalk(data: any): BBTalk {
     context: data.context || {},
     isPinned: data.is_pinned || false,
     commentCount: data.comment_count || 0,
+    commentPreview: Array.isArray(data.comment_preview) ? data.comment_preview.map(transformComment) : undefined,
+    commentsRevision: data.comments_revision,
     createdAt: data.create_time,
     updatedAt: data.update_time,
   };
@@ -65,12 +73,12 @@ export const bbtalkApi = {
   async getBBTalks(params?: {
     page?: number;
     search?: string;
-    tags__name?: string;
-    create_time__date?: string;
-    create_time__gte?: string;
-    create_time__lte?: string;
-  }): Promise<PaginatedResponse<BBTalk>> {
-    const data = await apiClient.get<any>('/api/v1/bbtalk/', params);
+    tags?: string[];
+    created_on?: string;
+    created_from?: string;
+    created_to?: string;
+  }, options?: { signal?: AbortSignal }): Promise<PaginatedResponse<BBTalk>> {
+    const data = await (options ? apiClient.get<any>('/api/v1/bbtalk', params, options) : apiClient.get<any>('/api/v1/bbtalk', params));
     return {
       count: data.count,
       next: data.next,
@@ -89,7 +97,7 @@ export const bbtalkApi = {
   }): Promise<BBTalk> {
     const payload: any = {
       content: data.content,
-      post_tags: data.tags?.join(',') || undefined,
+      tags: data.tags?.length ? data.tags : undefined,
       context: {
         ...data.context,
         source: { client: 'ChewyBBTalk Mobile', version: '1.0', platform: 'mobile' },
@@ -105,14 +113,14 @@ export const bbtalkApi = {
     }
     if (data.visibility) payload.visibility = data.visibility;
 
-    const response = await apiClient.post<any>('/api/v1/bbtalk/', payload, data.submissionKey ? { 'Idempotency-Key': data.submissionKey } : undefined);
+    const response = await apiClient.post<any>('/api/v1/bbtalk', payload, data.submissionKey ? { 'Idempotency-Key': data.submissionKey } : undefined);
     return transformBBTalk(response);
   },
 
   async updateBBTalk(uid: string, bbtalk: Partial<BBTalk>, expectedUpdatedAt?: string): Promise<BBTalk> {
     const payload: any = {};
     if (bbtalk.content !== undefined) payload.content = bbtalk.content;
-    if (bbtalk.tags !== undefined) payload.post_tags = bbtalk.tags.map(t => t.name).join(',');
+    if (bbtalk.tags !== undefined) payload.tags = bbtalk.tags.map(t => t.name);
     if (bbtalk.visibility) payload.visibility = bbtalk.visibility;
     if (bbtalk.attachments !== undefined) {
       payload.attachments = bbtalk.attachments.map(a => ({
@@ -121,20 +129,20 @@ export const bbtalkApi = {
         file_size: a.fileSize, mime_type: a.mimeType,
       }));
     }
-    const data = await apiClient.patch<any>(`/api/v1/bbtalk/${uid}/`, payload, expectedUpdatedAt ? { 'If-Match': expectedUpdatedAt } : undefined);
+    const data = await apiClient.patch<any>(`/api/v1/bbtalk/${uid}`, payload, expectedUpdatedAt ? { 'If-Match': expectedUpdatedAt } : undefined);
     return transformBBTalk(data);
   },
 
   async submissionStatus(key: string): Promise<BBTalk> {
-    return transformBBTalk(await apiClient.get<any>('/api/v1/bbtalk/submission-status/', { key }));
+    return transformBBTalk(await apiClient.get<any>('/api/v1/bbtalk/submission-status', { key }));
   },
 
   async deleteBBTalk(uid: string): Promise<void> {
-    await apiClient.delete(`/api/v1/bbtalk/${uid}/`);
+    await apiClient.delete(`/api/v1/bbtalk/${uid}`);
   },
 
   async getPublicBBTalks(params?: { page?: number }): Promise<PaginatedResponse<BBTalk>> {
-    const data = await apiClient.get<any>('/api/v1/bbtalk/public/', params);
+    const data = await apiClient.get<any>('/api/v1/bbtalk/public', params);
     return {
       count: data.count, next: data.next, previous: data.previous,
       results: data.results.map(transformBBTalk),
@@ -142,16 +150,16 @@ export const bbtalkApi = {
   },
 
   async togglePin(uid: string): Promise<BBTalk> {
-    const data = await apiClient.post<any>(`/api/v1/bbtalk/${uid}/pin/`);
+    const data = await apiClient.post<any>(`/api/v1/bbtalk/${uid}/pin`);
     return transformBBTalk(data);
   },
 
   async getDateCounts(params?: { year?: number; month?: number }): Promise<{ date: string; count: number }[]> {
-    return apiClient.get<{ date: string; count: number }[]>('/api/v1/bbtalk/date-counts/', params);
+    return apiClient.get<{ date: string; count: number }[]>('/api/v1/bbtalk/date-counts', params);
   },
 
   async getComments(bbtalkUid: string): Promise<Comment[]> {
-    const data = await apiClient.get<any[]>(`/api/v1/bbtalk/${bbtalkUid}/comments/`);
+    const data = await apiClient.get<any[]>(`/api/v1/bbtalk/${bbtalkUid}/comments`);
     return data.map((c: any) => ({
       uid: c.uid,
       user: c.user,
@@ -164,8 +172,15 @@ export const bbtalkApi = {
     }));
   },
 
+  async getCommentPage(bbtalkUid: string, page = 1): Promise<CommentPage> {
+    const data = await apiClient.get<any>(`/api/v1/bbtalk/${bbtalkUid}/comments`, { page, page_size: 20 });
+    // Older servers ignore pagination and return their legacy array.
+    if (Array.isArray(data)) return { count: data.length, next: null, previous: null, results: data.map(transformComment) };
+    return { ...data, results: data.results.map(transformComment) };
+  },
+
   async createComment(bbtalkUid: string, content: string): Promise<Comment> {
-    const data = await apiClient.post<any>(`/api/v1/bbtalk/${bbtalkUid}/comments/`, { content });
+    const data = await apiClient.post<any>(`/api/v1/bbtalk/${bbtalkUid}/comments`, { content });
     return {
       uid: data.uid,
       user: data.user,
@@ -179,6 +194,6 @@ export const bbtalkApi = {
   },
 
   async deleteComment(bbtalkUid: string, commentUid: string): Promise<void> {
-    await apiClient.delete(`/api/v1/bbtalk/${bbtalkUid}/comments/${commentUid}/`);
+    await apiClient.delete(`/api/v1/bbtalk/${bbtalkUid}/comments/${commentUid}`);
   },
 };

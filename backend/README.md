@@ -111,8 +111,10 @@ uv run python -m cli shell
 
 ## 接口和数据
 
-沿用 `/api/v1/bbtalk/`、`/api/v1/attachments/files/` 路径及客户端契约，支持
-JSON 后缀、分页、持久幂等回执、条件编辑、桌面 PKCE 授权、密码恢复和附件 Range。
+规范入口为 `/api/v1/bbtalk`、`/api/v1/attachments/files`，通过 Pydantic 声明请求和响应。
+旧尾斜杠路径及 JSON 后缀保留兼容；参数错误采用 FastAPI 422，三端已同步适配。
+支持分页、持久幂等回执、条件编辑、桌面 PKCE 授权、密码恢复和附件 Range。
+路径、参数映射和 PUT/PATCH 语义见 [FastAPI 接口契约](../docs/fastapi-contract.md)。
 Swagger：`/api/schema/swagger-ui/`；ReDoc：`/api/schema/redoc/`；
 OpenAPI：`/api/schema/`；存活检查：`/healthz`。
 
@@ -130,7 +132,7 @@ backend/
 │   └── routes/             # 认证、记录、附件、备份、状态及公共页面
 ├── services/               # 账号、认证和记录的复用逻辑
 ├── models/                 # SQLAlchemy 数据库模型
-├── schemas/                # 按业务划分的请求模型
+├── schemas/                # 按业务划分的请求、查询和响应模型
 ├── core/                   # 环境配置和业务异常
 ├── database/               # 数据库连接、会话及迁移入口
 │   └── migrations/         # Alembic 历史版本及冻结表结构

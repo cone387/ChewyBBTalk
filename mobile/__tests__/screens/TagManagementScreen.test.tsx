@@ -16,7 +16,7 @@ jest.mock('../../src/services/api/tagApi', () => ({
   },
 }));
 jest.mock('../../src/store/hooks', () => ({ useAppDispatch: () => mockDispatch }));
-jest.mock('../../src/store/slices/tagSlice', () => ({ get loadTags() { return mockLoadTagsThunk; } }));
+jest.mock('../../src/store/slices/tagSlice', () => ({ get loadTags() { return mockLoadTagsThunk; }, setTags: (payload: any) => ({ type: 'tag/setTags', payload }) }));
 jest.mock('../../src/utils/crossAlert', () => ({
   xAlert: (...args: any[]) => mockXAlert(...args),
   xConfirm: (...args: any[]) => mockXConfirm(...args),
@@ -128,7 +128,9 @@ describe('TagManagementScreen editing', () => {
     await press('保存');
     await settle();
     expect(mockTagApi.updateTag).toHaveBeenCalledWith('a', { name: '新名字', color: '#8B5CF6' });
-    expect(mockLoadTagsThunk).toHaveBeenCalled();
+    expect(mockLoadTagsThunk).not.toHaveBeenCalled();
+    expect(mockTagApi.getTags).toHaveBeenCalledTimes(2);
+    expect(mockDispatch).toHaveBeenLastCalledWith({ type: 'tag/setTags', payload: await mockTagApi.getTags.mock.results[1].value });
     expect(tappable('保存')).toBeUndefined();
     expect(tappable('编辑标签 a')).toBeDefined();
   });
@@ -180,7 +182,9 @@ describe('TagManagementScreen deletion', () => {
     await act(async () => { mockXActionSheet.mock.calls[0]![2](0); });
     await settle();
     expect(mockTagApi.deleteTag).toHaveBeenCalledWith('b', false);
-    expect(mockLoadTagsThunk).toHaveBeenCalled();
+    expect(mockLoadTagsThunk).not.toHaveBeenCalled();
+    expect(mockTagApi.getTags).toHaveBeenCalledTimes(2);
+    expect(mockDispatch).toHaveBeenLastCalledWith({ type: 'tag/setTags', payload: await mockTagApi.getTags.mock.results[1].value });
   });
 
   it('confirms before cascading to the linked records', async () => {

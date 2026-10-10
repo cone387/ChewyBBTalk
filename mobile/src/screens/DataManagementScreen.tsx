@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../services/apiErrorMessage';
 import React, { useState, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -76,7 +77,7 @@ export default function DataManagementScreen() {
     busyRef.current = true; setExporting(format);
     try {
       const token = await getAccessToken();
-      const res = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/data/export/?export_format=${format}`, {
+      const res = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/data/export?format=${format}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) { xAlert('导出失败', `服务器返回 ${res.status}`); return; }
@@ -112,7 +113,7 @@ export default function DataManagementScreen() {
         const blob = await (await fetch(picked.uri)).blob();
         const formData = new FormData();
         formData.append('file', new File([blob], picked.name, { type: mimeType }));
-        const res = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/data/import/`, {
+        const res = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/data/import`, {
           method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData,
         });
         if (!res.ok) throw new Error(`导入失败，服务器返回 ${res.status}`);
@@ -121,7 +122,7 @@ export default function DataManagementScreen() {
         // Native: 用 fetch + FormData，RN fetch 原生支持 file:// URI
         const formData = new FormData();
         formData.append('file', { uri: picked.uri, name: picked.name, type: mimeType } as any);
-        const res = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/data/import/`, {
+        const res = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/data/import`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
           body: formData,
@@ -137,7 +138,7 @@ export default function DataManagementScreen() {
           s.errors?.length ? `错误: ${s.errors.length} 条` : '',
         ].filter(Boolean).join('\n'));
       } else {
-        xAlert('导入失败', data.error || '未知错误');
+        xAlert('导入失败', apiErrorMessage(data, '未知错误'));
       }
     } catch (e: any) { xAlert('导入失败', e.message); }
     finally { busyRef.current = false; setImporting(false); }

@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../shared/apiErrorMessage';
 import { createServer } from 'node:http';
 import { randomBytes, createHash } from 'node:crypto';
 import { shell } from 'electron';
@@ -42,14 +43,14 @@ export async function browserLogin(serverUrl = getApiUrl()): Promise<{ ok: boole
       if (!code || !/^[A-Za-z0-9_-]{43}$/.test(code)) { res.writeHead(400); res.end('授权码无效'); return; }
       exchanging = true;
       try {
-        const response = await fetch(`${apiUrl}/api/v1/bbtalk/auth/desktop/exchange/`, {
+        const response = await fetch(`${apiUrl}/api/v1/bbtalk/auth/desktop/exchange`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ code, code_verifier: verifier, redirect_uri: redirectUri }),
           signal: AbortSignal.any([controller.signal, AbortSignal.timeout(20_000)]),
         });
         const data = await response.json().catch(() => ({}));
         if (finished) return;
-        if (!response.ok) throw new Error(data.detail || '授权失败，请重新发起登录');
+        if (!response.ok) throw new Error(apiErrorMessage(data, '授权失败，请重新发起登录'));
         if (generation !== getSessionGeneration()) throw new Error('会话已改变，请重新登录');
         acceptTokens(data, apiUrl, generation);
         res.end('登录成功，请返回 ChewyBBTalk。此页面可以关闭。');

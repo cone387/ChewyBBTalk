@@ -31,7 +31,7 @@ it('stages a private upload in a hashed account directory and broadcasts complet
   expect(state.write.mock.calls[0][0]).toMatch(/draft-files[\\/][a-f0-9]{64}[\\/][a-f0-9-]{36}$/);
   expect(staged.type).toBe('image');
   const [url, init, generation] = state.fetch.mock.calls[0];
-  expect(url).toBe('/api/v1/attachments/files/');
+  expect(url).toBe('/api/v1/attachments/files');
   expect(init.body.get('is_public')).toBe('false');
   expect(generation).toBe(1);
   expect(state.send).toHaveBeenCalledWith('uploads:changed', state.session.scope);

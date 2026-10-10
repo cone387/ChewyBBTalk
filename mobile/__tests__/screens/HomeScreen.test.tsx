@@ -231,7 +231,7 @@ const CommentModalStub = (props: any) => {
   return (
     <View>
       <Text>评论框 {props.bbtalkId}</Text>
-      <TouchableOpacity accessibilityLabel="完成评论" onPress={() => props.onCommentAdded({ id: 'c1', content: '好评', createdAt: '2026-10-08T00:00:00Z' } as unknown as Comment)} />
+      <TouchableOpacity accessibilityLabel="完成评论" onPress={() => props.onCommentAdded({ uid: 'c1', content: '好评', createdAt: '2026-10-08T00:00:00Z', updatedAt: '', user: 1, userUsername: 'alice', userDisplayName: '', userAvatar: '' } as Comment)} />
       <TouchableOpacity accessibilityLabel="关闭评论框" onPress={props.onClose} />
     </View>
   );
@@ -474,7 +474,7 @@ describe('HomeScreen comments and media', () => {
     await press('评论 a');
     expect(modalVisible('评论框 a')).toBe(true);
     await press('完成评论');
-    expect(mockSlice.incrementCommentCount).toHaveBeenCalledWith('a');
+    expect(mockSlice.incrementCommentCount).toHaveBeenCalledWith({ id: 'a', comment: expect.objectContaining({ uid: expect.any(String) }) });
     expect(hasText('新评论 好评')).toBe(true);
     await press('关闭评论框');
     expect(modalVisible('评论框')).toBe(false);
@@ -896,4 +896,28 @@ describe('HomeScreen ui details', () => {
     const fab = tree.root.findAllByType('View').find((node: any) => node.props.accessibilityLabel === '新建碎碎念');
     expect(fab.props.style[fab.props.style.length - 1].opacity).toBe(0.85);
   });
+});
+
+it('reloads a selected tag only when its resolved name changes', async () => {
+  await mountHome({ selectedTag: 't1', selectedDate: null });
+  const initial = mockSlice.loadBBTalks.mock.calls.length;
+  mockStoreState.value.tag.tags = mockStoreState.value.tag.tags.map((t: any) => ({ ...t, bbtalkCount: 99 }));
+  await act(async () => tree.update(<HomeScreen selectedTag="t1" selectedDate={null} />));
+  expect(mockSlice.loadBBTalks).toHaveBeenCalledTimes(initial);
+  mockStoreState.value.tag.tags = mockStoreState.value.tag.tags.map((t: any) => ({ ...t, name: 'renamed' }));
+  await act(async () => tree.update(<HomeScreen selectedTag="t1" selectedDate={null} />));
+  expect(mockSlice.loadBBTalks).toHaveBeenCalledTimes(initial + 1);
+  expect(mockSlice.loadBBTalks).toHaveBeenLastCalledWith({ search: undefined, tags: ['renamed'], date: undefined });
+});
+it('coalesces overlapping pull refreshes into one list and tag refresh', async () => {
+  await mountHome();
+  let finish!: () => void;
+  mockDispatch.mockImplementation((action: any) => action.type === 'bbtalk/load' ? new Promise<void>(resolve => { finish = resolve; }) : Promise.resolve(action));
+  mockSlice.loadBBTalks.mockClear(); mockLoadTagsThunk.mockClear();
+  const refresh = tree.root.findByType('RefreshControl').props.onRefresh;
+  let one: any; let two: any;
+  act(() => { one = refresh(); two = refresh(); });
+  expect(mockSlice.loadBBTalks).toHaveBeenCalledTimes(1);
+  await act(async () => { finish(); await Promise.all([one, two]); });
+  expect(mockLoadTagsThunk).toHaveBeenCalledTimes(1);
 });

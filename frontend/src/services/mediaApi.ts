@@ -1,3 +1,4 @@
+import { apiErrorMessage } from './apiErrorMessage';
 import { getPublicSetting } from '../config';
 import { apiClient } from './api/apiClient';
 import { getAccessToken } from './auth';
@@ -87,7 +88,7 @@ export const attachmentApi = {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const response = await fetch(`${API_BASE_URL}/api/v1/attachments/files/`, {
+    const response = await fetch(`${API_BASE_URL}/api/v1/attachments/files`, {
       method: 'POST',
       headers,
       body: formData,
@@ -100,7 +101,7 @@ export const attachmentApi = {
       // DRF serializer 验证错误格式: {"file": ["错误信息"]} 或 {"detail": "错误信息"}
       let message = response.status === 413 ? '文件太大，请压缩后重试' : '上传失败，请重试';
       if (error.detail) {
-        message = error.detail;
+        message = apiErrorMessage(error, '上传失败');
       } else if (error.file) {
         // serializer field-level 错误
         message = Array.isArray(error.file) ? error.file.join('; ') : String(error.file);
@@ -128,14 +129,16 @@ export const attachmentApi = {
    * 删除文件
    */
   async delete(uid: string): Promise<void> {
-    await apiClient.delete(`/api/v1/attachments/files/${uid}/`);
+    await apiClient.delete(`/api/v1/attachments/files/${uid}`);
+    const { imageCacheService } = await import('./cache/imageCache');
+    imageCacheService.invalidateProtected();
   },
 
   /**
    * 获取文件列表
    */
   async list(): Promise<Attachment[]> {
-    const data = await apiClient.get<any>('/api/v1/attachments/files/');
+    const data = await apiClient.get<any>('/api/v1/attachments/files');
     const results = data.results || data;
     return (Array.isArray(results) ? results : []).map(transformAttachment);
   },

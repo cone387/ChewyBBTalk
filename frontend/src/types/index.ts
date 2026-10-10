@@ -25,6 +25,8 @@ export interface BBTalk {
   context?: Record<string, any>;
   isPinned?: boolean;
   commentCount?: number;
+  commentPreview?: Comment[];
+  commentsRevision?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -38,6 +40,10 @@ export interface Comment {
   content: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface CommentPage extends PaginatedResponse<Comment> {
+  revision: string;
 }
 
 // 用于发布 BBTalk 的表单数据

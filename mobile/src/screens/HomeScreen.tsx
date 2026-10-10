@@ -54,6 +54,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
 
   const { hasLoadedFromNetwork, isFiltered, bbtalks, isLoading, hasMore } = useAppSelector(s => s.bbtalk);
   const { tags } = useAppSelector(s => s.tag);
+  const selectedTagName = selectedTag ? tags.find(t => t.id === selectedTag)?.name : null;
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const loadingMoreRef = useRef(false);
@@ -121,7 +122,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
   const handleCommentAdded = useCallback((comment: Comment) => {
     if (commentTargetId) {
       setLastAddedComment({ bbtalkId: commentTargetId, comment });
-      dispatch(incrementCommentCount(commentTargetId));
+      dispatch(incrementCommentCount({ id: commentTargetId, comment }));
     }
   }, [commentTargetId, dispatch]);
   const tagSwipe = useTagSwipe({ tags, selectedTag, showTagTabs, onSelectTag });
@@ -234,17 +235,30 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
   }, [bbtalks, hasLoadedFromNetwork, isFiltered, isLoading, isOffline, syncToCache]);
   useEffect(() => {
     LayoutAnimation.configureNext(LayoutAnimation.create(200, 'easeInEaseOut', 'opacity'));
-    const tagNames = selectedTag ? [tags.find(t => t.id === selectedTag)?.name].filter(Boolean) as string[] : [];
+    const tagNames = selectedTagName ? [selectedTagName] : [];
     dispatch(loadBBTalks({ search: activeSearch || undefined, tags: tagNames, date: selectedDate || undefined }));
-  }, [selectedTag, selectedDate, activeSearch]);
+  }, [selectedTagName, selectedDate, activeSearch]);
 
+  const refreshRequest = useRef<{ key: string; promise: Promise<void> } | null>(null);
   const onRefresh = useCallback(async () => {
-    if (isOffline) return; // Disabled when offline
+    if (isOffline) return;
+    const key = JSON.stringify([selectedTagName, selectedDate, activeSearch]);
+    if (refreshRequest.current?.key === key) return refreshRequest.current.promise;
     setRefreshing(true);
-    const tagNames = selectedTag ? [tags.find(t => t.id === selectedTag)?.name].filter(Boolean) as string[] : [];
-    await dispatch(loadBBTalks({ search: activeSearch || undefined, tags: tagNames, date: selectedDate || undefined }));
-    dispatch(loadTags()); setRefreshing(false);
-  }, [dispatch, selectedTag, selectedDate, tags, isOffline, activeSearch]);
+    let promise!: Promise<void>;
+    promise = (async () => {
+      try {
+        await Promise.all([
+          dispatch(loadBBTalks({ search: activeSearch || undefined, tags: selectedTagName ? [selectedTagName] : [], date: selectedDate || undefined })),
+          dispatch(loadTags()),
+        ]);
+      } finally {
+        if (refreshRequest.current?.promise === promise) { refreshRequest.current = null; setRefreshing(false); }
+      }
+    })();
+    refreshRequest.current = { key, promise };
+    return promise;
+  }, [dispatch, selectedTagName, selectedDate, isOffline, activeSearch]);
   onRefreshRef.current = onRefresh;
   const foregroundRefreshAt = useRef(0);
   const foregroundRefresh = useCallback(() => {
@@ -268,11 +282,11 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
     if (isOffline) return; // Disabled when offline
     if (loadingMoreRef.current || !hasMore || isLoading) return;
     loadingMoreRef.current = true; setLoadingMore(true);
-    const tagNames = selectedTag ? [tags.find(t => t.id === selectedTag)?.name].filter(Boolean) as string[] : [];
+    const tagNames = selectedTagName ? [selectedTagName] : [];
     dispatch(loadMoreBBTalks({ search: activeSearch || undefined, tags: tagNames, date: selectedDate || undefined })).finally(() => {
       loadingMoreRef.current = false; setLoadingMore(false);
     });
-  }, [dispatch, hasMore, isLoading, selectedTag, selectedDate, tags, isOffline, activeSearch]);
+  }, [dispatch, hasMore, isLoading, selectedTagName, selectedDate, isOffline, activeSearch]);
 
   const showLocation = useCallback((loc: { latitude: number; longitude: number }) => {
     xConfirm('定位信息', `纬度: ${loc.latitude.toFixed(6)}\n经度: ${loc.longitude.toFixed(6)}`, () => {
@@ -306,7 +320,6 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
     batch.selectAll(filteredBBTalks.map(b => b.id));
   }, [batch.selectAll, filteredBBTalks]);
 
-  const selectedTagName = selectedTag ? tags.find(t => t.id === selectedTag)?.name : null;
   const filterLabel = selectedDate ? selectedDate : selectedTagName || null;
 
   const handleVoiceFinishAndClose = useCallback(async (result: { text: string; audioUri: string | null; audioDuration: number }) => {

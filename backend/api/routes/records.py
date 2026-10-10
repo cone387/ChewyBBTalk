@@ -1,14 +1,16 @@
 import hashlib
 import json
-from datetime import datetime
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError, OperationalError
 
+from api.compat import reject_legacy_query_conflicts
 from api.dependencies import DB, CurrentUser
 from api.filters import filter_records
 from api.pagination import paginate
+from api.parameters import RecordUID, Revision
 from core.errors import APIError, fail
 from models import (
     BBTalk,
@@ -16,13 +18,35 @@ from models import (
     RecordTag,
     SubmissionReceipt,
     Tag,
+    User,
     now,
     tag_color,
 )
-from schemas.records import CommentInput, RecordInput, RecordPatch, TagInput
+from schemas.query import CommentQuery, DateCountsQuery, RecordQuery, TagQuery
+from schemas.records import (
+    CommentInput,
+    RecordInput,
+    RecordPatch,
+    TagInput,
+    TagPatch,
+    TagReorderInput,
+)
+from schemas.responses import (
+    CommentOutput,
+    CommentPage,
+    DateCountOutput,
+    MessageOutput,
+    RecordOutput,
+    RecordPage,
+    SuccessOutput,
+    TagCountOutput,
+    TagDeleteOutput,
+    TagOutput,
+)
 from services.records import (
     attachment_ids,
     comment_data,
+    comment_summaries,
     get_tag,
     owned_record,
     record_data,
@@ -31,59 +55,68 @@ from services.records import (
     sync_visibility,
     tag_data,
     validate_attachments,
-    validate_key,
 )
 
 router = APIRouter(prefix='/api/v1/bbtalk', tags=['BBTalk'])
 
 
-@router.get('/')
-def feed(request: Request, db: DB, user: CurrentUser):
-    ordering = request.query_params.get('ordering', '-update_time')
+@router.get('', response_model=RecordPage, dependencies=[Depends(reject_legacy_query_conflicts)])
+def feed(request: Request, db: DB, user: CurrentUser, params: Annotated[RecordQuery, Query()]):
+    ordering = params.ordering
     sort = BBTalk.create_time if ordering.lstrip('-') == 'create_time' else BBTalk.update_time
-    query = filter_records(select(BBTalk).where(BBTalk.user_id == user.id), request).order_by(
-        BBTalk.is_pinned.desc(), sort.desc() if ordering.startswith('-') else sort.asc(), BBTalk.id.desc()
+    query = filter_records(
+        select(BBTalk).where(BBTalk.user_id == user.id), params, request.app.state.settings
+    ).order_by(
+        BBTalk.is_pinned.desc(),
+        sort.desc() if ordering.startswith('-') else sort.asc(),
+        BBTalk.id.desc(),
     )
-    result = paginate(db, query, request)
-    result['total_count'] = db.scalar(select(func.count()).select_from(BBTalk).where(BBTalk.user_id == user.id))
+    result = paginate(db, query, request, params)
+    result['total_count'] = db.scalar(
+        select(func.count()).select_from(BBTalk).where(BBTalk.user_id == user.id)
+    )
     result['results'] = record_data(db, result['results'])
     return result
 
 
-@router.get('/public/')
-def public_feed(request: Request, db: DB):
-    ordering = request.query_params.get('ordering', '-update_time')
+@router.get(
+    '/public', response_model=RecordPage, dependencies=[Depends(reject_legacy_query_conflicts)]
+)
+def public_feed(request: Request, db: DB, params: Annotated[RecordQuery, Query()]):
+    ordering = params.ordering
     sort = BBTalk.create_time if ordering.lstrip('-') == 'create_time' else BBTalk.update_time
-    query = filter_records(select(BBTalk).where(BBTalk.visibility == 'public'), request).order_by(
-        sort.desc() if ordering.startswith('-') else sort.asc(), BBTalk.id.desc()
+    query = filter_records(
+        select(BBTalk).where(BBTalk.visibility == 'public'), params, request.app.state.settings
+    ).order_by(sort.desc() if ordering.startswith('-') else sort.asc(), BBTalk.id.desc())
+    result = paginate(db, query, request, params)
+    result['total_count'] = db.scalar(
+        select(func.count()).select_from(BBTalk).where(BBTalk.visibility == 'public')
     )
-    result = paginate(db, query, request)
-    result['total_count'] = db.scalar(select(func.count()).select_from(BBTalk).where(BBTalk.visibility == 'public'))
     result['results'] = record_data(db, result['results'])
     return result
 
 
-@router.get('/public/{uid}/')
-def public_record(uid: str, db: DB):
+@router.get('/public/{uid}', response_model=RecordOutput)
+def public_record(uid: RecordUID, db: DB):
     record = db.scalar(select(BBTalk).where(BBTalk.uid == uid, BBTalk.visibility == 'public'))
     if not record:
         raise APIError(404, {'detail': '未找到。'})
     return record_data(db, [record])[0]
 
 
-@router.get('/public/{uid}/comments/')
-def public_comments(uid: str, db: DB):
+@router.get('/public/{uid}/comments', response_model=list[CommentOutput] | CommentPage)
+def public_comments(
+    uid: RecordUID, request: Request, db: DB, params: Annotated[CommentQuery, Query()]
+):
     record = db.scalar(select(BBTalk).where(BBTalk.uid == uid, BBTalk.visibility == 'public'))
     if not record:
         raise APIError(404, {'detail': '未找到。'})
-    return [comment_data(db, item) for item in db.scalars(
-        select(Comment).where(Comment.bbtalk_id == record.id).order_by(Comment.create_time)
-    )]
+    return comment_list(db, record.id, request, params)
 
 
 def replay(db, user, receipt, response, payload_hash=None):
     response.headers['Cache-Control'] = 'no-store'
-    if payload_hash and receipt.payload_hash != payload_hash:
+    if payload_hash and receipt.payload_hash not in payload_hash:
         fail(409, '此提交标识已用于不同内容，请先核对原提交结果', code='submission_conflict')
     record = db.get(BBTalk, receipt.record_id) if receipt.record_id else None
     if not record or record.user_id != user.id:
@@ -94,26 +127,53 @@ def replay(db, user, receipt, response, payload_hash=None):
 
 
 async def raw_json(request: Request):
-    return await request.json()
+    try:
+        return await request.json()
+    except (ValueError, UnicodeError):
+        # The typed body produces FastAPI's validation error for non-JSON content.
+        return None
 
 
-@router.post('/', status_code=201)
+def submission_hashes(original):
+    """Preserve receipts when a client upgrades only the tags wire representation."""
+    variants = [original]
+    if 'tags' in original and not any(',' in name for name in original['tags']):
+        legacy = {key: value for key, value in original.items() if key != 'tags'}
+        if original['tags']:
+            legacy['post_tags'] = ','.join(original['tags'])
+        variants.append(legacy)
+        if not original['tags']:
+            variants.extend([{**legacy, 'post_tags': ''}, {**legacy, 'post_tags': None}])
+    elif 'post_tags' in original:
+        native = {key: value for key, value in original.items() if key != 'post_tags'}
+        native['tags'] = [
+            name.strip() for name in (original['post_tags'] or '').split(',') if name.strip()
+        ]
+        variants.append(native)
+    return [
+        hashlib.sha256(
+            json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()
+        ).hexdigest()
+        for value in variants
+    ]
+
+
+@router.post('', status_code=201, response_model=RecordOutput)
 def create(
     data: RecordInput,
     request: Request,
     response: Response,
     db: DB,
     user: CurrentUser,
-    original: dict = Depends(raw_json),
+    original: Annotated[dict, Depends(raw_json)],
+    key: Annotated[
+        str | None, Header(alias='Idempotency-Key', pattern=r'^[A-Za-z0-9_-]{8,128}$')
+    ] = None,
 ):
-    key = request.headers.get('idempotency-key')
-    payload_hash = hashlib.sha256(
-        json.dumps(original, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()
-    ).hexdigest()
+    payload_hash = submission_hashes(original)
     response.headers['Cache-Control'] = 'no-store'
     try:
         if key is not None:
-            validate_key(key)
             receipt = db.scalar(
                 select(SubmissionReceipt).where(
                     SubmissionReceipt.user_id == user.id, SubmissionReceipt.key == key
@@ -121,13 +181,11 @@ def create(
             )
             if receipt:
                 return replay(db, user, receipt, response, payload_hash)
-            receipt = SubmissionReceipt(user_id=user.id, key=key, payload_hash=payload_hash)
+            receipt = SubmissionReceipt(user_id=user.id, key=key, payload_hash=payload_hash[0])
             db.add(receipt)
             db.flush()
         validate_attachments(db, user, data.attachments)
-        values = data.model_dump(exclude={'post_tags'})
-        if not values['content'].strip():
-            fail(400, '内容不能为空')
+        values = data.model_dump(exclude={'tags'})
         values['context']['device'] = {
             'ip': request.client.host if request.client else None,
             'ua': request.headers.get('user-agent'),
@@ -135,7 +193,7 @@ def create(
         record = BBTalk(user_id=user.id, **values)
         db.add(record)
         db.flush()
-        set_tags(db, record, data.post_tags)
+        set_tags(db, record, data.tags)
         if key is not None:
             receipt.record_id = record.id
         sync_visibility(db, user.id, attachment_ids(record.attachments))
@@ -167,9 +225,13 @@ def create(
         )
 
 
-@router.get('/submission-status/')
-def submission_status(request: Request, response: Response, db: DB, user: CurrentUser):
-    key = validate_key(request.query_params.get('key'))
+@router.get('/submission-status', response_model=RecordOutput)
+def submission_status(
+    response: Response,
+    db: DB,
+    user: CurrentUser,
+    key: Annotated[str, Query(pattern=r'^[A-Za-z0-9_-]{8,128}$')],
+):
     receipt = db.scalar(
         select(SubmissionReceipt).where(
             SubmissionReceipt.user_id == user.id, SubmissionReceipt.key == key
@@ -180,16 +242,12 @@ def submission_status(request: Request, response: Response, db: DB, user: Curren
     return replay(db, user, receipt, response)
 
 
-@router.get('/date-counts/')
-def date_counts(request: Request, db: DB, user: CurrentUser):
+@router.get('/date-counts', response_model=list[DateCountOutput])
+def date_counts(
+    request: Request, db: DB, user: CurrentUser, params: Annotated[DateCountsQuery, Query()]
+):
     config = request.app.state.settings
-    try:
-        year = int(request.query_params['year']) if request.query_params.get('year') else None
-        month = int(request.query_params['month']) if request.query_params.get('month') else None
-        if month and not 1 <= month <= 12:
-            raise ValueError
-    except ValueError:
-        fail(400, '年月参数无效')
+    year, month = params.year, params.month
     counts = {}
     for stamp in db.scalars(select(BBTalk.create_time).where(BBTalk.user_id == user.id)):
         date = stamp.astimezone(config.timezone).date()
@@ -198,27 +256,27 @@ def date_counts(request: Request, db: DB, user: CurrentUser):
     return [{'date': key, 'count': value} for key, value in sorted(counts.items())]
 
 
-@router.get('/tags/')
-def tags(request: Request, db: DB, user: CurrentUser):
+@router.get('/tags', response_model=list[TagCountOutput])
+def tags(db: DB, user: CurrentUser, params: Annotated[TagQuery, Query()]):
     query = (
         select(Tag, func.count(RecordTag.id))
         .outerjoin(RecordTag, RecordTag.tag_id == Tag.id)
         .where(Tag.user_id == user.id)
         .group_by(Tag.id)
     )
-    if name := request.query_params.get('name'):
+    if name := params.name:
         query = query.where(Tag.name == name)
-    if search := request.query_params.get('search'):
+    if search := params.search:
         query = query.where(Tag.name.contains(search, autoescape=True))
     orders = []
-    for key in request.query_params.get('ordering', 'sort_order,-update_time').split(','):
+    for key in params.ordering:
         if key.lstrip('-') in {'sort_order', 'create_time', 'update_time'}:
             field = getattr(Tag, key.lstrip('-'))
             orders.append(field.desc() if key.startswith('-') else field.asc())
     return [tag_data(tag, count) for tag, count in db.execute(query.order_by(*orders).limit(2000))]
 
 
-@router.post('/tags/')
+@router.post('/tags', response_model=TagOutput)
 def create_tag(data: TagInput, response: Response, db: DB, user: CurrentUser):
     name = data.name.strip()
     if not name:
@@ -233,35 +291,29 @@ def create_tag(data: TagInput, response: Response, db: DB, user: CurrentUser):
     return tag_data(tag)
 
 
-@router.post('/tags/reorder/')
-def reorder(data: dict, db: DB, user: CurrentUser):
-    if 'uids' in data:
+@router.post('/tags/reorder', response_model=MessageOutput | SuccessOutput)
+def reorder(data: TagReorderInput, db: DB, user: CurrentUser):
+    if data.uids is not None:
         return reorder_tags(data, db, user)
-    items = data.get('items', [])
-    if not isinstance(items, list) or not items:
-        fail(400, '请提供排序数据')
+    items = data.items
     for item in items:
-        if not isinstance(item, dict) or not isinstance(item.get('sort_order'), (float, int)):
-            fail(400, '排序数据无效')
         db.execute(
             update(Tag)
-            .where(Tag.user_id == user.id, Tag.uid == item.get('uid'))
-            .values(sort_order=item['sort_order'])
+            .where(Tag.user_id == user.id, Tag.uid == item.uid)
+            .values(sort_order=item.sort_order)
         )
     db.commit()
     return {'message': '排序已更新'}
 
 
-@router.get('/tags/{uid}/')
-def tag_detail(uid: str, db: DB, user: CurrentUser):
+@router.get('/tags/{uid}', response_model=TagOutput)
+def tag_detail(uid: RecordUID, db: DB, user: CurrentUser):
     return tag_data(get_tag(db, user, uid))
 
 
-def reorder_tags(data: dict, db: DB, user: CurrentUser):
-    uids = data.get('uids')
+def reorder_tags(data: TagReorderInput, db: DB, user: CurrentUser):
+    uids = data.uids
     tags = list(db.scalars(select(Tag).where(Tag.user_id == user.id)))
-    if not isinstance(uids, list) or not all(isinstance(uid, str) for uid in uids):
-        fail(400, '标签顺序格式无效')
     if len(uids) != len(set(uids)) or set(uids) != {tag.uid for tag in tags}:
         fail(409, '标签列表已改变，请刷新后重新排序')
     order = {uid: index * 1000 for index, uid in enumerate(uids)}
@@ -271,9 +323,8 @@ def reorder_tags(data: dict, db: DB, user: CurrentUser):
     return {'success': True}
 
 
-@router.patch('/tags/{uid}/')
-@router.put('/tags/{uid}/')
-def edit_tag(uid: str, data: TagInput, db: DB, user: CurrentUser):
+@router.patch('/tags/{uid}', response_model=TagOutput)
+def edit_tag(uid: RecordUID, data: TagPatch, db: DB, user: CurrentUser):
     tag = get_tag(db, user, uid)
     if 'name' in data.model_fields_set:
         data.name = data.name.strip()
@@ -285,11 +336,11 @@ def edit_tag(uid: str, data: TagInput, db: DB, user: CurrentUser):
     return tag_data(tag)
 
 
-@router.delete('/tags/{uid}/')
-def delete_tag(uid: str, request: Request, db: DB, user: CurrentUser):
+@router.delete('/tags/{uid}', response_model=TagDeleteOutput)
+def delete_tag(uid: RecordUID, db: DB, user: CurrentUser, delete_bbtalks: bool = False):
     tag = get_tag(db, user, uid)
     count = 0
-    if request.query_params.get('delete_bbtalks', '').lower() == 'true':
+    if delete_bbtalks:
         for record in db.scalars(
             select(BBTalk).where(BBTalk.user_id == user.id, BBTalk.tags.any(Tag.id == tag.id))
         ):
@@ -302,34 +353,29 @@ def delete_tag(uid: str, request: Request, db: DB, user: CurrentUser):
     return {'deleted_bbtalks': count}
 
 
-@router.get('/{uid}/')
-def detail(uid: str, db: DB, user: CurrentUser):
+@router.get('/{uid}', response_model=RecordOutput)
+def detail(uid: RecordUID, db: DB, user: CurrentUser):
     return record_data(db, [owned_record(db, user, uid)])[0]
 
 
-@router.put('/{uid}/')
-@router.patch('/{uid}/')
+@router.patch('/{uid}', response_model=RecordOutput)
 def edit(
-    uid: str, data: RecordPatch, request: Request, response: Response, db: DB, user: CurrentUser
+    uid: RecordUID,
+    data: RecordPatch,
+    request: Request,
+    response: Response,
+    db: DB,
+    user: CurrentUser,
+    expected: Revision = None,
 ):
     response.headers['Cache-Control'] = 'no-store'
     record = owned_record(db, user, uid, lock=True)
-    values = data.model_dump(exclude_unset=True, exclude={'post_tags'})
-    if request.method == 'PUT' and 'content' not in values:
-        fail(400, '内容不能为空')
-    if 'content' in values and not values['content'].strip():
-        fail(400, '内容不能为空')
+    values = data.model_dump(exclude_unset=True, exclude={'tags'})
     if 'attachments' in values:
         validate_attachments(db, user, values['attachments'])
     old_ids = attachment_ids(record.attachments)
-    expected = request.headers.get('if-match')
     if expected:
-        try:
-            stamp = datetime.fromisoformat(expected.strip('"').replace('Z', '+00:00'))
-            if stamp.tzinfo is None:
-                raise ValueError
-        except ValueError:
-            fail(400, 'If-Match 必须为记录的完整更新时间')
+        stamp = expected
         if record.update_time != stamp:
             fail(
                 409,
@@ -356,23 +402,43 @@ def edit(
         for key, value in values.items():
             setattr(record, key, value)
         record.update_time = now()
-    if 'post_tags' in data.model_fields_set:
-        set_tags(db, record, data.post_tags)
+    if 'tags' in data.model_fields_set:
+        set_tags(db, record, data.tags)
     db.flush()
     sync_visibility(db, user.id, old_ids | attachment_ids(record.attachments))
     db.commit()
     return record_data(db, [record])[0]
 
 
-@router.delete('/{uid}/', status_code=204)
-def delete_record(uid: str, db: DB, user: CurrentUser):
+@router.put('/{uid}', response_model=RecordOutput)
+def replace(
+    uid: RecordUID,
+    data: RecordInput,
+    request: Request,
+    response: Response,
+    db: DB,
+    user: CurrentUser,
+    expected: Revision = None,
+):
+    # Deployed slash-URL clients historically used PUT for partial updates.
+    values = data.model_dump(exclude_unset=request.url.path.endswith('/'))
+    return edit(uid, RecordPatch.model_validate(values), request, response, db, user, expected)
+
+
+@router.put('/tags/{uid}', response_model=TagOutput)
+def replace_tag(uid: RecordUID, data: TagInput, db: DB, user: CurrentUser):
+    return edit_tag(uid, TagPatch.model_validate(data.model_dump()), db, user)
+
+
+@router.delete('/{uid}', status_code=204)
+def delete_record(uid: RecordUID, db: DB, user: CurrentUser):
     remove_record(db, owned_record(db, user, uid))
     db.commit()
     return Response(status_code=204)
 
 
-@router.post('/{uid}/pin/')
-def pin(uid: str, db: DB, user: CurrentUser):
+@router.post('/{uid}/pin', response_model=RecordOutput)
+def pin(uid: RecordUID, db: DB, user: CurrentUser):
     record = owned_record(db, user, uid)
     db.execute(
         update(BBTalk)
@@ -384,19 +450,44 @@ def pin(uid: str, db: DB, user: CurrentUser):
     return record_data(db, [record])[0]
 
 
-@router.get('/{uid}/comments/')
-def comments(uid: str, db: DB, user: CurrentUser):
+def comment_list(db, record_id, request, params):
+    query = (
+        select(Comment, User)
+        .join(User, User.id == Comment.user_id)
+        .where(Comment.bbtalk_id == record_id)
+        .order_by(Comment.create_time, Comment.id)
+    )
+    if params.page is None:
+        return [comment_data(db, comment, user) for comment, user in db.execute(query)]
+    summary = comment_summaries(db, [record_id])[record_id]
+    page, size, total = params.page, params.page_size, summary['count']
+    if page > 1 and (page - 1) * size >= total:
+        raise APIError(404, {'detail': '无效页码。'})
+    rows = db.execute(query.offset((page - 1) * size).limit(size))
+    return {
+        **summary,
+        'next': str(request.url.include_query_params(page=page + 1))
+        if page * size < total
+        else None,
+        'previous': str(request.url.include_query_params(page=page - 1)) if page > 1 else None,
+        'results': [comment_data(db, comment, user) for comment, user in rows],
+    }
+
+
+@router.get('/{uid}/comments', response_model=list[CommentOutput] | CommentPage)
+def comments(
+    uid: RecordUID,
+    request: Request,
+    db: DB,
+    user: CurrentUser,
+    params: Annotated[CommentQuery, Query()],
+):
     record = owned_record(db, user, uid)
-    return [
-        comment_data(db, item)
-        for item in db.scalars(
-            select(Comment).where(Comment.bbtalk_id == record.id).order_by(Comment.create_time)
-        )
-    ]
+    return comment_list(db, record.id, request, params)
 
 
-@router.post('/{uid}/comments/', status_code=201)
-def add_comment(uid: str, data: CommentInput, db: DB, user: CurrentUser):
+@router.post('/{uid}/comments', status_code=201, response_model=CommentOutput)
+def add_comment(uid: RecordUID, data: CommentInput, db: DB, user: CurrentUser):
     record = owned_record(db, user, uid)
     if not data.content.strip():
         fail(400, '评论不能为空')
@@ -406,8 +497,8 @@ def add_comment(uid: str, data: CommentInput, db: DB, user: CurrentUser):
     return comment_data(db, comment)
 
 
-@router.delete('/{uid}/comments/{comment_uid}/', status_code=204)
-def delete_comment(uid: str, comment_uid: str, db: DB, user: CurrentUser):
+@router.delete('/{uid}/comments/{comment_uid}', status_code=204)
+def delete_comment(uid: RecordUID, comment_uid: RecordUID, db: DB, user: CurrentUser):
     record = owned_record(db, user, uid)
     comment = db.scalar(
         select(Comment).where(

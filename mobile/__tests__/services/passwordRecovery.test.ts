@@ -8,7 +8,7 @@ it('sends unauthenticated GET policy and JSON POST recovery requests', async () 
   expect(await publicAuthRequest('policy')).toEqual({ success: true });
   expect(fetchMock.mock.calls[0][1].method).toBe('GET');
   await publicAuthRequest('recovery', { username: 'alice' });
-  expect(fetchMock.mock.calls[1][0]).toBe('https://example.com/api/v1/bbtalk/auth/recovery/');
+  expect(fetchMock.mock.calls[1][0]).toBe('https://example.com/api/v1/bbtalk/auth/recovery');
   expect(fetchMock.mock.calls[1][1]).toMatchObject({ method: 'POST', body: '{"username":"alice"}' });
   expect(fetchMock.mock.calls[1][1].headers).not.toHaveProperty('Authorization');
   expect(jest.getTimerCount()).toBe(0);

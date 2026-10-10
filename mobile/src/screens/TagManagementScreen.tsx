@@ -9,7 +9,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { xAlert, xConfirm, xActionSheet } from '../utils/crossAlert';
 import { tagApi } from '../services/api/tagApi';
 import { useAppDispatch } from '../store/hooks';
-import { loadTags } from '../store/slices/tagSlice';
+import { loadTags, setTags as setStoreTags } from '../store/slices/tagSlice';
 import EmptyState from '../components/EmptyState';
 import LoadingPlaceholder from '../components/LoadingPlaceholder';
 import type { Tag } from '../types';
@@ -38,7 +38,7 @@ export default function TagManagementScreen() {
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     setError('');
-    try { setTags(await tagApi.getTags()); }
+    try { const result = await tagApi.getTags(); setTags(result); dispatch(setStoreTags(result)); }
     catch (e: any) { setError(e.message || '标签加载失败，请重试'); }
     if (!silent) setLoading(false);
   }, []);
@@ -58,21 +58,21 @@ export default function TagManagementScreen() {
     if (!editingId || !editName.trim()) return;
     try {
       await tagApi.updateTag(editingId, { name: editName.trim(), color: editColor });
-      cancelEdit(); await load(true); dispatch(loadTags());
+      cancelEdit(); await load(true);
     } catch (e: any) { xAlert('保存失败', e.message); }
   });
 
   const deleteTag = (tag: Tag) => {
     const options: { text: string; action: () => void; destructive?: boolean }[] = [
       { text: '仅删除标签，保留记录', action: () => mutate(async () => {
-        try { await tagApi.deleteTag(tag.id, false); await load(true); dispatch(loadTags()); }
+        try { await tagApi.deleteTag(tag.id, false); await load(true); }
         catch (e: any) { xAlert('删除失败', e.message); }
       })},
     ];
     if (tag.bbtalkCount && tag.bbtalkCount > 0) {
       options.push({ text: '同时删除碎碎念', destructive: true, action: () => {
         xConfirm('删除标签和记录', `将永久删除「${tag.name}」及其关联的 ${tag.bbtalkCount} 条记录，不可恢复！`, () => mutate(async () => {
-          try { await tagApi.deleteTag(tag.id, true); await load(true); dispatch(loadTags()); }
+          try { await tagApi.deleteTag(tag.id, true); await load(true); }
           catch (e: any) { xAlert('删除失败', e.message); }
         }), undefined, { confirmText: '确认删除', destructive: true });
       }});

@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../apiErrorMessage';
 import { getSession, isCurrentSession } from '../session';
 import { Platform } from 'react-native';
 import { getAccessToken } from '../auth';
@@ -64,7 +65,7 @@ async function uploadRequest(formData: FormData, assertCurrent: () => void): Pro
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 60000);
   try {
-    const response = await fetch(`${base}/api/v1/attachments/files/`, { method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : {}, body: formData, signal: controller.signal });
+    const response = await fetch(`${base}/api/v1/attachments/files`, { method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : {}, body: formData, signal: controller.signal });
     assertCurrent();
     return response;
   } catch (error: any) {
@@ -100,7 +101,7 @@ export const attachmentApi = {
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       assertCurrent();
-      throw new Error(error.detail || JSON.stringify(error) || '上传失败');
+      throw new Error(apiErrorMessage(error, JSON.stringify(error) || '上传失败'));
     }
 
     const data = await response.json();
@@ -121,7 +122,7 @@ export const attachmentApi = {
       const error = await response.json().catch(() => ({}));
       assertCurrent();
       // DRF 字段级错误格式: {"file": ["错误信息"]}
-      let message = error.detail;
+      let message = apiErrorMessage(error, '');
       if (!message) {
         const firstKey = Object.keys(error)[0];
         if (firstKey) {

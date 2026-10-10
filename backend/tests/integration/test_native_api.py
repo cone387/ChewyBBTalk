@@ -174,7 +174,7 @@ class FastAPIContractTests(TestCase):
         self.assertIn(self.client.get('/admin/', follow_redirects=False).status_code, (302, 307))
         self.assertEqual(self.client.get('/unknown/').status_code, 404)
         self.assertEqual(self.client.put(BASE + 'auth/token/', json={}).status_code, 405)
-        self.assertEqual(self.client.post(BASE, content='{', headers={'Content-Type': 'application/json'}).status_code, 400)
+        self.assertEqual(self.client.post(BASE, content='{', headers={'Content-Type': 'application/json'}).status_code, 422)
         self.assertEqual(self.client.get(BASE + 'tags.json').status_code, 200)
         self.assertEqual(self.client.get(BASE + 'tags.json/').status_code, 200)
         with patch.object(self.config, 'allowed_hosts', ['localhost']):
@@ -185,9 +185,9 @@ class FastAPIContractTests(TestCase):
         response = self.client.get('/api/schema/')
         self.assertEqual(response.status_code, 200)
         schema = response.json()
-        for path in [BASE, BASE + 'auth/token/', '/api/v1/attachments/files/', '/healthz']:
+        for path in [BASE.rstrip('/'), BASE + 'auth/token', '/api/v1/attachments/files', '/healthz']:
             self.assertIn(path, schema['paths'])
-        self.assertIn('requestBody', schema['paths'][BASE]['post'])
+        self.assertIn('requestBody', schema['paths'][BASE.rstrip('/')]['post'])
         self.assertEqual(schema['components']['securitySchemes']['jwtAuth']['scheme'], 'bearer')
         self.assertEqual(self.client.get('/api/schema/swagger-ui/').status_code, 200)
         self.assertEqual(self.client.get('/api/schema/redoc/').status_code, 200)

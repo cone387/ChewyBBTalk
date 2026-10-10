@@ -35,7 +35,7 @@ export default function StatusPage() {
     setLoading(true)
     setError(null)
     try {
-      const result = await apiClient.get<RuntimeStatus>('/api/v1/bbtalk/settings/status/')
+      const result = await apiClient.get<RuntimeStatus>('/api/v1/bbtalk/settings/status')
       if (id === generation.current) setData(result)
     } catch {
       if (id === generation.current) setError('无法获取运行状态，请检查网络后重试。')

@@ -25,6 +25,8 @@ export interface BBTalk {
   context?: Record<string, any>;
   isPinned?: boolean;
   commentCount?: number;
+  commentPreview?: Comment[];
+  commentsRevision?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -79,3 +81,5 @@ export interface Comment {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface CommentPage extends PaginatedResponse<Comment> { revision?: string; }

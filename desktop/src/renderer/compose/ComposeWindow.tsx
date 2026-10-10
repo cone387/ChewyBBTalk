@@ -298,7 +298,7 @@ export function ComposeWindow() {
     try {
       const { tags: parsedTags, cleanedContent } = parseAndClean(content);
       const intent = await window.desktop.compose.publishSubmission(snapshot.session, {
-        content: cleanedContent, post_tags: parsedTags.join(','),
+        content: cleanedContent, tags: parsedTags,
         attachments: uploadedFiles.filter(f => f.uid).map(f => ({ uid: f.uid! })), visibility,
         context: { source: { client: 'Desktop', platform: navigator.platform } },
       });

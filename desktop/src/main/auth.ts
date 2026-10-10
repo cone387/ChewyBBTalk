@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../shared/apiErrorMessage';
 ﻿import { EventEmitter } from 'node:events';
 import { store } from './store';
 import { readRefreshToken, saveRefreshToken, persistentCredentialsAvailable } from './credentials';
@@ -59,12 +60,12 @@ export async function login(username: string, password: string, apiUrl?: string)
   const generation = beginLogin();
   try {
     const url = normalizeServer(apiUrl || getApiUrl());
-    const res = await fetch(`${url}/api/v1/bbtalk/auth/token/`, {
+    const res = await fetch(`${url}/api/v1/bbtalk/auth/token`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password }), signal: AbortSignal.timeout(20_000),
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || data.detail || `登录失败 (${res.status})`);
+    if (!res.ok) throw new Error(apiErrorMessage(data, `登录失败 (${res.status})`));
     acceptTokens({ ...data, username }, url, generation);
     return { ok: true };
   } catch (error) {
@@ -86,7 +87,7 @@ async function doRefresh(): Promise<boolean> {
   const current = () => generation === sessionGeneration && apiUrl === getApiUrl();
   if (!accessToken) notify('restoring');
   try {
-    const res = await fetch(`${apiUrl}/api/v1/bbtalk/auth/token/refresh/`, {
+    const res = await fetch(`${apiUrl}/api/v1/bbtalk/auth/token/refresh`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh: token }), signal: AbortSignal.timeout(20_000),
     });

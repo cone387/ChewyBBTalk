@@ -5,6 +5,7 @@ from fastapi import APIRouter
 from fastapi.responses import HTMLResponse, Response
 
 from core.public_config import public_config
+from schemas.responses import HealthOutput
 
 router = APIRouter()
 
@@ -19,7 +20,7 @@ def browser_config():
     )
 
 
-@router.get('/healthz', tags=['System'])
+@router.get('/healthz', tags=['System'], response_model=HealthOutput)
 def health():
     return {'status': 'ok'}
 

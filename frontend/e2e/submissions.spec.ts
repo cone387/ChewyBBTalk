@@ -3,7 +3,7 @@ import { test, expect, type Page } from '@playwright/test'
 async function login(page: Page) {
   const username = `submission_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   const password = 'submission-e2e-2026'
-  expect((await page.request.post('/api/v1/bbtalk/auth/register/', { data: { username, password } })).status()).toBe(201)
+  expect((await page.request.post('/api/v1/bbtalk/auth/register', { data: { username, password } })).status()).toBe(201)
   await page.goto('/login')
   await page.getByPlaceholder('请输入用户名').fill(username)
   await page.getByPlaceholder('请输入密码').fill(password)
@@ -16,7 +16,7 @@ test('lost response survives reload and original retry creates only one record',
   await page.getByLabel('记录内容').fill('响应丢失原提交')
   let originalKey = ''
   let originalUid = ''
-  await page.route('**/api/v1/bbtalk/', async route => {
+  await page.route('**/api/v1/bbtalk', async route => {
     if (route.request().method() !== 'POST') return route.continue()
     originalKey = route.request().headers()['idempotency-key']
     const response = await route.fetch()
@@ -27,11 +27,11 @@ test('lost response survives reload and original retry creates only one record',
   await page.getByRole('button', { name: '发布', exact: true }).click()
   await expect(page.getByRole('alert')).toContainText('发布失败')
   expect(originalKey).toMatch(/^[a-f0-9]{32}$/)
-  await page.unroute('**/api/v1/bbtalk/')
+  await page.unroute('**/api/v1/bbtalk')
   await page.reload()
   await expect(page.getByRole('region', { name: '原提交恢复' })).toContainText('待核对')
   await page.getByLabel('记录内容').fill('用户后来的修改')
-  const replay = page.waitForResponse(r => r.request().method() === 'POST' && r.url().endsWith('/api/v1/bbtalk/'))
+  const replay = page.waitForResponse(r => r.request().method() === 'POST' && r.url().endsWith('/api/v1/bbtalk'))
   await page.getByRole('button', { name: '重试原提交', exact: true }).click()
   const result = await replay
   expect(result.request().headers()['idempotency-key']).toBe(originalKey)
@@ -47,10 +47,10 @@ test('lost response survives reload and original retry creates only one record',
 test('unknown submission blocks changed payload and can be checked without posting', async ({ page }) => {
   await login(page)
   await page.getByLabel('记录内容').fill('未到达服务器')
-  await page.route('**/api/v1/bbtalk/', route => route.request().method() === 'POST' ? route.abort() : route.continue())
+  await page.route('**/api/v1/bbtalk', route => route.request().method() === 'POST' ? route.abort() : route.continue())
   await page.getByRole('button', { name: '发布', exact: true }).click()
   await expect(page.getByRole('alert')).toContainText('发布失败')
-  await page.unroute('**/api/v1/bbtalk/')
+  await page.unroute('**/api/v1/bbtalk')
   await page.getByLabel('记录内容').fill('修改后的正文')
   await page.getByRole('button', { name: '发布', exact: true }).click()
   await expect(page.getByRole('alert')).toContainText('先核对或重试原提交')
@@ -74,7 +74,7 @@ test('stale edit preserves input and requires review before saving against new v
   await card.getByRole('button', { name: '编辑', exact: true }).click()
   await card.getByLabel('记录内容').fill('本地未保存修改')
   const token = await page.evaluate(() => localStorage.getItem('bbtalk_access_token'))
-  const remote = await page.request.patch(`/api/v1/bbtalk/${uid}/`, {
+  const remote = await page.request.patch(`/api/v1/bbtalk/${uid}`, {
     headers: { Authorization: `Bearer ${token}` }, data: { content: '另一设备新版本' },
   })
   expect(remote.status()).toBe(200)
@@ -98,8 +98,8 @@ test('foreground refresh keeps the active search and unsent draft', async ({ pag
   await page.getByLabel('记录内容').fill('尚未提交的本地草稿')
   const token = await page.evaluate(() => localStorage.getItem('bbtalk_access_token'))
   const headers = { Authorization: `Bearer ${token}` }
-  expect((await page.request.post('/api/v1/bbtalk/', { headers, data: { content: '前台命中远端新增' } })).status()).toBe(201)
-  expect((await page.request.post('/api/v1/bbtalk/', { headers, data: { content: '不匹配的记录' } })).status()).toBe(201)
+  expect((await page.request.post('/api/v1/bbtalk', { headers, data: { content: '前台命中远端新增' } })).status()).toBe(201)
+  expect((await page.request.post('/api/v1/bbtalk', { headers, data: { content: '不匹配的记录' } })).status()).toBe(201)
   await page.evaluate(() => window.dispatchEvent(new Event('focus')))
   await expect(page.locator('.bbtalk-item')).toHaveCount(1)
   await expect(page.locator('.bbtalk-item')).toContainText('前台命中远端新增')
@@ -107,7 +107,7 @@ test('foreground refresh keeps the active search and unsent draft', async ({ pag
   await expect(page.getByLabel('记录内容')).toHaveValue('尚未提交的本地草稿')
   await page.clock.install()
   await page.clock.fastForward(1100)
-  expect((await page.request.post('/api/v1/bbtalk/', { headers, data: { content: '前台命中网络恢复新增' } })).status()).toBe(201)
+  expect((await page.request.post('/api/v1/bbtalk', { headers, data: { content: '前台命中网络恢复新增' } })).status()).toBe(201)
   await page.evaluate(() => window.dispatchEvent(new Event('online')))
   await expect(page.locator('.bbtalk-item')).toHaveCount(2)
   await expect(page.getByLabel('记录内容')).toHaveValue('尚未提交的本地草稿')

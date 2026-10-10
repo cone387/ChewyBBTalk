@@ -86,7 +86,7 @@ describe('authorization flow', () => {
     expect(screen.getByText('使用 爱丽丝 登录桌面端，随时记录和上传附件。')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: '确认登录桌面端' }));
     await waitFor(() => expect(assign).toHaveBeenCalledTimes(1));
-    expect(client.post).toHaveBeenCalledWith('/api/v1/bbtalk/auth/desktop/authorize/', {
+    expect(client.post).toHaveBeenCalledWith('/api/v1/bbtalk/auth/desktop/authorize', {
       redirect_uri: validUri, code_challenge: challenge, code_challenge_method: 'S256',
     });
     const [target, params] = parseAssignCall();

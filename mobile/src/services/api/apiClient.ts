@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../apiErrorMessage';
 /**
  * API Client (React Native 版)
  * 与 Web 版逻辑一致，但 getAccessToken 是异步的
@@ -21,7 +22,12 @@ class ApiClient {
     const assertSession = () => {
       if (!isCurrentSession(session) || baseUrl !== this.getBaseUrl()) throw new Error('会话已改变，请重新操作');
     };
+    const assertNotAborted = () => {
+      if (options.signal?.aborted) throw Object.assign(new Error('请求已取消'), { name: 'AbortError' });
+    };
+    assertNotAborted();
     const token = await getAccessToken();
+    assertNotAborted();
     assertSession();
 
     const headers: Record<string, string> = {
@@ -33,30 +39,30 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
-
-    let response: Response;
-    try {
-      response = await fetch(`${baseUrl}${endpoint}`, {
-        ...options,
-        headers,
-        signal: controller.signal,
-      });
-    } catch (error: any) {
-      clearTimeout(timeoutId);
-      if (error.name === 'AbortError') {
-        throw new Error('请求超时，请检查网络连接');
+    const fetchAttempt = async (): Promise<Response> => {
+      assertNotAborted();
+      const controller = new AbortController();
+      const abort = () => controller.abort();
+      options.signal?.addEventListener('abort', abort, { once: true });
+      const timeoutId = setTimeout(abort, 15000);
+      try {
+        return await fetch(`${baseUrl}${endpoint}`, { ...options, headers, signal: controller.signal });
+      } catch (error: any) {
+        assertNotAborted();
+        if (error.name === 'AbortError') throw new Error('请求超时，请检查网络连接');
+        throw new Error('网络连接失败，请检查网络设置');
+      } finally {
+        clearTimeout(timeoutId);
+        options.signal?.removeEventListener('abort', abort);
       }
-      throw new Error('网络连接失败，请检查网络设置');
-    } finally {
-      clearTimeout(timeoutId);
-    }
+    };
+    let response = await fetchAttempt();
+    assertNotAborted();
 
     assertSession();
     // 401 -> 尝试刷新 token
     if (response.status === 401) {
-      if (endpoint.includes('/auth/token/')) {
+      if (endpoint.includes('/auth/token')) {
         throw new Error('用户名或密码错误');
       }
 
@@ -68,14 +74,7 @@ class ApiClient {
           assertSession();
           if (newToken) {
             headers['Authorization'] = `Bearer ${newToken}`;
-            try {
-              response = await fetch(`${baseUrl}${endpoint}`, {
-                ...options,
-                headers,
-              });
-            } catch (error) {
-              throw new Error('网络连接失败，请检查网络设置');
-            }
+            response = await fetchAttempt();
           }
         } else {
           // refresh 失败但不一定是 token 过期（可能是网络问题）
@@ -83,6 +82,7 @@ class ApiClient {
           throw new Error('会话刷新失败，请稍后重试');
         }
       } catch (error) {
+        assertNotAborted();
         if ((error as Error).message === '网络连接失败，请检查网络设置' ||
             (error as Error).message === '会话刷新失败，请稍后重试') {
           throw error;
@@ -94,7 +94,7 @@ class ApiClient {
     assertSession();
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      const serverMessage = errorData.error || errorData.message;
+      const serverMessage = apiErrorMessage(errorData, `服务器错误 (${response.status})，请稍后重试`);
       assertSession();
       throw new ApiError(serverMessage || `服务器错误 (${response.status})，请稍后重试`, response.status, errorData.code, errorData.current);
     }
@@ -104,22 +104,24 @@ class ApiClient {
     }
 
     const data = await response.json();
+    assertNotAborted();
     assertSession();
     return data;
   }
 
-  async get<T>(endpoint: string, params?: Record<string, any>): Promise<T> {
+  async get<T>(endpoint: string, params?: Record<string, any>, options?: { signal?: AbortSignal }): Promise<T> {
     let url = endpoint;
     if (params) {
-      const filtered = Object.entries(params)
-        .filter(([_, v]) => v !== undefined && v !== null && v !== '')
-        .reduce((acc, [k, v]) => ({ ...acc, [k]: v }), {});
-
-      if (Object.keys(filtered).length > 0) {
-        url = `${endpoint}?${new URLSearchParams(filtered)}`;
+      const query = new URLSearchParams();
+      for (const [key, value] of Object.entries(params)) {
+        const values = Array.isArray(value) ? value : [value];
+        for (const item of values) {
+          if (item !== undefined && item !== null && item !== '') query.append(key, String(item));
+        }
       }
+      if (query.size > 0) url = `${endpoint}${endpoint.includes('?') ? '&' : '?'}${query}`;
     }
-    return this.request<T>(url, { method: 'GET' });
+    return this.request<T>(url, { method: 'GET', ...options });
   }
 
   async post<T>(endpoint: string, data?: any, headers?: Record<string, string>): Promise<T> {

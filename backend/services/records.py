@@ -1,7 +1,8 @@
+import hashlib
 import re
 from uuid import UUID
 
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import and_, delete, func, select, update
 
 from core.errors import APIError, fail
 from models import (
@@ -58,13 +59,8 @@ def record_data(db, records):
         if ids
         else {}
     )
-    counts = dict(
-        db.execute(
-            select(Comment.bbtalk_id, func.count())
-            .where(Comment.bbtalk_id.in_([r.id for r in records]))
-            .group_by(Comment.bbtalk_id)
-        ).all()
-    )
+    record_ids = [record.id for record in records]
+    summaries = comment_summaries(db, record_ids, include_preview=True)
     result = []
     for record in records:
         data = {
@@ -82,7 +78,9 @@ def record_data(db, records):
         data.update(
             user=record.user_id,
             tags=[tag_data(tag) for tag in record.tags],
-            comment_count=counts.get(record.id, 0),
+            comment_count=summaries[record.id]['count'],
+            comments_revision=summaries[record.id]['revision'],
+            comment_preview=summaries[record.id]['preview'],
         )
         attachments = []
         for item in record.attachments or []:
@@ -93,7 +91,7 @@ def record_data(db, records):
                 attachments.append(
                     {
                         'uid': file.id,
-                        'url': f'/api/v1/attachments/files/{file.id}/preview/',
+                        'url': f'/api/v1/attachments/files/{file.id}/preview',
                         'type': kind if kind in ('image', 'audio', 'video') else 'file',
                         'filename': file.original_name,
                         'mime_type': file.mime_type,
@@ -118,7 +116,8 @@ def owned_record(db, user, uid, lock=False):
 
 def set_tags(db, record, names):
     tags = []
-    for name in dict.fromkeys(name.strip() for name in (names or '').split(',')):
+    names = (names or '').split(',') if isinstance(names, str) or names is None else names
+    for name in dict.fromkeys(name.strip() for name in names):
         if not name:
             continue
         if len(name) > 50:
@@ -169,8 +168,67 @@ def remove_record(db, record):
     sync_visibility(db, record.user_id, affected)
 
 
-def comment_data(db, comment):
-    user = db.get(User, comment.user_id)
+def comment_summaries(db, record_ids, include_preview=False):
+    """Hash stable identities, including deleted/replaced rows, in one batched read.
+
+    Only metadata is read for comments outside the preview. Unlike count/max(id),
+    the digest changes when SQLite reuses an id or a non-final comment is removed.
+    """
+    digests = {record_id: hashlib.sha256() for record_id in record_ids}
+    counts = dict.fromkeys(record_ids, 0)
+    query = select(
+        Comment.bbtalk_id,
+        Comment.uid,
+        Comment.create_time,
+        Comment.update_time,
+        Comment.id,
+    ).where(Comment.bbtalk_id.in_(record_ids))
+    if include_preview:
+        ranked = query.add_columns(
+            func.row_number()
+            .over(
+                partition_by=Comment.bbtalk_id,
+                order_by=(Comment.create_time, Comment.id),
+            )
+            .label('position')
+        ).subquery()
+        # Retain every comment's lightweight metadata, but load bodies/authors
+        # for at most three rows per record in the same database round trip.
+        query = (
+            select(
+                ranked.c.bbtalk_id,
+                ranked.c.uid,
+                ranked.c.create_time,
+                ranked.c.update_time,
+                ranked.c.id,
+                Comment,
+                User,
+            )
+            .outerjoin(Comment, and_(Comment.id == ranked.c.id, ranked.c.position <= 3))
+            .outerjoin(User, User.id == Comment.user_id)
+            .order_by(ranked.c.bbtalk_id, ranked.c.create_time, ranked.c.id)
+        )
+    else:
+        query = query.order_by(Comment.bbtalk_id, Comment.create_time, Comment.id)
+    previews = {record_id: [] for record_id in record_ids}
+    for row in db.execute(query.execution_options(yield_per=1000)):
+        record_id, uid, created, updated = row[:4]
+        counts[record_id] += 1
+        digests[record_id].update(f'{uid}:{created.isoformat()}:{updated.isoformat()}\n'.encode())
+        if include_preview and row[5] is not None:
+            previews[record_id].append(comment_data(db, row[5], row[6]))
+    return {
+        record_id: {
+            'count': counts[record_id],
+            'revision': digest.hexdigest(),
+            **({'preview': previews[record_id]} if include_preview else {}),
+        }
+        for record_id, digest in digests.items()
+    }
+
+
+def comment_data(db, comment, user=None):
+    user = user if user is not None else db.get(User, comment.user_id)
     return {
         **{key: getattr(comment, key) for key in ('uid', 'content', 'create_time', 'update_time')},
         'user': user.id,

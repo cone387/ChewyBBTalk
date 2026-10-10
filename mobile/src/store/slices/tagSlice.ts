@@ -1,8 +1,9 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { tagApi } from '../../services/api';
 import type { Tag } from '../../types';
 
 interface TagState {
+  activeRequestId?: string;
   tags: Tag[];
   isLoading: boolean;
   error: string | null;
@@ -20,7 +21,7 @@ export const loadTags = createAsyncThunk('tag/loadTags', async (_, { rejectWithV
   } catch (error: any) {
     return rejectWithValue(error.message || '加载标签失败');
   }
-});
+}, { condition: (_, { getState }) => !(getState() as { tag?: TagState }).tag?.isLoading });
 
 export const updateTagAsync = createAsyncThunk(
   'tag/updateTag',
@@ -36,15 +37,21 @@ export const updateTagAsync = createAsyncThunk(
 const tagSlice = createSlice({
   name: 'tag',
   initialState,
-  reducers: {},
+  reducers: {
+    setTags: (state, action: PayloadAction<Tag[]>) => { state.tags = action.payload; state.error = null; state.isLoading = false; state.activeRequestId = undefined; },
+  },
   extraReducers: (builder) => {
     builder
-      .addCase(loadTags.pending, (state) => { state.isLoading = true; })
+      .addCase(loadTags.pending, (state, action) => { state.isLoading = true; state.activeRequestId = action.meta.requestId; })
       .addCase(loadTags.fulfilled, (state, action) => {
+        if (action.meta?.requestId && state.activeRequestId !== action.meta.requestId) return;
+        state.activeRequestId = undefined;
         state.isLoading = false;
         state.tags = action.payload;
       })
       .addCase(loadTags.rejected, (state, action) => {
+        if (action.meta?.requestId && state.activeRequestId !== action.meta.requestId) return;
+        state.activeRequestId = undefined;
         state.isLoading = false;
         state.error = action.payload as string;
       })
@@ -56,4 +63,5 @@ const tagSlice = createSlice({
   },
 });
 
+export const { setTags } = tagSlice.actions;
 export default tagSlice.reducer;

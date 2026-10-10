@@ -261,7 +261,7 @@ it('publishes parsed tags with cleaned content and clears local state', async ()
   expect(desktop.compose.publishSubmission).toHaveBeenCalledWith(
     { scope: 'user:1', generation: 1 },
     {
-      content: 'hello foo', post_tags: 'world', attachments: [], visibility: 'private',
+      content: 'hello foo', tags: ['world'], attachments: [], visibility: 'private',
       context: { source: { client: 'Desktop', platform: 'Win32' } },
     },
   );

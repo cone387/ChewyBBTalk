@@ -36,6 +36,16 @@ it('omits authorization when no token is available and sends no empty query suff
   expect(fetchMock.mock.calls[0][1].headers).not.toHaveProperty('Authorization');
 });
 
+it('encodes tag arrays as repeated query parameters', async () => {
+  await apiClient.get('/items', { tags: ['work', 'home'], empty: [] });
+  expect(fetchMock.mock.calls[0][0]).toBe('https://example.com/items?tags=work&tags=home');
+});
+
+it('renders FastAPI validation locations and messages', async () => {
+  fetchMock.mockResolvedValue(response(422, { detail: [{ loc: ['body', 'tags', 0], msg: 'String should have at most 50 characters', type: 'string_too_long' }] }));
+  await expect(apiClient.post('/items', {})).rejects.toMatchObject({ status: 422, message: 'tags.0: String should have at most 50 characters' });
+});
+
 it.each(['post', 'patch'] as const)('sends %s JSON and caller headers', async (method) => {
   await apiClient[method]('/items/', { content: 'hello' }, { 'If-Match': 'revision-1' });
   expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: method.toUpperCase(), body: '{"content":"hello"}', headers: { 'If-Match': 'revision-1', 'Content-Type': 'application/json' } });
@@ -141,4 +151,15 @@ it('exposes an ApiError as a normal Error for caller recovery', () => {
   const error = new ApiError('failed', 400);
   expect(error).toBeInstanceOf(Error);
   expect(error.status).toBe(400);
+});
+
+it('cancels an obsolete GET through its caller signal', async () => {
+  fetchMock.mockImplementation((_url, options) => new Promise((_resolve, reject) => {
+    options.signal.addEventListener('abort', () => reject(Object.assign(new Error('cancelled'), { name: 'AbortError' })));
+  }));
+  const controller = new AbortController();
+  const request = apiClient.get('/items', undefined, { signal: controller.signal });
+  const rejected = expect(request).rejects.toMatchObject({ name: 'AbortError' });
+  await Promise.resolve(); await Promise.resolve(); controller.abort();
+  await rejected; expect(fetchMock.mock.calls[0][1].signal.aborted).toBe(true);
 });

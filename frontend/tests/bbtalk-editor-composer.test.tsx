@@ -213,7 +213,7 @@ describe('tag authoring', () => {
     await ready();
     fireEvent.change(textarea(), { target: { value: '#工作 剩下的内容' } });
     await screen.findByText('#工作');
-    fireEvent.click(within(screen.getByText('#工作').closest('span')!).getByRole('button'));
+    fireEvent.click(screen.getByRole('button', { name: '移除标签：工作' }));
     await waitFor(() => expect(screen.queryByText('#工作')).toBeNull());
     expect(textarea().value).toBe('剩下的内容');
   });

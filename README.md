@@ -250,7 +250,7 @@ ChewyBBTalk/
 │   ├── api/                 # 接口和 HTTP 适配
 │   ├── services/            # 业务逻辑
 │   ├── models/              # 数据库模型
-│   ├── schemas/             # 请求数据模型
+│   ├── schemas/             # 请求、查询和响应数据模型
 │   ├── database/            # 数据库连接和 Alembic 迁移
 │   ├── core/                # 配置和公共能力
 │   ├── storage/             # 本地 / S3 存储
@@ -295,20 +295,25 @@ ChewyBBTalk/
 
 | 方法 | 端点 | 说明 |
 |------|------|------|
-| GET | `/api/v1/bbtalk/` | 获取碎碎念列表 |
-| POST | `/api/v1/bbtalk/` | 创建碎碎念 |
-| GET | `/api/v1/bbtalk/{uid}/` | 获取单条详情 |
-| PATCH | `/api/v1/bbtalk/{uid}/` | 更新碎碎念 |
-| DELETE | `/api/v1/bbtalk/{uid}/` | 删除碎碎念 |
-| GET | `/api/v1/tag/` | 获取标签列表 |
-| POST | `/api/v1/tag/` | 创建标签 |
-| POST | `/api/v1/attachments/files/` | 上传附件 |
-| GET | `/api/v1/attachments/files/` | 获取附件列表 |
-| GET | `/api/v1/bbtalk/data/export/` | 导出用户数据 (JSON/ZIP) |
-| POST | `/api/v1/bbtalk/data/import/` | 导入用户数据 |
-| POST | `/api/v1/bbtalk/data/validate/` | 验证导入文件 |
-| POST | `/api/v1/bbtalk/storage/migration/preview/` | 预览存储迁移 |
-| POST | `/api/v1/bbtalk/storage/migration/execute/` | 执行存储迁移 |
+| GET | `/api/v1/bbtalk` | 获取碎碎念列表 |
+| POST | `/api/v1/bbtalk` | 创建碎碎念 |
+| GET | `/api/v1/bbtalk/{uid}` | 获取单条详情 |
+| PATCH | `/api/v1/bbtalk/{uid}` | 局部更新碎碎念 |
+| PUT | `/api/v1/bbtalk/{uid}` | 替换碎碎念 |
+| DELETE | `/api/v1/bbtalk/{uid}` | 删除碎碎念 |
+| GET | `/api/v1/bbtalk/tags` | 获取标签列表 |
+| POST | `/api/v1/bbtalk/tags` | 创建标签 |
+| POST | `/api/v1/attachments/files` | 上传附件 |
+| GET | `/api/v1/attachments/files` | 获取附件列表 |
+| POST | `/api/v1/bbtalk/settings/storage` | 创建存储配置 |
+| DELETE | `/api/v1/bbtalk/settings/storage/{pk}` | 删除存储配置 |
+| GET | `/api/v1/bbtalk/data/export` | 导出用户数据 (JSON/ZIP) |
+| POST | `/api/v1/bbtalk/data/import` | 导入用户数据 |
+| POST | `/api/v1/bbtalk/data/validate` | 验证导入文件 |
+| POST | `/api/v1/bbtalk/storage/migration/preview` | 预览存储迁移 |
+| POST | `/api/v1/bbtalk/storage/migration/execute` | 执行存储迁移 |
+
+旧路径仍兼容；新代码使用上表规范路径。参数格式、422 错误及迁移说明见 [FastAPI 接口契约](docs/fastapi-contract.md)。
 
 ## 🚀 自动化部署
 
@@ -383,7 +388,7 @@ Web 登录页读取服务端策略，关闭时展示管理员联系提示；策�
 
 登录后打开「设置 → 运行状态」，手动重新检查服务连接、当前账号存储和最近备份。
 普通账号只能查看自己的备份汇总和当前存储检查；管理员另可查看数据库查询结果及附件目录所在磁盘的剩余空间。
-接口 `/api/v1/bbtalk/settings/status/` 要求登录且不缓存，不返回凭据、内部路径或其他账号数据。
+接口 `/api/v1/bbtalk/settings/status` 要求登录且不缓存，不返回凭据、内部路径或其他账号数据。
 
 本地存储以临时文件验证读写并清理；S3 使用限时只读列表请求验证连接和列表权限，
 不代表上传权限或全部历史附件均可用。存储检查针对当前上传配置，历史附件可能位于其他配置。

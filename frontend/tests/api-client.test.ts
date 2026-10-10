@@ -22,6 +22,68 @@ beforeEach(() => {
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks() })
 
 describe('API requests', () => {
+  it('does not reuse the browser URL cache for authenticated downloads', async () => {
+    await apiClient.download('/api/v1/attachments/files/private/preview')
+    expect(fetchMock.mock.calls[0][1].cache).toBe('no-store')
+    await apiClient.download('/api/v1/attachments/files/private/preview', { cache: 'reload' })
+    expect(fetchMock.mock.calls[1][1].cache).toBe('reload')
+  })
+  it('rejects an obsolete feed even when its JSON body finishes after cancellation', async () => {
+    let finish!: (value: unknown) => void
+    const body = new Promise(resolve => { finish = resolve })
+    const slow = response()
+    slow.json.mockReturnValue(body)
+    fetchMock.mockResolvedValueOnce(slow)
+    const first = apiClient.get('/api/v1/bbtalk', { search: 'old-body' })
+    await Promise.resolve(); await Promise.resolve()
+    const rejected = expect(first).rejects.toMatchObject({ name: 'AbortError' })
+    await apiClient.get('/api/v1/bbtalk', { search: 'new-body' })
+    finish({ id: 'old' })
+    await rejected
+  })
+  it('keeps a pending filter read alive during an unrelated comment write', async () => {
+    let finish!: (value: ReturnType<typeof response>) => void
+    fetchMock.mockReturnValueOnce(new Promise(resolve => { finish = resolve }))
+    const feed = apiClient.get('/api/v1/bbtalk', { tags: ['new'] })
+    await apiClient.post('/api/v1/bbtalk/record/comments', { content: 'hello' })
+    expect(fetchMock.mock.calls[0][1].signal.aborted).toBe(false)
+    finish(response())
+    await feed
+  })
+  it('coalesces simultaneous identical reads and permits a later refresh', async () => {
+    let finish!: (value: ReturnType<typeof response>) => void
+    fetchMock.mockReturnValueOnce(new Promise(resolve => { finish = resolve }))
+    const first = apiClient.get('/items', { page: 1 })
+    const second = apiClient.get('/items', { page: 1 })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    finish(response())
+    await Promise.all([first, second])
+    await apiClient.get('/items', { page: 1 })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('aborts obsolete feed filters while retaining the latest query', async () => {
+    fetchMock.mockImplementation((_url, options) => new Promise((resolve, reject) => {
+      options.signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')))
+      if (String(_url).includes('tags=new')) resolve(response())
+    }))
+    const old = apiClient.get('/api/v1/bbtalk', { tags: ['old'] })
+    const rejected = expect(old).rejects.toMatchObject({ name: 'AbortError' })
+    await apiClient.get('/api/v1/bbtalk', { tags: ['new'] })
+    await rejected
+    expect(fetchMock.mock.calls[0][1].signal.aborted).toBe(true)
+  })
+
+  it('encodes array filters and appends them to existing query parameters', async () => {
+    await apiClient.get('/items?page=2', { tags: ['work', 'home'], empty: [] })
+    expect(fetchMock.mock.calls[0][0]).toMatch(/\/items\?page=2&tags=work&tags=home$/)
+  })
+
+  it('renders FastAPI validation errors without exposing input values', async () => {
+    fetchMock.mockResolvedValue(response(422, { detail: [{ loc: ['body', 'password'], msg: 'String should have at least 8 characters', input: 'secret', type: 'string_too_short' }] }))
+    await expect(apiClient.post('/items', {})).rejects.toMatchObject({ status: 422, message: 'password: String should have at least 8 characters' })
+  })
+
   it('encodes filters, retaining zero and false but omitting empty values', async () => {
     expect(await apiClient.get('/items/', { q: 'a b&c', zero: 0, flag: false, missing: undefined, nil: null, blank: '' })).toEqual({ id: 1 })
     expect(fetchMock.mock.calls[0][0]).toMatch(/\/items\/\?q=a\+b%26c&zero=0&flag=false$/)

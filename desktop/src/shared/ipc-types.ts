@@ -23,6 +23,8 @@ export interface UploadItem {
 export interface SubmissionSession { scope: string; generation: number }
 export interface SubmissionPayload {
   content: string;
+  tags?: string[];
+  /** Pending submissions saved by older versions retain their original payload. */
   post_tags?: string;
   attachments: { uid: string }[];
   visibility: 'public' | 'private';

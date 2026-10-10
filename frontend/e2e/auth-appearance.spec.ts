@@ -35,7 +35,7 @@ test('login and registration remain usable at short heights and with keyboard na
 test('settings uses the same surfaces and preserves navigation and logout confirmation', async ({ page }, info) => {
   const username = `design_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
   const password = 'appearance-review-2026'
-  expect((await page.request.post('/api/v1/bbtalk/auth/register/', {
+  expect((await page.request.post('/api/v1/bbtalk/auth/register', {
     data: { username, password, display_name: '小满', email: 'xiaoman@example.com' },
   })).status()).toBe(201)
   await page.goto('/login')

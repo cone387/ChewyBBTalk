@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../shared/apiErrorMessage';
 import { app, BrowserWindow } from 'electron';
 import { mkdir, writeFile, readFile, unlink } from 'node:fs/promises';
 import { createHash, randomUUID } from 'node:crypto';
@@ -53,10 +54,10 @@ export async function retryUpload(session: SubmissionSession, id: string): Promi
     const body = new FormData();
     body.append('file', new Blob([new Uint8Array(bytes)], { type: item.mimeType }), item.name);
     body.append('is_public', 'false');
-    const response = await authenticatedFetch('/api/v1/attachments/files/', { method: 'POST', body }, session.generation);
+    const response = await authenticatedFetch('/api/v1/attachments/files', { method: 'POST', body }, session.generation);
     const data = await response.json().catch(() => ({}));
     assertSession(session);
-    if (!response.ok) throw new Error(response.status === 413 ? '文件太大，请压缩后重试' : data.detail || data.file?.join?.('; ') || `上传失败 (${response.status})`);
+    if (!response.ok) throw new Error(response.status === 413 ? '文件太大，请压缩后重试' : apiErrorMessage(data, data.file?.join?.('; ') || `上传失败 (${response.status})`));
     const uid = String(data.uid || data.id || '');
     if (!uid) throw new Error('服务器未返回附件编号');
     update({ status: 'uploaded', uid, error: undefined });
@@ -88,7 +89,7 @@ export async function previewUpload(session: SubmissionSession, id: string): Pro
   } catch (error) {
     assertSession(session);
     if (!item.uid) throw error;
-    const response = await authenticatedFetch(`/api/v1/attachments/files/${encodeURIComponent(item.uid)}/preview/`, {}, session.generation);
+    const response = await authenticatedFetch(`/api/v1/attachments/files/${encodeURIComponent(item.uid)}/preview`, {}, session.generation);
     if (!response.ok) throw new Error('无法加载预览，请重试');
     const bytes = new Uint8Array(await response.arrayBuffer());
     assertSession(session);
