@@ -24,7 +24,7 @@
 
 ```sh
 cd backend
-uv run python -m chewy_api.cli migrate
+uv run python -m cli migrate
 ```
 
 原生 Alembic 迁移建立完整业务表，或接管已完成旧版 `0009_password_recovery` 的数据库，保留凭证版本和恢复码摘要。默认不启用邮件找回；修改密码无需 SMTP。升级边界见 [后端说明](../backend/README.md)。

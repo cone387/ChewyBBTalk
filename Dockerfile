@@ -29,7 +29,18 @@ RUN pip install --no-cache-dir uv && \
     uv export --frozen --no-dev --no-emit-project --output-file requirements.txt && \
     uv pip install --system -r requirements.txt
 
-COPY backend/src/chewy_api ./chewy_api
+COPY backend/main.py backend/application.py ./backend/
+COPY backend/api ./backend/api
+COPY backend/services ./backend/services
+COPY backend/models ./backend/models
+COPY backend/schemas ./backend/schemas
+COPY backend/core ./backend/core
+COPY backend/database ./backend/database
+COPY backend/storage ./backend/storage
+COPY backend/backups ./backend/backups
+COPY backend/admin ./backend/admin
+COPY backend/cli ./backend/cli
+COPY backend/templates ./backend/templates
 
 # ================================
 # 前端构建阶段
@@ -72,7 +83,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # 复制后端依赖和代码
 COPY --from=backend-builder /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages
 COPY --from=backend-builder /usr/local/bin /usr/local/bin
-COPY --from=backend-builder /app/chewy_api /app/backend/chewy_api
+COPY --from=backend-builder /app/backend /app/backend
 
 # 复制前端构建产物
 COPY --from=frontend-builder /app/dist /app/frontend

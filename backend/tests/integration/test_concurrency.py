@@ -11,11 +11,11 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 
-from chewy_api.application import create_app
-from chewy_api.core.config import Settings
-from chewy_api.db.models import BBTalk, Identity, SubmissionReceipt, User
-from chewy_api.db.upgrade import upgrade
-from chewy_api.services.security import token_pair
+from application import create_app
+from core.config import Settings
+from database.upgrade import upgrade
+from models import BBTalk, Identity, SubmissionReceipt, User
+from services.security import token_pair
 
 BASE = '/api/v1/bbtalk/'
 
@@ -39,7 +39,7 @@ def concurrent_app(app, tmp_path, password_hash):
         db.commit()
     yield native
     # Only delete this test's random account, never drop a supplied database.
-    from chewy_api.services.accounts import delete_user
+    from services.accounts import delete_user
     with native.state.sessions() as db:
         delete_user(db, db.get(User, native.state.owner_id))
         db.commit()

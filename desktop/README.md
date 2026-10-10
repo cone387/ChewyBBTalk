@@ -12,7 +12,7 @@
 - 自定义服务器设置真正持久化；切服需要重新登录，旧草稿保留。编辑框按悬浮球/鼠标所在屏幕定位。
 - 应用、安装包、窗口、悬浮球和托盘采用同一气泡标识；`npm run icons` 从 SVG 生成 PNG、ICO、ICNS 及 macOS 模板托盘图标。
 
-部署时同步更新后端与 Web：在 `backend` 执行 `uv sync --frozen` 和 `uv run python -m chewy_api.cli migrate`，然后构建发布 Web。旧数据库升级要求见 [后端说明](../backend/README.md)。浏览器授权入口为 `/desktop/authorize`。
+部署时同步更新后端与 Web：在 `backend` 执行 `uv sync --frozen` 和 `uv run python -m cli migrate`，然后构建发布 Web。旧数据库升级要求见 [后端说明](../backend/README.md)。浏览器授权入口为 `/desktop/authorize`。
 
 后端使用原生 FastAPI 附件接口及 boto3。私密附件预览需要认证，Web 和移动端应一起更新对应鉴权加载逻辑；Web 私密视频在用户点击后加载。
 

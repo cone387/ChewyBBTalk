@@ -4,9 +4,9 @@ from unittest.mock import patch
 import pytest
 from sqlalchemy import func, select
 
-from chewy_api.cli import commands as cli
-from chewy_api.db.models import BBTalk, Identity, StorageConfig, User
-from chewy_api.services.security import check_password
+from cli import commands as cli
+from models import BBTalk, Identity, StorageConfig, User
+from services.security import check_password
 
 
 def test_initialization_is_idempotent_and_demo_opt_in(app,monkeypatch,capsys):
@@ -49,7 +49,7 @@ def test_cli_commands_on_disposable_database(app,monkeypatch,capsys):
     cli.main(['migrate'])
     monkeypatch.setenv('ADMIN_PASSWORD','cli-admin-password')
     cli.main(['init'])
-    with patch('chewy_api.cli.commands.getpass.getpass',return_value='new-account-password'):
+    with patch('cli.commands.getpass.getpass',return_value='new-account-password'):
         cli.main(['create-user','cli-user','--admin','--email','cli@example.com'])
     with app.state.sessions() as db:
         user=db.scalar(select(User).where(User.username=='cli-user'))
@@ -63,12 +63,12 @@ def test_cli_commands_on_disposable_database(app,monkeypatch,capsys):
     cli.main(['backup','--dry-run'])
     cli.main(['backup','--user-id',str(app.state.owner_id),'--keep','1'])
     with pytest.raises(SystemExit): cli.main(['backup','--keep','0'])
-    with patch('chewy_api.cli.commands.code.interact') as shell:
+    with patch('cli.commands.code.interact') as shell:
         cli.main(['shell']); assert 'db' in shell.call_args.kwargs['local']
 
 
 def test_config_paths_and_secret_reuse(tmp_path,monkeypatch):
-    from chewy_api.core.config import Settings, secret_key
+    from core.config import Settings, secret_key
     monkeypatch.delenv('SECRET_KEY',raising=False)
     first=secret_key(tmp_path)
     assert first==secret_key(tmp_path)
@@ -81,8 +81,8 @@ def test_config_paths_and_secret_reuse(tmp_path,monkeypatch):
     assert Settings(database_url='sqlite:///:memory:').database_url=='sqlite:///:memory:'
     from sqlalchemy import inspect
 
-    from chewy_api.db.session import database
-    from chewy_api.db.upgrade import upgrade
+    from database.session import database
+    from database.upgrade import upgrade
     engine,_=database(Settings(database_url='sqlite:///:memory:'))
     try:
         upgrade(engine)
@@ -116,7 +116,7 @@ def test_installed_entrypoints_forward_arguments(monkeypatch):
         cli.migrate();main.assert_called_with(['migrate','--example'])
         cli.init();main.assert_called_with(['init','--example'])
     with patch('uvicorn.run') as run:
-        cli.dev();assert run.call_args.args==('chewy_api.main:app',)
+        cli.dev();assert run.call_args.args==('main:app',)
     with patch('pytest.main',return_value=0) as run:
         with pytest.raises(SystemExit) as result: cli.test()
         assert result.value.code==0 and run.call_args.args[0]==['tests','--example']

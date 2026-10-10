@@ -8,16 +8,16 @@ context: |
   现代化的个人微博/碎碎念系统，自托管，单用户为主，支持多端访问（Web、iOS、Android、桌面）。
 
   ## 技术栈
-  - 后端: Python 3.13 + Django 5.2 + DRF + drf-spectacular + JWT (SimpleJWT)
+  - 后端: Python 3.13 + FastAPI + Pydantic + SQLAlchemy 2 + Alembic + SQLAdmin + PyJWT
   - 数据库: SQLite（默认）/ PostgreSQL / MySQL（通过 DATABASE_URL 切换）
-  - 附件存储: chewy-attachment（本地）/ S3 兼容（可在运行时切换）
+  - 附件存储: 原生本地存储 / boto3 S3 兼容（可在运行时切换）
   - Web 前端: React 18 + Vite 5 + Redux Toolkit + Tailwind CSS
   - 移动端 (mobile/): Expo SDK 54 + React Native 0.81 + React Navigation + Redux Toolkit；
     通过 react-native-web 提供开发预览，不替代 frontend/ 的生产 Web
   - 部署: Docker 单容器（推荐）/ docker-compose / 本地开发
 
   ## 仓库结构
-  - backend/    — Django 后端，应用 bbtalk 内含模型、视图、序列化器、URL
+  - backend/    — FastAPI 后端；main.py、api/、services/、models/、schemas/、core/、database/、storage/、backups/、admin/、cli/ 直接放在根目录，无 src 或项目名包裹
   - frontend/   — Web 前端（Vite + React，生产部署主线）
   - mobile/     — Expo 原生应用（iOS / Android；Expo Web 仅用于开发验证）
   - openspec/   — 规范驱动开发文档
@@ -27,23 +27,23 @@ context: |
   - BBTalk（碎碎念）: 用户发布的内容条目，支持 Markdown、附件、标签、可见性、置顶、上下文（位置/天气/设备）
   - Tag（标签）: 用户级标签，唯一性按 (user, name) 维度，颜色随机生成可编辑
   - Comment（评论）: 对某条 BBTalk 的评论，仅作者可删除
-  - Attachment（附件）: 基于 chewy-attachment，支持图片/音频/视频/文件，可切换本地或 S3 后端
+  - Attachment（附件）: 原生存储模块支持图片/音频/视频/文件，可切换本地或 S3 后端
   - User / Identity: 用户与认证身份分离设计，支持多种登录方式（密码、OAuth、邮箱验证码等）
-  - UserStorageSettings: 用户级 S3 存储配置，可同时存在多个但只激活一个
+  - StorageConfig: 用户级 S3 存储配置，可同时存在多个但只激活一个
   - 防偷窥（Privacy Lock）: 不活动超时后自动锁屏，需密码或生物识别解锁，支持 App 被 kill 后冷启动检查
 
   ## 编码约定
   - Commit 信息: 中文，格式 `type(scope): 描述`，常用 type: feat, fix, refactor, chore, docs
   - 文件 / 命名: 后端 snake_case，前端 / 移动端 camelCase + PascalCase 组件
-  - 后端模型: 都继承 BaseModel（含 user/create_time/update_time），表名以 cb_ 前缀，业务主键用 22 位 base64 uid
+  - 后端模型: SQLAlchemy 声明式模型，保留已有表名与业务 uid；数据库变更新增 Alembic revision，不修改冻结的初始迁移
   - API 路径: /api/v1/bbtalk/...，REST 风格 + 少量 RPC 风格端点
   - 认证: JWT 为主，Session 兼容；移动端使用 expo-secure-store 持久化 token
   - 跨平台 alert: 移动端 / Web 端的弹窗一律使用 mobile/src/utils/crossAlert.ts 提供的
     xAlert / xConfirm / xActionSheet，Web 端使用 iOS 风格自定义弹窗（见 webAlert.ts）
 
   ## 开发与部署命令
-  - 后端开发:   cd backend && uv run dev  （启动 Django + 自动 migrate）
-  - 后端迁移:   uv run makemigrations / uv run migrate
+  - 后端开发:   cd backend && uv sync --frozen && uv run migrate && uv run dev
+  - 后端迁移:   uv run python -m cli migrate
   - Web 前端:   cd frontend && npm run dev
   - 移动端:     cd mobile && npm start  （iOS: i / Android: a / Web: w）
   - 单容器部署: docker run -d -p 4010:4010 -v bbtalk_data:/app/data ghcr.io/cone387/chewybbtalk:latest

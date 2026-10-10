@@ -8,15 +8,15 @@ Django、DRF、SimpleJWT 和 chewy-attachment 已从代码和运行依赖移除�
 ```bash
 cd backend
 uv sync --frozen
-uv run python -m chewy_api.cli migrate
-uv run python -m chewy_api.cli init
+uv run python -m cli migrate
+uv run python -m cli init
 uv run dev
 ```
 
 生产入口（先迁移，再启动 worker）：
 
 ```bash
-uv run uvicorn chewy_api.main:app --host 0.0.0.0 --port 8020 --no-proxy-headers
+uv run uvicorn main:app --host 0.0.0.0 --port 8020 --no-proxy-headers
 ```
 
 `BACKEND_HOST`、`BACKEND_PORT` 调整开发监听地址。根目录 `start_backend.sh`
@@ -26,7 +26,7 @@ uv run uvicorn chewy_api.main:app --host 0.0.0.0 --port 8020 --no-proxy-headers
 
 先一起备份数据库、附件、`DATA_DIR` 和 `SECRET_KEY`。保持已有 `DATABASE_URL`、
 `MEDIA_ROOT`、`DATA_DIR`、`SECRET_KEY`，执行 `uv sync --frozen` 及
-`uv run python -m chewy_api.cli migrate`，再启动新服务。迁移期间停止旧服务。
+`uv run python -m cli migrate`，再启动新服务。迁移期间停止旧服务。
 
 Alembic 直接接管业务表，不复制或删除已有记录。旧数据库须已完成
 `0009_password_recovery`；字段不完整时会在修改业务表前拒绝迁移。
@@ -43,7 +43,8 @@ S3 加密密钥。**旧 Cookie 会话和管理后台需要重新登录**；JWT �
 回退应恢复升级前的配套数据备份和旧代码。
 
 本次目录重组不改变数据库结构或 Alembic revision，也不使原生后端已签发的 Session/JWT 失效。
-自定义 Uvicorn 启动配置需改为 `chewy_api.main:app`；管理命令仍为 `python -m chewy_api.cli`。
+自定义 Uvicorn 启动配置需改为 `main:app`；管理命令改为 `python -m cli`。
+安装包名为 `bbtalk-backend`，源码直接按职责放在 `backend/` 下，没有额外项目包或 `src/` 外层。
 
 `/admin/` 改由 SQLAdmin 提供，支持账号资料及权限管理、业务数据只读查询。
 账号创建使用 CLI；记录、附件等修改经过账号 API，保证可见性、提交回执和文件操作一致。
@@ -51,14 +52,14 @@ S3 加密密钥。**旧 Cookie 会话和管理后台需要重新登录**；JWT �
 ## 管理命令
 
 ```bash
-uv run python -m chewy_api.cli --help
-uv run python -m chewy_api.cli create-user alice --email alice@example.com
-uv run python -m chewy_api.cli create-user operator --admin
-uv run python -m chewy_api.cli encrypt-storage-secrets
-uv run python -m chewy_api.cli backup --user-id 1 --keep 14 --dry-run
-uv run python -m chewy_api.cli backup --user-id 1 --keep 14
-uv run python -m chewy_api.cli check
-uv run python -m chewy_api.cli shell
+uv run python -m cli --help
+uv run python -m cli create-user alice --email alice@example.com
+uv run python -m cli create-user operator --admin
+uv run python -m cli encrypt-storage-secrets
+uv run python -m cli backup --user-id 1 --keep 14 --dry-run
+uv run python -m cli backup --user-id 1 --keep 14
+uv run python -m cli check
+uv run python -m cli shell
 ```
 
 `init` 不重置已有管理员密码。`ADMIN_USERNAME` 默认为 `admin`；未提供 `ADMIN_PASSWORD`
@@ -111,21 +112,21 @@ OpenAPI：`/api/schema/`；存活检查：`/healthz`。
 
 ```text
 backend/
-├── src/chewy_api/
-│   ├── main.py             # Uvicorn 入口
-│   ├── application.py      # 应用工厂和组件装配
-│   ├── api/                # HTTP 依赖、中间件、异常响应、分页和 OpenAPI
-│   │   └── routes/         # 认证、记录、附件、备份、状态及公共页面
-│   ├── schemas/            # 按业务划分的请求模型
-│   ├── services/           # 账号、认证和记录的复用逻辑
-│   ├── db/                 # SQLAlchemy 模型、会话及迁移入口
-│   │   └── migrations/     # Alembic 历史版本及冻结表结构
-│   ├── storage/            # 本地 / S3 驱动和账号存储配置
-│   ├── backups/            # 完整性校验、导入导出、锁和保留策略
-│   ├── core/               # 环境配置和业务异常
-│   ├── admin/              # SQLAdmin
-│   ├── cli/                # 管理命令及演示数据
-│   └── templates/          # 安装包内的公共页面模板
+├── main.py                 # Uvicorn 入口
+├── application.py          # 应用工厂和组件装配
+├── api/                    # HTTP 依赖、中间件、异常响应、分页和 OpenAPI
+│   └── routes/             # 认证、记录、附件、备份、状态及公共页面
+├── services/               # 账号、认证和记录的复用逻辑
+├── models/                 # SQLAlchemy 数据库模型
+├── schemas/                # 按业务划分的请求模型
+├── core/                   # 环境配置和业务异常
+├── database/               # 数据库连接、会话及迁移入口
+│   └── migrations/         # Alembic 历史版本及冻结表结构
+├── storage/                # 本地 / S3 驱动和账号存储配置
+├── backups/                # 完整性校验、导入导出、锁和保留策略
+├── admin/                  # SQLAdmin
+├── cli/                    # 管理命令及演示数据
+├── templates/              # 安装包内的公共页面模板
 ├── tests/
 │   ├── unit/               # 纯逻辑、路径兼容及依赖边界
 │   ├── integration/        # HTTP、数据库、并发和 CLI
@@ -137,14 +138,14 @@ backend/
 └── Dockerfile
 ```
 
-依赖方向：路由和 CLI 调用服务；服务使用数据库、配置和存储。`core`、`db`、
+依赖方向：路由和 CLI 调用服务；服务使用数据库、配置和存储。`core`、`database`、`models`、
 `services`、`storage`、`backups` 不导入路由或应用入口；架构测试持续检查这一边界。
 `application.py` 导入无运行文件副作用，只有创建应用或运行命令时才解析运行配置。
 迁移及模板随 wheel 一起发布，生产运行不依赖源码仓库或 `tools/`。
 
 新增接口在 `api/routes/` 注册，并在 `api/router.py` 装配；通用记录规则放在 `services/`，
 文件驱动放在 `storage/`。数据库结构调整应新增 Alembic revision，不修改冻结的 `schema_v1.py`。
-采用 `src` 布局后需要先 `uv sync --frozen` 安装项目，再运行命令和测试。
+执行 `uv sync --frozen` 安装依赖及项目，再从 `backend/` 运行命令和测试。
 
 `tests/fixtures/legacy.sql` 是合成旧数据库，用于在未安装 Django 时验证兼容升级。
 

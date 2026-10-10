@@ -15,9 +15,9 @@ export MEDIA_ROOT="${MEDIA_ROOT:-$ROOT/data/backend/media}"
 mkdir -p "$ROOT/data" "$DATA_DIR" "$MEDIA_ROOT"
 cd "$ROOT/backend"
 uv sync --frozen
-uv run --no-sync python -m chewy_api.cli migrate
-uv run --no-sync python -m chewy_api.cli init
-ARGS=(chewy_api.main:app --host "${BACKEND_HOST:-0.0.0.0}" --port "${BACKEND_PORT:-8020}" --no-proxy-headers)
+uv run --no-sync python -m cli migrate
+uv run --no-sync python -m cli init
+ARGS=(main:app --host "${BACKEND_HOST:-0.0.0.0}" --port "${BACKEND_PORT:-8020}" --no-proxy-headers)
 if [ "$MODE" = dev ]; then
     ARGS+=(--reload)
 else

@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytest
 from sqlalchemy import func, select
 
-from chewy_api.backups.service import (
+from backups.service import (
     backup_lock,
     backup_path,
     create_backup,
@@ -15,8 +15,8 @@ from chewy_api.backups.service import (
     user_directory,
     write_status,
 )
-from chewy_api.backups.transfer import DataExporter, import_data, read_import
-from chewy_api.db.models import Attachment, BBTalk, Comment, Tag, User
+from backups.transfer import DataExporter, import_data, read_import
+from models import Attachment, BBTalk, Comment, Tag, User
 
 BASE='/api/v1/bbtalk/'
 FILES='/api/v1/attachments/files/'
@@ -115,7 +115,7 @@ def test_complete_restore_storage_failure_rolls_back(app,client):
     with archive,app.state.sessions() as db:
         target=User(username='failed-restore'); db.add(target); db.commit()
         target_id=target.id
-        with patch('chewy_api.storage.backends.Store.save',side_effect=OSError('disk full')):
+        with patch('storage.backends.Store.save',side_effect=OSError('disk full')):
             with pytest.raises(ValueError): import_data(db,app.state.settings,target,data,archive,complete)
         assert db.scalar(select(func.count()).select_from(Tag).where(Tag.user_id==target_id))==0
         assert db.scalar(select(func.count()).select_from(BBTalk).where(BBTalk.user_id==target_id))==0
@@ -149,7 +149,7 @@ def test_backup_lock_retention_failures_and_download(app,client):
 
 
 def test_unresolved_references_and_duplicate_file_paths_cannot_export(app,client):
-    from chewy_api.backups.integrity import verify_attachment_references
+    from backups.integrity import verify_attachment_references
     for ref in ({},'missing'):
         with pytest.raises(ValueError): verify_attachment_references({'bbtalks':[{'attachments':[ref]}]})
     file,row=seed(client)
@@ -183,7 +183,7 @@ def test_import_commit_failure_cleans_copied_files(app,client):
 def test_backup_path_guards_and_retention_failure(app):
     from pathlib import Path
 
-    from chewy_api.backups.service import backup_root
+    from backups.service import backup_root
     settings=app.state.settings
     assert backup_root(settings,str(settings.data_dir/'custom'))==settings.data_dir/'custom'
     with app.state.sessions() as db:

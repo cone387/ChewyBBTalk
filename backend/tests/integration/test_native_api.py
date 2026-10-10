@@ -10,11 +10,11 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 
-from chewy_api.application import create_app
-from chewy_api.core.config import Settings
-from chewy_api.db.models import BBTalk
-from chewy_api.db.upgrade import upgrade
-from chewy_api.services.security import create_user
+from application import create_app
+from core.config import Settings
+from database.upgrade import upgrade
+from models import BBTalk
+from services.security import create_user
 
 BASE = '/api/v1/bbtalk/'
 PNG = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aXioAAAAASUVORK5CYII=')

@@ -1,5 +1,5 @@
 [project]
-name = "chewy-space"
+name = "bbtalk-backend"
 version = "0.1.0"
 description = "BBTalk Backend Service"
 readme = "README.md"
@@ -26,8 +26,8 @@ build-backend = "hatchling.build"
 
 [tool.coverage.run]
 branch = true
-source = ["src/chewy_api"]
-omit = ["*/test*.py", "*/migrations/*", "*/__init__.py"]
+source = ["main", "application", "api", "services", "models", "schemas", "core", "database", "storage", "backups", "admin", "cli"]
+omit = ["*/test*.py", "*/migrations/*"]
 
 [tool.coverage.report]
 show_missing = true
@@ -45,14 +45,20 @@ output = "coverage/coverage.xml"
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/chewy_api"]
+only-include = ["main.py", "application.py", "api", "services", "models", "schemas", "core", "database", "storage", "backups", "admin", "cli", "templates"]
+
+[tool.hatch.build.targets.sdist]
+only-include = ["main.py", "application.py", "api", "services", "models", "schemas", "core", "database", "storage", "backups", "admin", "cli", "templates", "tests", "tools", "pyproject.toml", "uv.lock", "README.md", "Dockerfile", ".dockerignore"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 100
-extend-exclude = ["src/chewy_api/db/migrations"]
+extend-exclude = ["database/migrations"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["main", "application", "api", "services", "models", "schemas", "core", "database", "storage", "backups", "admin", "cli"]
 
 [tool.ruff.format]
 quote-style = "single"
@@ -66,8 +72,8 @@ dev = [
 
 [project.scripts]
 # 用法: uv run dev / uv run migrate / uv run init ...
-dev = "chewy_api.cli.commands:dev"
-migrate = "chewy_api.cli.commands:migrate"
-init = "chewy_api.cli.commands:init"
-test = "chewy_api.cli.commands:test"
-bbtalk = "chewy_api.cli.commands:main"
+dev = "cli.commands:dev"
+migrate = "cli.commands:migrate"
+init = "cli.commands:init"
+test = "cli.commands:test"
+bbtalk = "cli.commands:main"

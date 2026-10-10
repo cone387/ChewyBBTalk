@@ -25,13 +25,13 @@ if [ -z "$SECRET_KEY" ]; then
 fi
 
 echo "等待数据库连接..."
-python -m chewy_api.cli check
+python -m cli check
 
 echo "执行数据库迁移..."
-python -m chewy_api.cli migrate
+python -m cli migrate
 
 echo "初始化系统..."
-python -m chewy_api.cli init
+python -m cli init
 
 # 初始化完成后确保数据目录权限正确（Uvicorn 以 www-data 运行）
 chown -R www-data:www-data /app/data
@@ -42,5 +42,5 @@ if [ "$1" = "supervisor" ]; then
     exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
 else
     echo "启动 FastAPI 服务（docker-compose模式）..."
-    exec uvicorn chewy_api.main:app --host 0.0.0.0 --port 8020 --workers "${WEB_CONCURRENCY:-2}" --no-proxy-headers
+    exec uvicorn main:app --host 0.0.0.0 --port 8020 --workers "${WEB_CONCURRENCY:-2}" --no-proxy-headers
 fi

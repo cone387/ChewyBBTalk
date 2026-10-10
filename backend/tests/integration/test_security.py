@@ -7,9 +7,9 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
-from chewy_api.core.errors import APIError
-from chewy_api.db.models import Identity, PasswordRecovery, User, now
-from chewy_api.services.security import (
+from core.errors import APIError
+from models import Identity, PasswordRecovery, User, now
+from services.security import (
     Limiter,
     check_password,
     decrypt_secret,
@@ -49,16 +49,16 @@ def test_secret_compatibility(app):
 
 def test_limiter_expiry_scope_and_peer():
     limiter = Limiter()
-    with patch('chewy_api.services.security.time.monotonic', return_value=100):
+    with patch('services.security.time.monotonic', return_value=100):
         limiter.check('login', 'peer', '1/minute')
         limiter.check('register', 'peer', '1/minute')
         limiter.check('login', 'other', '1/minute')
         with pytest.raises(APIError) as raised:
             limiter.check('login', 'peer', '1/minute')
         assert raised.value.status == 429
-    with patch('chewy_api.services.security.time.monotonic', return_value=161):
+    with patch('services.security.time.monotonic', return_value=161):
         limiter.check('login', 'peer', '1/minute')
-    with patch('chewy_api.services.security.time.monotonic', return_value=100000):
+    with patch('services.security.time.monotonic', return_value=100000):
         limiter.check('login', 'peer', '1/minute')
         assert len(limiter.history) == 1
 
@@ -143,13 +143,13 @@ def test_account_deletion_cascades_and_preserves_other_users(app, client):
 
 
 def test_smtp_tls_ssl_and_optional_credentials(monkeypatch):
-    from chewy_api.services.accounts import send_recovery_email
+    from services.accounts import send_recovery_email
     monkeypatch.setenv('EMAIL_HOST','smtp.example.com')
     monkeypatch.setenv('EMAIL_HOST_USER','mailer')
     monkeypatch.setenv('EMAIL_HOST_PASSWORD','mail-secret')
     monkeypatch.setenv('EMAIL_USE_SSL','false')
     monkeypatch.setenv('EMAIL_USE_TLS','true')
-    with patch('chewy_api.services.accounts.smtplib.SMTP') as smtp:
+    with patch('services.accounts.smtplib.SMTP') as smtp:
         send_recovery_email('person@example.com','recovery-code')
         server=smtp.return_value.__enter__.return_value
         server.starttls.assert_called_once()
@@ -157,7 +157,7 @@ def test_smtp_tls_ssl_and_optional_credentials(monkeypatch):
         assert server.send_message.call_args.args[0]['To']=='person@example.com'
     monkeypatch.setenv('EMAIL_USE_SSL','true')
     monkeypatch.delenv('EMAIL_HOST_USER')
-    with patch('chewy_api.services.accounts.smtplib.SMTP_SSL') as smtp:
+    with patch('services.accounts.smtplib.SMTP_SSL') as smtp:
         send_recovery_email('person@example.com','recovery-code')
         server=smtp.return_value.__enter__.return_value
         server.starttls.assert_not_called()
@@ -165,7 +165,7 @@ def test_smtp_tls_ssl_and_optional_credentials(monkeypatch):
 
 
 def test_blacklist_cannot_revoke_another_users_token(app,client):
-    from chewy_api.services.security import token_pair
+    from services.security import token_pair
     with app.state.sessions() as db:
         other=User(username='other-token'); db.add(other); db.flush()
         tokens=token_pair(db,other,app.state.settings); db.commit()
@@ -178,7 +178,7 @@ def test_signed_refresh_without_outstanding_row_is_consumed(app,client):
 
     import jwt
 
-    from chewy_api.db.models import now
+    from models import now
     payload={'exp':now()+timedelta(days=1),'user_id':app.state.owner_id,'jti':uuid4().hex,'token_type':'refresh','credential_version':0}
     token=jwt.encode(payload,app.state.settings.secret_key,algorithm='HS256')
     assert client.post(BASE+'auth/token/refresh/',json={'refresh':token}).status_code==200
@@ -186,8 +186,8 @@ def test_signed_refresh_without_outstanding_row_is_consumed(app,client):
 
 
 def test_sessions_replace_expire_and_reject_inactive_users(app):
-    from chewy_api.db.models import SessionToken
-    from chewy_api.services.security import digest
+    from models import SessionToken
+    from services.security import digest
     with TestClient(app) as browser:
         credentials={'username':'owner','password':'test-password-2026'}
         browser.post(BASE+'auth/login/',json=credentials)

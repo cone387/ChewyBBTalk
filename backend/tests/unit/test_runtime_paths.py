@@ -1,5 +1,5 @@
 
-from chewy_api.core import config
+from core import config
 
 
 def clean_environment(monkeypatch, tmp_path):
@@ -68,7 +68,7 @@ def test_existing_custom_relative_database_is_preserved(monkeypatch, tmp_path):
 
 
 def test_postgresql_aliases_load_the_installed_driver(monkeypatch, tmp_path):
-    from chewy_api.db.session import database
+    from database.session import database
     clean_environment(monkeypatch, tmp_path)
     for scheme in ('postgres', 'postgresql', 'postgresql+psycopg2'):
         settings = config.Settings(database_url=scheme+'://test:test@localhost/test', secret_key='test')

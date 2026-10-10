@@ -12,11 +12,11 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 from sqlalchemy import event
 
-from chewy_api.application import create_app
-from chewy_api.core.config import Settings
-from chewy_api.db.models import BBTalk, Comment, Tag, User
-from chewy_api.db.upgrade import upgrade
-from chewy_api.services.security import token_pair
+from application import create_app
+from core.config import Settings
+from database.upgrade import upgrade
+from models import BBTalk, Comment, Tag, User
+from services.security import token_pair
 
 
 def main():

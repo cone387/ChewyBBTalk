@@ -9,21 +9,21 @@ ChewyBBTalk 是一个**自托管的个人微博/碎碎念系统**，主打 Markd
 
 ```
 ChewyBBTalk/
-├── backend/                 # Django 后端（DRF + JWT）
-│   └── chewy_space/
-│       ├── bbtalk/          # 核心业务应用
-│       │   ├── models.py            # User / Identity / BBTalk / Tag / Comment / Attachment / UserStorageSettings
-│       │   ├── views.py             # ViewSets + 函数视图
-│       │   ├── serializers.py       # DRF 序列化器
-│       │   ├── authentication.py    # JWT + Session 认证
-│       │   ├── data_export.py       # 数据导出（JSON / ZIP）
-│       │   ├── data_import.py       # 数据导入
-│       │   ├── storage.py           # 存储抽象层
-│       │   ├── storage_provider.py  # 本地 / S3 后端
-│       │   ├── storage_migration.py # 跨后端附件迁移
-│       │   ├── privacy_views.py     # 防偷窥相关
-│       │   └── urls.py              # /api/v1/bbtalk/...
-│       └── chewy_space/     # Django 项目配置
+├── backend/                 # FastAPI 后端，没有 src 或项目名包裹
+│   ├── main.py              # ASGI 入口
+│   ├── application.py       # 应用工厂
+│   ├── api/                 # 路由、依赖、中间件与 OpenAPI
+│   ├── services/            # 账号、认证与记录业务
+│   ├── models/              # SQLAlchemy 模型
+│   ├── schemas/             # Pydantic 请求模型
+│   ├── database/            # 数据库会话与 Alembic 迁移
+│   ├── core/                # 配置和业务异常
+│   ├── storage/             # 本地 / S3 存储
+│   ├── backups/             # 导入导出与备份恢复
+│   ├── admin/               # SQLAdmin
+│   ├── cli/                 # 管理命令
+│   ├── tests/               # 单元与集成测试
+│   └── tools/               # 浏览器测试服务器及性能基准
 ├── frontend/                # 旧版 Web 前端（Vite + React 18 + Tailwind）
 │   └── src/{pages, components, hooks, services, store, types}
 ├── mobile/                  # 主推：Expo 跨端应用（iOS / Android / Web）
@@ -71,11 +71,11 @@ ChewyBBTalk/
 - 这是认证扩展的关键：增加新登录方式只新增 Identity 类型，不动 User
 
 ### Attachment（附件）
-- 基于 `chewy-attachment` 包（独立维护）
+- 使用原生 `storage/` 模块和 SQLAlchemy 附件模型
 - 支持本地存储 + S3 兼容（MinIO、阿里云 OSS、AWS S3）
-- 通过 `UserStorageSettings` 在运行时切换，附件元信息存于 BBTalk.attachments JSONField
+- 通过 `StorageConfig` 在运行时切换，附件元信息存于 BBTalk.attachments JSON 字段
 
-### UserStorageSettings（存储配置）
+### StorageConfig（存储配置）
 - 用户级 S3 配置，可同时存在多个但同时只激活一个
 - 提供测试连接、迁移、增删改激活等管理能力
 
@@ -88,7 +88,7 @@ ChewyBBTalk/
   - `POST /auth/token/refresh/` 刷新
   - `POST /auth/token/blacklist/` 登出（加入黑名单）
 - 注册：`POST /auth/register/`（直接返回 JWT）
-- OpenAPI 文档：`/api/schema/` + `/api/docs/`（drf-spectacular）
+- OpenAPI 文档：`/api/schema/`、`/api/schema/swagger-ui/`、`/api/schema/redoc/`（FastAPI）
 
 ## 6. 跨平台开发约定（重要）
 
@@ -110,19 +110,18 @@ ChewyBBTalk/
 ## 7. 编码风格
 
 - **Commit**: 中文，`type(scope): 描述`，常用 type: `feat / fix / refactor / chore / docs / style / test`
-- **后端**: snake_case，`BaseModel` 提供 user/create_time/update_time，业务主键用 22 位 base64 `uid`
+- **后端**: snake_case，SQLAlchemy 模型保留已有表名与业务 `uid`；新增 Alembic revision 升级，不修改冻结的初始表结构
 - **前端 / 移动端**: TypeScript strict，组件 PascalCase，函数 camelCase，文件名同主导出
-- **错误处理**: 后端用 DRF 异常体系；前端 / 移动端用 [mobile/src/utils/errorHandler.ts](../mobile/src/utils/errorHandler.ts)（含分类 + 复制按钮）
+- **错误处理**: 后端业务抛出 `core.errors.APIError`，HTTP 层统一生成响应；前端 / 移动端用 [mobile/src/utils/errorHandler.ts](../mobile/src/utils/errorHandler.ts)（含分类 + 复制按钮）
 
 ## 8. 常用命令
 
 ```bash
-# 后端开发（自动 migrate）
-cd backend && uv run dev
+# 后端开发
+cd backend && uv sync --frozen && uv run migrate && uv run dev
 
 # 后端迁移
-uv run makemigrations
-uv run migrate
+uv run python -m cli migrate
 
 # Web 前端
 cd frontend && npm install && npm run dev

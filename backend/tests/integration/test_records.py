@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 import pytest
 from sqlalchemy import select
 
-from chewy_api.db.models import BBTalk
+from models import BBTalk
 
 BASE = '/api/v1/bbtalk/'
 
@@ -101,7 +101,7 @@ def test_large_feed_has_bounded_queries(app,client):
 
 
 def test_public_records_legacy_references_and_json_null(app,client):
-    from chewy_api.services.records import attachment_ids
+    from services.records import attachment_ids
     assert attachment_ids([{'uid':'not-a-uuid'},{},None])==set()
     row=client.post(BASE,json={'content':'public','visibility':'public','attachments':[{'url':'/legacy','type':'file'}]}).json()
     assert client.get(BASE+'public/'+row['uid']+'/').json()['attachments']==[{'url':'/legacy','type':'file'}]
@@ -118,7 +118,7 @@ def test_database_outage_has_retryable_response(client):
     from unittest.mock import patch
 
     from sqlalchemy.exc import OperationalError
-    with patch('chewy_api.api.routes.records.paginate',side_effect=OperationalError('SELECT',{},OSError('offline'))):
+    with patch('api.routes.records.paginate',side_effect=OperationalError('SELECT',{},OSError('offline'))):
         result=client.get(BASE)
     assert result.status_code==503 and result.headers['Retry-After']=='1'
     assert result.json()['code']=='submission_retry'

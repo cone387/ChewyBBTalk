@@ -23,8 +23,8 @@ def main():
                 'ALLOWED_HOSTS': '127.0.0.1,localhost',
             }
         )
-        from chewy_api.db.upgrade import upgrade
-        from chewy_api.main import app
+        from database.upgrade import upgrade
+        from main import app
 
         upgrade(app.state.engine)
         import uvicorn

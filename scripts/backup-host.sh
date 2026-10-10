@@ -56,10 +56,10 @@ if [[ "$DRY_RUN" == "true" ]]; then
 fi
 
 # Both images expose the native CLI; Compose uses its locked uv environment.
-if docker exec "$CONTAINER" sh -c 'test -d /app/backend/chewy_api' >/dev/null 2>&1; then
-  docker exec -w /app/backend "$CONTAINER" python -m chewy_api.cli "${ARGS[@]}"
-elif docker exec "$CONTAINER" sh -c 'test -d /app/src/chewy_api' >/dev/null 2>&1; then
-  docker exec -w /app "$CONTAINER" uv run --frozen --no-dev python -m chewy_api.cli "${ARGS[@]}"
+if docker exec "$CONTAINER" sh -c 'test -f /app/backend/main.py' >/dev/null 2>&1; then
+  docker exec -w /app/backend "$CONTAINER" python -m cli "${ARGS[@]}"
+elif docker exec "$CONTAINER" sh -c 'test -f /app/main.py' >/dev/null 2>&1; then
+  docker exec -w /app "$CONTAINER" uv run --frozen --no-dev python -m cli "${ARGS[@]}"
 else
   echo "could not locate native backend in container: $CONTAINER" >&2
   exit 1

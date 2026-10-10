@@ -4,10 +4,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from chewy_api.db.models import Attachment, StorageConfig, User
-from chewy_api.services.security import decrypt_secret
-from chewy_api.storage.backends import Store, safe_key
-from chewy_api.storage.service import store_for
+from models import Attachment, StorageConfig, User
+from services.security import decrypt_secret
+from storage.backends import Store, safe_key
+from storage.service import store_for
 
 BASE='/api/v1/bbtalk/'
 CONFIG=BASE+'settings/storage/'
@@ -20,7 +20,7 @@ def s3():
     client.__enter__.return_value=client
     client.get_object.side_effect=lambda **kw:{'Body':BytesIO(b'cloud data')}
     client.generate_presigned_url.return_value='https://bucket.example/signed'
-    with patch('chewy_api.storage.backends.boto3.client',return_value=client) as factory:
+    with patch('storage.backends.boto3.client',return_value=client) as factory:
         yield client,factory
 
 
@@ -139,7 +139,7 @@ def test_server_s3_and_runtime_checks(app,client,s3,monkeypatch):
     s3[0].list_objects_v2.side_effect=OSError('offline')
     with app.state.sessions() as db:
         user=db.get(User,app.state.owner_id); user.is_staff=True; db.commit()
-    with patch('chewy_api.api.routes.status.list_backups',side_effect=OSError),patch('chewy_api.api.routes.status.shutil.disk_usage',side_effect=OSError):
+    with patch('api.routes.status.list_backups',side_effect=OSError),patch('api.routes.status.shutil.disk_usage',side_effect=OSError):
         result=client.get(BASE+'settings/status/').json()
         assert result['storage']['status']==result['backup']['status']=='error'
         assert result['diagnostics']['attachment_disk']['status']=='error'
@@ -160,7 +160,7 @@ def test_storage_updates_switch_active_and_retain_encryption(app,client):
 
 
 def test_cross_account_attachment_references_rejected(app,client):
-    from chewy_api.services.security import token_pair
+    from services.security import token_pair
     file=client.post(FILES,files={'file':('private.txt',b'private')}).json()
     with app.state.sessions() as db:
         other=User(username='foreign-ref');db.add(other);db.flush()
@@ -185,7 +185,7 @@ def test_runtime_database_probe_and_readback_failure(app,client):
     with app.state.sessions() as db:
         db.get(User,app.state.owner_id).is_staff=True;db.commit()
     assert client.get(BASE+'settings/status/').json()['diagnostics']['attachment_disk']['status']=='ok'
-    with patch('chewy_api.api.routes.status.tempfile.TemporaryFile') as probe,patch('chewy_api.api.routes.status.text',return_value=text('SELECT * FROM nonexistent_probe_table')):
+    with patch('api.routes.status.tempfile.TemporaryFile') as probe,patch('api.routes.status.text',return_value=text('SELECT * FROM nonexistent_probe_table')):
         probe.return_value.__enter__.return_value.read.return_value=b'corrupt'
         result=client.get(BASE+'settings/status/').json()
     assert result['storage']['status']==result['diagnostics']['database']['status']=='error'

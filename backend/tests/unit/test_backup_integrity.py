@@ -4,7 +4,7 @@ import zipfile
 from io import BytesIO
 from unittest import TestCase
 
-from chewy_api.backups.integrity import attachment_member, fingerprint, verify_archive
+from backups.integrity import attachment_member, fingerprint, verify_archive
 
 
 def build_archive(members, duplicates=()):
