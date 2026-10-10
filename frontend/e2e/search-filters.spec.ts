@@ -17,76 +17,60 @@ async function setup(page: Page) {
   }
 }
 
-async function openFilters(page: Page) {
-  if (!(await page.getByPlaceholder('搜索 BBTalk...').filter({ visible: true }).count())) {
-    await page.getByRole('button', { name: /^筛选(?:\(\d+\))?$/ }).click()
-  }
-}
-
-async function closeFilters(page: Page) {
-  const close = page.getByRole('button', { name: '关闭筛选' })
-  if (await close.isVisible()) await close.click()
-}
-
-test('search highlighting and all filter chips remain visible and can be cleared', async ({ page }, info) => {
+test('search highlights literal text and clearing the input restores the feed', async ({ page }, info) => {
   await setup(page)
-  await openFilters(page)
-  await page.getByPlaceholder('搜索 BBTalk...').filter({ visible: true }).fill('a+b')
-  await closeFilters(page)
-  const summary = page.getByRole('region', { name: '当前筛选条件' })
-  await expect(summary.getByRole('button', { name: '移除关键词：a+b' })).toBeVisible()
+  const search = page.getByPlaceholder('搜索 BBTalk...').filter({ visible: true })
+  await search.fill('a+b')
   await expect(page.locator('.bbtalk-item')).toHaveCount(1)
   await expect(page.locator('.bbtalk-item mark')).toHaveText('a+b')
-  await page.screenshot({ path: info.outputPath('search-filters.png') })
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
-  await summary.getByRole('button', { name: '全部清除' }).click()
-  await expect(summary).toHaveCount(0)
+  await expect(page.getByRole('region', { name: '当前筛选条件' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /筛选与排序/ })).toHaveCount(0)
+  await page.screenshot({ path: info.outputPath('search.png') })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await search.fill('')
   await expect(page.locator('.bbtalk-item')).toHaveCount(2)
   await expect(page.locator('.bbtalk-item mark')).toHaveCount(0)
 })
 
-test('search empty results offer clearing and clearing also removes tags', async ({ page }) => {
-  await setup(page)
-  await openFilters(page)
-  await page.getByPlaceholder('搜索 BBTalk...').filter({ visible: true }).fill('没有对应记录的关键词')
-  await closeFilters(page)
-  await expect(page.getByText('没有找到匹配的碎碎念')).toBeVisible()
-  await page.getByRole('button', { name: '全部清除', exact: true }).click()
-  await expect(page.locator('.bbtalk-item')).toHaveCount(2)
-  await openFilters(page)
-  await page.locator('button').filter({ hasText: /旅行/, visible: true }).click()
-  await closeFilters(page)
-  await expect(page.getByRole('button', { name: '移除标签：旅行' })).toBeVisible()
-  await expect(page.locator('.bbtalk-item')).toHaveCount(1)
-  await page.getByRole('button', { name: '全部清除', exact: true }).click()
-  await expect(page.getByRole('region', { name: '当前筛选条件' })).toHaveCount(0)
-  await expect(page.locator('.bbtalk-item')).toHaveCount(2)
-})
-
-test('tag filters combine selection and support keyboard dismissal at every size', async ({ page }, info) => {
+test('empty results can clear both search and selected tags', async ({ page }) => {
   await setup(page)
   const sidebar = page.getByRole('region', { name: '标签列表' })
-  if (await sidebar.isVisible()) {
-    await sidebar.getByRole('button', { name: /^旅行/ }).click()
-    const work = sidebar.getByRole('button', { name: /^工作/ })
-    await work.focus()
-    await page.keyboard.press('Enter')
-    await expect(work).toHaveAttribute('aria-pressed', 'true')
-    await expect(page.getByRole('button', { name: '移除标签：旅行' })).toBeVisible()
-    await expect(page.getByRole('button', { name: '移除标签：工作' })).toBeVisible()
-    await page.screenshot({ path: info.outputPath('tag-filters-sidebar.png') })
-    return
+  const tags = await sidebar.isVisible() ? sidebar : page.getByLabel('标签快捷筛选')
+  await tags.getByRole('button', { name: /^旅行/ }).click()
+  await expect(page.locator('.bbtalk-item')).toHaveCount(1)
+  await page.getByPlaceholder('搜索 BBTalk...').filter({ visible: true }).fill('没有对应记录的关键词')
+  await expect(page.getByText('没有找到匹配的碎碎念')).toBeVisible()
+  await page.getByRole('button', { name: '清除条件，查看全部', exact: true }).click()
+  await expect(page.locator('.bbtalk-item')).toHaveCount(2)
+  await expect(tags.getByRole('button', { name: /^旅行/ })).toHaveAttribute('aria-pressed', 'false')
+  await expect(page.getByPlaceholder('搜索 BBTalk...').filter({ visible: true })).toHaveValue('')
+})
+
+test('tags switch exclusively and retain selection on repeated clicks', async ({ page }, info) => {
+  await setup(page)
+  const sidebar = page.getByRole('region', { name: '标签列表' })
+  const desktop = await sidebar.isVisible()
+  const trigger = page.getByRole('navigation', { name: '移动导航' }).getByRole('button', { name: /^标签/ })
+  if (!desktop) await trigger.click()
+  const tags = desktop ? sidebar : page.getByRole('dialog', { name: '选择标签' })
+  await expect(tags.getByLabel('可见性筛选')).toHaveCount(0)
+  await tags.getByRole('button', { name: /^旅行/ }).click()
+  const work = tags.getByRole('button', { name: /^工作/ })
+  await work.focus()
+  await page.keyboard.press('Enter')
+  await expect(work).toHaveAttribute('aria-pressed', 'true')
+  await expect(tags.getByRole('button', { name: /^旅行/ })).toHaveAttribute('aria-pressed', 'false')
+  await page.screenshot({ path: info.outputPath('tags.png') })
+  await page.keyboard.press('Enter')
+  await expect(work).toHaveAttribute('aria-pressed', 'true')
+  if (!desktop) {
+    await page.keyboard.press('Escape')
+    await expect(tags).toHaveCount(0)
+    await expect(trigger).toBeFocused()
   }
-  const trigger = page.locator('button[aria-haspopup="dialog"]')
-  await trigger.click()
-  const dialog = page.getByRole('dialog', { name: '筛选记录' })
-  await dialog.getByRole('button', { name: /^旅行/ }).click()
-  await dialog.getByRole('button', { name: /^工作/ }).click()
-  await page.screenshot({ path: info.outputPath('tag-filters.png') })
-  await page.keyboard.press('Escape')
-  await expect(dialog).toHaveCount(0)
-  await expect(trigger).toBeFocused()
-  await expect(page.getByRole('button', { name: '移除标签：旅行' })).toBeVisible()
-  await expect(page.getByRole('button', { name: '移除标签：工作' })).toBeVisible()
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  await expect(page.locator('.bbtalk-item')).toHaveCount(1)
+  await expect(page.locator('.bbtalk-item')).toContainText('other record')
+  const visibleTags = desktop ? sidebar : page.getByLabel('标签快捷筛选')
+  await visibleTags.getByRole('button', { name: /^全部/ }).click()
+  await expect(page.locator('.bbtalk-item')).toHaveCount(2)
 })

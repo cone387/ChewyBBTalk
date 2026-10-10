@@ -54,17 +54,13 @@ test('publish, edit, search, undo and delete persist across reload', async ({ pa
   await expect(card).toBeVisible()
   await page.screenshot({ path: testInfo.outputPath('feed.png'), fullPage: true })
 
-  // Search is in the sidebar on desktop and the filter sheet on small screens.
+  // Search is in the desktop sidebar and above the feed in compact windows.
   const search = page.getByPlaceholder('搜索 BBTalk...').filter({ visible: true })
-  if (!(await search.count())) await page.getByRole('button', { name: '筛选', exact: true }).click()
   await search.fill('missing-e2e-record')
   await expect(page.getByText('没有找到匹配的碎碎念')).toBeVisible()
   await search.fill('beta')
   await expect(card).toBeVisible()
   await search.fill('')
-  if (await page.getByRole('heading', { name: '筛选记录' }).isVisible()) {
-    await page.getByRole('button', { name: '关闭筛选' }).click()
-  }
 
   await card.getByTitle('更多', { exact: true }).click()
   await card.getByRole('button', { name: '删除', exact: true }).click()

@@ -1,3 +1,4 @@
+import Icon from './ui/Icon'
 import { getPublicSetting } from '../config';
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
@@ -704,9 +705,9 @@ function BBTalkEditorContent({ onPublish, isPublishing = false, editing = null, 
       {isDragOver && (
         <div className="absolute inset-0 bg-slate-100/90 rounded-xl flex items-center justify-center z-10 pointer-events-none">
           <div className="flex flex-col items-center gap-2 text-slate-600">
-            <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-            </svg>
+            <Icon className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </Icon>
             <span className="text-sm font-medium">释放以上传文件</span>
           </div>
         </div>
@@ -758,7 +759,7 @@ function BBTalkEditorContent({ onPublish, isPublishing = false, editing = null, 
             setContent((e.target as HTMLTextAreaElement).value)
           }}
           placeholder="你要BB什么？"
-          className="bbtalk-composer__input block w-full min-h-[56px] max-h-[400px] resize-none rounded-lg border-0 bg-transparent px-2 py-2 text-gray-800 placeholder-gray-400 text-base leading-7"
+          className="bbtalk-composer__input block w-full min-h-[56px] max-h-[400px] resize-none rounded-lg border-0 bg-transparent px-2 py-2 text-gray-800 placeholder-gray-500 text-base leading-7"
           style={{ overflowY: 'auto' }}
           aria-label="记录内容"
           rows={2}
@@ -784,18 +785,18 @@ function BBTalkEditorContent({ onPublish, isPublishing = false, editing = null, 
                     key={tag.id}
                     onClick={() => handleSelectTag(tag.name)}
                     onMouseEnter={() => setSelectedTagIndex(index)}
-                    className={`w-full text-left px-4 py-2 flex items-center gap-2 transition-colors ${
+                    className={`app-menu-item ${
                       index === selectedTagIndex 
                         ? 'bg-blue-50 text-blue-700' 
                         : 'hover:bg-gray-50 text-gray-700'
                     }`}
                   >
-                    <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                    </svg>
+                    <Icon className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                    </Icon>
                     <span className="text-sm font-medium">{tag.name}</span>
                     {tag.bbtalkCount && tag.bbtalkCount > 0 && (
-                      <span className="ml-auto text-xs text-gray-400">{tag.bbtalkCount}</span>
+                      <span className="ml-auto text-xs text-gray-600">{tag.bbtalkCount}</span>
                     )}
                   </button>
                 ))}
@@ -836,18 +837,18 @@ function BBTalkEditorContent({ onPublish, isPublishing = false, editing = null, 
                       objectFit="contain"
                       fallback={
                         <div className="w-[160px] h-32 flex flex-col items-center justify-center bg-gray-100 rounded-lg border border-gray-200">
-                          <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                          </svg>
+                          <Icon className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                          </Icon>
                           <span className="text-xs text-gray-500 mt-1">图片加载失败</span>
                         </div>
                       }
                     />
                   ) : (
                     <div className="w-[160px] h-32 flex flex-col items-center justify-center bg-gray-50 rounded-lg border border-gray-200">
-                      <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
+                      <Icon className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </Icon>
                       <span className="text-xs text-gray-500 mt-1 truncate max-w-full px-2">{attachment.originalFilename || attachment.filename || '附件'}</span>
                     </div>
                   )}
@@ -857,9 +858,7 @@ function BBTalkEditorContent({ onPublish, isPublishing = false, editing = null, 
                     aria-label={`移除附件 ${attachment.originalFilename || attachment.filename || "附件"}`}
                     title="移除附件"
                   >
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
+                    <Icon name="close" className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" />
                   </button>
                 </div>
               )
@@ -880,18 +879,18 @@ function BBTalkEditorContent({ onPublish, isPublishing = false, editing = null, 
                     objectFit="contain"
                     fallback={
                       <div className="w-[160px] h-32 flex flex-col items-center justify-center bg-gray-100 rounded-lg border border-gray-200">
-                        <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
+                        <Icon className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </Icon>
                         <span className="text-xs text-gray-500 mt-1">图片加载失败</span>
                       </div>
                     }
                   />
                 ) : (
                   <div className="w-[160px] h-32 flex flex-col items-center justify-center bg-gray-50 rounded-lg border border-gray-200">
-                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
+                    <Icon className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </Icon>
                     <span className="text-xs text-gray-500 mt-1 truncate max-w-full px-2">{file.name}</span>
                   </div>
                 )}
@@ -901,9 +900,7 @@ function BBTalkEditorContent({ onPublish, isPublishing = false, editing = null, 
                   aria-label={`移除附件 ${file.name}`}
                   title="移除附件"
                 >
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  <Icon name="close" className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" />
                 </button>
               </div>
             ))}
@@ -914,20 +911,18 @@ function BBTalkEditorContent({ onPublish, isPublishing = false, editing = null, 
         {tags.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-2 items-center">
             {tags.map((tag) => (
-              <span
+              <button
                 key={tag}
-                className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-600 rounded-full text-sm"
+                type="button"
+                aria-label={`移除标签：${tag}`}
+                onClick={() => handleRemoveTag(tag)}
+                className="editor-tag-action"
               >
-                #{tag}
-                <button
-                  onClick={() => handleRemoveTag(tag)}
-                  className="hover:bg-blue-100 rounded-full p-0.5 transition-colors"
-                >
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </span>
+                <span className="editor-tag-label">
+                  <span>#{tag}</span>
+                  <Icon name="close" className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" />
+                </span>
+              </button>
             ))}
           </div>
         )}
@@ -937,11 +932,11 @@ function BBTalkEditorContent({ onPublish, isPublishing = false, editing = null, 
           <div className="mt-3 flex items-center gap-2">
             <button
               onClick={handleCreateSuggestedTag}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-yellow-50 text-yellow-700 rounded-lg text-sm hover:bg-yellow-100 transition-colors border border-yellow-200"
+              className="inline-flex min-h-11 items-center gap-1.5 px-1 text-sm text-gray-600 hover:text-blue-700"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
+              <Icon className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </Icon>
               {existingTags.some(tag => tag.name === suggestedTag) ? '添加标签' : '创建标签'} "{suggestedTag}"
             </button>
           </div>
@@ -994,70 +989,70 @@ function BBTalkEditorContent({ onPublish, isPublishing = false, editing = null, 
                   textarea.setSelectionRange(newPos, newPos)
                 }, 0)
               }}
-              className="min-w-11 min-h-11 p-2 hover:bg-gray-50 rounded-lg transition-colors group"
+              className="inline-flex items-center justify-center min-w-11 min-h-11 p-2 hover:bg-gray-50 rounded-lg transition-colors group"
               title="添加标签"
             >
-              <svg className="w-5 h-5 text-gray-600 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-              </svg>
+              <Icon className="w-5 h-5 text-gray-600 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+              </Icon>
             </button>
 
             {/* 图片上传 */}
             <button
               onClick={() => imageInputRef.current?.click()}
               disabled={isUploading}
-              className="min-w-11 min-h-11 p-2 hover:bg-gray-50 rounded-lg transition-colors group relative"
+              className="inline-flex items-center justify-center min-w-11 min-h-11 p-2 hover:bg-gray-50 rounded-lg transition-colors group relative"
               title="上传图片"
             >
-              <svg className="w-5 h-5 text-gray-600 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
+              <Icon className="w-5 h-5 text-gray-600 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </Icon>
             </button>
 
             {/* 文件上传 */}
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
-              className="min-w-11 min-h-11 p-2 hover:bg-gray-50 rounded-lg transition-colors group"
+              className="inline-flex items-center justify-center min-w-11 min-h-11 p-2 hover:bg-gray-50 rounded-lg transition-colors group"
               title="上传附件"
             >
-              <svg className="w-5 h-5 text-gray-600 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-              </svg>
+              <Icon className="w-5 h-5 text-gray-600 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+              </Icon>
             </button>
 
             {/* 位置 */}
             <button
               onClick={handleGetLocation}
-              className={`min-w-11 min-h-11 p-2 rounded-lg transition-colors group ${
+              className={`inline-flex items-center justify-center min-w-11 min-h-11 p-2 rounded-lg transition-colors group ${
                 location ? 'bg-green-50' : 'hover:bg-gray-50'
               }`}
               title={location ? '清除位置' : locationError ? '定位失败，点击重试' : '添加位置'}
             >
-              <svg className={`w-5 h-5 ${
+              <Icon className={`w-5 h-5 ${
                 location ? 'text-green-600' : locationError ? 'text-red-500' : 'text-gray-600 group-hover:text-blue-600'
               }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </Icon>
             </button>
 
             {/* 可见性切换 */}
             <button
               onClick={() => setVisibility(prev => prev === 'private' ? 'public' : 'private')}
-              className={`min-w-11 min-h-11 p-2 rounded-lg transition-colors group ${
+              className={`inline-flex items-center justify-center min-w-11 min-h-11 p-2 rounded-lg transition-colors group ${
                 visibility === 'public' ? 'bg-blue-50' : 'hover:bg-gray-50'
               }`}
               title={visibility === 'public' ? '公开可见' : '仅自己可见'}
             >
               {visibility === 'public' ? (
-                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                <Icon className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </Icon>
               ) : (
-                <svg className="w-5 h-5 text-gray-600 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
+                <Icon className="w-5 h-5 text-gray-600 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </Icon>
               )}
             </button>
 
@@ -1068,7 +1063,7 @@ function BBTalkEditorContent({ onPublish, isPublishing = false, editing = null, 
 
         {/* 右侧按钮 */}
         <div className="ml-auto flex shrink-0 items-center gap-3 whitespace-nowrap">
-            {content.length > 0 && <span className="text-xs text-gray-400">{content.length} 字</span>}
+            {content.length > 0 && <span className="text-xs text-gray-600">{content.length} 字</span>}
             {editing && (
               <button
                 onClick={handleCancel}

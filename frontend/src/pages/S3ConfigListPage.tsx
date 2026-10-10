@@ -1,3 +1,6 @@
+import Icon from '../components/ui/Icon'
+import Input from '../components/ui/Input';
+import Checkbox from '../components/ui/Checkbox';
 import Modal from '../components/ui/Modal';
 import SettingsLayout from '../components/layout/SettingsLayout';
 import { useState, useEffect } from 'react';
@@ -27,6 +30,11 @@ export default function S3ConfigListPage() {
     is_active: false,
   });
   
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof StorageSettingsUpdate, string>>>({});
+  const setField = (key: keyof StorageSettingsUpdate, value: string | boolean) => {
+    setFormData(previous => ({ ...previous, [key]: value }));
+    setFieldErrors(previous => ({ ...previous, [key]: undefined }));
+  };
   const [saving, setSaving] = useState(false);
   const [testingId, setTestingId] = useState<number | null>(null);
 
@@ -61,6 +69,8 @@ export default function S3ConfigListPage() {
       s3_custom_domain: '',
       is_active: false,
     });
+    setFieldErrors({});
+    setError(null);
     setShowEditModal(true);
   };
 
@@ -78,20 +88,27 @@ export default function S3ConfigListPage() {
       s3_custom_domain: config.s3_custom_domain,
       is_active: config.is_active,
     });
+    setFieldErrors({});
+    setError(null);
     setShowEditModal(true);
   };
 
   const handleSave = async () => {
-    if (!formData.name?.trim()) {
-      setError('请输入配置名称');
-      return;
+    const errors: Partial<Record<keyof StorageSettingsUpdate, string>> = {};
+    if (!formData.name?.trim()) errors.name = '请输入配置名称';
+    if (!formData.s3_access_key_id?.trim()) errors.s3_access_key_id = '请输入 Access Key ID';
+    if (!formData.s3_bucket_name?.trim()) errors.s3_bucket_name = '请输入 Bucket 名称';
+    if (isCreating && !formData.s3_secret_access_key?.trim()) errors.s3_secret_access_key = '创建配置时必须提供 Secret Access Key';
+    if (formData.s3_endpoint_url?.trim()) {
+      try {
+        const endpoint = new URL(formData.s3_endpoint_url);
+        if (!['http:', 'https:'].includes(endpoint.protocol)) throw new Error('protocol');
+      } catch { errors.s3_endpoint_url = '请输入完整的 http:// 或 https:// 端点 URL'; }
     }
-    if (!formData.s3_access_key_id?.trim() || !formData.s3_bucket_name?.trim()) {
-      setError('请填写完整的 S3 配置信息');
-      return;
-    }
-    if (isCreating && !formData.s3_secret_access_key?.trim()) {
-      setError('创建配置时必须提供 Secret Access Key');
+    setFieldErrors(errors);
+    const firstError = Object.keys(errors)[0];
+    if (firstError) {
+      requestAnimationFrame(() => document.getElementById('s3-' + firstError)?.focus());
       return;
     }
 
@@ -177,9 +194,9 @@ export default function S3ConfigListPage() {
         {configList.length === 0 ? (
           <div className="settings-panel p-8 sm:p-12 text-center">
             <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 sm:w-10 sm:h-10 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
-              </svg>
+              <Icon className="w-8 h-8 sm:w-10 sm:h-10 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+              </Icon>
             </div>
             <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">还没有 S3 配置</h3>
             <p className="text-sm text-gray-500 mb-6">添加 AWS S3、阿里云 OSS、MinIO 等</p>
@@ -203,9 +220,9 @@ export default function S3ConfigListPage() {
                   {/* 顶部：图标 + 配置信息 */}
                   <div className="flex items-start gap-3">
                     <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0 bg-gray-100`}>
-                      <svg className="w-5 h-5 sm:w-6 sm:h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
-                      </svg>
+                      <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+                      </Icon>
                     </div>
                     
                     <div className="flex-1 min-w-0">
@@ -233,15 +250,12 @@ export default function S3ConfigListPage() {
                   </div>
 
                   {/* 底部：操作按钮 */}
-                  <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
+                  <div className="flex flex-wrap items-center justify-end gap-2 mt-2">
                     {!config.is_active && (
                       <button
                         onClick={() => handleActivate(config)}
-                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 active:bg-green-200 transition-colors text-xs sm:text-sm font-medium"
+                        className="storage-action"
                       >
-                        <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
                         激活
                       </button>
                     )}
@@ -249,37 +263,27 @@ export default function S3ConfigListPage() {
                       <button
                         onClick={() => handleTestConnection(config)}
                         disabled={testingId === config.id}
-                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 active:bg-gray-200 transition-colors text-xs sm:text-sm font-medium disabled:opacity-50"
+                        className="storage-action"
                       >
                         {testingId === config.id ? (
                           <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                           </svg>
-                        ) : (
-                          <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                          </svg>
-                        )}
+                        ) : null}
                         {testingId === config.id ? '测试中...' : '测试'}
                       </button>
                     )}
                     <button
                       onClick={() => handleEdit(config)}
-                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 active:bg-blue-200 transition-colors text-xs sm:text-sm font-medium"
+                      className="storage-action"
                     >
-                      <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
                       编辑
                     </button>
                     <button
                       onClick={() => handleDelete(config)}
-                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 active:bg-red-200 transition-colors text-xs sm:text-sm font-medium"
+                      className="storage-action storage-action--danger"
                     >
-                      <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
                       删除
                     </button>
                   </div>
@@ -312,103 +316,26 @@ export default function S3ConfigListPage() {
                   {saving ? '保存中...' : '保存'}
                 </button>
               </div>}>
-              {/* 表单内容 - 可滚动 */}
               <div className="space-y-4">
-                <div>
-                  <label htmlFor="s3-name" className="block text-sm font-medium text-gray-700 mb-1.5">
-                    配置名称 <span className="text-red-500">*</span>
-                  </label>
-                  <input id="s3-name"
-                    type="text"
-                    value={formData.name || ''}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="例如：阿里云 OSS、MinIO 测试"
-                    className="app-input"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="s3-s3_access_key_id" className="block text-sm font-medium text-gray-700 mb-1.5">
-                    Access Key ID <span className="text-red-500">*</span>
-                  </label>
-                  <input id="s3-s3_access_key_id"
-                    type="text"
-                    value={formData.s3_access_key_id || ''}
-                    onChange={(e) => setFormData({ ...formData, s3_access_key_id: e.target.value })}
-                    placeholder="输入 Access Key ID"
-                    className="app-input"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="s3-s3_secret_access_key" className="block text-sm font-medium text-gray-700 mb-1.5">
-                    Secret Access Key {isCreating && <span className="text-red-500">*</span>}
-                  </label>
-                  <input id="s3-s3_secret_access_key"
-                    type="password"
-                    value={formData.s3_secret_access_key || ''}
-                    onChange={(e) => setFormData({ ...formData, s3_secret_access_key: e.target.value })}
-                    placeholder={isCreating ? '输入 Secret Access Key' : '留空则不修改'}
-                    className="app-input"
-                  />
-                  {!isCreating && editingConfig?.has_secret_key && (
-                    <p className="mt-1 text-xs text-gray-500">已配置密钥，留空则不修改</p>
-                  )}
-                </div>
-                <div>
-                  <label htmlFor="s3-s3_bucket_name" className="block text-sm font-medium text-gray-700 mb-1.5">
-                    Bucket 名称 <span className="text-red-500">*</span>
-                  </label>
-                  <input id="s3-s3_bucket_name"
-                    type="text"
-                    value={formData.s3_bucket_name || ''}
-                    onChange={(e) => setFormData({ ...formData, s3_bucket_name: e.target.value })}
-                    placeholder="输入 Bucket 名称"
-                    className="app-input"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="s3-s3_region_name" className="block text-sm font-medium text-gray-700 mb-1.5">区域</label>
-                  <input id="s3-s3_region_name"
-                    type="text"
-                    value={formData.s3_region_name || ''}
-                    onChange={(e) => setFormData({ ...formData, s3_region_name: e.target.value })}
-                    placeholder="us-east-1"
-                    className="app-input"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="s3-s3_endpoint_url" className="block text-sm font-medium text-gray-700 mb-1.5">端点 URL</label>
-                  <input id="s3-s3_endpoint_url"
-                    type="url"
-                    value={formData.s3_endpoint_url || ''}
-                    onChange={(e) => setFormData({ ...formData, s3_endpoint_url: e.target.value })}
-                    placeholder="MinIO / OSS 等自定义端点"
-                    className="app-input"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="s3-s3_custom_domain" className="block text-sm font-medium text-gray-700 mb-1.5">自定义域名</label>
-                  <input id="s3-s3_custom_domain"
-                    type="text"
-                    value={formData.s3_custom_domain || ''}
-                    onChange={(e) => setFormData({ ...formData, s3_custom_domain: e.target.value })}
-                    placeholder="cdn.example.com（可选）"
-                    className="app-input"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="is_active"
-                    checked={formData.is_active || false}
-                    onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <label htmlFor="is_active" className="text-sm font-medium text-gray-700">
-                    激活此配置
-                  </label>
-                </div>
+                <Input id="s3-name" label="配置名称 *" required disabled={saving} error={fieldErrors.name}
+                  value={formData.name || ''} onChange={e => setField('name', e.target.value)} placeholder="例如：阿里云 OSS、MinIO 测试" />
+                <Input id="s3-s3_access_key_id" label="Access Key ID *" required disabled={saving} error={fieldErrors.s3_access_key_id}
+                  value={formData.s3_access_key_id || ''} onChange={e => setField('s3_access_key_id', e.target.value)} placeholder="输入 Access Key ID" />
+                <Input id="s3-s3_secret_access_key" label={isCreating ? 'Secret Access Key *' : 'Secret Access Key'} type="password" required={isCreating} disabled={saving}
+                  autoComplete="new-password" error={fieldErrors.s3_secret_access_key}
+                  aria-describedby={!isCreating && editingConfig?.has_secret_key ? 's3-secret-help' : undefined}
+                  value={formData.s3_secret_access_key || ''} onChange={e => setField('s3_secret_access_key', e.target.value)} placeholder={isCreating ? '输入 Secret Access Key' : '留空则不修改'} />
+                {!isCreating && editingConfig?.has_secret_key && <p id="s3-secret-help" className="text-sm text-gray-600">已配置密钥，留空则不修改</p>}
+                <Input id="s3-s3_bucket_name" label="Bucket 名称 *" required disabled={saving} error={fieldErrors.s3_bucket_name}
+                  value={formData.s3_bucket_name || ''} onChange={e => setField('s3_bucket_name', e.target.value)} placeholder="输入 Bucket 名称" />
+                <Input id="s3-s3_region_name" label="区域" disabled={saving}
+                  value={formData.s3_region_name || ''} onChange={e => setField('s3_region_name', e.target.value)} placeholder="us-east-1" />
+                <Input id="s3-s3_endpoint_url" label="端点 URL" type="url" disabled={saving} error={fieldErrors.s3_endpoint_url}
+                  value={formData.s3_endpoint_url || ''} onChange={e => setField('s3_endpoint_url', e.target.value)} placeholder="MinIO / OSS 等自定义端点" />
+                <Input id="s3-s3_custom_domain" label="自定义域名" disabled={saving}
+                  value={formData.s3_custom_domain || ''} onChange={e => setField('s3_custom_domain', e.target.value)} placeholder="cdn.example.com（可选）" />
+                <Checkbox label="激活此配置" disabled={saving} checked={formData.is_active || false} onChange={e => setField('is_active', e.target.checked)} />
               </div>
-              
         </Modal>
       )}
     </SettingsLayout>

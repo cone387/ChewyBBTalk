@@ -43,7 +43,7 @@ it('uses server storage when the configuration list is empty and avoids redundan
 });
 it('navigates back to settings or to the S3 configuration list', async () => {
   await page();
-  fireEvent.click(screen.getByRole('button', { name: '返回我的' }));
+  fireEvent.click(screen.getByRole('button', { name: '返回设置' }));
   expect(boundary.navigate).toHaveBeenCalledWith('/settings');
   fireEvent.click(screen.getByRole('button', { name: /S3 兼容存储/ }));
   expect(boundary.navigate).toHaveBeenLastCalledWith('/settings/storage/s3');

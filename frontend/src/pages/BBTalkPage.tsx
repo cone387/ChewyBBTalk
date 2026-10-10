@@ -1,3 +1,4 @@
+import Icon from '../components/ui/Icon'
 import { getPublicSetting } from '../config';
 import { useActionFeedback } from '../hooks/useActionFeedback'
 import { useUndoableDelete } from '../hooks/useUndoableDelete'
@@ -7,7 +8,6 @@ import { useAppDispatch, useAppSelector } from '../store/hooks'
 import { invalidateFeed, loadBBTalks, createBBTalkAsync, updateBBTalkAsync, loadMoreBBTalks, loadPublicBBTalks, loadMorePublicBBTalks, optimisticDelete, undoDelete } from '../store/slices/bbtalkSlice'
 import { loadTags } from '../store/slices/tagSlice'
 import BBTalkEditor from '../components/BBTalkEditor'
-import RecordFilters, { defaultRecordFilters } from '../components/RecordFilters'
 import BBTalkItem from '../components/BBTalkItem'
 import AppBrand from '../components/AppBrand'
 import Modal from '../components/ui/Modal'
@@ -110,11 +110,10 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
   const { tags } = useAppSelector((state) => state.tag)
   const [isPublishing, setIsPublishing] = useState(false)
   const [showBackToTop, setShowBackToTop] = useState(false)
-  const [showMobileMenu, setShowMobileMenu] = useState(false) // 移动端菜单
+  const [showTagSelector, setShowTagSelector] = useState(false) // 移动端菜单
   const [editingBBTalk, setEditingBBTalk] = useState<typeof bbtalks[0] | null>(null)
   const [searchKeyword, setSearchKeyword] = useState('')
-  const [selectedTags, setSelectedTags] = useState<string[]>([])
-  const [filters, setFilters] = useState(defaultRecordFilters)
+  const [selectedTagId, setSelectedTagId] = useState<string | null>(null)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [isInitialLoad, setIsInitialLoad] = useState(true)
   const publicFiltersReady = useRef(false)
@@ -203,30 +202,18 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
   }, [dispatch, isPublic])
 
   const buildFilterParams = useCallback(() => {
-    const tagNames = selectedTags.map(tagId => tags.find(t => t.id === tagId)?.name).filter(Boolean) as string[]
+    const tagName = tags.find(tag => tag.id === selectedTagId)?.name
     return {
       search: searchKeyword.trim() || undefined,
-      tags: tagNames,
-      visibility: filters.visibility || undefined,
-      hasAttachments: filters.attachments === '' ? undefined : filters.attachments === 'true',
-      dateFrom: filters.from || undefined, dateTo: filters.to || undefined, ordering: filters.ordering,
+      tags: tagName ? [tagName] : [],
     }
-  }, [searchKeyword, selectedTags, tags, filters])
+  }, [searchKeyword, selectedTagId, tags])
 
   const clearFilters = () => {
     setSearchKeyword('')
-    setSelectedTags([])
-    setFilters(defaultRecordFilters)
+    selectTag(null)
   }
-  const activeFilters = [
-    ...(filters.visibility ? [{ key: 'visibility', label: `可见性：${filters.visibility === 'public' ? '公开' : '私密'}`, remove: () => setFilters(previous => ({ ...previous, visibility: '' })) }] : []),
-    ...(filters.attachments ? [{ key: 'attachments', label: filters.attachments === 'true' ? '有附件' : '无附件', remove: () => setFilters(previous => ({ ...previous, attachments: '' })) }] : []),
-    ...(filters.from ? [{ key: 'from', label: `开始：${filters.from}`, remove: () => setFilters(previous => ({ ...previous, from: '' })) }] : []),
-    ...(filters.to ? [{ key: 'to', label: `结束：${filters.to}`, remove: () => setFilters(previous => ({ ...previous, to: '' })) }] : []),
-    ...(filters.ordering !== '-update_time' ? [{ key: 'ordering', label: `排序：${filters.ordering.includes('create') ? '创建时间' : '更新时间'}${filters.ordering.startsWith('-') ? '从新到旧' : '从旧到新'}`, remove: () => setFilters(previous => ({ ...previous, ordering: '-update_time' })) }] : []),
-    ...(searchKeyword.trim() ? [{ key: 'search', label: `关键词：${searchKeyword.trim()}`, remove: () => setSearchKeyword('') }] : []),
-    ...selectedTags.map(id => ({ key: `tag-${id}`, label: `标签：${tags.find(tag => tag.id === id)?.name ?? id}`, remove: () => setSelectedTags(previous => previous.filter(tag => tag !== id)) })),
-  ]
+  const hasSearchOrTags = !!searchKeyword.trim() || selectedTagId !== null
 
   // 监听搜索与筛选条件，防抖后重新加载数据
   useEffect(() => {
@@ -237,13 +224,12 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
     }
 
     if (isPublic && !publicFiltersReady.current) { publicFiltersReady.current = true; return }
-    if (filters.from && filters.to && filters.from > filters.to) return
     dispatch(invalidateFeed())
     const timer = window.setTimeout(() => {
       dispatch(isPublic ? loadPublicBBTalks(buildFilterParams()) : loadBBTalks(buildFilterParams()))
     }, 300)
     return () => window.clearTimeout(timer)
-  }, [buildFilterParams, dispatch, isInitialLoad, isPublic, filters.from, filters.to])
+  }, [buildFilterParams, dispatch, isInitialLoad, isPublic])
 
 
 
@@ -382,26 +368,18 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
       if (isPublic) {
         await dispatch(loadMorePublicBBTalks(buildFilterParams()))
       } else {
-        const tagNames = selectedTags.map(tagId => {
-          const tag = tags.find(t => t.id === tagId)
-          return tag?.name
-        }).filter(Boolean) as string[]
-        
-        await dispatch(loadMoreBBTalks({
-          ...buildFilterParams(),
-          tags: tagNames,
-        }))
+        await dispatch(loadMoreBBTalks(buildFilterParams()))
       }
     } finally {
       setIsLoadingMore(false)
     }
   }
 
-  // 多个标签按交集筛选，再次点击取消该标签。
-  const toggleTag = (tagId: string) => {
-    setSelectedTags(prev => 
-      prev.includes(tagId) ? prev.filter(id => id !== tagId) : [...prev, tagId]
-    )
+  // 标签是导航：再次点击当前标签保持选中，通过“全部”回到完整列表。
+  const selectTag = (tagId: string | null) => {
+    if (selectedTagId === tagId) return
+    setSelectedTagId(tagId)
+    if (containerRef.current) containerRef.current.scrollTop = 0
   }
 
   // 处理编辑按钮点击
@@ -444,41 +422,38 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
           <div>
             <p className="text-lg font-semibold tracking-tight text-gray-900">{isPublic ? '公开碎碎念' : '我的碎碎念'}</p>
           </div>
-          {!isPublic && showPrivacyCountdown && !isPrivacyMode && <PrivacyCountdownButton timeoutMs={privacyTimeoutMs} enabled onActivate={activatePrivacy} />}
         </div>
       </header>
       <div className="feed-workspace">
           <aside aria-label="桌面侧栏" className="classic-feed-sidebar">
             <div className="feed-brand"><AppBrand /></div>
+            <div className="feed-tags-scroll subtle-scrollbar">
             <div className="classic-feed-search">
               <label className="block text-sm font-medium text-gray-600">
                 <span className="sr-only">搜索</span>
                 <span className="relative block">
-                  <svg aria-hidden="true" className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeWidth="1.7" d="m21 21-5-5m2-6a7 7 0 11-14 0 7 7 0 0114 0Z" /></svg>
+                  <Icon aria-hidden="true" className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" d="m21 21-5-5m2-6a7 7 0 11-14 0 7 7 0 0114 0Z" /></Icon>
                   <input type="search" placeholder="搜索 BBTalk..." value={searchKeyword}
                     onChange={event => setSearchKeyword(event.target.value)}
-                    className="classic-search-input min-h-11 w-full rounded-xl py-2 pl-9 pr-3 text-sm text-gray-800" />
+                    className="classic-search-input min-h-11 w-full py-2 pl-9 pr-3 text-sm text-gray-800" />
                 </span>
               </label>
             </div>
-          <button type="button" className="mx-4 mb-3 min-h-11 rounded-lg border border-gray-200 text-sm text-gray-700" onClick={() => setShowMobileMenu(true)}>筛选与排序{activeFilters.length ? ` (${activeFilters.length})` : ''}</button>
           <section aria-label="标签列表" className="feed-tags-panel">
-            <div className="feed-tags-scroll subtle-scrollbar">
-                <button type="button" onClick={() => setSelectedTags([])} aria-pressed={selectedTags.length === 0}
+                <button type="button" onClick={() => selectTag(null)} aria-pressed={selectedTagId === null}
                   className="tag-all-button mb-1 flex min-h-11 w-full items-center justify-between rounded-lg px-3 text-sm text-gray-600">
-                  <span className="flex items-center gap-2"><span className="tag-symbol" aria-hidden="true"><svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="5" height="5" rx="1" /><rect x="12" y="3" width="5" height="5" rx="1" /><rect x="3" y="12" width="5" height="5" rx="1" /><rect x="12" y="12" width="5" height="5" rx="1" /></svg></span>全部</span><span className="tag-count">{totalCount}</span>
+                  <span className="flex items-center gap-2"><span className="tag-symbol" aria-hidden="true"><Icon className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor"><rect x="3" y="3" width="5" height="5" rx="1" /><rect x="12" y="3" width="5" height="5" rx="1" /><rect x="3" y="12" width="5" height="5" rx="1" /><rect x="12" y="12" width="5" height="5" rx="1" /></Icon></span>全部</span><span className="tag-count">{totalCount}</span>
                 </button>
                 {tags.length === 0 ? <p className="px-3 py-2 text-sm text-gray-500">暂无标签</p> :
                   <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                     <SortableContext items={tags.map(tag => tag.id)} strategy={verticalListSortingStrategy}>
                       <div className="space-y-1">{tags.map(tag => <SortableTagItem key={tag.id} tag={tag}
-                        isSelected={selectedTags.includes(tag.id)} count={tag.bbtalkCount || 0} onClick={() => toggleTag(tag.id)} />)}</div>
+                        isSelected={selectedTagId === tag.id} count={tag.bbtalkCount || 0} onClick={() => selectTag(tag.id)} />)}</div>
                     </SortableContext>
                   </DndContext>}
-            </div>
           </section>
+            </div>
             <div className="classic-feed-account">
-              {!isPublic && showPrivacyCountdown && !isPrivacyMode && <div className="mb-3"><PrivacyCountdownButton timeoutMs={privacyTimeoutMs} enabled onActivate={activatePrivacy} /></div>}
               {!isPublic ? <button type="button" onClick={() => navigate('/settings')} aria-label="账户与设置" title={currentUser?.display_name || currentUser?.username}
                 className="flex min-h-11 w-full items-center gap-3 rounded-lg text-left">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-blue-700">
@@ -489,6 +464,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
               </button> : <button type="button" onClick={handleLogin} className="min-h-11 w-full text-sm text-blue-700">登录</button>}
             </div>
           </aside>
+          <div className="feed-main">
           {/* 居中的内容流 */}
           <div ref={containerRef} role="main" aria-label="记录列表" className="feed-scroll">
             {/* 滚动内容区 */}
@@ -497,22 +473,18 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                 <div className="relative min-w-0 flex-1">
                   <input type="search" aria-label="搜索记录" placeholder="搜索 BBTalk..." value={searchKeyword}
                     onChange={event => setSearchKeyword(event.target.value)}
-                    className="feed-field min-h-11 w-full rounded-xl bg-white py-3 pl-10 pr-3 text-base text-gray-800" />
-                  <svg aria-hidden="true" className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
+                    className="feed-field min-h-11 w-full rounded-lg bg-white py-3 pl-10 pr-3 text-base text-gray-800" />
+                  <Icon aria-hidden="true" className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </Icon>
                 </div>
-                <button type="button" onClick={event => { event.currentTarget.focus(); setShowMobileMenu(true); }} aria-haspopup="dialog" aria-expanded={showMobileMenu}
-                  className="min-h-11 shrink-0 rounded-xl bg-white px-4 text-sm font-medium text-gray-700 hover:bg-gray-100">
-                  筛选{selectedTags.length > 0 ? ` (${selectedTags.length})` : ''}
-                </button>
               </div>
               {tags.length > 0 && <div aria-label="标签快捷筛选" className="subtle-scrollbar mb-5 flex gap-2 overflow-x-auto pb-1 lg:hidden">
-                <button type="button" aria-pressed={selectedTags.length === 0} onClick={() => setSelectedTags([])}
-                  className={`min-h-11 shrink-0 rounded-full px-4 text-sm ${selectedTags.length === 0 ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}>全部</button>
-                {tags.slice(0, 6).map(tag => <button key={tag.id} type="button" aria-pressed={selectedTags.includes(tag.id)} onClick={() => toggleTag(tag.id)}
-                  className={`min-h-11 shrink-0 rounded-full px-4 text-sm ${selectedTags.includes(tag.id) ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}>{tag.name}</button>)}
-                {tags.length > 6 && <button type="button" onClick={() => setShowMobileMenu(true)} className="min-h-11 shrink-0 px-3 text-sm text-blue-700">更多标签</button>}
+                <button type="button" aria-pressed={selectedTagId === null} onClick={() => selectTag(null)}
+                  className={`min-h-11 shrink-0 rounded-full px-4 text-sm ${selectedTagId === null ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}>全部</button>
+                {tags.slice(0, 6).map(tag => <button key={tag.id} type="button" aria-pressed={selectedTagId === tag.id} onClick={() => selectTag(tag.id)}
+                  className={`min-h-11 shrink-0 rounded-full px-4 text-sm ${selectedTagId === tag.id ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}>{tag.name}</button>)}
+                {tags.length > 6 && <button type="button" onClick={() => setShowTagSelector(true)} className="min-h-11 shrink-0 px-3 text-sm text-blue-700">更多标签</button>}
               </div>}
           {/* 编辑框 / 登录提示 */}
           {isPublic ? (
@@ -521,9 +493,9 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                    </svg>
+                    <Icon className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </Icon>
                   </div>
                   <div>
                     <p className="text-gray-800 font-medium">来都来了，说两句？</p>
@@ -533,9 +505,9 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                   onClick={handleLogin}
                   className="px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-2"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                  </svg>
+                  <Icon className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                  </Icon>
                   登录
                 </button>
               </div>
@@ -550,18 +522,6 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
             </div>
           )}
 
-          {activeFilters.length > 0 && <section aria-label="当前筛选条件" className="mb-4 rounded-xl bg-gray-100/80 p-3">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-sm font-medium text-gray-800">当前筛选 · {activeFilters.length}</p>
-              <button type="button" onClick={clearFilters} className="min-h-11 px-2 text-sm text-blue-700 hover:underline">全部清除</button>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {activeFilters.map(filter => <button key={filter.key} type="button" aria-label={`移除${filter.label}`} onClick={filter.remove} className="flex min-h-11 max-w-full items-center gap-2 rounded-xl bg-white px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">
-                <span className="min-w-0 [overflow-wrap:anywhere]">{filter.label}</span><span aria-hidden="true" className="shrink-0">×</span>
-              </button>)}
-            </div>
-          </section>}
-
           {/* BBTalk 列表 */}
           <div className="space-y-4">
             {isLoading && bbtalks.length === 0 ? (
@@ -571,11 +531,11 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
             ) : filteredBBTalks.length === 0 ? (
               <div className="feed-surface rounded-xl bg-white px-6 py-10 text-center">
                 <div aria-hidden="true" className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gray-50 text-gray-400">
-                  <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7h8M8 11h5M5 3h14a1 1 0 011 1v16a1 1 0 01-1 1H5a1 1 0 01-1-1V4a1 1 0 011-1z" /></svg>
+                  <Icon className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7h8M8 11h5M5 3h14a1 1 0 011 1v16a1 1 0 01-1 1H5a1 1 0 01-1-1V4a1 1 0 011-1z" /></Icon>
                 </div>
-                <p className="font-medium text-gray-700">{activeFilters.length > 0 ? '没有找到匹配的碎碎念' : '暂无碎碎念'}</p>
-                <p className="mt-2 text-sm leading-6 text-gray-500">{activeFilters.length > 0 ? '试试其他关键词，或放宽筛选条件。' : isPublic ? '这里还没有公开的记录。' : '从今天的一件小事开始，写下第一条记录。'}</p>
-                {activeFilters.length > 0 && <button type="button" onClick={clearFilters} className="mt-4 min-h-11 rounded-xl bg-gray-100 px-5 text-sm text-gray-700 hover:bg-gray-200">清除条件，查看全部</button>}
+                <p className="font-medium text-gray-700">{hasSearchOrTags ? '没有找到匹配的碎碎念' : '暂无碎碎念'}</p>
+                <p className="mt-2 text-sm leading-6 text-gray-500">{hasSearchOrTags ? '试试其他关键词，或取消已选标签。' : isPublic ? '这里还没有公开的记录。' : '从今天的一件小事开始，写下第一条记录。'}</p>
+                {hasSearchOrTags && <button type="button" onClick={clearFilters} className="mt-4 min-h-11 rounded-xl bg-gray-100 px-5 text-sm text-gray-700 hover:bg-gray-200">清除条件，查看全部</button>}
               </div>
             ) : (
               filteredBBTalks.map((bbtalk) => {
@@ -624,7 +584,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
                 
             {!hasMore && bbtalks.length > 0 && (
               <div className="flex justify-center py-4">
-                <div className="text-gray-400 text-sm">没有更多了</div>
+                <div className="text-gray-600 text-sm">没有更多了</div>
               </div>
             )}
           </div>
@@ -633,18 +593,23 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
 
       </div>
       
-      {/* 倒计时放在导航区域，避免遮挡记录操作。 */}
+      </div>
       
+      {/* 防窥倒计时保持原有右下角悬浮位置 */}
+      {!isPublic && showPrivacyCountdown && !isPrivacyMode && (
+        <PrivacyCountdownButton timeoutMs={privacyTimeoutMs} enabled onActivate={activatePrivacy} />
+      )}
+
       {/* 回到顶部按钮 - 仅桌面端显示 */}
       {showBackToTop && (
         <button
           onClick={scrollToTop}
-          className="fixed bottom-24 right-8 w-12 h-12 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-all duration-300 hidden md:flex items-center justify-center z-50"
+          className="fixed bottom-24 right-8 w-12 h-12 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-all duration-300 hidden lg:flex items-center justify-center z-50"
           title="回到顶部"
         >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
-          </svg>
+          <Icon className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+          </Icon>
         </button>
       )}
 
@@ -652,9 +617,9 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
       {copyTip.show && (
         <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 animate-fade-in">
           <div className="bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
+            <Icon className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </Icon>
             <span className="font-medium">链接已复制</span>
           </div>
         </div>
@@ -691,21 +656,21 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
             }}
             className="flex flex-col items-center justify-center flex-1 h-full text-blue-600 min-w-0"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-            </svg>
+            <Icon className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+            </Icon>
             <span className="text-xs mt-0.5">记录</span>
           </button>
           
           {/* 标签 */}
           <button
-            onClick={() => setShowMobileMenu(true)}
-            className={`flex flex-col items-center justify-center flex-1 h-full min-w-0 ${activeFilters.length > 0 ? 'text-blue-600' : 'text-gray-600'}`}
+            onClick={() => setShowTagSelector(true)}
+            className={`flex flex-col items-center justify-center flex-1 h-full min-w-0 ${selectedTagId !== null ? 'text-blue-600' : 'text-gray-600'}`}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-            </svg>
-            <span className="text-xs mt-0.5">筛选{activeFilters.length > 0 ? `(${activeFilters.length})` : ''}</span>
+            <Icon className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+            </Icon>
+            <span className="text-xs mt-0.5">标签</span>
           </button>
           
           {/* 设置 */}
@@ -714,10 +679,10 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
               onClick={() => navigate('/settings')}
               className="flex flex-col items-center justify-center flex-1 h-full text-gray-600 min-w-0"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
+              <Icon className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </Icon>
               <span className="text-xs mt-0.5">我的</span>
             </button>
           )}
@@ -725,22 +690,20 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
       </div>
       
       {/* 标签筛选面板 */}
-      <Modal visible={showMobileMenu} title="筛选记录" onClose={() => setShowMobileMenu(false)}
+      <Modal visible={showTagSelector} title="选择标签" onClose={() => setShowTagSelector(false)}
         footer={<div className="flex items-center justify-between gap-3">
-          <button type="button" onClick={clearFilters} className="min-h-11 px-3 text-sm text-gray-600 hover:text-gray-900">清除筛选</button>
-          <button type="button" onClick={() => setShowMobileMenu(false)} className="min-h-11 rounded-xl bg-blue-600 px-5 text-sm font-medium text-white hover:bg-blue-700">查看结果</button>
+          <button type="button" onClick={() => selectTag(null)} className="app-button app-button--ghost">清除选择</button>
+          <button type="button" onClick={() => setShowTagSelector(false)} className="app-button app-button--primary">完成</button>
         </div>}>
-        <RecordFilters value={filters} onChange={setFilters} isPublic={isPublic} />
-        <p className="mb-4 text-sm text-gray-500">同时选择多个标签时，显示包含全部所选标签的记录。置顶记录优先展示。</p>
-        <button type="button" onClick={() => setSelectedTags([])} aria-pressed={selectedTags.length === 0}
-          className={`mb-2 flex min-h-11 w-full items-center justify-between rounded-xl px-3 text-sm ${selectedTags.length === 0 ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}>
+        <button type="button" onClick={() => selectTag(null)} aria-pressed={selectedTagId === null}
+          className={`mb-2 flex min-h-11 w-full items-center justify-between rounded-xl px-3 text-sm ${selectedTagId === null ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}>
           <span>全部标签</span><span>{totalCount}</span>
         </button>
         {tags.length === 0 ? <p className="py-4 text-sm text-gray-500">暂无标签</p> :
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={tags.map(tag => tag.id)} strategy={verticalListSortingStrategy}>
               <div className="space-y-2">{tags.map(tag => <SortableTagItem key={tag.id} tag={tag}
-                isSelected={selectedTags.includes(tag.id)} count={tag.bbtalkCount || 0} onClick={() => toggleTag(tag.id)} />)}</div>
+                isSelected={selectedTagId === tag.id} count={tag.bbtalkCount || 0} onClick={() => selectTag(tag.id)} />)}</div>
             </SortableContext>
           </DndContext>}
       </Modal>

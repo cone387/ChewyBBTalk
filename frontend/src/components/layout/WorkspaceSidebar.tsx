@@ -1,3 +1,4 @@
+import Icon from '../ui/Icon'
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AppBrand from '../AppBrand'
@@ -26,7 +27,7 @@ export default function WorkspaceSidebar({ active, children, footer, isPublic = 
         aria-current={active === item.path ? 'page' : undefined}
         onClick={() => navigate(isPublic && item.path === '/' ? '/public' : item.path)}
         className="workspace-nav-link">
-        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d={item.icon} /></svg>
+        <Icon aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"><path d={item.icon} /></Icon>
         {item.label}
       </button>)}
     </nav>

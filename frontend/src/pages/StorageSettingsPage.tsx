@@ -1,3 +1,4 @@
+import Icon from '../components/ui/Icon'
 import SettingsLayout from '../components/layout/SettingsLayout';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -136,6 +137,7 @@ export default function StorageSettingsPage() {
       {success && <Toast message={success} type="success" onClose={() => setSuccess(null)} />}
 
       <div className="settings-body">
+        <div className="grid items-stretch gap-4 lg:grid-cols-2">
         {/* 服务器存储 */}
         <button
           onClick={handleSwitchToServer}
@@ -148,9 +150,9 @@ export default function StorageSettingsPage() {
         >
           <div className="flex items-center gap-4">
             <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 bg-gray-100`}>
-              <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
-              </svg>
+              <Icon className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+              </Icon>
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2">
@@ -164,9 +166,9 @@ export default function StorageSettingsPage() {
               <p className="text-sm text-gray-500 mt-1">使用系统默认存储，无需额外配置</p>
             </div>
             {isServerStorage && (
-              <svg className="w-6 h-6 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
+              <Icon className="w-6 h-6 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </Icon>
             )}
           </div>
         </button>
@@ -182,9 +184,9 @@ export default function StorageSettingsPage() {
         >
           <div className="flex items-center gap-4">
             <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 bg-gray-100`}>
-              <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
-              </svg>
+              <Icon className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+              </Icon>
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2">
@@ -202,12 +204,11 @@ export default function StorageSettingsPage() {
                 {s3Count > 0 && ` (${s3Count} 个配置)`}
               </p>
             </div>
-            <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
+            <Icon name="chevronRight" className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" />
           </div>
         </button>
 
+        </div>
         {allConfigs.filter(config => config.storage_type === 'local').map(config => <div key={config.id} className="settings-panel mt-4 p-5">
           <p className="font-semibold text-gray-900">{config.name} <span className="text-sm font-normal text-gray-600">本地存储</span></p>
           <p className="mt-1 text-sm text-gray-600">附件保存在服务器本地目录，无需配置 S3 凭据。</p>
@@ -227,9 +228,9 @@ export default function StorageSettingsPage() {
               className="w-full p-4 flex items-center gap-4 text-left hover:bg-gray-50 transition-colors"
             >
               <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
-                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-                </svg>
+                <Icon className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                </Icon>
               </div>
               <div className="flex-1">
                 <span className="text-sm font-medium text-gray-900">将旧数据迁移到当前存储</span>
@@ -237,9 +238,7 @@ export default function StorageSettingsPage() {
                   将其他存储中的附件迁移到「{activeConfig ? activeConfig.name : '服务器存储'}」
                 </p>
               </div>
-              <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
+              <Icon name="chevronRight" className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" />
             </button>
 
             {/* 迁移到指定 S3 配置 */}
@@ -250,17 +249,15 @@ export default function StorageSettingsPage() {
                 className="w-full p-4 flex items-center gap-4 text-left hover:bg-gray-50 transition-colors"
               >
                 <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
-                  <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-                  </svg>
+                  <Icon className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                  </Icon>
                 </div>
                 <div className="flex-1">
                   <span className="text-sm font-medium text-gray-900">迁移到 {config.name}</span>
                   <p className="text-xs text-gray-500 mt-0.5">将其他存储中的附件迁移到此配置</p>
                 </div>
-                <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
+                <Icon name="chevronRight" className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" />
               </button>
             ))}
 
@@ -271,17 +268,15 @@ export default function StorageSettingsPage() {
                 className="w-full p-4 flex items-center gap-4 text-left hover:bg-gray-50 transition-colors"
               >
                 <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
-                  <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-                  </svg>
+                  <Icon className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                  </Icon>
                 </div>
                 <div className="flex-1">
                   <span className="text-sm font-medium text-gray-900">迁移到服务器存储</span>
                   <p className="text-xs text-gray-500 mt-0.5">将 S3 中的附件迁回服务器本地</p>
                 </div>
-                <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
+                <Icon name="chevronRight" className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" />
               </button>
             )}
           </div>
@@ -349,13 +344,11 @@ export default function StorageSettingsPage() {
                 <div className={`rounded-xl p-4 ${migrationResult.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
                   <div className="flex items-center gap-2 mb-2">
                     {migrationResult.success ? (
-                      <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
+                      <Icon className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </Icon>
                     ) : (
-                      <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
+                      <Icon name="close" className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" />
                     )}
                     <span className={`font-medium ${migrationResult.success ? 'text-green-800' : 'text-red-800'}`}>
                       {migrationResult.success ? '迁移成功' : '迁移完成（部分失败）'}
@@ -390,9 +383,9 @@ export default function StorageSettingsPage() {
         {/* 提示信息 */}
         <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mt-6">
           <div className="flex gap-3">
-            <svg className="w-5 h-5 text-gray-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+            <Icon className="w-5 h-5 text-gray-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </Icon>
             <div className="text-sm text-gray-700">
               <p className="font-medium">存储类型说明</p>
               <ul className="mt-1 text-gray-600 space-y-1">

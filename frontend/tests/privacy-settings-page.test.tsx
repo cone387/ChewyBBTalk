@@ -39,7 +39,7 @@ describe('PrivacySettingsPage', () => {
     const view = render(<PrivacySettingsPage />);
     expect(slider(view).value).toBe('5');
     expect(toggle().checked).toBe(false);
-    fireEvent.click(screen.getByLabelText('返回我的'));
+    fireEvent.click(screen.getByLabelText('返回设置'));
     expect(boundary.navigate).toHaveBeenCalledWith('/settings');
   });
 

@@ -1,3 +1,4 @@
+import Icon from '../components/ui/Icon'
 import { getPublicSetting } from '../config';
 import SettingsLayout from '../components/layout/SettingsLayout';
 import { useState } from 'react';
@@ -22,9 +23,9 @@ export default function PrivacySettingsPage() {
           <div className="px-6 py-5 border-b border-gray-100 bg-gray-50">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
+                <Icon className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </Icon>
               </div>
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">防窥模式</h2>
@@ -35,7 +36,7 @@ export default function PrivacySettingsPage() {
 
           <div className="p-6 space-y-6">
             {/* 超时时长 */}
-            <div>
+            <div className="grid gap-x-8 lg:grid-cols-[180px_minmax(0,1fr)]">
               <label htmlFor="privacy-timeout" className="block text-sm font-medium text-gray-700 mb-3">
                 防窥超时时长
               </label>
@@ -51,26 +52,26 @@ export default function PrivacySettingsPage() {
                     setPrivacyTimeoutMinutes(value);
                     localStorage.setItem('privacy_timeout_minutes', value.toString());
                   }}
-                  className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                  className="app-range flex-1 min-w-0"
                 />
                 <span className="text-sm font-medium text-gray-900 w-16 text-right">
                   {privacyTimeoutMinutes} 分钟
                 </span>
               </div>
-              <p className="mt-2 text-xs text-gray-500">
+              <p className="mt-2 text-xs text-gray-500 lg:col-start-2">
                 长时间不活动后将进入锁定页，输入密码后才能继续查看记录
               </p>
             </div>
 
             {/* 显示倒计时 */}
             <div className="pt-4 border-t border-gray-200">
-              <label className="flex items-center justify-between cursor-pointer">
+              <label className="flex min-h-11 items-center justify-between gap-3 cursor-pointer">
                 <div>
                   <div className="text-sm font-medium text-gray-700">
                     显示防窥倒计时
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
-                    在记录页导航区域显示倒计时提示
+                    在记录页右上方显示倒计时提示
                   </p>
                 </div>
                 <div className="relative">
@@ -90,10 +91,10 @@ export default function PrivacySettingsPage() {
             </div>
 
             {/* 保存提示 */}
-            <div className="flex items-center gap-1.5 text-xs text-green-600">
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
+            <div className="flex items-center gap-1.5 text-xs text-green-700">
+              <Icon className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </Icon>
               <span>设置自动保存，立即生效</span>
             </div>
           </div>

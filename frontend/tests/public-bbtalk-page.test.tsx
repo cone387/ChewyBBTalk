@@ -137,8 +137,8 @@ function scrollContainer() {
   return screen.getByRole('main');
 }
 async function openFilterDialog() {
-  fireEvent.click(screen.getAllByRole('button', { name: /^筛选/ })[0]);
-  return await screen.findByRole('dialog', { name: '筛选记录' });
+  fireEvent.click(screen.getAllByRole('button', { name: /^标签/ })[0]);
+  return await screen.findByRole('dialog', { name: '选择标签' });
 }
 
 describe('PublicBBTalkPage', () => {
@@ -241,7 +241,7 @@ describe('BBTalkPage header and navigation extras', () => {
     ]);
     const view = await loadedPrivate();
     fireEvent.click(screen.getByRole('button', { name: '更多标签' }));
-    const dialog = await screen.findByRole('dialog', { name: '筛选记录' });
+    const dialog = await screen.findByRole('dialog', { name: '选择标签' });
     expect(within(dialog).getByRole('button', { name: '拖动排序：运动' })).toBeTruthy();
     view.unmount();
   });
@@ -404,7 +404,7 @@ describe('BBTalkPage tag reordering', () => {
     const view = await loadedPrivate();
     const dialog = await openFilterDialog();
     boundary.dragging = true;
-    fireEvent.click(within(dialog).getByRole('button', { name: /全部标签/ })); // trigger a re-render
+    fireEvent.click(within(dialog).getByRole('button', { name: '工作 1' })); // trigger a re-render
     const dragged = dialog.querySelectorAll('div[style*="opacity"]');
     expect(dragged.length).toBeGreaterThan(0);
     expect((dragged[0] as HTMLElement).style.opacity).toBe('0.5');

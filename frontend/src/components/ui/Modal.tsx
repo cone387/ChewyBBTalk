@@ -1,3 +1,4 @@
+import Icon from './Icon'
 import { createPortal } from 'react-dom'
 import React, { useEffect, useId, useRef } from 'react'
 
@@ -109,9 +110,7 @@ const Modal: React.FC<ModalProps> = ({
                 className="shrink-0 min-w-11 min-h-11 flex items-center justify-center text-gray-500 hover:text-gray-600 transition-colors"
                 aria-label="关闭"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <Icon name="close" className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" />
               </button>
             </div>
           </div>

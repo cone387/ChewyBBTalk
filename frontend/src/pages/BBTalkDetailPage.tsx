@@ -1,3 +1,4 @@
+import Icon from '../components/ui/Icon'
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { bbtalkApi } from '../services/api/bbtalkApi'
@@ -74,9 +75,9 @@ export default function BBTalkDetailPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="text-center max-w-md bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
           <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
+            <Icon className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </Icon>
           </div>
           <h2 className="text-xl font-semibold text-gray-800 mb-2">暂时无法打开记录</h2>
           <p role="alert" className="text-gray-500 text-sm mb-6">{error || '该记录可能已被删除、设为私密或需要登录查看'}</p>
@@ -106,8 +107,8 @@ export default function BBTalkDetailPage() {
     <div className="app-page workspace-layout">
       <WorkspaceSidebar active="/" isPublic={!currentUser} />
       <main className="settings-content">
-        {/* 返回头部导航 */}
-        <div className="mb-4 flex items-center justify-between">
+        {/* 窄窗口收起侧栏后保留返回入口。桌面通过侧栏导航。 */}
+        <div className="mb-4 flex items-center justify-between lg:hidden">
           <button
             onClick={() => {
               if (window.history.length > 1) {
@@ -118,9 +119,9 @@ export default function BBTalkDetailPage() {
             }}
             className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
+            <Icon className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </Icon>
             返回
           </button>
 
@@ -147,9 +148,9 @@ export default function BBTalkDetailPage() {
         {copyTip && (
           <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 animate-fade-in">
             <div className="bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
+              <Icon className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </Icon>
               <span className="font-medium text-sm">链接已复制</span>
             </div>
           </div>

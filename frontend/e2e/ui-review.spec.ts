@@ -38,7 +38,9 @@ test('settings destinations remain reachable and scrollable, and logout can be c
   await dialog.getByRole('button', { name: '取消', exact: true }).click()
   await expect(dialog).toHaveCount(0)
   await expect(logout).toBeFocused()
-  await page.getByRole('button', { name: '返回记录', exact: true }).click()
+  const sidebar = page.getByRole('complementary', { name: '桌面侧栏' })
+  if (await sidebar.isVisible()) await sidebar.getByRole('button', { name: '记录', exact: true }).click()
+  else await page.getByRole('button', { name: '返回记录', exact: true }).click()
   await expect(page.getByLabel('记录内容')).toBeVisible()
 })
 

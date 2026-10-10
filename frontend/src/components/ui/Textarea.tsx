@@ -6,7 +6,7 @@ export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextArea
 }
 
 const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ label, error, className = '', id, ...props }, ref) => {
+  ({ label, error, className = '', id, 'aria-describedby': describedBy, ...props }, ref) => {
     const generatedId = useId()
     const fieldId = id || generatedId
     return (
@@ -20,12 +20,12 @@ const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
           ref={ref}
           id={fieldId}
           aria-invalid={!!error}
-          aria-describedby={error ? `${fieldId}-error` : undefined}
+          aria-describedby={[describedBy, error ? `${fieldId}-error` : undefined].filter(Boolean).join(' ') || undefined}
           className={`app-input min-h-[100px] resize-y ${className}`}
           {...props}
         />
         {error && (
-          <p id={`${fieldId}-error`} className="mt-1.5 text-sm text-red-600">{error}</p>
+          <p id={`${fieldId}-error`} role="alert" className="mt-1.5 text-sm text-red-700">{error}</p>
         )}
       </div>
     )

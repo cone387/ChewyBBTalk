@@ -156,7 +156,7 @@ describe('import execution', () => {
 describe('navigation', () => {
   it('returns to the settings page', () => {
     render(<DataManagementPage />);
-    fireEvent.click(screen.getByLabelText('返回我的'));
+    fireEvent.click(screen.getByLabelText('返回设置'));
     expect(boundary.navigate).toHaveBeenCalledWith('/settings');
   });
 });

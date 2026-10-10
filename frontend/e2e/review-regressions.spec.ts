@@ -16,6 +16,8 @@ test('account settings persist profile and require the new password after changi
   await page.getByLabel('确认新密码', { exact: true }).fill('different-password')
   await page.getByRole('button', { name: '修改密码并退出登录' }).click()
   await expect(page.getByRole('alert')).toContainText('两次输入的新密码不一致')
+  await expect(page.getByLabel('确认新密码', { exact: true })).toHaveAttribute('aria-invalid', 'true')
+  await expect(page.getByLabel('确认新密码', { exact: true })).toHaveAccessibleDescription('两次输入的新密码不一致')
   await expect(page.getByRole('alert')).toBeInViewport()
   await page.getByLabel('确认新密码', { exact: true }).fill('changed-password-2026')
   await page.getByRole('button', { name: '修改密码并退出登录' }).click()

@@ -114,7 +114,7 @@ describe('initial rendering', () => {
     };
     const view = await loaded();
     expect(screen.getAllByText('Deployment Notes').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('倒计时')).toHaveLength(2);
+    expect(screen.getAllByText('倒计时')).toHaveLength(1);
     view.unmount();
     localStorage.setItem('privacy_timeout_minutes', '15');
     localStorage.setItem('show_privacy_countdown', 'false');
@@ -188,52 +188,73 @@ describe('search and tag filters', () => {
     expect(api.getBBTalks).toHaveBeenLastCalledWith(expect.objectContaining({ search: '关键' }));
   });
 
-  it('debounces tag filters and supports combining tags and clearing them', async () => {
+  it('switches a single tag, keeps the current tag selected and clears through All', async () => {
     vi.useFakeTimers();
     page();
     await act(async () => { await vi.advanceTimersByTimeAsync(350); });
     fireEvent.click(screen.getByRole('button', { name: '工作' }));
     await act(async () => { await vi.advanceTimersByTimeAsync(300); });
     expect(api.getBBTalks).toHaveBeenLastCalledWith(expect.objectContaining({ tags__name: '工作' }));
+    scrollContainer().scrollTop = 240;
+    fireEvent.click(screen.getByRole('button', { name: '生活' }));
+    expect(scrollContainer().scrollTop).toBe(0);
+    expect(screen.getByRole('button', { name: '工作' }).getAttribute('aria-pressed')).toBe('false');
+    expect(screen.getByRole('button', { name: '生活' }).getAttribute('aria-pressed')).toBe('true');
+    await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+    expect(api.getBBTalks).toHaveBeenLastCalledWith(expect.objectContaining({ tags__name: '生活' }));
+    const requests = api.getBBTalks.mock.calls.length;
     fireEvent.click(screen.getByRole('button', { name: '生活' }));
     await act(async () => { await vi.advanceTimersByTimeAsync(300); });
-    expect(api.getBBTalks).toHaveBeenLastCalledWith(expect.objectContaining({ tags__name: '工作,生活' }));
+    expect(api.getBBTalks).toHaveBeenCalledTimes(requests);
+    expect(screen.getByRole('button', { name: '生活' }).getAttribute('aria-pressed')).toBe('true');
     fireEvent.click(screen.getByRole('button', { name: '全部', exact: true }));
     await act(async () => { await vi.advanceTimersByTimeAsync(300); });
     expect(api.getBBTalks).toHaveBeenLastCalledWith(expect.objectContaining({ tags__name: '' }));
   });
 
-  it('lists removable active filter chips and clears them all at once', async () => {
+  it('ignores a delayed response for the previous tag after switching', async () => {
+    vi.useFakeTimers();
+    page();
+    await act(async () => { await vi.advanceTimersByTimeAsync(350); });
+    let finishOld!: (value: typeof page1) => void;
+    api.getBBTalks.mockImplementation((params: { tags__name?: string }) => params.tags__name === '工作'
+      ? new Promise(resolve => { finishOld = resolve; })
+      : Promise.resolve({ ...page1, results: [record('life', '生活结果')] }));
+    fireEvent.click(screen.getByRole('button', { name: '工作' }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+    fireEvent.click(screen.getByRole('button', { name: '生活' }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+    expect(screen.getByText('生活结果')).toBeTruthy();
+    await act(async () => { finishOld({ ...page1, results: [record('work', '过期工作结果')] }); });
+    expect(screen.getByText('生活结果')).toBeTruthy();
+    expect(screen.queryByText('过期工作结果')).toBeNull();
+  });
+
+  it('clears search and selected tags from an empty result without adding filter controls', async () => {
     api.getBBTalks.mockResolvedValue({ ...page1, results: [] });
     page();
     await screen.findByText('暂无碎碎念');
     fireEvent.change(screen.getByLabelText('搜索记录'), { target: { value: '关键词' } });
     fireEvent.click(screen.getByRole('button', { name: '工作' }));
-    const section = await screen.findByLabelText('当前筛选条件');
-    expect(within(section).getByText('当前筛选 · 2')).toBeTruthy();
-    fireEvent.click(within(section).getByRole('button', { name: '移除关键词：关键词' }));
-    expect(within(section).queryByText(/关键词：/)).toBeNull();
-    fireEvent.click(within(section).getByRole('button', { name: '移除标签：工作' }));
     expect(screen.queryByLabelText('当前筛选条件')).toBeNull();
-    fireEvent.change(screen.getByLabelText('搜索记录'), { target: { value: 'x' } });
-    fireEvent.click(screen.getByRole('button', { name: '工作' }));
-    const again = await screen.findByLabelText('当前筛选条件');
+    expect(screen.queryByRole('button', { name: /筛选与排序/ })).toBeNull();
     expect(screen.getByText('没有找到匹配的碎碎念')).toBeTruthy();
-    fireEvent.click(within(again).getByRole('button', { name: '全部清除' }));
+    fireEvent.click(screen.getByRole('button', { name: '清除条件，查看全部' }));
     expect(screen.getByText('暂无碎碎念')).toBeTruthy();
     expect((screen.getByLabelText('搜索记录') as HTMLInputElement).value).toBe('');
+    expect(screen.getByRole('button', { name: '工作' }).getAttribute('aria-pressed')).toBe('false');
   });
 
   it('operates the mobile filter dialog with tag counts', async () => {
     await loaded();
-    fireEvent.click(screen.getAllByRole('button', { name: /^筛选/ })[0]);
-    const dialog = await screen.findByRole('dialog', { name: '筛选记录' });
+    fireEvent.click(screen.getAllByRole('button', { name: /^标签/ })[0]);
+    const dialog = await screen.findByRole('dialog', { name: '选择标签' });
     expect(within(dialog).getByText('全部标签')).toBeTruthy();
     expect(within(dialog).getAllByText('2')).toHaveLength(2);
     fireEvent.click(within(dialog).getByRole('button', { name: '工作 1' }));
-    fireEvent.click(within(dialog).getByRole('button', { name: '查看结果' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: '完成' }));
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(screen.getByText('筛选 (1)')).toBeTruthy();
+    expect(screen.getByRole('button', { name: '工作' }).getAttribute('aria-pressed')).toBe('true');
   });
 });
 

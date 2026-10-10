@@ -223,6 +223,7 @@ startApp({
 
 ### Web 与原生端分工
 
+- Web 以桌面浏览器为主设计，设置与子页保留桌面导航和布局；窗口收窄时允许切换为紧凑布局，不能用手机界面反向决定桌面设计。
 - 实际线上 Web 部署始终使用 `frontend/`（React + Vite），Docker/Nginx 构建链路不切换到 Expo Web。
 - `mobile/` 负责 iOS/Android 原生应用；其中 Expo Web 仅用于开发验证，不作为生产部署目标。
 
@@ -391,3 +392,5 @@ Web 登录页读取服务端策略，关闭时展示管理员联系提示；策�
 单项检查失败不隐藏其他结果，网络失败保留上次结果并明确标记，可点击「重新检查」。
 
 本轮实现与自动验收范围见 [多端与部署体验验收记录](docs/multi-client-readiness-validation.md)。
+
+Web 页面与共享组件遵循 [Web 控件规范](docs/web-controls.md)，包含图标、输入框、错误状态、操作范围及明确允许的布局变体。

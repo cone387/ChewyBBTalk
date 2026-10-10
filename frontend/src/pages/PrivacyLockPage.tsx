@@ -1,3 +1,4 @@
+import Icon from '../components/ui/Icon'
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppDispatch } from '../store/hooks'
@@ -216,9 +217,9 @@ export default function PrivacyLockPage() {
         />
         {publishSuccess && (
           <div className="mt-3 text-center text-green-600 text-sm flex items-center justify-center gap-1">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
+            <Icon className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </Icon>
             发布成功
           </div>
         )}
@@ -231,7 +232,7 @@ export default function PrivacyLockPage() {
           {/* 锁图标 - 移动端居中显示 */}
           <div className="flex-shrink-0">
             <div className="w-14 h-14 sm:w-12 sm:h-12 bg-gray-100 rounded-full flex items-center justify-center">
-              <svg
+              <Icon
                 className="w-7 h-7 sm:w-6 sm:h-6 text-gray-500"
                 fill="none"
                 stroke="currentColor"
@@ -240,10 +241,9 @@ export default function PrivacyLockPage() {
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  strokeWidth={2}
                   d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
                 />
-              </svg>
+              </Icon>
             </div>
           </div>
           
@@ -255,7 +255,7 @@ export default function PrivacyLockPage() {
                 type="button"
                 onClick={handleBiometricUnlock}
                 disabled={isBiometricVerifying}
-                className="w-full mb-3 py-3.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="app-button app-button--primary w-full mb-3"
               >
                 {isBiometricVerifying ? (
                   <>
@@ -268,12 +268,12 @@ export default function PrivacyLockPage() {
                 ) : (
                   <>
                     {/* Face ID 图标 */}
-                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <Icon className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                       <rect x="4" y="4" width="16" height="16" rx="3" />
                       <circle cx="9" cy="10" r="1" fill="currentColor" />
                       <circle cx="15" cy="10" r="1" fill="currentColor" />
                       <path d="M9 15c1.5 1.5 4.5 1.5 6 0" strokeLinecap="round" />
-                    </svg>
+                    </Icon>
                     <span>面容/指纹解锁</span>
                   </>
                 )}
@@ -284,7 +284,7 @@ export default function PrivacyLockPage() {
             {isMobile && isBiometricSupported && (
               <div className="flex items-center gap-3 mb-3">
                 <div className="flex-1 h-px bg-gray-200"></div>
-                <span className="text-xs text-gray-400">或使用密码</span>
+                <span className="text-xs text-gray-600">或使用密码</span>
                 <div className="flex-1 h-px bg-gray-200"></div>
               </div>
             )}
@@ -304,7 +304,7 @@ export default function PrivacyLockPage() {
                 <button
                   type="submit"
                   disabled={isVerifying}
-                  className="flex-1 sm:flex-none px-5 py-3 sm:py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm whitespace-nowrap"
+                  className="app-button app-button--primary flex-1 sm:flex-none whitespace-nowrap"
                 >
                   {isVerifying ? (
                     <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -321,7 +321,7 @@ export default function PrivacyLockPage() {
                     type="button"
                     onClick={handleBiometricUnlock}
                     disabled={isBiometricVerifying}
-                    className="px-3 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="app-button app-button--secondary"
                     title="指纹/面容解锁"
                   >
                     {isBiometricVerifying ? (
@@ -330,9 +330,9 @@ export default function PrivacyLockPage() {
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
                     ) : (
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4" />
-                      </svg>
+                      <Icon className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4" />
+                      </Icon>
                     )}
                   </button>
                 )}

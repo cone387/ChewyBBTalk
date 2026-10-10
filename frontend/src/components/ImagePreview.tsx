@@ -1,3 +1,4 @@
+import Icon from './ui/Icon'
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { imageCacheService } from '../services/cache/imageCache'
 
@@ -223,15 +224,13 @@ export default function ImagePreview({ src: initialSrc, alt: initialAlt, images,
         onClick={(e) => { e.stopPropagation(); onClose() }}
         className="absolute top-3 right-3 z-20 w-11 h-11 bg-black/60 rounded-full flex items-center justify-center focus-visible:ring-2 focus-visible:ring-white"
       >
-        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-        </svg>
+        <Icon name="close" className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" />
       </button>
 
       {count > 1 && <>
         <div aria-live="polite" className="absolute top-4 left-1/2 -translate-x-1/2 z-20 rounded-full bg-black/60 px-4 py-2 text-white">{index + 1} / {count}</div>
-        <button aria-label="上一张图片" className="absolute left-2 z-20 min-h-11 min-w-11 rounded-full bg-black/60 text-2xl text-white focus-visible:ring-2 focus-visible:ring-white" onClick={event => { event.stopPropagation(); setIndex(value => (value + count - 1) % count) }}>‹</button>
-        <button aria-label="下一张图片" className="absolute right-2 z-20 min-h-11 min-w-11 rounded-full bg-black/60 text-2xl text-white focus-visible:ring-2 focus-visible:ring-white" onClick={event => { event.stopPropagation(); setIndex(value => (value + 1) % count) }}>›</button>
+        <button aria-label="上一张图片" className="absolute left-2 z-20 flex items-center justify-center min-h-11 min-w-11 rounded-full bg-black/60 text-2xl text-white focus-visible:ring-2 focus-visible:ring-white" onClick={event => { event.stopPropagation(); setIndex(value => (value + count - 1) % count) }}><Icon name="chevronLeft" size={20} /></button>
+        <button aria-label="下一张图片" className="absolute right-2 z-20 flex items-center justify-center min-h-11 min-w-11 rounded-full bg-black/60 text-2xl text-white focus-visible:ring-2 focus-visible:ring-white" onClick={event => { event.stopPropagation(); setIndex(value => (value + 1) % count) }}><Icon name="chevronRight" size={20} /></button>
       </>}
 
       {/* 缩放比例 - 非100%时显示 */}

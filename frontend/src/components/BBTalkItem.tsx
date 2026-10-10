@@ -1,3 +1,5 @@
+import Icon from './ui/Icon'
+import Button from './ui/Button'
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import type { BBTalk, Comment, Attachment } from '../types'
 import { bbtalkApi } from '../services/api'
@@ -120,13 +122,13 @@ function InlineCommentSection({
                 {comment.content}
               </p>
               <div className="flex items-center gap-2 shrink-0">
-                <span className="text-xs text-gray-400">{formatTime(comment.createdAt)}</span>
+                <span className="text-xs text-gray-600">{formatTime(comment.createdAt)}</span>
                 {!readOnly && <button
                   aria-label={`删除评论：${comment.content}`}
                   onClick={() => handleDelete(comment)}
-                  className="min-h-[44px] min-w-[44px] rounded text-gray-600 hover:text-red-700 focus-visible:ring-2 focus-visible:ring-blue-500 text-xs"
+                  className="app-icon-button comment-delete hover:text-red-700"
                 >
-                  ✕
+                  <Icon name="close" size={16} />
                 </button>}
               </div>
             </div>
@@ -140,7 +142,7 @@ function InlineCommentSection({
       )}
 
       {inputVisible && !readOnly && (
-        <div className="mt-3 flex gap-2">
+        <div className="mt-3 flex items-end gap-2">
           <textarea
             rows={2}
             value={newComment}
@@ -157,17 +159,11 @@ function InlineCommentSection({
             }}
             aria-label="评论内容"
             placeholder="写一条评论（Enter 发送，Shift+Enter 换行）"
-            className="min-w-0 flex-1 px-3 py-2 text-base border border-gray-200 rounded-xl focus:outline-none focus:border-indigo-400 bg-gray-50 placeholder-gray-400"
+            className="app-input app-input--comment min-w-0 flex-1"
             disabled={submitting}
             autoFocus
           />
-          <button
-            onClick={handleSubmit}
-            disabled={!newComment.trim() || submitting}
-            className="px-4 py-2 text-sm text-white bg-blue-600 rounded-full hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            {submitting ? '...' : '发送'}
-          </button>
+          <Button variant="ghost" onClick={handleSubmit} disabled={!newComment.trim()} loading={submitting} className="comment-send shrink-0">发送</Button>
         </div>
       )}
     </div>
@@ -336,50 +332,44 @@ const BBTalkItem: React.FC<BBTalkItemProps> = React.memo(function BBTalkItem({
             onClick={() => setMenuOpen(!menuOpen)}
             title="更多"
           >
-            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-            </svg>
+            <Icon className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+            </Icon>
           </button>
 
           {menuOpen && (
             <div className="absolute right-0 mt-2 w-32 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
               <button
-                className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                className="app-menu-item"
                 onClick={handleCopyLink}
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                </svg>
+                <Icon name="link" className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" />
                 复制链接
               </button>
               {!isPublic && (
                 <>
-                  {onTogglePin && <button className="min-h-11 w-full px-4 text-left text-sm text-gray-700 hover:bg-gray-100" onClick={() => { setMenuOpen(false); onTogglePin(bbtalk) }}>{bbtalk.isPinned ? '取消置顶' : '置顶'}</button>}
+                  {onTogglePin && <button className="app-menu-item" onClick={() => { setMenuOpen(false); onTogglePin(bbtalk) }}><Icon name="pin" size={16} />{bbtalk.isPinned ? '取消置顶' : '置顶'}</button>}
                   {onEdit && (
                     <button
-                      className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                      className="app-menu-item"
                       onClick={() => {
                         setMenuOpen(false)
                         onEdit(bbtalk)
                       }}
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
+                      <Icon name="edit" className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" />
                       编辑
                     </button>
                   )}
                   {onDelete && (
                     <button
-                      className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-gray-100 flex items-center gap-2"
+                      className="app-menu-item app-menu-item--danger"
                       onClick={() => {
                         setMenuOpen(false)
                         onDelete(bbtalk)
                       }}
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1-1v3M4 7h16" />
-                      </svg>
+                      <Icon name="trash" className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" />
                       删除
                     </button>
                   )}
@@ -465,9 +455,9 @@ const BBTalkItem: React.FC<BBTalkItemProps> = React.memo(function BBTalkItem({
                     download={attachment.originalFilename || attachment.filename || '附件'}
                     className="inline-flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 group"
                   >
-                    <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
+                    <Icon className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </Icon>
                     <div className="flex items-baseline gap-1.5">
                       <span className="text-sm text-gray-800 font-medium">
                         {attachment.originalFilename || attachment.filename || '附件'}
@@ -478,9 +468,9 @@ const BBTalkItem: React.FC<BBTalkItemProps> = React.memo(function BBTalkItem({
                         </span>
                       )}
                     </div>
-                    <svg className="w-4 h-4 text-gray-400 group-hover:text-blue-500 transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                    </svg>
+                    <Icon className="w-4 h-4 text-gray-400 group-hover:text-blue-500 transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </Icon>
                   </AttachmentDownload>
                 ))}
               </div>
@@ -508,13 +498,13 @@ const BBTalkItem: React.FC<BBTalkItemProps> = React.memo(function BBTalkItem({
             {/* 设备来源 */}
             <span className="flex items-center gap-1 text-gray-500 relative group/device cursor-help" title={isMobile ? '手机' : source}>
               {isMobile ? (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                </svg>
+                <Icon className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </Icon>
               ) : (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
+                <Icon className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </Icon>
               )}
               <div className="absolute bottom-full left-0 mb-2 hidden group-hover/device:block z-10 whitespace-nowrap">
                 <div className="bg-gray-900 text-white px-3 py-2 rounded-lg shadow-lg text-sm">
@@ -527,10 +517,10 @@ const BBTalkItem: React.FC<BBTalkItemProps> = React.memo(function BBTalkItem({
             {/* 定位信息 */}
             {location && location.latitude !== undefined && location.longitude !== undefined && (
               <span className="relative group/location">
-                <svg className="w-4 h-4 text-green-600 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
+                <Icon className="w-4 h-4 text-green-600 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </Icon>
                 <div className="absolute bottom-full right-0 mb-2 hidden group-hover/location:block z-10 whitespace-nowrap">
                   <div className="bg-gray-900 text-white px-3 py-2 rounded-lg shadow-lg text-sm">
                     <div className="font-medium mb-1">定位信息</div>
@@ -547,13 +537,13 @@ const BBTalkItem: React.FC<BBTalkItemProps> = React.memo(function BBTalkItem({
             {/* 可见性 */}
             <span className="flex items-center gap-1" title={bbtalk.visibility === 'public' ? '公开可见' : '仅自己可见'}>
               {bbtalk.visibility === 'public' ? (
-                <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                <Icon className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </Icon>
               ) : (
-                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
+                <Icon className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </Icon>
               )}
             </span>
           </div>
@@ -566,9 +556,9 @@ const BBTalkItem: React.FC<BBTalkItemProps> = React.memo(function BBTalkItem({
             aria-expanded={commentInputVisible}
             title="评论"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
+            <Icon className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </Icon>
             {commentCount > 0 && <span>{commentCount}</span>}
           </button>
         </div>

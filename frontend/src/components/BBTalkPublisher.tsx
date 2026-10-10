@@ -49,7 +49,7 @@ export default function BBTalkPublisher({ tags, onCreate }: BBTalkPublisherProps
         value={content}
         onChange={(e) => setContent(e.target.value)}
         placeholder="分享你的想法..."
-        className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+        className="w-full px-4 py-3 border rounded-lg resize-none"
         rows={6}
       />
       
