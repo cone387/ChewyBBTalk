@@ -11,6 +11,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  repository-layout:
+    name: Repository root layout
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node scripts/check-root-layout.mjs
+
   backend:
     name: Backend tests
     runs-on: ubuntu-latest

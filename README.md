@@ -179,6 +179,11 @@ startApp({
 
 ## 🛠️ 开发
 
+目录与临时文件管理遵循 [AGENTS.md](AGENTS.md)。临时脚本、日志、截图统一放在
+`.tmp/<任务名>/`，任务结束后清理；根目录不得散落临时文件或工具缓存。
+开始和结束任务时运行 `node scripts/check-root-layout.mjs`，CI 也会检查根目录允许列表。
+独立宣传动画位于 [docs/demos/bbtalk-intro/index.html](docs/demos/bbtalk-intro/index.html)。
+
 ### 技术栈
 
 **前端**

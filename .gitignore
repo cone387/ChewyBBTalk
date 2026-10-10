@@ -55,6 +55,7 @@ backend/var/
 backend/chewy_space/
 
 # Temporary files
+/.tmp/
 attachments.md
 *.pid
 

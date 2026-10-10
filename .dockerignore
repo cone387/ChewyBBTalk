@@ -1,5 +1,9 @@
 .git
 .github
+.tmp
+.temp*
+.uv-cache
+.ruff_cache
 .temp_tests
 .qoder
 *.md
