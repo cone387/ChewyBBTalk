@@ -23,7 +23,7 @@ export default defineConfig({
     {
       command: 'uv run python tools/e2e_server.py',
       cwd: '../backend',
-      url: 'http://127.0.0.1:18020/api/v1/bbtalk/user/me/',
+      url: 'http://127.0.0.1:18020/api/v1/bbtalk/user/me',
       reuseExistingServer: false,
       timeout: 90_000,
     },

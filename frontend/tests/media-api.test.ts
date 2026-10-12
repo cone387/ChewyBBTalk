@@ -87,7 +87,7 @@ describe('upload error mapping', () => {
     }
   }
 
-  it('surfaces the DRF detail message with status metadata', async () => {
+  it('surfaces the detail message with status metadata', async () => {
     const error = await rejectedWith({ detail: '存储空间不足' }, 507)
     expect(error.message).toBe('存储空间不足')
     expect(error.status).toBe(507)

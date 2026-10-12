@@ -606,7 +606,7 @@
           "api/errors.py",
           "api/middleware.py",
           "api/router.py",
-          "api/schema.py",
+          "api/openapi.py",
           "api/routes/pages.py"
         ],
         "minimum": {

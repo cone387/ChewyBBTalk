@@ -1,4 +1,4 @@
-"""SQLAlchemy mappings preserve the deployed cb_* schema and identifiers."""
+"""Native SQLAlchemy schema; historical identifiers survive versioned adoption."""
 
 import base64
 import colorsys
@@ -10,17 +10,22 @@ from sqlalchemy import (
     JSON,
     BigInteger,
     Boolean,
+    CheckConstraint,
     DateTime,
     Float,
     ForeignKey,
     Index,
     Integer,
+    MetaData,
     String,
     Text,
     UniqueConstraint,
     Uuid,
+    column,
+    func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.mysql import DATETIME, DOUBLE, LONGTEXT
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.types import TypeDecorator
 
@@ -43,6 +48,8 @@ class UTCDateTime(TypeDecorator):
     cache_ok = True
 
     def load_dialect_impl(self, dialect):
+        if dialect.name == 'mysql':
+            return dialect.type_descriptor(DATETIME(fsp=6))
         return dialect.type_descriptor(DateTime(timezone=dialect.name == 'postgresql'))
 
     def process_bind_param(self, value, dialect):
@@ -64,7 +71,15 @@ class UTCDateTime(TypeDecorator):
 
 
 class Base(DeclarativeBase):
-    pass
+    metadata = MetaData(
+        naming_convention={
+            'ix': 'ix_%(table_name)s_%(column_0_name)s',
+            'uq': 'uq_%(table_name)s_%(column_0_name)s',
+            'ck': 'ck_%(table_name)s_%(constraint_name)s',
+            'fk': 'fk_%(table_name)s_%(column_0_name)s',
+            'pk': 'pk_%(table_name)s',
+        }
+    )
 
 
 ID = BigInteger().with_variant(Integer, 'sqlite')
@@ -72,12 +87,13 @@ ID = BigInteger().with_variant(Integer, 'sqlite')
 
 class User(Base):
     __tablename__ = 'cb_users'
+    __table_args__ = (CheckConstraint('credential_version >= 0', name='credential_version'),)
     id: Mapped[int] = mapped_column(ID, primary_key=True)
     username: Mapped[str] = mapped_column(String(150), unique=True)
     email: Mapped[str] = mapped_column(String(254), default='')
     display_name: Mapped[str] = mapped_column(String(150), default='')
     avatar: Mapped[str] = mapped_column(String(200), default='')
-    bio: Mapped[str] = mapped_column(Text, default='')
+    bio: Mapped[str] = mapped_column(Text().with_variant(LONGTEXT(), 'mysql'), default='')
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_staff: Mapped[bool] = mapped_column(Boolean, default=False)
     is_superuser: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -118,11 +134,17 @@ class Owned:
 
 class Tag(Owned, Base):
     __tablename__ = 'cb_tags'
-    __table_args__ = (UniqueConstraint('name', 'user_id'),)
-    uid: Mapped[str] = mapped_column(String(22), unique=True, default=uid)
+    __table_args__ = (
+        UniqueConstraint('name', 'user_id'),
+        CheckConstraint(func.char_length(column('uid')).between(1, 64), name='uid_length'),
+        Index('ix_cb_tags_user_sort', 'user_id', 'sort_order', 'id'),
+    )
+    uid: Mapped[str] = mapped_column(String(64), unique=True, default=uid)
     name: Mapped[str] = mapped_column(String(50))
     color: Mapped[str] = mapped_column(String(7), default=tag_color)
-    sort_order: Mapped[float] = mapped_column(Float, default=0)
+    sort_order: Mapped[float] = mapped_column(
+        Float().with_variant(DOUBLE(asdecimal=False), 'mysql'), default=0
+    )
 
 
 class RecordTag(Base):
@@ -138,11 +160,18 @@ class RecordTag(Base):
 class BBTalk(Owned, Base):
     __tablename__ = 'cb_bbtalks'
     __table_args__ = (
-        Index('bbtalk_user_time_idx', 'user_id', 'update_time'),
-        Index('bbtalk_user_create_idx', 'user_id', 'create_time'),
+        Index('ix_cb_bbtalks_user_update', 'user_id', 'update_time'),
+        Index('ix_cb_bbtalks_user_create', 'user_id', 'create_time'),
+        CheckConstraint(func.char_length(column('uid')).between(1, 64), name='uid_length'),
+        CheckConstraint(
+            'json_valid(attachments)', name='attachments_json', info={'dialects': ('sqlite',)}
+        ).ddl_if(dialect='sqlite'),
+        CheckConstraint(
+            'json_valid(context)', name='context_json', info={'dialects': ('sqlite',)}
+        ).ddl_if(dialect='sqlite'),
     )
-    uid: Mapped[str] = mapped_column(String(22), unique=True, default=uid)
-    content: Mapped[str] = mapped_column(Text)
+    uid: Mapped[str] = mapped_column(String(64), unique=True, default=uid)
+    content: Mapped[str] = mapped_column(Text().with_variant(LONGTEXT(), 'mysql'))
     visibility: Mapped[str] = mapped_column(String(16), default='private')
     attachments: Mapped[list] = mapped_column(
         JSON().with_variant(JSONB(), 'postgresql'), default=list
@@ -154,16 +183,23 @@ class BBTalk(Owned, Base):
 
 class Comment(Owned, Base):
     __tablename__ = 'cb_comments'
-    uid: Mapped[str] = mapped_column(String(22), unique=True, default=uid)
+    __table_args__ = (
+        CheckConstraint(func.char_length(column('uid')).between(1, 64), name='uid_length'),
+        Index('ix_cb_comments_record_time', 'bbtalk_id', 'create_time', 'id'),
+    )
+    uid: Mapped[str] = mapped_column(String(64), unique=True, default=uid)
     bbtalk_id: Mapped[int] = mapped_column(
         ForeignKey('cb_bbtalks.id', ondelete='CASCADE'), index=True
     )
-    content: Mapped[str] = mapped_column(Text)
+    content: Mapped[str] = mapped_column(Text().with_variant(LONGTEXT(), 'mysql'))
 
 
 class StorageConfig(Owned, Base):
     __tablename__ = 'cb_user_storage_settings'
-    __table_args__ = (UniqueConstraint('user_id', 'name'),)
+    __table_args__ = (
+        UniqueConstraint('user_id', 'name'),
+        Index('ix_cb_user_storage_settings_user_active', 'user_id', 'is_active'),
+    )
     name: Mapped[str] = mapped_column(String(100), default='默认配置')
     storage_type: Mapped[str] = mapped_column(String(16), default='s3')
     s3_access_key_id: Mapped[str] = mapped_column(String(255), default='')
@@ -186,6 +222,7 @@ class StorageConfig(Owned, Base):
 
 class Attachment(Base):
     __tablename__ = 'cb_attachments'
+    __table_args__ = (Index('ix_cb_attachments_owner_created', 'owner_id', 'created_at'),)
     id: Mapped[str] = mapped_column(
         Uuid(as_uuid=False), primary_key=True, default=lambda: str(uuid4())
     )
@@ -195,25 +232,27 @@ class Attachment(Base):
     size: Mapped[int] = mapped_column(BigInteger)
     owner_id: Mapped[str] = mapped_column(String(100), index=True)
     is_public: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
-    storage_config_id: Mapped[str | None] = mapped_column(String(100))
+    storage_config_id: Mapped[str | None] = mapped_column(String(100), index=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=now, index=True)
 
 
 class SubmissionReceipt(Base):
     __tablename__ = 'cb_submission_receipts'
-    __table_args__ = (UniqueConstraint('user_id', 'key', name='submission_user_key_unique'),)
+    __table_args__ = (UniqueConstraint('user_id', 'key'),)
     id: Mapped[int] = mapped_column(ID, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey('cb_users.id', ondelete='CASCADE'))
     key: Mapped[str] = mapped_column(String(128))
     payload_hash: Mapped[str] = mapped_column(String(64))
-    record_id: Mapped[int | None] = mapped_column(ForeignKey('cb_bbtalks.id', ondelete='SET NULL'))
+    record_id: Mapped[int | None] = mapped_column(
+        ForeignKey('cb_bbtalks.id', ondelete='SET NULL'), index=True
+    )
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=now)
 
 
 class DesktopAuthorization(Base):
     __tablename__ = 'cb_desktop_authorizations'
     code_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey('cb_users.id', ondelete='CASCADE'))
+    user_id: Mapped[int] = mapped_column(ForeignKey('cb_users.id', ondelete='CASCADE'), index=True)
     challenge: Mapped[str] = mapped_column(String(43))
     redirect_uri: Mapped[str] = mapped_column(String(200))
     expires_at: Mapped[datetime] = mapped_column(UTCDateTime, index=True)
@@ -222,6 +261,7 @@ class DesktopAuthorization(Base):
 
 class PasswordRecovery(Base):
     __tablename__ = 'cb_password_recovery'
+    __table_args__ = (CheckConstraint('credential_version >= 0', name='credential_version'),)
     id: Mapped[int] = mapped_column(ID, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey('cb_users.id', ondelete='CASCADE'), unique=True)
     code_hash: Mapped[str] = mapped_column(String(64))
@@ -231,28 +271,44 @@ class PasswordRecovery(Base):
 
 
 class OutstandingToken(Base):
-    __tablename__ = 'token_blacklist_outstandingtoken'
+    __tablename__ = 'cb_refresh_tokens'
     id: Mapped[int] = mapped_column(ID, primary_key=True)
-    user_id: Mapped[int | None] = mapped_column(ForeignKey('cb_users.id', ondelete='SET NULL'))
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey('cb_users.id', ondelete='SET NULL'), index=True
+    )
     jti: Mapped[str] = mapped_column(String(255), unique=True)
-    token: Mapped[str] = mapped_column(Text)
+    token: Mapped[str] = mapped_column(Text().with_variant(LONGTEXT(), 'mysql'))
     created_at: Mapped[datetime | None] = mapped_column(UTCDateTime, default=now)
     expires_at: Mapped[datetime] = mapped_column(UTCDateTime)
 
 
 class BlacklistedToken(Base):
-    __tablename__ = 'token_blacklist_blacklistedtoken'
+    __tablename__ = 'cb_revoked_tokens'
     id: Mapped[int] = mapped_column(ID, primary_key=True)
     token_id: Mapped[int] = mapped_column(
-        ForeignKey('token_blacklist_outstandingtoken.id', ondelete='CASCADE'), unique=True
+        ForeignKey('cb_refresh_tokens.id', ondelete='CASCADE'), unique=True
     )
     blacklisted_at: Mapped[datetime] = mapped_column(UTCDateTime, default=now)
 
 
 class SessionToken(Base):
     __tablename__ = 'cb_sessions'
+    __table_args__ = (CheckConstraint('credential_version >= 0', name='credential_version'),)
     key_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey('cb_users.id', ondelete='CASCADE'), index=True)
     credential_version: Mapped[int] = mapped_column(Integer)
     csrf: Mapped[str] = mapped_column(String(64))
     expires_at: Mapped[datetime] = mapped_column(UTCDateTime)
+
+
+class MigrationArchive(Base):
+    __tablename__ = 'cb_migration_archive'
+    source: Mapped[str] = mapped_column(String(64), primary_key=True)
+    sequence: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    payload: Mapped[str] = mapped_column(Text().with_variant(LONGTEXT(), 'mysql'))
+
+
+# Preserve every Unicode value even when an older MySQL database defaults to latin1.
+for _table in Base.metadata.tables.values():
+    _table.dialect_options['mysql']['charset'] = 'utf8mb4'
+    _table.dialect_options['mysql']['collate'] = 'utf8mb4_bin'

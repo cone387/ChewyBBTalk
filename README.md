@@ -5,7 +5,7 @@
 ## ✨ 特性
 
 - 📝 支持 Markdown 格式的内容编辑
-- 📎 文件上传和附件管理（基于 chewy-attachment）
+- 📎 文件上传和附件管理（原生本地存储 / S3 兼容存储）
 - 🏷️ 标签系统和分类管理
 - � 用户认证和权限控制
 - 📱 响应式 Web + iOS/Android 原生客户端 + 桌面快捷记录
@@ -361,7 +361,7 @@ MIT License - 查看 [LICENSE](LICENSE) 文件了解详情
 - [Alembic](https://alembic.sqlalchemy.org/) - 数据库迁移
 - [SQLAdmin](https://aminalaee.github.io/sqladmin/) - 管理后台
 - [React](https://reactjs.org/) - 前端框架
-- [chewy-attachment](https://github.com/cone387/ChewyAttachment) - 附件管理
+- [chewy-attachment](https://github.com/cone387/ChewyAttachment) - 早期版本附件实现，当前已由原生存储模块替代
 - 所有贡献者和开源项目的支持！
 
 自动部署使用 CI 构建的固定镜像 digest，不在服务器重复构建。拉取、启动检查与失败恢复方式见 [镜像部署说明](docs/image-deployment.md)。

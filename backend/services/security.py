@@ -244,21 +244,26 @@ def claim_refresh(db, token, settings):
     return user
 
 
-def request_user(request, db, required=True):
-    authorization = request.headers.get('authorization', '')
-    if authorization:
-        scheme, _, value = authorization.partition(' ')
-        if scheme.lower() == 'bearer':
-            return token_user(db, decode_token(value, request.app.state.settings, 'access'))
-    key = request.cookies.get('sessionid')
-    if key:
-        session = db.get(SessionToken, digest(key))
+def authenticate_credentials(
+    db,
+    settings,
+    *,
+    bearer_token=None,
+    session_key=None,
+    csrf_token=None,
+    unsafe=False,
+    required=True,
+):
+    """Resolve parsed credentials without depending on HTTP request objects."""
+    if bearer_token is not None:
+        return token_user(db, decode_token(bearer_token, settings, 'access'))
+    if session_key:
+        session = db.get(SessionToken, digest(session_key))
         if session and session.expires_at > now():
             user = db.get(User, session.user_id)
             if user and user.is_active and user.credential_version == session.credential_version:
-                if request.method not in {'GET', 'HEAD', 'OPTIONS'}:
-                    header = request.headers.get('x-csrftoken', '')
-                    if not hmac.compare_digest(header, session.csrf):
+                if unsafe:
+                    if not hmac.compare_digest(csrf_token or '', session.csrf):
                         raise APIError(403, {'detail': 'CSRF 验证失败'})
                 return user
     if required:

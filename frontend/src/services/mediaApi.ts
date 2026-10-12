@@ -98,12 +98,12 @@ export const attachmentApi = {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      // DRF serializer 验证错误格式: {"file": ["错误信息"]} 或 {"detail": "错误信息"}
+      // 同时支持 FastAPI detail 和旧客户端契约的字段校验错误。
       let message = response.status === 413 ? '文件太大，请压缩后重试' : '上传失败，请重试';
       if (error.detail) {
         message = apiErrorMessage(error, '上传失败');
       } else if (error.file) {
-        // serializer field-level 错误
+        // 字段级错误兼容。
         message = Array.isArray(error.file) ? error.file.join('; ') : String(error.file);
       } else if (error.non_field_errors) {
         message = Array.isArray(error.non_field_errors) ? error.non_field_errors.join('; ') : String(error.non_field_errors);

@@ -121,7 +121,7 @@ export const attachmentApi = {
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       assertCurrent();
-      // DRF 字段级错误格式: {"file": ["错误信息"]}
+      // 保留字段级错误兼容: {"file": ["错误信息"]}。
       let message = apiErrorMessage(error, '');
       if (!message) {
         const firstKey = Object.keys(error)[0];

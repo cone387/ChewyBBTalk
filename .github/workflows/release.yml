@@ -91,9 +91,6 @@ jobs:
               NGINX_CLIENT_MAX_BODY_SIZE: \${NGINX_CLIENT_MAX_BODY_SIZE:-513M}
             ports:
               - "\${PORT:-4010}:4010"
-            volumes:
-              - \${HOST_DATA_DIR:-./data}/media:/app/media:ro
-              - \${HOST_DATA_DIR:-./data}/staticfiles:/app/staticfiles:ro
             depends_on:
               - backend
             restart: unless-stopped
@@ -129,8 +126,6 @@ jobs:
             --name chewybbtalk \
             -p 4010:4010 \
             -v ./data:/app/data \
-            -v ./data/media:/app/media \
-            -v ./data/staticfiles:/app/staticfiles \
             --env-file .env \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.VERSION }}
           ```

@@ -1,5 +1,7 @@
 # 需求文档：ChewyBBTalk Mobile 主屏小组件（Home Screen Widget）
 
+> **历史适用范围**：本文保留该变更提出或验收时的设计、命令与结果。涉及 Django/DRF、旧项目路径或依赖的内容已被原生后端替代，不作为当前实现、部署或测试要求；历史验证结果不改写为新框架验收。当前架构与升级步骤见 [后端说明](../../../backend/README.md)。
+
 ## 简介
 
 为 ChewyBBTalk Mobile 增加 iOS / Android 主屏小组件（以下简称"小组件"）。小组件提供两类能力：

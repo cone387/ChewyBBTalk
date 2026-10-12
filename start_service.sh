@@ -21,7 +21,7 @@ export SECRET_KEY="${SECRET_KEY:-}"
 DATA_DIR=$(python -c "from core.config import Settings; print(Settings().data_dir)")
 MEDIA_ROOT=$(python -c "from core.config import Settings; print(Settings().media_root)")
 export DATA_DIR MEDIA_ROOT
-mkdir -p /app/data/db /app/data/staticfiles "$DATA_DIR" "$MEDIA_ROOT"
+mkdir -p /app/data/db "$DATA_DIR" "$MEDIA_ROOT"
 chown -R www-data:www-data /app/data "$DATA_DIR" "$MEDIA_ROOT"
 
 echo "等待数据库连接..."

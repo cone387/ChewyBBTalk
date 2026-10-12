@@ -1,5 +1,4 @@
 import hashlib
-import re
 from uuid import UUID
 
 from sqlalchemy import and_, delete, func, select, update
@@ -139,12 +138,6 @@ def validate_attachments(db, user, items):
         .limit(1)
     ):
         raise APIError(400, {'attachments': ['不能引用其他用户的附件']})
-
-
-def validate_key(key):
-    if not isinstance(key, str) or not re.fullmatch(r'[A-Za-z0-9_-]{8,128}', key):
-        fail(400, '提交标识必须是 8–128 位字母、数字、下划线或短横线')
-    return key
 
 
 def get_tag(db, user, uid):

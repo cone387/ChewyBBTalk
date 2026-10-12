@@ -3,6 +3,7 @@ from typing import Annotated, Any, Literal
 from pydantic import Field, StrictFloat, StrictInt, field_validator, model_validator
 
 from schemas.base import Input
+from schemas.identifiers import BusinessUID
 from schemas.query import TagName
 
 
@@ -83,12 +84,12 @@ class CommentInput(Input):
 
 
 class TagOrderItem(Input):
-    uid: str = Field(min_length=1, max_length=22)
+    uid: BusinessUID
     sort_order: Annotated[StrictFloat | StrictInt, Field(allow_inf_nan=False)]
 
 
 class TagReorderInput(Input):
-    uids: list[str] | None = None
+    uids: list[BusinessUID] | None = None
     items: list[TagOrderItem] | None = Field(default=None, min_length=1)
 
     @model_validator(mode='after')

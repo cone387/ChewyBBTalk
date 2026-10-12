@@ -3,7 +3,7 @@ import smtplib
 from email.message import EmailMessage
 from urllib.parse import urlsplit
 
-from sqlalchemy import delete, inspect, select, text
+from sqlalchemy import delete, select
 
 from core.errors import fail
 from models import (
@@ -68,9 +68,6 @@ def delete_user(db, user):
     ):
         db.execute(delete(model).where(model.user_id == user.id))
     db.execute(delete(Attachment).where(Attachment.owner_id == str(user.id)))
-    # Historical admin audit rows may still reference an upgraded account.
-    if inspect(db.bind).has_table('django_admin_log'):
-        db.execute(text('DELETE FROM django_admin_log WHERE user_id = :uid'), {'uid': user.id})
     db.delete(user)
 
 

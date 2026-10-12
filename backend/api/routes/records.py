@@ -8,6 +8,7 @@ from sqlalchemy.exc import IntegrityError, OperationalError
 
 from api.compat import reject_legacy_query_conflicts
 from api.dependencies import DB, CurrentUser
+from api.errors import database_conflict, log_database_error
 from api.filters import filter_records
 from api.pagination import paginate
 from api.parameters import RecordUID, Revision
@@ -158,7 +159,12 @@ def submission_hashes(original):
     ]
 
 
-@router.post('', status_code=201, response_model=RecordOutput)
+@router.post(
+    '',
+    status_code=201,
+    response_model=RecordOutput,
+    responses={200: {'model': RecordOutput, 'description': '相同提交标识和载荷的幂等重放'}},
+)
 def create(
     data: RecordInput,
     request: Request,
@@ -213,8 +219,11 @@ def create(
         if receipt:
             return replay(db, user, receipt, response, payload_hash)
         raise
-    except OperationalError:
+    except OperationalError as error:
         db.rollback()
+        if database_conflict(error):
+            raise
+        log_database_error(request, error)
         raise APIError(
             503,
             {
@@ -273,14 +282,16 @@ def tags(db: DB, user: CurrentUser, params: Annotated[TagQuery, Query()]):
         if key.lstrip('-') in {'sort_order', 'create_time', 'update_time'}:
             field = getattr(Tag, key.lstrip('-'))
             orders.append(field.desc() if key.startswith('-') else field.asc())
-    return [tag_data(tag, count) for tag, count in db.execute(query.order_by(*orders).limit(2000))]
+    return [tag_data(tag, count) for tag, count in db.execute(query.order_by(*orders, Tag.id))]
 
 
-@router.post('/tags', response_model=TagOutput)
+@router.post(
+    '/tags',
+    response_model=TagOutput,
+    responses={201: {'model': TagOutput, 'description': '新建标签'}},
+)
 def create_tag(data: TagInput, response: Response, db: DB, user: CurrentUser):
     name = data.name.strip()
-    if not name:
-        fail(400, '标签名称不能为空')
     tag = db.scalar(select(Tag).where(Tag.user_id == user.id, Tag.name == name))
     response.status_code = 200 if tag else 201
     if not tag:
@@ -326,10 +337,6 @@ def reorder_tags(data: TagReorderInput, db: DB, user: CurrentUser):
 @router.patch('/tags/{uid}', response_model=TagOutput)
 def edit_tag(uid: RecordUID, data: TagPatch, db: DB, user: CurrentUser):
     tag = get_tag(db, user, uid)
-    if 'name' in data.model_fields_set:
-        data.name = data.name.strip()
-        if not data.name:
-            fail(400, '标签名称不能为空')
     for key, value in data.model_dump(exclude_unset=True).items():
         setattr(tag, key, value)
     db.commit()
@@ -489,8 +496,6 @@ def comments(
 @router.post('/{uid}/comments', status_code=201, response_model=CommentOutput)
 def add_comment(uid: RecordUID, data: CommentInput, db: DB, user: CurrentUser):
     record = owned_record(db, user, uid)
-    if not data.content.strip():
-        fail(400, '评论不能为空')
     comment = Comment(user_id=user.id, bbtalk_id=record.id, content=data.content.strip())
     db.add(comment)
     db.commit()

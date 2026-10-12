@@ -6,7 +6,7 @@ from sqlalchemy.pool import StaticPool
 
 
 def database(settings):
-    options = {'pool_pre_ping': True}
+    options = {'pool_pre_ping': True, 'hide_parameters': True}
     if settings.database_url.startswith('sqlite:'):
         options['connect_args'] = {'check_same_thread': False, 'timeout': 15}
         if settings.database_url.endswith(':memory:'):

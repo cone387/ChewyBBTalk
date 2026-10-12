@@ -76,7 +76,7 @@ probe='import json, urllib.request, urllib.error
 with urllib.request.urlopen("http://127.0.0.1:4010/", timeout=3) as response:
     assert response.status == 200
 try:
-    response = urllib.request.urlopen("http://127.0.0.1:4010/api/v1/bbtalk/user/me/", timeout=3)
+    response = urllib.request.urlopen("http://127.0.0.1:4010/api/v1/bbtalk/user/me", timeout=3)
 except urllib.error.HTTPError as error:
     response = error
 with response:

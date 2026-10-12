@@ -60,7 +60,7 @@ BBTalk 是本系统的核心内容实体，承载用户的 Markdown 内容、附
 - **THEN** 排序规则为 `(-is_pinned, -update_time)`，置顶项始终在顶部
 
 ### Requirement: 上下文信息
-系统 SHALL 在 `context` JSONField 中保存可选的位置（GPS）、天气、设备信息，用于丰富展示。
+系统 SHALL 在 `context` JSON 字段中保存可选的位置（GPS）、天气、设备信息，用于丰富展示。
 
 #### Scenario: 携带位置信息
 - **WHEN** 移动端用户发布时启用了「附加位置」

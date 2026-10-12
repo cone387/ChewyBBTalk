@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from api.compat import compatible_routes
+from api.openapi import COMMON_RESPONSES
 from api.routes import auth, data, pages, records, status, storage
 
 
@@ -15,4 +16,4 @@ def install_routes(app):
     ):
         native = APIRouter()
         native.routes.extend(compatible_routes(router))
-        app.include_router(native)
+        app.include_router(native, responses=COMMON_RESPONSES)

@@ -20,6 +20,7 @@ from models import (
     now,
     uid,
 )
+from schemas.identifiers import imported_uid
 from services.records import attachment_ids, sync_visibility
 from storage.service import storage_data, store_for, upload_store
 
@@ -205,6 +206,7 @@ def import_data(db, settings, user, data, archive=None, complete=False, **option
         for row in data.get('tags', []):
             try:
                 with db.begin_nested():
+                    tag_uid = imported_uid(row, uid)
                     name = row['name']
                     if not isinstance(name, str) or not name or len(name) > 50:
                         raise ValueError('标签名称无效')
@@ -217,7 +219,6 @@ def import_data(db, settings, user, data, archive=None, complete=False, **option
                                 row.get('sort_order', tag.sort_order),
                             )
                     else:
-                        tag_uid = row.get('uid') or uid()
                         if db.scalar(select(Tag.id).where(Tag.uid == tag_uid)):
                             tag_uid = uid()
                         tag = Tag(
@@ -277,7 +278,7 @@ def import_data(db, settings, user, data, archive=None, complete=False, **option
         for row in data.get('bbtalks', []):
             try:
                 with db.begin_nested():
-                    old_uid = row.get('uid') or uid()
+                    old_uid = imported_uid(row, uid)
                     content = row['content']
                     if not isinstance(content, str) or row.get('visibility', 'private') not in (
                         'private',
@@ -337,6 +338,7 @@ def import_data(db, settings, user, data, archive=None, complete=False, **option
         for row in data.get('comments', []):
             try:
                 with db.begin_nested():
+                    comment_uid = imported_uid(row, uid)
                     record = record_map.get(row.get('bbtalk_uid'))
                     if not record:
                         stats['comments_skipped'] += 1
@@ -353,7 +355,6 @@ def import_data(db, settings, user, data, archive=None, complete=False, **option
                     ):
                         stats['comments_skipped'] += 1
                         continue
-                    comment_uid = row.get('uid') or uid()
                     if db.scalar(select(Comment.id).where(Comment.uid == comment_uid)):
                         comment_uid = uid()
                     comment = Comment(

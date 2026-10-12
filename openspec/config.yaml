@@ -21,7 +21,7 @@ context: |
   - frontend/   — Web 前端（Vite + React，生产部署主线）
   - mobile/     — Expo 原生应用（iOS / Android；Expo Web 仅用于开发验证）
   - openspec/   — 规范驱动开发文档
-  - data/       — 持久化数据卷（数据库、媒体、静态文件）
+  - backend/var/ — 本地运行数据；容器使用 /app/data 持久化数据库、媒体、密钥及备份
 
   ## 核心领域概念
   - BBTalk（碎碎念）: 用户发布的内容条目，支持 Markdown、附件、标签、可见性、置顶、上下文（位置/天气/设备）
@@ -37,7 +37,8 @@ context: |
   - 根目录整洁: 遵守 AGENTS.md；临时文件统一放 .tmp/<任务名>/，禁止根目录散落 .temp 文件、日志、截图和缓存；任务开始与结束执行 node scripts/check-root-layout.mjs
   - Commit 信息: 中文，格式 `type(scope): 描述`，常用 type: feat, fix, refactor, chore, docs
   - 文件 / 命名: 后端 snake_case，前端 / 移动端 camelCase + PascalCase 组件
-  - 后端模型: SQLAlchemy 声明式模型，保留已有表名与业务 uid；数据库变更新增 Alembic revision，不修改冻结的初始迁移
+  - 后端模型: SQLAlchemy 声明式模型，保留业务 cb_* 表与业务 uid（1–64 字符）；数据库变更新增 Alembic revision，不修改冻结的初始迁移
+  - 兼容边界: 旧 URL/载荷、密码/JWT 及迁移 fixture 保留兼容，不引入旧框架运行依赖；标注为历史的 change/.kiro 材料不作为当前技术要求
   - API 路径: /api/v1/bbtalk/...，REST 风格 + 少量 RPC 风格端点
   - 认证: JWT 为主，Session 兼容；移动端使用 expo-secure-store 持久化 token
   - 跨平台 alert: 移动端 / Web 端的弹窗一律使用 mobile/src/utils/crossAlert.ts 提供的

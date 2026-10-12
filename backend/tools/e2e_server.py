@@ -13,7 +13,6 @@ def main():
                 'DATABASE_URL': 'sqlite:///' + str(root / 'db.sqlite3'),
                 'DATA_DIR': directory,
                 'MEDIA_ROOT': str(root / 'media'),
-                'STATIC_ROOT': str(root / 'static'),
                 'SECRET_KEY': 'isolated-browser-tests-only-not-a-production-key',
                 'DEBUG': 'false',
                 'REGISTRATION_ENABLED': 'true',

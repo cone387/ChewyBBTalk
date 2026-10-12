@@ -6,6 +6,13 @@ on:
     tags: [ 'v*' ]
   pull_request:
     branches: [ master, main ]
+  workflow_dispatch:
+    inputs:
+      deploy_production:
+        description: '停写并完成完整备份、副本迁移验证后，部署到生产服务器'
+        required: true
+        type: boolean
+        default: false
 
 env:
   REGISTRY: ghcr.io
@@ -73,11 +80,12 @@ jobs:
         cache-to: type=gha,mode=max
         platforms: linux/amd64
 
-  # 自动部署到服务器
+  # Database upgrades require a verified backup and a maintenance window.
+  # A code push only builds images; production deployment is explicitly manual.
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+    if: github.event_name == 'workflow_dispatch' && inputs.deploy_production == true && github.ref == 'refs/heads/master'
     concurrency:
       group: production-deployment
       cancel-in-progress: false

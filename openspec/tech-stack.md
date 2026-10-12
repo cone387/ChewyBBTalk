@@ -1,190 +1,86 @@
 # 技术栈与架构设计
 
-> 本文档面向 AI 与新成员，描述 ChewyBBTalk 的整体架构、技术选型理由与关键设计权衡。
+本文面向 AI 与新成员，描述当前运行架构。具体版本以 `backend/uv.lock` 和各客户端锁文件为准；运行和升级步骤见 [后端说明](../backend/README.md)，HTTP 规范见 [接口契约](../docs/fastapi-contract.md)。
 
 ## 1. 总体架构
 
-```
-                     ┌──────────────────────────┐
-                     │   用户（多端访问）         │
-                     │  iOS / Android / Web /    │
-                     │  Web / 桌面浏览器          │
-                     └──────────────┬───────────┘
-                                    │ HTTPS
-                          ┌─────────▼─────────┐
-                          │  Nginx（可选）     │
-                          │  反向代理 / TLS    │
-                          └─────────┬─────────┘
-                                    │
-              ┌─────────────────────┴─────────────────────┐
-              │                                           │
-     ┌────────▼────────┐                          ┌──────▼──────┐
-     │ Vite Web 前端    │                          │ Expo 移动端  │
-     │ React 18 + Redux │                          │ RN 0.81 + RN │
-     │ Tailwind   │                          │   Web 同源    │
-     └────────┬────────┘                          └──────┬──────┘
-              │                                           │
-              └─────────────────┬─────────────────────────┘
-                                │ REST + JWT
-                       ┌────────▼────────┐
-                       │  Django Backend  │
-                       │  DRF + JWT       │
-                       │  drf-spectacular │
-                       └────┬───────┬────┘
-                            │       │
-                  ┌─────────▼┐    ┌─▼───────────────┐
-                  │ DB        │    │  附件存储         │
-                  │ SQLite/   │    │  本地 / S3 兼容   │
-                  │ PostgreSQL│    │  (chewy-attachment)│
-                  └───────────┘    └──────────────────┘
+```text
+Web：React / Vite       iOS、Android：Expo / React Native       桌面：Electron
+         └───────────────────────┬───────────────────────────────┘
+                            HTTPS / JSON / JWT
+                                 │
+                          Nginx 反向代理
+                                 │
+                       Uvicorn → FastAPI
+                                 │
+              Pydantic 请求响应模型、依赖注入、OpenAPI
+                                 │
+               services/、storage/、backups/ 业务模块
+                       │                     │
+                 SQLAlchemy 2          本地文件 / boto3 S3
+                       │
+              SQLite / PostgreSQL / MySQL
 ```
 
-## 2. 技术选型矩阵
+SQLAdmin 提供后台管理，Alembic 管理数据库版本，`python -m cli` 提供迁移、账号、备份和初始化命令。后端源码直接位于 `backend/`，没有项目名包裹或 `src/` 外层。
 
-| 层 | 技术 | 版本 | 选型理由 |
-|----|------|------|----------|
-| 后端语言 | Python | 3.13 | 团队熟悉、生态成熟、Django 体验好 |
-| Web 框架 | Django | 5.2 | ORM 强大、admin 开箱即用、社区活跃 |
-| API 框架 | DRF | 3.14+ | Django 生态首选、序列化与权限完善 |
-| API 文档 | drf-spectacular | 0.27+ | OpenAPI 3.0 输出，与 DRF 无缝集成 |
-| 认证 | SimpleJWT | 5.5+ | 标准 JWT、refresh + 黑名单支持 |
-| 数据库 | SQLite (默认) | — | 零配置、单容器部署友好 |
-|       | PostgreSQL | — | 生产推荐，DATABASE_URL 切换 |
-| 附件 | chewy-attachment | git | 自研抽象，本地与 S3 一键切换 |
-| Web 前端 | React | 18 | 生态最广、团队熟悉 |
-|         | Vite | 5 | 启动快、HMR 优秀 |
-|         | Redux Toolkit | 2.x | 状态管理标准方案 |
-|         | Tailwind | 3.x | 原子化 CSS，减少样式文件 |
-|         | vite-plugin-pwa | — | 离线访问与桌面安装 |
-| 移动端 | Expo | SDK 54 | 一套代码三端，EAS 构建免本地工具链 |
-|       | React Native | 0.81 | 与 Expo 配套版本 |
-|       | React Navigation | 7 | RN 路由事实标准 |
-|       | Redux Toolkit | — | 与 Web 端一致便于知识迁移 |
-|       | react-native-web | 0.21 | Expo Web 渲染层 |
-| 部署 | Docker | — | 单容器封装前后端，零依赖部署 |
-| 包管理 | uv (后端) | — | 极快的 Python 包管理 |
-|       | npm (前端) | — | 生态默认 |
+## 2. 技术选型
+
+| 层 | 当前组件 | 用途 |
+| --- | --- | --- |
+| 后端语言 | Python 3.13+ | HTTP、业务、存储及管理命令 |
+| HTTP / ASGI | FastAPI + Uvicorn | 声明式路由、依赖与 HTTP 服务 |
+| 数据模型与契约 | Pydantic | 请求、查询、表单和响应校验；生成 OpenAPI |
+| 数据库 | SQLAlchemy 2 + Alembic | ORM、事务、连接与可审计的版本升级 |
+| 后台 | SQLAdmin | 账号资料/权限管理及业务数据只读查询 |
+| 认证 | PyJWT + 原生认证服务 | JWT 轮换、撤销、密码与 Cookie 会话校验 |
+| 附件 | `storage/` + boto3 | 本地及 S3 兼容存储、鉴权下载、Range、迁移 |
+| Web | React 18 + Vite 5 + Redux Toolkit + Tailwind CSS | 生产 Web 主线 |
+| 原生移动端 | Expo SDK 54 + React Native 0.81 + React Navigation | iOS / Android |
+| 桌面 | Electron + React | 系统托盘、悬浮球、独立编辑器与自动更新 |
+| 部署 | Docker、Nginx、Supervisor | 单容器或 Compose 前后端分离 |
+| 包管理 | uv / npm | 锁定后端和客户端依赖 |
 
 ## 3. 跨端策略
 
-### 3.1 Web 与原生端分工
-- **frontend/** 是实际部署的 Web 主线，继续长期维护；Docker/Nginx 生产部署使用该前端
-- **mobile/** 使用 Expo + React Native，负责 iOS / Android 原生应用
-- Expo Web 仅用于开发验证，不纳入生产部署，也不替代 `frontend/`
-- 跨端优先共享 API 契约、类型和 service 逻辑，不强求 UI 代码统一
+- `frontend/` 负责生产 Web，Docker/Nginx 使用该前端；已移除 PWA，`sw.js` 仅用于历史客户端退场。
+- `mobile/` 负责 iOS / Android；Expo Web 用于开发验证，不纳入生产部署。
+- `desktop/` 通过主进程保存凭据、上传附件及提交内容，浏览器授权使用一次性授权码和 PKCE。
+- 三端共享 HTTP 契约；平台界面和持久化实现分别维护。Web 草稿使用 IndexedDB，移动端使用本地持久存储，桌面使用主进程存储。
+- `openspec/changes/`、`.kiro/specs/` 中有明确标记的历史内容只说明当时的背景和验证结果，不能作为当前框架和部署要求。
 
-### 3.2 平台差异处理
-- 弹窗：[`crossAlert.ts`](../mobile/src/utils/crossAlert.ts) 抽象 + Web 端 iOS 风格自定义实现
-- 文件系统：Web 走 Blob/File API，Native 走 expo-file-system
-- 安全存储：Web 走 localStorage（token），Native 走 expo-secure-store
-- 媒体录制：Web 用 MediaRecorder，Native 用 expo-audio
+## 4. 后端模块与数据
 
-## 4. 后端关键设计
+`api/` 负责 HTTP 路由、依赖、错误和 OpenAPI；路由与 CLI 调用 `services/`、`storage/`、`backups/`。业务模块不导入路由或应用入口，架构回归检查这一边界。`application.py` 负责组件装配，`main.py` 导出 ASGI 应用。
 
-### 4.1 User / Identity 分离
-- **User** 表存资料（用户名、邮箱、头像、权限标志）
-- **Identity** 表存认证方式（type + identifier + credential），一个 User 可绑多个
-- 优势：增加 OAuth、微信、邮箱验证码等登录方式无需修改 User 表
+SQLAlchemy 声明式模型位于 `models/`，保留业务 `cb_*` 表与业务 ID。`User` 保存资料和权限，`Identity` 保存认证类型、标识与凭据；这提供扩展位置，不代表所有 OAuth/微信等登录方式已经实现。BBTalk 的附件及上下文使用 JSON 列，标签通过关联表连接。对外业务 UID 长度为 1–64，默认生成 22 字符 UID；数据库结构变更新增 Alembic revision，不修改冻结的初始 schema。
 
-### 4.2 BaseModel 抽象
-所有业务模型继承 `BaseModel`：
-- `id` 自增主键（数据库优化）
-- `user` 外键（数据所属用户，无 db 约束便于跨库迁移）
-- `create_time` / `update_time`（自动时间戳）
-- 业务上对外用 `uid`（22 位 base64），避免主键泄露顺序信息
+存储入口位于 `storage/service.py`，`storage/backends.py` 的 `Store` 处理本地与 S3；`StorageConfig` 保存用户配置。私有附件必须通过当前账号权限检查，本地文件经 API 返回，S3 文件通过限时签名重定向读取。不能将私有媒体目录直接公开。
 
-### 4.3 表名前缀
-所有表带 `cb_` 前缀（如 `cb_users`, `cb_bbtalks`, `cb_tags`），与第三方库共享数据库时避免冲突。
+原生迁移的令牌表、历史元数据归档及新旧结构校验见 [已有实例升级](../backend/README.md#已有实例升级)。旧框架 fixture 和冻结迁移仅服务于数据升级回归，应用运行不加载旧框架。
 
-### 4.4 附件存储抽象
-- `storage_provider.py` 定义 `LocalProvider` 与 `S3Provider`
-- `UserStorageSettings` 持久化用户级配置
-- 上传 / 下载 / 删除 / 测试连接 / 迁移 通过 provider 多态实现
-- 切换存储无需修改 BBTalk.attachments 中的 url（迁移时一并更新）
+## 5. HTTP 契约与兼容边界
 
-### 4.5 API 版本与路径
-- 全部前缀 `/api/v1/bbtalk/`
-- REST 风格为主：`/bbtalks/`, `/tags/`, `/comments/`
-- RPC 风格用于操作类端点：`/auth/token/blacklist/`, `/storage/migration/execute/`
+- 规范集合入口为 `/api/v1/bbtalk`、`/api/v1/bbtalk/tags`、`/api/v1/attachments/files`，不带尾斜杠。
+- `Query`、`Path`、`Header`、`Form` 和 Pydantic 模型描述参数；参数错误使用 FastAPI 422 `detail` 数组。三端展示字段位置和提示，不显示原始敏感输入。
+- 标签使用数组载荷及重复查询参数；日期、排序和分页参数见接口契约。标签列表返回完整数组，以支持现有三端全量排序。
+- JWT Bearer 为主要认证方式；Cookie 会话写请求另需匹配 `X-CSRFToken`。会话与 CSRF 是原生安全实现。
+- `Idempotency-Key` 支持持久提交与重放；`If-Match` 防止覆盖其他客户端的更新。
+- 已发布的尾斜杠/JSON 后缀、旧过滤参数、旧 `post_tags` 载荷与历史附件 URL 保留在兼容边界，避免破坏外部客户端和离线草稿。PBKDF2/scrypt 密码及既有 JWT 格式同样保留兼容；这不引入旧框架运行依赖。
+- `/api/schema/`、`/api/schema/swagger-ui/`、`/api/schema/redoc/` 提供 OpenAPI 与文档，`/healthz` 提供存活检查。
 
-## 5. 移动端关键设计
+## 6. 配置与部署
 
-### 5.1 状态管理
-- **Redux Toolkit** 管理全局状态（bbtalks、tags、user、theme）
-- **本地 hook 状态** 处理 UI 局部状态（输入框、loading）
-- 异步 thunks 统一处理 API 调用 + 错误分发
+前后端部署配置统一维护根 `.env`，示例只维护根 `.env.example`；进程环境优先。后端公开配置使用明确允许列表，密钥不进入浏览器或前端构建参数。
 
-### 5.2 离线策略
-- **AsyncStorage** 保存最近一次列表数据
-- **expo-sqlite** 用于复杂查询（暂未启用）
-- 网络失败 → 读缓存兜底，恢复后后台刷新
+单容器镜像包含原生后端与已构建 Web，由 Supervisor 管理 Uvicorn 和 Nginx。Compose 分别运行后端与前端/Nginx；worker 数量使用 `WEB_CONCURRENCY`。启动前执行 `python -m cli migrate` 和 `python -m cli init`，不需要静态文件收集命令。
 
-### 5.3 防偷窥实现要点
-- 单 hook [`usePrivacyMode.ts`](../mobile/src/hooks/usePrivacyMode.ts) 集中管理
-- 三个时机检查：1秒间隔轮询、AppState change、组件 mount（loadPrivacySettings）
-- 持久化 `privacy_last_active` 时间戳，覆盖前台超时、后台超时、kill 后冷启动
+本地默认数据在 `backend/var/`，容器通过 `/app/data` 卷持久化；数据库、附件、配置密钥和备份应一起规划。旧实例升级必须先停止写入、备份完整数据库与媒体，在副本验证迁移后再替换运行程序。生产应显式配置绝对路径；完整步骤见后端说明和 [统一配置](../docs/configuration.md)。
 
-### 5.4 主题系统
-- [`ThemeContext.tsx`](../mobile/src/theme/ThemeContext.tsx) 提供 `useTheme()` hook
-- 支持 系统跟随 / 手动浅色 / 手动深色
-- 颜色统一通过 `c.xxx` 引用，避免硬编码
+## 7. 安全与验收边界
 
-## 6. 部署设计
+密码使用原生 PBKDF2 实现并兼容既有密码编码；PyJWT 校验令牌，刷新状态持久化到数据库。S3 密钥通过稳定的 `SECRET_KEY` 派生加密。主机和 CORS 检查由当前 ASGI 中间件处理，SQLAlchemy 查询采用参数绑定，Markdown 渲染进行安全清理。
 
-### 6.1 单容器部署（推荐）
-- 一个 Docker 镜像同时打包 Django 后端 + 已构建的 Web 前端
-- supervisord 管理 Django (gunicorn) + Nginx 进程
-- `data/` 卷挂载持久化数据库、媒体、SECRET_KEY
-- 命令：`docker run -d -p 4010:4010 -v bbtalk_data:/app/data ghcr.io/cone387/chewybbtalk:latest`
+后端 pytest 覆盖业务、HTTP 契约、迁移、权限和并发；Playwright 使用隔离的 FastAPI 测试服务器；三端运行各自单元测试及类型检查。SQLite 本地通过不等于 PostgreSQL/MySQL 已实测，验收必须列出实际运行环境。性能测量方式和历史数据见 [列表性能说明](../docs/search-list-performance.md)。
 
-### 6.2 docker-compose 部署
-- 单服务 + 卷挂载
-- 适合需要外接 PostgreSQL、Nginx 的场景
-
-### 6.3 CI/CD
-- GitHub Actions 构建多架构镜像（amd64 / arm64）
-- 推送到 ghcr.io
-- 移动端通过 EAS Build + EAS Submit
-
-## 7. 安全设计
-
-| 维度 | 措施 |
-|------|------|
-| 密码 | Django 默认 PBKDF2，hash 存于 Identity.credential |
-| Token | JWT + refresh + 黑名单；移动端存 SecureStore，Web 存 localStorage |
-| HTTPS | 推荐前置 Nginx + Let's Encrypt |
-| CORS | 通过 ALLOWED_HOSTS + django-cors-headers 配置 |
-| SQL 注入 | Django ORM 全程参数化 |
-| XSS | 前端 react-markdown + rehype-sanitize 清洗 |
-| 附件 URL | 私有 BBTalk 的附件需认证访问 |
-| 密钥 | SECRET_KEY 自动生成持久化，S3 secret 加密存储 |
-
-## 8. 性能权衡
-
-- **SQLite 默认**：单用户场景足够，避免运维负担
-- **附件直链**：S3 模式下前端直访 S3，不经后端
-- **Web 缓存**：静态资源使用 HTTP 缓存；已移除 PWA，`sw.js` 仅用于历史客户端退场。
-- **移动端图片**：使用 `expo-image` 自动缓存与渐进式加载
-- **列表分页**：DRF 分页 + 移动端触底加载
-
-## 9. 已知限制 & 未来方向
-
-- [ ] 多用户协作（评论 / @ / 关注），目前评论仅作者可见
-- [ ] 全文搜索：当前依赖客户端过滤，可引入 Postgres FTS 或 Meilisearch
-- [ ] 实时同步：多端登录时的实时推送（WebSocket）
-- [ ] Web 与原生端分工：持续维护 `frontend/` Web 主线与 `mobile/` 原生应用，按平台特性分别优化
-- [ ] OAuth 登录：Identity 表已预留字段，待接入
-
-## 10. 引用规格
-
-详细行为规格见 [specs/](./specs/)：
-
-- [bbtalk-content](./specs/bbtalk-content/spec.md)
-- [tag-management](./specs/tag-management/spec.md)
-- [comment](./specs/comment/spec.md)
-- [auth](./specs/auth/spec.md)
-- [attachment-storage](./specs/attachment-storage/spec.md)
-- [data-portability](./specs/data-portability/spec.md)
-- [privacy-lock](./specs/privacy-lock/spec.md)
-- [cross-platform-alert](./specs/cross-platform-alert/spec.md)
-- [mobile-feed](./specs/mobile-feed/spec.md)
+当前仍需单独评估全文搜索、实时同步、多用户协作等扩展，不把架构预留当作已交付能力。领域行为要求见 [能力规格](./specs/)。

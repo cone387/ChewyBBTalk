@@ -24,9 +24,9 @@ ChewyBBTalk/
 │   ├── cli/                 # 管理命令
 │   ├── tests/               # 单元与集成测试
 │   └── tools/               # 浏览器测试服务器及性能基准
-├── frontend/                # 旧版 Web 前端（Vite + React 18 + Tailwind）
+├── frontend/                # 生产 Web 主线（Vite + React 18 + Tailwind）
 │   └── src/{pages, components, hooks, services, store, types}
-├── mobile/                  # 主推：Expo 跨端应用（iOS / Android / Web）
+├── mobile/                  # Expo 原生应用（iOS / Android；Web 仅开发验证）
 │   └── src/{screens, components, hooks, services, store, theme, utils}
 ├── openspec/                # 规范驱动开发（本目录）
 │   ├── config.yaml          # 全局上下文 + 规则
@@ -54,7 +54,7 @@ ChewyBBTalk/
 
 ### BBTalk（碎碎念）— 主实体
 - 一条用户发布的微博式内容
-- 字段：`uid`, `content`(Markdown), `visibility`(public/private), `tags`(M2M), `attachments`(JSONField), `context`(JSON, 含位置/天气/设备), `is_pinned`
+- 字段：`uid`, `content`(Markdown), `visibility`(public/private), `tags`(关联表), `attachments`(JSON), `context`(JSON, 含位置/天气/设备), `is_pinned`
 - 表名 `cb_bbtalks`，按 `(-is_pinned, -update_time)` 排序
 
 ### Tag（标签）
@@ -111,7 +111,7 @@ ChewyBBTalk/
 ## 7. 编码风格
 
 - **Commit**: 中文，`type(scope): 描述`，常用 type: `feat / fix / refactor / chore / docs / style / test`
-- **后端**: snake_case，SQLAlchemy 模型保留已有表名与业务 `uid`；新增 Alembic revision 升级，不修改冻结的初始表结构
+- **后端**: snake_case，SQLAlchemy 模型保留业务 `cb_*` 表与业务 `uid`；UID 为 1–64 字符；结构调整新增 Alembic revision，不修改冻结的初始表结构
 - **前端 / 移动端**: TypeScript strict，组件 PascalCase，函数 camelCase，文件名同主导出
 - **错误处理**: 后端业务抛出 `core.errors.APIError`，HTTP 层统一生成响应；前端 / 移动端用 [mobile/src/utils/errorHandler.ts](../mobile/src/utils/errorHandler.ts)（含分类 + 复制按钮）
 
@@ -166,3 +166,5 @@ docker run -d --name chewybbtalk -p 4010:4010 \
 | `mobile-feed` | [specs/mobile-feed/spec.md](./specs/mobile-feed/spec.md) | 移动端首页信息流卡片设计与交互 |
 
 更多详细信息见 [specs/](./specs/) 目录。
+
+当前架构见 [技术栈](./tech-stack.md)，升级和数据兼容见 [后端说明](../backend/README.md#已有实例升级)。历史 change 和 `.kiro/specs/` 中的旧框架设计仅适用于其原始实现，已标注的历史命令、依赖与测试结果不代表当前运行要求。

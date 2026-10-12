@@ -90,14 +90,14 @@ def main():
                         'last': {'page': math.ceil(size / 100)},
                         'content_search': {'search': 'needle'},
                         'tag_search': {'search': 'topic'},
-                        'tag_filter': {'tags__name': 'daily'},
+                        'tag_filter': {'tags': 'daily'},
                     }
                     for name, params in cases.items():
                         durations, counts = [], []
                         for repetition in range(-1, args.repeats):
                             queries.clear()
                             started = time.perf_counter()
-                            response = client.get('/api/v1/bbtalk/', params=params)
+                            response = client.get('/api/v1/bbtalk', params=params)
                             elapsed = (time.perf_counter() - started) * 1000
                             assert response.status_code == 200, response.text
                             rows = response.json()['results']

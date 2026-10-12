@@ -1,5 +1,7 @@
 # 多端与部署体验验收记录
 
+> **历史验收记录**：日期、测试数量及 `makemigrations` 等命令属于当时的验收。本文部分实现名称后来已更新为 FastAPI，不能据此将旧测试记录视为原生迁移验收；当前命令与升级流程见 [后端说明](../backend/README.md)，本次迁移结果见 [整改报告](django-residual-audit.md)。
+
 日期：2026-09-07。范围以 `openspec/changes/multi-client-readiness/tasks.md` 为准。
 
 ## 要求与证据

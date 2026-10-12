@@ -97,14 +97,13 @@ COPY start_service.sh /app/start_service.sh
 # 创建必要的目录和设置权限
 RUN sed -i 's/\r$//' /app/start_service.sh && \
     sed -i 's/\r$//' /etc/supervisor/conf.d/supervisord.conf && \
-    mkdir -p /app/data/media /app/data/staticfiles /app/data/db /run/nginx && \
+    mkdir -p /app/data/media /app/data/db /run/nginx && \
     chown -R www-data:www-data /app/data && \
     chown -R nobody:nogroup /run/nginx && \
     chmod +x /app/start_service.sh
 
 # 所有运行时数据统一在 /app/data (挂载卷即可持久化)
 ENV MEDIA_ROOT=/app/data/media
-ENV STATIC_ROOT=/app/data/staticfiles
 ENV DATABASE_URL=sqlite:////app/data/db/db.sqlite3
 ENV DATA_DIR=/app/data
 ENV DEBUG=false

@@ -123,4 +123,4 @@ def test_database_outage_has_retryable_response(client):
     with patch('api.routes.records.paginate',side_effect=OperationalError('SELECT',{},OSError('offline'))):
         result=client.get(BASE)
     assert result.status_code==503 and result.headers['Retry-After']=='1'
-    assert result.json()['code']=='submission_retry'
+    assert result.json()['code']=='database_unavailable'
