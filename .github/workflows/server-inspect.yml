@@ -36,7 +36,7 @@ jobs:
             printf 'REGISTRY_CONNECTIVITY='
             curl --connect-timeout 8 --max-time 15 --silent --output /dev/null --write-out '%{http_code}\n' https://ghcr.io/v2/ || true
             python3 - <<'PY'
-            import json, pathlib
+            import json, pathlib, os, subprocess
             root = pathlib.Path.cwd().parent / 'migration-backups'
             if root.is_dir():
                 for directory in sorted(root.iterdir())[-3:]:
@@ -59,6 +59,36 @@ jobs:
 
             PY
             if test -f .env; then echo ROOT_ENV_PRESENT=yes; else echo ROOT_ENV_PRESENT=no; fi
+            python3 - <<'PY'
+            import json, pathlib, os, subprocess
+            code = "import json,os,psycopg2; c=psycopg2.connect(os.environ['DATABASE_URL']); c.set_session(readonly=True); q=c.cursor(); q.execute('SELECT id::text,storage_path,size FROM cb_attachments'); print(json.dumps(q.fetchall())); c.close()"
+            rows = json.loads(subprocess.check_output(['docker','exec','chewy-bbtalk','python','-c',code]))
+            source = pathlib.Path.cwd() / 'data' / 'media' / 'attachments'
+            missing = {pathlib.PurePosixPath(key).name: (uid,key,size) for uid,key,size in rows if not (source / key).is_file()}
+            found = []
+            roots = [pathlib.Path.cwd().parent, pathlib.Path.cwd().parent.parent / 'backups']
+            visited = 0
+            for root in roots:
+                if not root.is_dir():
+                    continue
+                for parent, folders, files in os.walk(root, followlinks=False):
+                    folders[:] = [name for name in folders if name not in ('.git','node_modules','.venv','__pycache__')]
+                    for name in files:
+                        if name in missing:
+                            path = pathlib.Path(parent) / name
+                            if path.is_file() and not path.is_symlink():
+                                uid,key,size = missing[name]
+                                found.append({'id':uid, 'path':str(path), 'expected_bytes':size, 'actual_bytes':path.stat().st_size})
+                    visited += 1
+            backups = pathlib.Path.cwd().parent / 'migration-backups'
+            completed = [path for path in backups.iterdir() if (path / 'verify.json').is_file()]
+            if completed:
+                report = sorted(completed)[-1] / 'attachment-source-audit.json'
+                report.write_text(json.dumps({'missing_record_ids':[value[0] for value in missing.values()], 'found':found}, sort_keys=True), encoding='utf8')
+                report.chmod(0o600)
+            print(json.dumps({'host_attachment_search':{'missing_unique_filenames':len(missing), 'matching_files':len(found), 'matched_records':len({item['id'] for item in found}), 'directories_checked':visited}}))
+            PY
+
             for name in chewy-bbtalk chewybbtalk chewybbtalk-backend chewy-bbtalk-previous; do
               if docker container inspect "$name" >/dev/null 2>&1; then
                 docker inspect --format 'NAME={{.Name}} IMAGE={{.Config.Image}} IMAGE_ID={{.Image}} STATUS={{.State.Status}} MOUNTS={{json .Mounts}}' "$name"
