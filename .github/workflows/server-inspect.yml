@@ -63,7 +63,8 @@ jobs:
             import json, pathlib, os, subprocess
             code = "import json,os,psycopg2; c=psycopg2.connect(os.environ['DATABASE_URL']); c.set_session(readonly=True); q=c.cursor(); q.execute('SELECT id::text,storage_path,size FROM cb_attachments'); print(json.dumps(q.fetchall())); c.close()"
             rows = json.loads(subprocess.check_output(['docker','exec','chewy-bbtalk','python','-c',code]))
-            source = pathlib.Path.cwd() / 'data' / 'media' / 'attachments'
+            info = json.loads(subprocess.check_output(['docker','inspect','chewy-bbtalk']))[0]
+            source = pathlib.Path(next(item['Source'] for item in info['Mounts'] if item['Destination']=='/app/data')) / 'media' / 'attachments'
             missing = {pathlib.PurePosixPath(key).name: (uid,key,size) for uid,key,size in rows if not (source / key).is_file()}
             found = []
             roots = [pathlib.Path.cwd().parent, pathlib.Path.cwd().parent.parent / 'backups']
@@ -135,6 +136,9 @@ jobs:
                     details['effective_old_storage'] = {key: str(getattr(settings, key, '')) for key in ('MEDIA_ROOT', 'BASE_DIR', 'DEFAULT_FILE_STORAGE')}
                     details['effective_cloud_keys_present'] = {key: bool(getattr(settings, key, None)) for key in ('AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_STORAGE_BUCKET_NAME')}
                     details['attachment_settings_names'] = [key for key in vars(settings) if 'ATTACH' in key or 'STORAGE' in key]
+                    attachment_config = getattr(settings, 'CHEWY_ATTACHMENT', {})
+                    details['effective_attachment_paths'] = {key: str(value) for key, value in attachment_config.items() if any(part in key.upper() for part in ('ROOT', 'PATH', 'DIR', 'BACKEND')) and isinstance(value, (str, pathlib.Path))}
+
 
 
             if parsed.scheme in ('postgres', 'postgresql'):
@@ -159,6 +163,41 @@ jobs:
                                     folders[:] = [name for name in folders if name not in ('node_modules', '__pycache__', '.git')]
                                     found += sum(name in wanted for name in files)
                             details['missing_files_found_elsewhere_in_container'] = found
+                            if modules and missing:
+                                import jwt, time, urllib.request, urllib.error
+                                from uuid import uuid4
+                                from urllib.parse import urlsplit
+                                cursor.execute('SELECT a.id::text,a.storage_path,a.owner_id,u.credential_version FROM cb_attachments a JOIN cb_users u ON a.owner_id=u.id::text WHERE u.is_active')
+                                audit = {'metadata_readable': 0, 'content_statuses': {}, 'unverified': 0}
+                                for uid,key,owner,version in cursor.fetchall():
+                                    if key not in missing:
+                                        continue
+                                    token = jwt.encode({'user_id': int(owner), 'credential_version': version, 'token_type': 'access', 'jti': uuid4().hex, 'iat': int(time.time()), 'exp': int(time.time())+120}, settings.SECRET_KEY, algorithm='HS256')
+                                    def fetch(path):
+                                        request = urllib.request.Request('http://127.0.0.1:4010'+path, headers={'Authorization':'Bearer '+token})
+                                        try:
+                                            return urllib.request.urlopen(request, timeout=5)
+                                        except urllib.error.HTTPError as error:
+                                            return error
+                                    try:
+                                        with fetch('/api/v1/attachments/files/'+uid+'/') as response:
+                                            if response.status != 200:
+                                                audit['unverified'] += 1
+                                                continue
+                                            item = json.load(response)
+                                        audit['metadata_readable'] += 1
+                                        url = item.get('download_url') or item.get('preview_url') or ''
+                                        path = urlsplit(url).path
+                                        if not path.startswith('/api/v1/attachments/'):
+                                            audit['unverified'] += 1
+                                            continue
+                                        with fetch(path) as response:
+                                            status = str(response.status)
+                                            audit['content_statuses'][status] = audit['content_statuses'].get(status,0)+1
+                                    except Exception:
+                                        audit['unverified'] += 1
+                                details['old_service_missing_attachment_reads'] = audit
+
 
                             for root in ('/app/data/media/attachments', '/app/data/media', '/app/media', '/app/backend/media', '/app/backend/chewy_space/media'):
                                 base = pathlib.Path(root)
