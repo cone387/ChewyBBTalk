@@ -14,6 +14,17 @@ test('opens ready to type and restores a docked ball without replaying hover ani
     env: { ...process.env, CHEWY_INTEGRATION_USER_DATA: profile, CHEWY_INTEGRATION_WITH_BALL: '1', CHEWY_INTEGRATION_FOCUS: '1' },
   })
   try {
+    // Closing destroys the renderer, so its IPC promise can lose the race with
+    // page.evaluate's response. Drive the same guarded close from the main
+    // process, which remains alive while the window saves and closes.
+    const closeCompose = async () => {
+      await application.evaluate(({ BrowserWindow }) => {
+        const window = BrowserWindow.getAllWindows().find(win => win.webContents.getURL().includes('/compose/'))
+        if (!window) throw new Error('compose window is not open')
+        window.close()
+      })
+      await expect.poll(() => application.windows().some(page => page.url().includes('/compose/'))).toBe(false)
+    }
     await expect.poll(() => application.windows().some(page => page.url().includes('/compose/'))).toBe(true)
     let compose = application.windows().find(page => page.url().includes('/compose/'))!
     const ball = application.windows().find(page => page.url().includes('/ball/'))!
@@ -23,8 +34,7 @@ test('opens ready to type and restores a docked ball without replaying hover ani
     await compose.getByRole('button', { name: '固定置顶' }).focus()
     await compose.evaluate(() => window.desktop.compose.show())
     await expect(compose.getByPlaceholder('你要BB什么？')).toBeFocused()
-    await compose.evaluate(() => window.desktop.compose.hide())
-    await expect.poll(() => application.windows().some(page => page.url().includes('/compose/'))).toBe(false)
+    await closeCompose()
 
     const icon = ball.getByRole('button', { name: 'ChewyBBTalk', exact: true })
     const box = (await icon.boundingBox())!
@@ -63,8 +73,7 @@ test('opens ready to type and restores a docked ball without replaying hover ani
     expect(suspended).toBe(true)
     await expect(icon).not.toHaveClass(/animating/)
     const hiddenTransform = await icon.evaluate(node => getComputedStyle(node).transform)
-    await compose.evaluate(() => window.desktop.compose.hide())
-    await expect.poll(() => application.windows().some(page => page.url().includes('/compose/'))).toBe(false)
+    await closeCompose()
     const transforms = await ball.evaluate(async () => {
       const icon = document.querySelector('.ball')!
       const values = []
