@@ -65,6 +65,39 @@ jobs:
                     result['sqlite_files'].append({'path': str(path), 'bytes': path.stat().st_size,
                         'revision': revision, 'counts': counts})
             print(json.dumps(result, ensure_ascii=False))
+            from core.config import Settings
+            from database.session import database
+            from sqlalchemy import inspect, text
+            settings = Settings()
+            engine, _ = database(settings)
+            details = {'resolved_paths': {'data': str(settings.data_dir), 'media': str(settings.media_root)}}
+            with engine.connect() as db:
+                schema = inspect(db)
+                tables = schema.get_table_names()
+                quote = db.dialect.identifier_preparer.quote
+                details['counts'] = {name: db.scalar(text('SELECT count(*) FROM ' + quote(name)))
+                    for name in tables if name.startswith(('cb_', 'token_blacklist_', 'django_', 'auth_'))}
+                details['revision'] = db.execute(text('SELECT version_num FROM alembic_version')).scalars().all() if 'alembic_version' in tables else []
+                if db.dialect.name == 'postgresql':
+                    details['postgres'] = {'version': db.scalar(text('SHOW server_version')),
+                        'bytes': db.scalar(text('SELECT pg_database_size(current_database())')),
+                        'can_create_database': db.scalar(text('SELECT rolcreatedb FROM pg_roles WHERE rolname=current_user')),
+                        'connections': db.execute(text('SELECT state,count(*) FROM pg_stat_activity WHERE datname=current_database() GROUP BY state')).all()}
+            engine.dispose()
+            details['directories'] = []
+            for path in {pathlib.Path('/app/data'), settings.data_dir, settings.media_root}:
+                count, size, links = 0, 0, 0
+                if path.is_dir():
+                    for parent, folders, files in os.walk(path, followlinks=False):
+                        for name in files:
+                            item = pathlib.Path(parent) / name
+                            if item.is_symlink():
+                                links += 1
+                            elif item.is_file():
+                                count += 1
+                                size += item.stat().st_size
+                details['directories'].append({'path': str(path), 'exists': path.exists(), 'files': count, 'bytes': size, 'symlinks': links})
+            print(json.dumps(details, ensure_ascii=False, default=list))
             PY
                 fi
               fi
