@@ -31,6 +31,9 @@ jobs:
             printf 'DEPLOY_DIRECTORY=%s\n' "$PWD"
             df -Pk .
             docker --version
+            docker images --filter reference=ghcr.io/cone387/chewy-bbtalk --format 'PROJECT_IMAGE={{.ID}} {{.Repository}}:{{.Tag}} {{.Size}}'
+            printf 'REGISTRY_CONNECTIVITY='
+            curl --connect-timeout 8 --max-time 15 --silent --output /dev/null --write-out '%{http_code}\n' https://ghcr.io/v2/ || true
             python3 - <<'PY'
             import json, pathlib
             root = pathlib.Path.cwd().parent / 'migration-backups'
