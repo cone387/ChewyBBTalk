@@ -31,6 +31,7 @@ jobs:
             printf 'DEPLOY_DIRECTORY=%s\n' "$PWD"
             df -Pk .
             docker --version
+            docker ps -a --filter name=chewy --format 'PROJECT_CONTAINER={{.Names}} STATUS={{.Status}} IMAGE={{.Image}}'
             docker images --filter reference=ghcr.io/cone387/chewy-bbtalk --format 'PROJECT_IMAGE={{.ID}} {{.Repository}}:{{.Tag}} {{.Size}}'
             printf 'REGISTRY_CONNECTIVITY='
             curl --connect-timeout 8 --max-time 15 --silent --output /dev/null --write-out '%{http_code}\n' https://ghcr.io/v2/ || true
@@ -93,6 +94,18 @@ jobs:
             print(json.dumps(result, ensure_ascii=False))
             details = {'working_directory': os.getcwd()}
             details['old_entrypoints'] = [str(path) for path in pathlib.Path('/app/backend').rglob('manage.py')]
+            if pathlib.Path('/app/backend/manage.py').is_file():
+                import ast, importlib, sys
+                sys.dont_write_bytecode = True
+                sys.path.insert(0, '/app/backend')
+                tree = ast.parse(pathlib.Path('/app/backend/manage.py').read_text())
+                modules = [node.args[1].value for node in ast.walk(tree) if isinstance(node, ast.Call) and len(node.args) >= 2 and isinstance(node.args[0], ast.Constant) and node.args[0].value == 'DJANGO_SETTINGS_MODULE' and isinstance(node.args[1], ast.Constant)]
+                if modules:
+                    settings = importlib.import_module(modules[0])
+                    details['effective_old_storage'] = {key: str(getattr(settings, key, '')) for key in ('MEDIA_ROOT', 'BASE_DIR', 'DEFAULT_FILE_STORAGE')}
+                    details['effective_cloud_keys_present'] = {key: bool(getattr(settings, key, None)) for key in ('AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_STORAGE_BUCKET_NAME')}
+                    details['attachment_settings_names'] = [key for key in vars(settings) if 'ATTACH' in key or 'STORAGE' in key]
+
 
             if parsed.scheme in ('postgres', 'postgresql'):
                 import psycopg2
@@ -107,6 +120,16 @@ jobs:
                             cursor.execute('SELECT storage_path FROM cb_attachments')
                             keys = [row[0] for row in cursor.fetchall()]
                             details['attachment_path_matches'] = []
+                            base = pathlib.Path('/app/data/media/attachments')
+                            missing = [key for key in keys if not (base / key).is_file()]
+                            wanted = {pathlib.PurePosixPath(key).name for key in missing}
+                            found = 0
+                            for search in ('/app', '/data', '/tmp'):
+                                for parent, folders, files in os.walk(search, followlinks=False):
+                                    folders[:] = [name for name in folders if name not in ('node_modules', '__pycache__', '.git')]
+                                    found += sum(name in wanted for name in files)
+                            details['missing_files_found_elsewhere_in_container'] = found
+
                             for root in ('/app/data/media/attachments', '/app/data/media', '/app/media', '/app/backend/media', '/app/backend/chewy_space/media'):
                                 base = pathlib.Path(root)
                                 found = [base / key for key in keys if not pathlib.Path(key).is_absolute() and '..' not in pathlib.Path(key).parts and (base / key).is_file()]
