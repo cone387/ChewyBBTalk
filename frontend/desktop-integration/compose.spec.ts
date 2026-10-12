@@ -29,7 +29,7 @@ test('real Electron restart, lost response retry and wake account isolation', as
       const upstream = await fetch(backend + req.url, { method: req.method, headers,
         ...(chunks.length ? { body: Buffer.concat(chunks) } : {}) })
       const body = Buffer.from(await upstream.arrayBuffer())
-      if (req.method === 'POST' && req.url === '/api/v1/bbtalk/') {
+      if (req.method === 'POST' && req.url === '/api/v1/bbtalk') {
         submissionKeys.push(String(req.headers['idempotency-key']))
         if (dropResponse) { dropResponse = false; res.destroy(); return }
       }
@@ -40,11 +40,11 @@ test('real Electron restart, lost response retry and wake account isolation', as
   await new Promise<void>(resolve => proxy.listen(0, '127.0.0.1', resolve))
   const apiUrl = `http://127.0.0.1:${(proxy.address() as { port: number }).port}`
   const username = `desktop_${Date.now()}`
-  const register = await request.post(backend + '/api/v1/bbtalk/auth/register/', { data: { username, password } })
+  const register = await request.post(backend + '/api/v1/bbtalk/auth/register', { data: { username, password } })
   expect(register.status()).toBe(201)
   const owner = await register.json()
   const otherName = username + '_other'
-  expect((await request.post(backend + '/api/v1/bbtalk/auth/register/', { data: { username: otherName, password } })).status()).toBe(201)
+  expect((await request.post(backend + '/api/v1/bbtalk/auth/register', { data: { username: otherName, password } })).status()).toBe(201)
   const launch = async () => {
     application = await electron.launch({ executablePath, args: [resolve('../desktop/out/main/integration.js'), '--no-sandbox'],
       env: { ...process.env, CHEWY_INTEGRATION_USER_DATA: profile } })
@@ -67,6 +67,8 @@ test('real Electron restart, lost response retry and wake account isolation', as
     await page.getByPlaceholder('你要BB什么？').fill('桌面原始内容 #桌面标签 ')
     await page.getByRole('button', { name: /^发布/ }).click()
     await expect(page.locator('.submission-recovery').getByRole('status')).toContainText('有一份发布结果待核对')
+    expect(dropResponse).toBe(false)
+    expect(submissionKeys).toHaveLength(1)
     const pending = await page.evaluate(() => (window as any).desktop.compose.submissionSnapshot())
     expect(pending.intent.state).toBe('pending')
     const persistent = await page.evaluate(() => (window as any).desktop.auth.getState().then((state: any) => state.persistent))
@@ -87,7 +89,7 @@ test('real Electron restart, lost response retry and wake account isolation', as
     await expect(page.locator('.submission-recovery').getByRole('status')).toContainText('原提交已确认')
     expect(submissionKeys).toEqual([pending.intent.key, pending.intent.key])
     await expect(page.getByPlaceholder('你要BB什么？')).toHaveValue('后来输入的新草稿')
-    const records = await request.get(backend + '/api/v1/bbtalk/', { headers: { Authorization: `Bearer ${owner.access}` } })
+    const records = await request.get(backend + '/api/v1/bbtalk', { headers: { Authorization: `Bearer ${owner.access}` } })
     const savedRecords = await records.json()
     expect(savedRecords.count).toBe(1)
     expect(savedRecords.results[0].tags.map((tag: any) => tag.name)).toEqual(['桌面标签'])
@@ -127,7 +129,7 @@ test('real Electron restart, lost response retry and wake account isolation', as
     await page.evaluate(() => window.dispatchEvent(new Event('online')))
     await expect(page.locator('.submission-recovery').getByRole('status')).toContainText('原提交已确认')
     expect(submissionKeys).toHaveLength(requestsBeforeWake)
-    const afterWake = await request.get(backend + '/api/v1/bbtalk/', { headers: { Authorization: `Bearer ${owner.access}` } })
+    const afterWake = await request.get(backend + '/api/v1/bbtalk', { headers: { Authorization: `Bearer ${owner.access}` } })
     expect((await afterWake.json()).count).toBe(2)
   } finally {
     await application?.close()

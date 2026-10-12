@@ -14,7 +14,7 @@ test('browser authorization, screenshots, partial retry, close/restart drafts, I
   let application: ElectronApplication | undefined
   const username = `reliability_${Date.now()}`
   const password = 'isolated-desktop-password'
-  const registration = await request.post(server + '/api/v1/bbtalk/auth/register/', { data: { username, password } })
+  const registration = await request.post(server + '/api/v1/bbtalk/auth/register', { data: { username, password } })
   expect(registration.status()).toBe(201)
   const owner = await registration.json()
   const launch = async (offline = false) => {
@@ -53,9 +53,12 @@ test('browser authorization, screenshots, partial retry, close/restart drafts, I
     await application!.evaluate(() => {
       const original = globalThis.fetch
       let fail = true
+      ;(globalThis as any).__uploadFailureInjected = false
       globalThis.fetch = async (url, init) => {
-        if (fail && String(url).endsWith('/api/v1/attachments/files/') && init?.method === 'POST') {
-          fail = false; return new Response('{"detail":"临时上传失败"}', { status: 503 })
+        if (fail && String(url).endsWith('/api/v1/attachments/files') && init?.method === 'POST') {
+          fail = false
+          ;(globalThis as any).__uploadFailureInjected = true
+          return new Response('{"detail":"临时上传失败"}', { status: 503 })
         }
         return original(url, init)
       }
@@ -65,6 +68,7 @@ test('browser authorization, screenshots, partial retry, close/restart drafts, I
       { name: 'second.png', mimeType: 'image/png', buffer: png },
     ])
     await expect(compose.locator('.upload-failed')).toHaveCount(1)
+    expect(await application!.evaluate(() => (globalThis as any).__uploadFailureInjected)).toBe(true)
     await expect(compose.locator('.upload-uploaded')).toHaveCount(1)
     await expect.poll(() => compose.locator('.file-preview-img').evaluateAll(images => images.every(image => (image as HTMLImageElement).naturalWidth > 0))).toBe(true)
     await compose.getByPlaceholder('你要BB什么？').fill('立即关闭也保留的截图草稿')
@@ -84,7 +88,7 @@ test('browser authorization, screenshots, partial retry, close/restart drafts, I
     const textarea = compose.getByPlaceholder('你要BB什么？')
     await textarea.dispatchEvent('compositionstart')
     await textarea.press('Enter')
-    const before = await request.get(server + '/api/v1/bbtalk/', { headers: { Authorization: `Bearer ${owner.access}` } })
+    const before = await request.get(server + '/api/v1/bbtalk', { headers: { Authorization: `Bearer ${owner.access}` } })
     expect((await before.json()).count).toBe(0)
     await textarea.dispatchEvent('compositionend')
     await textarea.fill('立即关闭也保留的截图草稿')
@@ -120,10 +124,10 @@ test('browser authorization, screenshots, partial retry, close/restart drafts, I
     await expect(compose.locator('.upload-uploaded')).toHaveCount(2)
     await compose.getByRole('button', { name: /^发布/ }).click()
     await expect(compose.getByPlaceholder('你要BB什么？')).toHaveValue('')
-    const after = await request.get(server + '/api/v1/bbtalk/', { headers: { Authorization: `Bearer ${owner.access}` } })
+    const after = await request.get(server + '/api/v1/bbtalk', { headers: { Authorization: `Bearer ${owner.access}` } })
     const post = (await after.json()).results[0]
     expect(post.attachments).toHaveLength(2)
-    expect(post.attachments[0].url).toContain('/preview/')
+    expect(post.attachments[0].url).toMatch(/^\/api\/v1\/attachments\/files\/[^/]+\/preview$/)
     expect((await request.get(server + post.attachments[0].url)).status()).toBe(404)
 
     // Browser feed and full-size preview must both fetch private media with auth.
