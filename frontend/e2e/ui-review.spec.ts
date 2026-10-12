@@ -49,23 +49,32 @@ test('comment loading failure waits for explicit retry instead of requesting in 
   await page.getByLabel('记录内容').fill('评论加载回归测试')
   await page.getByRole('button', { name: '发布', exact: true }).click()
   let card = page.locator('.bbtalk-item').first()
-  await card.getByTitle('评论', { exact: true }).click()
-  await card.getByLabel('评论内容').fill('已保存的评论')
-  await card.getByRole('button', { name: '发送', exact: true }).click()
-  await expect(card.getByLabel('删除评论：已保存的评论')).toBeVisible()
+  // The feed includes three preview comments. A fourth requires the explicit
+  // expansion read whose failure and retry this regression exercises.
+  for (let index = 1; index <= 4; index++) {
+    await card.getByTitle('评论', { exact: true }).click()
+    await card.getByLabel('评论内容').fill(`已保存的评论 ${index}`)
+    await card.getByRole('button', { name: '发送', exact: true }).click()
+    await expect(card.getByLabel(`删除评论：已保存的评论 ${index}`, { exact: true })).toBeVisible()
+  }
   let requests = 0
-  await page.route('**/comments', route => {
+  const commentsEndpoint = /\/comments(?:\?.*)?$/
+  await page.route(commentsEndpoint, route => {
     if (route.request().method() === 'GET') { requests++; return route.abort() }
     return route.continue()
   })
   await page.reload()
   card = page.locator('.bbtalk-item').first()
+  await expect(card.getByLabel('删除评论：', { exact: false })).toHaveCount(3)
+  expect(requests).toBe(0)
+  await card.getByRole('button', { name: '查看全部 4 条评论', exact: true }).click()
   await expect(card.getByRole('alert')).toContainText('评论加载失败')
   await page.waitForTimeout(1000)
   expect(requests).toBe(1)
-  await page.unroute('**/comments')
+  await page.unroute(commentsEndpoint)
   await card.getByRole('button', { name: '重试操作' }).click()
-  await expect(card.getByLabel('删除评论：已保存的评论')).toBeVisible()
+  await expect(card.getByLabel('删除评论：', { exact: false })).toHaveCount(4)
+  await expect(card.getByLabel('删除评论：已保存的评论 4', { exact: true })).toBeVisible()
   await expect(card.getByRole('alert')).toHaveCount(0)
 })
 
