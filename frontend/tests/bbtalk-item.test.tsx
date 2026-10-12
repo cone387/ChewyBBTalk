@@ -124,6 +124,16 @@ describe('attachment galleries', () => {
 });
 
 describe('more menu', () => {
+  it('unpins a pinned record through the owner action', () => {
+    const onTogglePin = vi.fn();
+    render(<BBTalkItem bbtalk={item({ isPinned: true })} onTogglePin={onTogglePin} />);
+    expect(screen.getByText('已置顶')).toBeTruthy();
+    fireEvent.click(screen.getByTitle('更多'));
+    fireEvent.click(screen.getByText('取消置顶'));
+    expect(onTogglePin).toHaveBeenCalledWith(expect.objectContaining({ id: 'b1', isPinned: true }));
+    expect(screen.queryByText('取消置顶')).toBeNull();
+  });
+
   it('copies the detail link and notifies the parent on success', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     withClipboard({ writeText });
@@ -174,12 +184,23 @@ describe('more menu', () => {
 });
 
 describe('inline comments', () => {
+  it('renders recent, multi-day and old comments with a username fallback', async () => {
+    api.getComments.mockResolvedValue([
+      { ...comment('recent', 0), userDisplayName: '' },
+      comment('days', 2 * 24 * 60), comment('old', 10 * 24 * 60),
+    ]);
+    render(<BBTalkItem bbtalk={item({ commentCount: 3 })} />);
+    expect(await screen.findByText('userrecent')).toBeTruthy();
+    expect(screen.getByText('2天前')).toBeTruthy();
+    expect(screen.getByText(new Date(now - 10 * 86400000).toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' }))).toBeTruthy();
+  });
+
   it('auto loads existing comments and reflects the count from the server', async () => {
     api.getComments.mockResolvedValue([comment('c1'), comment('c2', 30), comment('c3', 5 * 3600000 / 60000)]);
     render(<BBTalkItem bbtalk={item({ commentCount: 2 })} />);
     expect(await screen.findByText('评论c1')).toBeTruthy();
     expect(screen.getByText('5小时前')).toBeTruthy();
-    expect(screen.getByTitle('评论').textContent).toBe('3');
+    await waitFor(() => expect(screen.getByTitle('评论').textContent).toBe('3'));
   });
 
   it('shows a retryable error when loading comments fails', async () => {
@@ -211,9 +232,10 @@ describe('inline comments', () => {
     fireEvent.change(input, { target: { value: '新评论' } });
     fireEvent.keyDown(input, { key: 'Enter' });
     expect(await screen.findByText('新评论')).toBeTruthy();
+    // The parent badge updates in an effect after the comment snapshot renders.
+    await waitFor(() => expect(screen.getByTitle('评论').textContent).toBe('1'));
     expect(api.createComment).toHaveBeenCalledWith('b1', '新评论');
     expect(screen.queryByLabelText('评论内容')).toBeNull();
-    expect(screen.getByTitle('评论').textContent).toBe('1');
   });
 
   it('keeps the drafted comment and allows retry when sending fails', async () => {

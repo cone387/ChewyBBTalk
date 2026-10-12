@@ -71,6 +71,14 @@ describe('request validation', () => {
 });
 
 describe('signed-out visitors', () => {
+  it('offers a plain login destination for invalid authorization links', () => {
+    auth.user = null;
+    visit('');
+    expect(screen.getByRole('link', { name: '前往登录' }).getAttribute('href')).toBe('/login');
+    expect(client.post).not.toHaveBeenCalled();
+    expect(assign).not.toHaveBeenCalled();
+  });
+
   it('points the login link back at the authorize URL', () => {
     auth.user = null;
     visit(validQuery());

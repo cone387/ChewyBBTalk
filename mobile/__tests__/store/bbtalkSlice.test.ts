@@ -321,6 +321,24 @@ describe('bbtalkSlice comment counters', () => {
 });
 
 describe('feed request budgets', () => {
+  it('inserts a pinned create response before both pinned and unpinned cached records', () => {
+    const pinned = { ...makeTalk('pinned', 'pinned'), isPinned: true };
+    let state = reducer(undefined, setBBTalksFromCache([pinned, makeTalk('old', 'old')]));
+    state = reducer(state, createBBTalkAsync.fulfilled({ ...makeTalk('new', 'new'), isPinned: true }, 'create', { content: 'new' }));
+    expect(state.bbtalks.map(b => b.id)).toEqual(['new', 'pinned', 'old']);
+    expect(state.totalCount).toBe(3);
+  });
+  it('shares a first-page read with a null page supplied by an untyped caller', async () => {
+    let finish!: (value: any) => void;
+    api.getBBTalks.mockClear().mockReturnValue(new Promise(resolve => { finish = resolve; }));
+    const store = configureStore({ reducer: { bbtalk: reducer } });
+    const first = store.dispatch(loadBBTalks(JSON.parse('{"page":null}')));
+    const second = store.dispatch(loadBBTalks({}));
+    expect(api.getBBTalks).toHaveBeenCalledTimes(1);
+    finish({ count: 1, next: null, previous: null, results: [makeTalk('shared', 'shared')] });
+    await Promise.all([first, second]);
+    expect(store.getState().bbtalk).toMatchObject({ currentPage: 1, bbtalks: [makeTalk('shared', 'shared')] });
+  });
   it('inserts a newly created unpinned record after the existing pinned records', () => {
     const pinned = { ...makeTalk('pinned', 'pinned'), isPinned: true };
     let state = reducer(undefined, setBBTalksFromCache([pinned, makeTalk('old', 'old')]));

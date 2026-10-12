@@ -65,27 +65,37 @@ jobs:
                     result['sqlite_files'].append({'path': str(path), 'bytes': path.stat().st_size,
                         'revision': revision, 'counts': counts})
             print(json.dumps(result, ensure_ascii=False))
-            from core.config import Settings
-            from database.session import database
-            from sqlalchemy import inspect, text
-            settings = Settings()
-            engine, _ = database(settings)
-            details = {'resolved_paths': {'data': str(settings.data_dir), 'media': str(settings.media_root)}}
-            with engine.connect() as db:
-                schema = inspect(db)
-                tables = schema.get_table_names()
-                quote = db.dialect.identifier_preparer.quote
-                details['counts'] = {name: db.scalar(text('SELECT count(*) FROM ' + quote(name)))
-                    for name in tables if name.startswith(('cb_', 'token_blacklist_', 'django_', 'auth_'))}
-                details['revision'] = db.execute(text('SELECT version_num FROM alembic_version')).scalars().all() if 'alembic_version' in tables else []
-                if db.dialect.name == 'postgresql':
-                    details['postgres'] = {'version': db.scalar(text('SHOW server_version')),
-                        'bytes': db.scalar(text('SELECT pg_database_size(current_database())')),
-                        'can_create_database': db.scalar(text('SELECT rolcreatedb FROM pg_roles WHERE rolname=current_user')),
-                        'connections': db.execute(text('SELECT state,count(*) FROM pg_stat_activity WHERE datname=current_database() GROUP BY state')).all()}
-            engine.dispose()
+            details = {'working_directory': os.getcwd()}
+            if parsed.scheme in ('postgres', 'postgresql'):
+                import psycopg2
+                from psycopg2 import sql
+                with psycopg2.connect(url) as db:
+                    db.set_session(readonly=True)
+                    with db.cursor() as cursor:
+                        cursor.execute("SELECT tablename FROM pg_tables WHERE schemaname='public'")
+                        tables = [row[0] for row in cursor.fetchall()]
+                        details['counts'] = {}
+                        for table in tables:
+                            if table.startswith(('cb_', 'token_blacklist_', 'django_', 'auth_')):
+                                cursor.execute(sql.SQL('SELECT count(*) FROM {}').format(sql.Identifier(table)))
+                                details['counts'][table] = cursor.fetchone()[0]
+                        cursor.execute('SHOW server_version')
+                        details['postgres_version'] = cursor.fetchone()[0]
+                        cursor.execute('SELECT pg_database_size(current_database())')
+                        details['database_bytes'] = cursor.fetchone()[0]
+                        cursor.execute('SELECT rolcreatedb FROM pg_roles WHERE rolname=current_user')
+                        details['can_create_database'] = cursor.fetchone()[0]
+                        cursor.execute('SELECT state,count(*) FROM pg_stat_activity WHERE datname=current_database() GROUP BY state')
+                        details['connections'] = cursor.fetchall()
+                        if 'alembic_version' in tables:
+                            cursor.execute('SELECT version_num FROM alembic_version')
+                            details['revision'] = cursor.fetchall()
+                        if 'django_migrations' in tables:
+                            cursor.execute('SELECT app,name FROM django_migrations ORDER BY id DESC LIMIT 12')
+                            details['historical_migrations'] = cursor.fetchall()
             details['directories'] = []
-            for path in {pathlib.Path('/app/data'), settings.data_dir, settings.media_root}:
+            for path in {pathlib.Path('/app/data'), pathlib.Path(os.environ.get('DATA_DIR', '/app/data')),
+                         pathlib.Path(os.environ.get('MEDIA_ROOT', '/app/data/media'))}:
                 count, size, links = 0, 0, 0
                 if path.is_dir():
                     for parent, folders, files in os.walk(path, followlinks=False):

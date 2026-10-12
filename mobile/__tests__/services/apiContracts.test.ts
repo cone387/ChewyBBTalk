@@ -104,3 +104,22 @@ it('maps embedded comment previews and paginated comments', async () => {
  expect(await bbtalkApi.getCommentPage('record', 1)).toMatchObject({ count: 21, next: 'page2', results: [{ uid: 'comment' }], revision: 'r1' });
  expect(apiClient.get).toHaveBeenCalledWith('/api/v1/bbtalk/record/comments', { page: 1, page_size: 20 });
 });
+
+it('keeps cancellation attached to a filtered feed request', async () => {
+  const controller = new AbortController();
+  (apiClient.get as jest.Mock).mockResolvedValue({ count: 1, next: null, previous: null, results: [wire] });
+  const result = await bbtalkApi.getBBTalks({ page: 1, tags: ['Work'] }, { signal: controller.signal });
+  expect(result.results[0]).toMatchObject({ id: 'record', content: 'body' });
+  expect(apiClient.get).toHaveBeenCalledWith('/api/v1/bbtalk', { page: 1, tags: ['Work'] }, { signal: controller.signal });
+});
+
+it('turns an old server comment array into a complete first page without inventing another page', async () => {
+  const comment = { uid: 'legacy-comment', user: 7, content: 'reply', create_time: 'created', update_time: 'updated',
+    user_display_name: 'Alice', user_avatar: 'avatar', user_username: 'alice' };
+  (apiClient.get as jest.Mock).mockResolvedValue([comment]);
+  expect(await bbtalkApi.getCommentPage('record')).toEqual({ count: 1, next: null, previous: null, results: [{
+    uid: 'legacy-comment', user: 7, content: 'reply', createdAt: 'created', updatedAt: 'updated',
+    userDisplayName: 'Alice', userAvatar: 'avatar', userUsername: 'alice',
+  }] });
+  expect(apiClient.get).toHaveBeenCalledWith('/api/v1/bbtalk/record/comments', { page: 1, page_size: 20 });
+});

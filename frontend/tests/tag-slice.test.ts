@@ -72,6 +72,15 @@ describe('creating tags', () => {
 });
 
 describe('updating tags', () => {
+  it('keeps unsorted legacy tags at zero when moving a different tag ahead of them', async () => {
+    api.getTags.mockResolvedValue([tag('first', 5), { id: 'legacy', name: 'legacy', color: '', bbtalkCount: 0 }, tag('last', 10)]);
+    api.updateTag.mockResolvedValue(tag('last', -1));
+    const s = store();
+    await s.dispatch(loadTags());
+    await s.dispatch(updateTagAsync({ id: 'last', data: { sortOrder: -1 } }));
+    expect(state(s).tags.map(item => item.id)).toEqual(['last', 'legacy', 'first']);
+  });
+
   it('optimistically reorders on pending and refreshes the stored copy on fulfilment', async () => {
     api.updateTag.mockResolvedValue(tag('t3', -500));
     const s = store();

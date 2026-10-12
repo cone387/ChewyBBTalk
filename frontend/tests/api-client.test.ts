@@ -22,6 +22,23 @@ beforeEach(() => {
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks() })
 
 describe('API requests', () => {
+  it('rejects an anonymous protected request without trying to refresh or logging out', async () => {
+    vi.mocked(getAccessToken).mockReturnValue(null)
+    vi.mocked(getCurrentUser).mockReturnValue(null)
+    fetchMock.mockResolvedValue(response(401))
+    await expect(apiClient.get('/protected')).rejects.toMatchObject({ status: 401, message: '此操作需要登录，请登录后重试' })
+    expect(refreshAccessToken).not.toHaveBeenCalled()
+    expect(logout).not.toHaveBeenCalled()
+  })
+
+  it('preserves AbortError from writes and normalizes non-Error network rejections', async () => {
+    const aborted = Object.assign(new Error('cancelled'), { name: 'AbortError' })
+    fetchMock.mockRejectedValueOnce(aborted)
+    await expect(apiClient.post('/items', {})).rejects.toBe(aborted)
+    fetchMock.mockRejectedValueOnce('connection closed')
+    await expect(apiClient.post('/items', {})).rejects.toThrow('网络连接失败，请检查网络后重试')
+  })
+
   it('does not reuse the browser URL cache for authenticated downloads', async () => {
     await apiClient.download('/api/v1/attachments/files/private/preview')
     expect(fetchMock.mock.calls[0][1].cache).toBe('no-store')

@@ -38,6 +38,20 @@ afterEach(() => {
 })
 
 describe('login and register error contracts', () => {
+  it('persists a profile edit without changing session and rejects another account profile', async () => {
+    seed()
+    const auth = await import('../src/services/auth')
+    fetchMock.mockResolvedValue(response(user))
+    expect(await auth.initAuth()).toBe(true)
+    const scope = auth.getAuthSessionScope()
+    auth.updateCachedUser({ ...user, display_name: 'Edited' })
+    expect(auth.getCurrentUser()?.display_name).toBe('Edited')
+    expect(JSON.parse(localStorage.getItem(userKey)!)).toMatchObject({ id: 1, display_name: 'Edited' })
+    expect(auth.getAuthSessionScope()).toBe(scope)
+    expect(() => auth.updateCachedUser({ id: 2, username: 'bob' })).toThrow('账号已切换')
+    expect(auth.getCurrentUser()?.id).toBe(1)
+  })
+
   it('keeps profile edits in the same session but invalidates cross-tab account changes', async () => {
     seed()
     const auth = await import('../src/services/auth')

@@ -41,6 +41,11 @@ it('encodes tag arrays as repeated query parameters', async () => {
   expect(fetchMock.mock.calls[0][0]).toBe('https://example.com/items?tags=work&tags=home');
 });
 
+it('preserves an existing query when appending encoded filter parameters', async () => {
+  expect(await apiClient.get('/items?visibility=private', { tags: ['work & home'], page: 2 })).toEqual({ id: 1 });
+  expect(fetchMock.mock.calls[0][0]).toBe('https://example.com/items?visibility=private&tags=work+%26+home&page=2');
+});
+
 it('renders FastAPI validation locations and messages', async () => {
   fetchMock.mockResolvedValue(response(422, { detail: [{ loc: ['body', 'tags', 0], msg: 'String should have at most 50 characters', type: 'string_too_long' }] }));
   await expect(apiClient.post('/items', {})).rejects.toMatchObject({ status: 422, message: 'tags.0: String should have at most 50 characters' });

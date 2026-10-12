@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import StorageSettingsPage from '../src/pages/StorageSettingsPage';
 
 const boundary = vi.hoisted(() => ({ navigate: vi.fn(), api: {
-  listStorageSettings: vi.fn(), deactivateAllStorage: vi.fn(), migrationPreview: vi.fn(), migrationExecute: vi.fn(),
+  listStorageSettings: vi.fn(), activateStorageSettings: vi.fn(), deactivateAllStorage: vi.fn(), migrationPreview: vi.fn(), migrationExecute: vi.fn(),
 } }));
 vi.mock('react-router-dom', () => ({ useNavigate: () => boundary.navigate }));
 vi.mock('../src/services/api/settingsApi', () => ({ settingsApi: boundary.api }));
@@ -24,6 +24,30 @@ async function migration() {
   await within(dialog).findByRole('button', { name: '开始迁移 2 个文件' });
   return dialog;
 }
+it('activates a saved local configuration only after success and allows retry', async () => {
+  const local = { id: 9, name: 'Local archive', storage_type: 'local', is_active: false };
+  boundary.api.listStorageSettings.mockResolvedValue([...configs, local]);
+  boundary.api.activateStorageSettings.mockRejectedValueOnce(new Error('offline')).mockResolvedValue(undefined);
+  await page();
+  fireEvent.click(screen.getByRole('button', { name: '使用此本地存储' }));
+  expect(await screen.findByText('切换失败，请重试')).toBeTruthy();
+  expect(screen.getByText(/正在使用: Personal S3/)).toBeTruthy();
+  boundary.api.listStorageSettings.mockResolvedValue([{ ...local, is_active: true }]);
+  fireEvent.click(screen.getByRole('button', { name: '使用此本地存储' }));
+  expect(await screen.findByText('已切换为 Local archive')).toBeTruthy();
+  expect(boundary.api.activateStorageSettings).toHaveBeenLastCalledWith(9);
+  expect(screen.queryByRole('button', { name: '使用此本地存储' })).toBeNull();
+});
+
+it.each([true, false])('migrates old files to the current destination (configured=%s)', async configured => {
+  boundary.api.listStorageSettings.mockResolvedValue(configured ? configs : []);
+  render(<StorageSettingsPage />);
+  fireEvent.click(await screen.findByRole('button', { name: /将旧数据迁移到当前存储/ }));
+  expect(await screen.findByRole('button', { name: '开始迁移 2 个文件' })).toBeTruthy();
+  expect(boundary.api.migrationPreview).toHaveBeenCalledWith(configured ? 7 : null);
+  expect(screen.getByRole('dialog').getAttribute('aria-labelledby')).toBeTruthy();
+});
+
 it('shows loading until the server has confirmed the active configuration', async () => {
   let finish!: (value: typeof configs) => void;
   boundary.api.listStorageSettings.mockImplementation(() => new Promise(resolve => { finish = resolve; }));

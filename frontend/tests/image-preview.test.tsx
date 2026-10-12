@@ -67,6 +67,32 @@ describe('loading states', () => {
 });
 
 describe('closing', () => {
+  it('cycles a gallery by buttons and keyboard while keeping focus inside the dialog', async () => {
+    const onClose = vi.fn();
+    render(<ImagePreview src="/media/b.png" alt="fallback" images={[
+      { src: '/media/a.png', alt: '第一张' }, { src: '/media/b.png', alt: '第二张' },
+    ]} onClose={onClose} />);
+    expect(await screen.findByRole('img', { name: '第二张' })).toBeTruthy();
+    expect(screen.getByText('2 / 2')).toBeTruthy();
+    const close = screen.getByRole('button', { name: '关闭图片预览' });
+    const next = screen.getByRole('button', { name: '下一张图片' });
+    close.focus();
+    fireEvent.keyDown(close, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(next);
+    fireEvent.keyDown(next, { key: 'Tab' });
+    expect(document.activeElement).toBe(close);
+    fireEvent.click(next);
+    expect(await screen.findByRole('img', { name: '第一张' })).toBeTruthy();
+    expect(screen.getByText('1 / 2')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '上一张图片' }));
+    expect(await screen.findByRole('img', { name: '第二张' })).toBeTruthy();
+    fireEvent.keyDown(close, { key: 'ArrowRight' });
+    expect(await screen.findByRole('img', { name: '第一张' })).toBeTruthy();
+    fireEvent.keyDown(close, { key: 'ArrowLeft' });
+    expect(await screen.findByRole('img', { name: '第二张' })).toBeTruthy();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it('closes on Escape, backdrop click and the corner button, but not on the image stage', async () => {
     const view = preview();
     await screen.findByRole('img');

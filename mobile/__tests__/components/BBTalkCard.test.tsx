@@ -70,6 +70,13 @@ beforeEach(() => {
 afterEach(() => { act(() => { tree?.unmount(); }); tree = undefined; });
 
 describe('BBTalkCard rendering', () => {
+  it('forwards changed embedded previews even when the server omits a collection revision', async () => {
+    const comment: Comment = { uid: 'c1', user: 1, content: 'before', userDisplayName: '', userUsername: 'alice', userAvatar: '', createdAt: '', updatedAt: '' };
+    const item = talk({ commentCount: 1, commentPreview: [comment] });
+    await mountCard(item);
+    await act(async () => tree.update(<BBTalkCard item={{ ...item, commentPreview: [{ ...comment, content: 'after' }] }} theme={THEMES[0]} {...cb} />));
+    expect(mockInlineComments.mock.calls.at(-1)?.[0].commentPreview[0].content).toBe('after');
+  });
   it('forwards a changed comments revision even when record timestamp and comment count stay unchanged', async () => {
     const item = talk({ commentCount: 1, commentPreview: [], commentsRevision: 'r1' });
     await mountCard(item);

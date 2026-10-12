@@ -120,6 +120,20 @@ describe('busy states', () => {
 });
 
 describe('tag selector navigation', () => {
+  it('inserts a tag marker at the start or after text and toggles visibility back to private', async () => {
+    await ready();
+    fireEvent.click(screen.getByTitle('添加标签'));
+    await waitFor(() => expect(textarea().value).toBe('#'));
+    fireEvent.change(textarea(), { target: { value: '正文' } });
+    textarea().setSelectionRange(2, 2);
+    fireEvent.click(screen.getByTitle('添加标签'));
+    await waitFor(() => expect(textarea().value).toBe('正文 #'));
+    fireEvent.click(screen.getByTitle('仅自己可见'));
+    expect(screen.getByTitle('公开可见')).toBeTruthy();
+    fireEvent.click(screen.getByTitle('公开可见'));
+    expect(screen.getByTitle('仅自己可见')).toBeTruthy();
+  });
+
   it('clamps the highlighted index when the filtered list shrinks', async () => {
     await ready();
     fireEvent.change(textarea(), { target: { value: '开头 #' } });

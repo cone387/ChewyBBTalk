@@ -54,7 +54,7 @@ it('replaces stale expanded comments when a refreshed record reports a new revis
   view.rerender(<BBTalkItem bbtalk={record({ commentCount: 4, commentPreview: [2, 3, 4].map(comment), commentsRevision: 'v2' })} />);
   await waitFor(() => expect(api.getCommentPage).toHaveBeenCalledTimes(2));
   await waitFor(() => expect(screen.queryByText('reply-1')).toBeNull());
-  expect(screen.getByTitle('评论').textContent).toBe('4');
+  await waitFor(() => expect(screen.getByTitle('评论').textContent).toBe('4'));
 });
 
 it('sends one request to append a comment and preserves the new count across remounts', async () => {
@@ -64,7 +64,8 @@ it('sends one request to append a comment and preserves the new count across rem
   fireEvent.change(screen.getByLabelText('评论内容'), { target: { value: 'reply-6' } });
   fireEvent.click(screen.getByRole('button', { name: '发送' }));
   await screen.findByText('reply-6');
-  expect(screen.getByTitle('评论').textContent).toBe('6');
+  // Rendering the comment does not flush the effect that updates its parent badge.
+  await waitFor(() => expect(screen.getByTitle('评论').textContent).toBe('6'));
   expect(api.getCommentPage).not.toHaveBeenCalled();
   expect(api.getComments).not.toHaveBeenCalled();
   first.unmount();

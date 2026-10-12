@@ -31,6 +31,16 @@ describe('tagSlice state', () => {
 });
 
 describe('loadTags', () => {
+  it('ignores an obsolete refresh failure after a successful tag mutation refresh', async () => {
+    let fail!: (error: Error) => void;
+    tagApi.getTags.mockReturnValue(new Promise((_resolve, reject) => { fail = reject; }));
+    const store = makeStore();
+    const pending = store.dispatch(loadTags());
+    store.dispatch(setTags([tag('new', 'new')]));
+    fail(new Error('old request went offline'));
+    await pending;
+    expect(store.getState().tag).toMatchObject({ tags: [tag('new', 'new')], isLoading: false, error: null });
+  });
   it('coalesces overlapping refreshes and does not overwrite a later mutation refresh', async () => {
     let finish!: (value: Tag[]) => void;
     tagApi.getTags.mockReturnValue(new Promise(resolve => { finish = resolve; }));

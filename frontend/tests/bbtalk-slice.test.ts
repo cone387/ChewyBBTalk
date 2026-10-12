@@ -181,6 +181,42 @@ describe('public feed', () => {
 });
 
 describe('record mutations', () => {
+  it('keeps useful fallback messages when API failures omit their message', async () => {
+    const s = store();
+    api.getBBTalks.mockRejectedValue(new Error(''));
+    await s.dispatch(loadBBTalks());
+    expect(state(s).error).toBe('加载BBTalk失败');
+    await s.dispatch(loadMoreBBTalks());
+    expect(state(s).error).toBe('加载更多BBTalk失败');
+    api.getPublicBBTalks.mockRejectedValue(new Error(''));
+    await s.dispatch(loadPublicBBTalks());
+    expect(state(s).error).toBe('加载公开BBTalk失败');
+    await s.dispatch(loadMorePublicBBTalks());
+    expect(state(s).error).toBe('加载更多公开BBTalk失败');
+    api.createBBTalk.mockRejectedValue(new Error(''));
+    await s.dispatch(createBBTalkAsync({ content: 'draft' }));
+    expect(state(s).error).toBe('创建 BBTalk失败');
+    api.updateBBTalk.mockRejectedValue(new Error(''));
+    await s.dispatch(updateBBTalkAsync({ id: 'b1', data: { content: 'draft' } }));
+    expect(state(s).error).toBe('更新BBTalk失败');
+    api.deleteBBTalk.mockRejectedValue(new Error(''));
+    await s.dispatch(deleteBBTalkAsync('b1'));
+    expect(state(s).error).toBe('删除BBTalk失败');
+  });
+
+  it('does not show network errors for cancelled pagination and public reads', async () => {
+    const s = store();
+    const aborted = Object.assign(new Error('cancelled'), { name: 'AbortError' });
+    api.getBBTalks.mockRejectedValue(aborted);
+    api.getPublicBBTalks.mockRejectedValue(aborted);
+    await s.dispatch(loadMoreBBTalks());
+    expect(state(s)).toMatchObject({ error: null, isLoading: false });
+    await s.dispatch(loadPublicBBTalks());
+    expect(state(s)).toMatchObject({ error: null, isLoading: false });
+    await s.dispatch(loadMorePublicBBTalks());
+    expect(state(s)).toMatchObject({ error: null, isLoading: false });
+  });
+
   it('keeps newly created records when an earlier refresh completes afterwards', async () => {
     const s = store();
     await s.dispatch(loadBBTalks());
