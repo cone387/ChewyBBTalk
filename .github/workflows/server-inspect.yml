@@ -43,6 +43,19 @@ jobs:
                         print(json.dumps({'backup_run': directory.name,
                             'completed_files': sorted(path.name for path in directory.iterdir() if path.is_file()),
                             'dump_bytes': (directory / 'database.dump').stat().st_size if (directory / 'database.dump').exists() else 0}))
+                        diagnostics = directory / 'diagnostics.log'
+                        if diagnostics.is_file():
+                            for line in diagnostics.read_text(encoding='utf8', errors='replace').splitlines():
+                                if line.startswith('AUTHENTICATED_SMOKE_FAILED: '):
+                                    print(line)
+                                try:
+                                    record = json.loads(line)
+                                except ValueError:
+                                    continue
+                                keys = ('users_checked', 'feeds_checked', 'attachment_metadata_checked', 'local_downloads_checked', 'cloud_attachments', 'missing_local_files')
+                                if isinstance(record, dict) and all(key in record for key in keys):
+                                    print(json.dumps({key: record[key] for key in keys}))
+
             PY
             if test -f .env; then echo ROOT_ENV_PRESENT=yes; else echo ROOT_ENV_PRESENT=no; fi
             for name in chewy-bbtalk chewybbtalk chewybbtalk-backend chewy-bbtalk-previous; do
@@ -79,6 +92,8 @@ jobs:
                         'revision': revision, 'counts': counts})
             print(json.dumps(result, ensure_ascii=False))
             details = {'working_directory': os.getcwd()}
+            details['old_entrypoints'] = [str(path) for path in pathlib.Path('/app/backend').rglob('manage.py')]
+
             if parsed.scheme in ('postgres', 'postgresql'):
                 import psycopg2
                 from psycopg2 import sql
@@ -88,6 +103,15 @@ jobs:
                         cursor.execute("SELECT tablename FROM pg_tables WHERE schemaname='public'")
                         tables = [row[0] for row in cursor.fetchall()]
                         details['counts'] = {}
+                        if 'cb_attachments' in tables:
+                            cursor.execute('SELECT storage_path FROM cb_attachments')
+                            keys = [row[0] for row in cursor.fetchall()]
+                            details['attachment_path_matches'] = []
+                            for root in ('/app/data/media/attachments', '/app/data/media', '/app/media', '/app/backend/media', '/app/backend/chewy_space/media'):
+                                base = pathlib.Path(root)
+                                found = [base / key for key in keys if not pathlib.Path(key).is_absolute() and '..' not in pathlib.Path(key).parts and (base / key).is_file()]
+                                details['attachment_path_matches'].append({'root': root, 'matching_records': len(found), 'unique_files': len(set(found))})
+
                         for table in tables:
                             if table.startswith(('cb_', 'token_blacklist_', 'django_', 'auth_')):
                                 cursor.execute(sql.SQL('SELECT count(*) FROM {}').format(sql.Identifier(table)))
