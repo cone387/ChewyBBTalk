@@ -1,0 +1,57 @@
+name: Back up and migrate PostgreSQL through a verified copy
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: 'Rehearsal keeps production running; cutover briefly stops writes and retains the original database.'
+        type: choice
+        options: [rehearse, cutover]
+        default: rehearse
+        required: true
+      image:
+        description: 'Verified image: ghcr.io/cone387/chewy-bbtalk@sha256:...'
+        type: string
+        required: true
+      run_id:
+        description: 'Unique lowercase run ID (letters, digits and underscores, 6-36 characters)'
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  upgrade:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: production-deployment
+      cancel-in-progress: false
+    env:
+      DEPLOY_DIR: ${{ secrets.DEPLOY_PATH || '/home/bzl/projects/ChewyBBTalk' }}
+      OPS_COMMIT: ${{ github.sha }}
+      OPS_PHASE: ${{ inputs.phase }}
+      OPS_IMAGE: ${{ inputs.image }}
+      OPS_RUN_ID: ${{ inputs.run_id }}
+    steps:
+      - name: Back up, restore and verify a separate database before any cutover
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          command_timeout: 30m
+          envs: DEPLOY_DIR,OPS_COMMIT,OPS_PHASE,OPS_IMAGE,OPS_RUN_ID
+          script: |
+            set -eu
+            umask 077
+            cd "$DEPLOY_DIR"
+            timeout --kill-after=5 60 git fetch origin "$OPS_COMMIT"
+            ops_dir=$(mktemp -d)
+            git show "$OPS_COMMIT:scripts/postgres-copy-upgrade.py" > "$ops_dir/postgres-copy-upgrade.py"
+            git show "$OPS_COMMIT:scripts/postgres-copy-worker.py" > "$ops_dir/postgres-copy-worker.py"
+            git show "$OPS_COMMIT:scripts/postgres-copy-smoke.py" > "$ops_dir/postgres-copy-smoke.py"
+            # Temporary operational source is kept if interrupted; backup data is never cleaned up here.
+            python3 "$ops_dir/postgres-copy-upgrade.py" "$OPS_PHASE" --image "$OPS_IMAGE" --run-id "$OPS_RUN_ID"

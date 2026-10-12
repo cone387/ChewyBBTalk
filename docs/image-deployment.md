@@ -94,3 +94,17 @@ python3 -m unittest discover -s scripts/tests -v
 2026-09-07 后续备份版本：3ae91b5 的构建成功，但部署发现旧 conmon 继承了锁句柄。80bce0f 关闭容器命令继承的 fd 9 并在退出时解锁；10 项脚本测试通过。确认只有旧 conmon 持锁后归档旧锁文件，服务保持运行。部署 34095949418 成功，运行镜像 `ghcr.io/cone387/chewy-bbtalk@sha256:993a34ccfcf675e8201f64daee94c4aa64d3fce64fe168c41bf40fc9eaad71fa`，独立检查 Web 200/API 401，且 `flock -n .deploy-image.lock true` 成功。
 
 最终搜索版本 `64c6b8e`：部署 run 34097343536 成功，镜像 `ghcr.io/cone387/chewy-bbtalk@sha256:3d516bc091b0c33abcb979f38acebe241af1d6dfb9e7884d0957379fb80ea7b2`。独立服务器检查确认运行摘要一致、Web 200、用户/备份接口未登录均 401、部署锁可用。CI run 34097343528 全部成功。后续验收文档提交不变更运行代码。
+
+### PostgreSQL 旧库保留式切换
+
+`Back up and migrate PostgreSQL through a verified copy` 工作流用于 Django 旧结构升级到 `0003_native_schema`。它只接受固定镜像摘要，在服务器本地保存密钥，不会把数据库、配置或文件上传到 GitHub。当前工具支持 PostgreSQL 16、单个 `chewy-bbtalk` 写入容器、`/app/data` 绑定挂载及 `/app/data/media` 媒体目录；其他布局会拒绝执行，须先单独评估。
+
+1. 使用 `rehearse` 和唯一 `run_id`，在线备份并恢复到独立新库，比较全部表内容摘要，然后迁移副本。候选服务只绑定 `127.0.0.1:4011`，读取接口验证完成即停止。生产容器保持运行。
+2. 演练通过后，使用另一个唯一 `run_id` 执行 `cutover`。预检和拉取镜像在停服前完成；随后停止旧容器、检查其他数据库连接、重新生成最终备份并重复全部恢复和迁移验证。
+3. 验证通过才更新部署根 `.env` 中的数据库与文件挂载路径，并启动正式容器。启动过程不执行管理员/demo 初始化。原数据库、原 `data/`、旧镜像和 `chewy-bbtalk-legacy-<run_id>` 容器均保留。
+
+备份位于部署目录上一级的 `migration-backups/<run_id>/`（权限 0700），包括 `database.dump`、`data.tar.gz`、原 `.env`、容器配置、文件 SHA-256 清单、恢复/迁移校验报告。配置和诊断文件可能含敏感信息，不应上传到公开日志或提交 Git。新服务的数据目录为同级 `chewy-bbtalk-data-<run_id>/`，由根 `.env` 的 `HOST_DATA_DIR` 管理。
+
+正式发布前失败会恢复旧容器，旧数据库从未被修改。发布后可能已产生新写入，工具不会自动切回旧库：必须先停写、保存新库并核对新增记录。若主机断电或进程被强制终止，应检查容器状态与备份中的 `CUTOVER_COMPLETE`，不能直接重跑相同 `run_id`。不要删除原库、旧容器或备份来腾空间。
+
+文件归档覆盖实际挂载目录；S3 对象不在该本地归档中，数据库引用和访问配置会保留。若使用 S3，需要单独保留桶版本/对象备份，并验证访问，不能将数据库备份当作远端对象备份。
