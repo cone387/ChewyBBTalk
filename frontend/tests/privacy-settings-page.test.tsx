@@ -14,9 +14,28 @@ afterEach(() => { cleanup(); delete window.__BBTALK_CONFIG__; });
 function slider(view: ReturnType<typeof render>) {
   return view.container.querySelector('input[type="range"]') as HTMLInputElement;
 }
-function toggle() { return screen.getByRole('checkbox'); }
+function toggle() { return screen.getByRole('checkbox', { name: /显示防窥倒计时/ }) as HTMLInputElement; }
 
 describe('PrivacySettingsPage', () => {
+  it('persists the automatic privacy switch and retains timeout/countdown preferences while disabled', () => {
+    localStorage.setItem('privacy_timeout_minutes', '17');
+    localStorage.setItem('show_privacy_countdown', 'true');
+    const view = render(<PrivacySettingsPage />);
+    const enabled = () => screen.getByRole('checkbox', { name: '启用自动防窥' }) as HTMLInputElement;
+    expect(enabled().checked).toBe(true);
+    fireEvent.click(enabled());
+    expect(localStorage.getItem('privacy_enabled')).toBe('false');
+    expect(slider(view).disabled).toBe(true);
+    expect(toggle().disabled).toBe(true);
+    view.unmount();
+    const restored = render(<PrivacySettingsPage />);
+    expect(enabled().checked).toBe(false);
+    fireEvent.click(enabled());
+    expect(localStorage.getItem('privacy_enabled')).toBe('true');
+    expect(slider(restored).disabled).toBe(false);
+    expect(slider(restored).value).toBe('17');
+    expect(toggle().checked).toBe(true);
+  });
   it('uses deployment defaults while preserving personal preferences and empty-value fallback', () => {
     window.__BBTALK_CONFIG__ = { VITE_PRIVACY_TIMEOUT_MINUTES: '12', VITE_SHOW_PRIVACY_COUNTDOWN: 'true' };
     const first = render(<PrivacySettingsPage />);

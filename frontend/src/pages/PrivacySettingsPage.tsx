@@ -2,8 +2,10 @@ import Icon from '../components/ui/Icon'
 import { getPublicSetting } from '../config';
 import SettingsLayout from '../components/layout/SettingsLayout';
 import { useState } from 'react';
+import { usePrivacyEnabled } from '../hooks/usePrivacyEnabled';
 
 export default function PrivacySettingsPage() {
+  const [privacyEnabled, setPrivacyEnabled] = usePrivacyEnabled();
 
   const [privacyTimeoutMinutes, setPrivacyTimeoutMinutes] = useState(() => {
     const saved = localStorage.getItem('privacy_timeout_minutes');
@@ -35,6 +37,17 @@ export default function PrivacySettingsPage() {
           </div>
 
           <div className="p-6 space-y-6">
+            <label className="flex min-h-11 items-center justify-between gap-3 cursor-pointer">
+              <div>
+                <div className="text-sm font-medium text-gray-700">启用自动防窥</div>
+                <p className="text-xs text-gray-500 mt-1">关闭后不会因长时间无操作而自动锁定</p>
+              </div>
+              <div className="relative shrink-0">
+                <input type="checkbox" aria-label="启用自动防窥" checked={privacyEnabled}
+                  onChange={event => setPrivacyEnabled(event.target.checked)} className="sr-only peer" />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600" />
+              </div>
+            </label>
             {/* 超时时长 */}
             <div className="grid gap-x-8 lg:grid-cols-[180px_minmax(0,1fr)]">
               <label htmlFor="privacy-timeout" className="block text-sm font-medium text-gray-700 mb-3">
@@ -47,12 +60,13 @@ export default function PrivacySettingsPage() {
                   min="1"
                   max="60"
                   value={privacyTimeoutMinutes}
+                  disabled={!privacyEnabled}
                   onChange={(e) => {
                     const value = parseInt(e.target.value, 10);
                     setPrivacyTimeoutMinutes(value);
                     localStorage.setItem('privacy_timeout_minutes', value.toString());
                   }}
-                  className="app-range flex-1 min-w-0"
+                  className="app-range flex-1 min-w-0 disabled:opacity-50"
                 />
                 <span className="text-sm font-medium text-gray-900 w-16 text-right">
                   {privacyTimeoutMinutes} 分钟
@@ -71,12 +85,14 @@ export default function PrivacySettingsPage() {
                     显示防窥倒计时
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
-                    在记录页右上方显示倒计时提示
+                    在记录页右下角显示倒计时提示
                   </p>
                 </div>
                 <div className="relative">
                   <input
                     type="checkbox"
+                    aria-label="显示防窥倒计时"
+                    disabled={!privacyEnabled}
                     checked={showCountdown}
                     onChange={(e) => {
                       const value = e.target.checked;

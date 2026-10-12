@@ -113,7 +113,7 @@ test('form errors identify fields and controls retain usable geometry', async ({
   await page.goto('/settings/privacy')
   const slider = page.getByRole('slider', { name: '防窥超时时长' })
   await touchTarget(slider)
-  const checkbox = page.getByRole('checkbox')
+  const checkbox = page.getByRole('checkbox', { name: '显示防窥倒计时' })
   const label = checkbox.locator('xpath=ancestor::label')
   await touchTarget(label)
   await slider.focus()

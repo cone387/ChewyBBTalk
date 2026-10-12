@@ -10,6 +10,7 @@ import type { BBTalk, Tag } from '../src/types';
 const boundary = vi.hoisted(() => ({
   user: { id: 1, username: 'alice', display_name: 'Alice' } as { id: number; username: string; display_name: string } | null,
   navigate: vi.fn(), privacy: false, activate: vi.fn(),
+  privacyOptions: vi.fn(),
 }));
 const api = vi.hoisted(() => ({
   getBBTalks: vi.fn(), getPublicBBTalks: vi.fn(), createBBTalk: vi.fn(), updateBBTalk: vi.fn(), deleteBBTalk: vi.fn(),
@@ -20,13 +21,13 @@ vi.mock('../src/services/api', () => ({ bbtalkApi: api, tagApi: tagsApi }));
 vi.mock('../src/services/auth', () => ({ getCurrentUser: () => boundary.user }));
 vi.mock('react-router-dom', () => ({ useNavigate: () => boundary.navigate }));
 vi.mock('../src/hooks/usePrivacyMode', () => ({
-  usePrivacyMode: () => ({
+  usePrivacyMode: (options: unknown) => { boundary.privacyOptions(options); return ({
     isPrivacyMode: boundary.privacy,
     activatePrivacy: boundary.activate,
     deactivatePrivacy: vi.fn(),
     resetTimer: vi.fn(),
     remainingSeconds: null,
-  }),
+  }); },
 }));
 vi.mock('../src/components/BBTalkEditor', () => ({
   default: ({ onPublish, onCancelEdit, editing }: any) => (
@@ -107,6 +108,17 @@ function stubAsyncRaf() {
 const settle = () => act(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
 
 describe('initial rendering', () => {
+  it('disables automatic privacy and its countdown when the saved switch is off', async () => {
+    localStorage.setItem('privacy_enabled', 'false');
+    localStorage.setItem('show_privacy_countdown', 'true');
+    await loaded();
+    expect(boundary.privacyOptions).toHaveBeenLastCalledWith(expect.objectContaining({ enabled: false }));
+    expect(screen.queryByText('倒计时')).toBeNull();
+    localStorage.setItem('privacy_enabled', 'true');
+    fireEvent(window, new StorageEvent('storage', { key: 'privacy_enabled', newValue: 'true' }));
+    expect(boundary.privacyOptions).toHaveBeenLastCalledWith(expect.objectContaining({ enabled: true }));
+    expect(screen.getByText('倒计时')).toBeTruthy();
+  });
   it('uses one refresh when focus arrives during a debounced filter change', async () => {
     await loaded();
     api.getBBTalks.mockClear();

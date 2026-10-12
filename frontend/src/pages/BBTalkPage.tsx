@@ -14,6 +14,7 @@ import Modal from '../components/ui/Modal'
 import ImagePreview from '../components/ImagePreview'
 import PrivacyCountdownButton from '../components/PrivacyCountdownButton'
 import { usePrivacyMode } from '../hooks/usePrivacyMode'
+import { usePrivacyEnabled } from '../hooks/usePrivacyEnabled'
 import { getCurrentUser } from '../services/auth'
 import {
   DndContext,
@@ -135,6 +136,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
     return saved ? parseInt(saved, 10) : parseInt(getPublicSetting('VITE_PRIVACY_TIMEOUT_MINUTES') || '5', 10)
   })
   const [currentUser] = useState(getCurrentUser())
+  const [privacyEnabled] = usePrivacyEnabled()
   const [showCountdown] = useState(() => {
     const saved = localStorage.getItem('show_privacy_countdown')
     return saved ? saved === 'true' : getPublicSetting('VITE_SHOW_PRIVACY_COUNTDOWN') === 'true'
@@ -144,7 +146,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
   const privacyTimeoutMs = privacyTimeoutMinutes * 60 * 1000
   const { isPrivacyMode, resetTimer, activatePrivacy } = usePrivacyMode({
     timeout: privacyTimeoutMs,
-    enabled: !isPublic, // 仅登录状态启用防窥模式
+    enabled: !isPublic && privacyEnabled,
     persistOnRefresh: true,
     trackCountdown: false,
   })
@@ -588,7 +590,7 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
       </div>
       
       {/* 防窥倒计时保持原有右下角悬浮位置 */}
-      {!isPublic && showPrivacyCountdown && !isPrivacyMode && (
+      {!isPublic && privacyEnabled && showPrivacyCountdown && !isPrivacyMode && (
         <PrivacyCountdownButton timeoutMs={privacyTimeoutMs} enabled onActivate={activatePrivacy} />
       )}
 
