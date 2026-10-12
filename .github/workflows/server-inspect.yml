@@ -39,11 +39,22 @@ jobs:
             import json, pathlib, os, subprocess
             root = pathlib.Path.cwd().parent / 'migration-backups'
             if root.is_dir():
-                for directory in sorted(root.iterdir())[-3:]:
+                for directory in sorted(root.iterdir(), key=lambda item: item.stat().st_mtime)[-3:]:
                     if directory.is_dir():
                         print(json.dumps({'backup_run': directory.name,
                             'completed_files': sorted(path.name for path in directory.iterdir() if path.is_file()),
                             'dump_bytes': (directory / 'database.dump').stat().st_size if (directory / 'database.dump').exists() else 0}))
+                        if (directory / 'CUTOVER_COMPLETE').is_file():
+                            import hashlib
+                            checksums = json.loads((directory / 'backup.sha256.json').read_text())
+                            for name, expected in checksums.items():
+                                with (directory / name).open('rb') as source:
+                                    digest = hashlib.sha256()
+                                    for chunk in iter(lambda: source.read(1024 * 1024), b''):
+                                        digest.update(chunk)
+                                if digest.hexdigest() != expected:
+                                    raise RuntimeError('Completed cutover backup checksum mismatch')
+                            print(json.dumps({'completed_cutover': directory.name, 'backup_checksums_verified': len(checksums)}))
                         diagnostics = directory / 'diagnostics.log'
                         if diagnostics.is_file():
                             for line in diagnostics.read_text(encoding='utf8', errors='replace').splitlines():
@@ -84,7 +95,7 @@ jobs:
             backups = pathlib.Path.cwd().parent / 'migration-backups'
             completed = [path for path in backups.iterdir() if (path / 'verify.json').is_file()]
             if completed:
-                report = sorted(completed)[-1] / 'attachment-source-audit.json'
+                report = max(completed, key=lambda item: item.stat().st_mtime) / 'attachment-source-audit.json'
                 report.write_text(json.dumps({'missing_record_ids':[value[0] for value in missing.values()], 'found':found}, sort_keys=True), encoding='utf8')
                 report.chmod(0o600)
             print(json.dumps({'host_attachment_search':{'missing_unique_filenames':len(missing), 'matching_files':len(found), 'matched_records':len({item['id'] for item in found}), 'directories_checked':visited}}))
