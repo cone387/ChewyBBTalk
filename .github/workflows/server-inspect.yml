@@ -223,6 +223,19 @@ jobs:
                         if 'django_migrations' in tables:
                             cursor.execute('SELECT app,name FROM django_migrations ORDER BY id DESC LIMIT 12')
                             details['historical_migrations'] = cursor.fetchall()
+            if not modules:
+                import importlib.util, urllib.request, urllib.error
+                details['django_package_installed'] = importlib.util.find_spec('django') is not None
+                details['http_checks'] = {}
+                for endpoint, expected in (('/healthz', 200), ('/api/schema/', 200), ('/api/v1/bbtalk/user/me', 401)):
+                    try:
+                        response = urllib.request.urlopen('http://127.0.0.1:4010' + endpoint, timeout=10)
+                    except urllib.error.HTTPError as error:
+                        response = error
+                    with response:
+                        if response.status != expected:
+                            raise RuntimeError('Native service HTTP check failed')
+                        details['http_checks'][endpoint] = response.status
             details['directories'] = []
             for path in {pathlib.Path('/app/data'), pathlib.Path(os.environ.get('DATA_DIR', '/app/data')),
                          pathlib.Path(os.environ.get('MEDIA_ROOT', '/app/data/media'))}:
