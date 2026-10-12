@@ -11,7 +11,7 @@ jobs:
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     concurrency:
-      group: production-deployment
+      group: production-inspection
       cancel-in-progress: false
     env:
       DEPLOY_DIR: ${{ secrets.DEPLOY_PATH || '/home/bzl/projects/ChewyBBTalk' }}
@@ -31,6 +31,16 @@ jobs:
             printf 'DEPLOY_DIRECTORY=%s\n' "$PWD"
             df -Pk .
             docker --version
+            python3 - <<'PY'
+            import json, pathlib
+            root = pathlib.Path.cwd().parent / 'migration-backups'
+            if root.is_dir():
+                for directory in sorted(root.iterdir())[-3:]:
+                    if directory.is_dir():
+                        print(json.dumps({'backup_run': directory.name,
+                            'completed_files': sorted(path.name for path in directory.iterdir() if path.is_file()),
+                            'dump_bytes': (directory / 'database.dump').stat().st_size if (directory / 'database.dump').exists() else 0}))
+            PY
             if test -f .env; then echo ROOT_ENV_PRESENT=yes; else echo ROOT_ENV_PRESENT=no; fi
             for name in chewy-bbtalk chewybbtalk chewybbtalk-backend chewy-bbtalk-previous; do
               if docker container inspect "$name" >/dev/null 2>&1; then
