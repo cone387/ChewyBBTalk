@@ -6,7 +6,7 @@ on:
       phase:
         description: 'Rehearsal keeps production running; cutover briefly stops writes and retains the original database.'
         type: choice
-        options: [rehearse, cutover]
+        options: [rehearse, cutover, stop-rehearsal]
         default: rehearse
         required: true
       image:
@@ -60,5 +60,6 @@ jobs:
             git show "$OPS_COMMIT:scripts/postgres-copy-upgrade.py" > "$ops_dir/postgres-copy-upgrade.py"
             git show "$OPS_COMMIT:scripts/postgres-copy-worker.py" > "$ops_dir/postgres-copy-worker.py"
             git show "$OPS_COMMIT:scripts/postgres-copy-smoke.py" > "$ops_dir/postgres-copy-smoke.py"
+            git show "$OPS_COMMIT:scripts/postgres-copy-attachments.py" > "$ops_dir/postgres-copy-attachments.py"
             # Temporary operational source is kept if interrupted; backup data is never cleaned up here.
             python3 "$ops_dir/postgres-copy-upgrade.py" "$OPS_PHASE" --image "$OPS_IMAGE" --run-id "$OPS_RUN_ID" --staged-images-run-id "$OPS_STAGED_RUN_ID"

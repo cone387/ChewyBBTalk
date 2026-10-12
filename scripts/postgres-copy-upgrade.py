@@ -28,7 +28,7 @@ sed "s/\${NGINX_CLIENT_MAX_BODY_SIZE}/$NGINX_CLIENT_MAX_BODY_SIZE/g" /etc/nginx/
 exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
 '''
 PROBE = '''import json, urllib.request, urllib.error
-for path, expected in [('/', 200), ('/health', 200), ('/api/schema/', 200), ('/api/v1/bbtalk/user/me', 401)]:
+for path, expected in [('/', 200), ('/healthz', 200), ('/api/schema/', 200), ('/api/v1/bbtalk/user/me', 401)]:
     try:
         response = urllib.request.urlopen('http://127.0.0.1:4010' + path, timeout=5)
     except urllib.error.HTTPError as error:
@@ -192,6 +192,7 @@ class Upgrade:
                         archived[str(Path(member.name).relative_to('data'))] = hashlib.sha256(source.read()).hexdigest()
         if archived != before:
             raise RuntimeError('File archive content verification failed')
+        self.capture_attachment_baseline()
         self.worker_task('create')
         self.pg('pg-target.env', 'pg_restore', '--no-owner', '--exit-on-error', '--single-transaction',
                 '--dbname=' + self.target, '/backup/database.dump')
@@ -202,6 +203,19 @@ class Upgrade:
                      for name in ('database.dump', 'data.tar.gz', 'root.env.before', 'old-container.json')}
         (self.root / 'backup.sha256.json').write_text(json.dumps(checksums, sort_keys=True), encoding='utf8')
         print(json.dumps({'backup_verified': True, 'local_files': len(before), 'sha256': checksums}), flush=True)
+
+    def capture_attachment_baseline(self):
+        script = self.worker.with_name('postgres-copy-attachments.py').read_bytes()
+        output = self.docker('run', '--rm', '-i', '--env-file', str(self.root / 'source.env'),
+                             '-v', str(self.data) + ':/app/data:ro', '--entrypoint', 'python',
+                             self.runtime_image, '-', input=script, quiet=True)
+        baseline = json.loads(output)
+        if not isinstance(baseline.get('missing_ids'), list):
+            raise RuntimeError('Invalid source attachment availability baseline')
+        (self.root / 'attachment-baseline.json').write_bytes(output)
+        print(json.dumps({'source_attachment_baseline': {key: baseline[key] for key in
+                          ('local_records', 'present_files', 'cloud_records')},
+                          'preexisting_missing_files': len(baseline['missing_ids'])}), flush=True)
 
     def prepare_service(self):
         skip = {'PATH', 'PYTHON_VERSION', 'PYTHON_SHA256', 'PYTHON_PIP_VERSION',
@@ -223,7 +237,9 @@ class Upgrade:
         print('ISOLATED_CANDIDATE_HEALTHY', flush=True)
 
     def authenticated_health(self, name):
-        source = self.worker.with_name('postgres-copy-smoke.py').read_bytes()
+        baseline = json.loads((self.root / 'attachment-baseline.json').read_text(encoding='utf8'))
+        prefix = 'EXPECTED_MISSING_ATTACHMENTS = ' + repr(baseline['missing_ids']) + '\n'
+        source = (prefix + self.worker.with_name('postgres-copy-smoke.py').read_text(encoding='utf-8-sig')).encode('utf8')
         output = self.docker('exec', '-i', '-w', '/app/backend', name, 'python', '-', input=source, quiet=True)
         (self.root / 'authenticated-smoke.json').write_bytes(output)
         print(output.decode().strip(), flush=True)
@@ -325,8 +341,12 @@ class Upgrade:
             else:
                 print('REHEARSAL_COMPLETE_ORIGINAL_SERVICE_UNCHANGED', flush=True)
         except Exception:
+            if not self.published:
+                try:
+                    subprocess.run(['docker', 'stop', self.candidate], capture_output=True, timeout=60)
+                except (OSError, subprocess.TimeoutExpired):
+                    print('CANDIDATE_STOP_UNCONFIRMED: continuing original service recovery', flush=True)
             if self.stopped and not self.published:
-                subprocess.run(['docker', 'stop', self.candidate], capture_output=True)
                 if self.renamed:
                     self.docker('rename', self.legacy, self.old, quiet=True)
                     shutil.copy2(self.root / 'root.env.before', self.directory / '.env')
@@ -337,9 +357,30 @@ class Upgrade:
             raise
 
 
+def stop_rehearsal(run_id):
+    directory = Path.cwd().resolve()
+    backup = directory.parent / 'migration-backups' / run_id
+    if not (backup / 'verify.json').is_file() or (backup / 'CUTOVER_COMPLETE').exists():
+        raise RuntimeError('Only a retained, verified rehearsal container can be stopped')
+    name = 'chewy-bbtalk-check-' + run_id
+    info = json.loads(subprocess.check_output(['docker', 'inspect', name]))[0]
+    env = dict(item.split('=', 1) for item in info['Config']['Env'] if '=' in item)
+    if urlsplit(env.get('DATABASE_URL', '')).path != '/chewy_bbtalk_native_' + run_id:
+        raise RuntimeError('Rehearsal container database identity mismatch')
+    mounts = info['Mounts']
+    expected = directory.parent / ('chewy-bbtalk-data-' + run_id)
+    if len(mounts) != 1 or Path(mounts[0]['Source']).resolve() != expected or mounts[0]['Destination'] != '/app/data':
+        raise RuntimeError('Rehearsal container data identity mismatch')
+    ports = info.get('HostConfig', {}).get('PortBindings', {})
+    if ports != {'4010/tcp': [{'HostIp': '127.0.0.1', 'HostPort': '4011'}]}:
+        raise RuntimeError('Rehearsal container is not bound exclusively to its private port')
+    subprocess.run(['docker', 'stop', '--time', '30', name], check=True, timeout=60, stdout=subprocess.DEVNULL)
+    print('REHEARSAL_CONTAINER_STOPPED_DATA_AND_DATABASE_RETAINED')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('phase', choices=['rehearse', 'cutover'])
+    parser.add_argument('phase', choices=['rehearse', 'cutover', 'stop-rehearsal'])
     parser.add_argument('--image', required=True)
     parser.add_argument('--run-id', required=True)
     parser.add_argument('--staged-images-run-id', default='')
@@ -354,7 +395,10 @@ def main():
     import fcntl
     with Path('.deploy-image.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        Upgrade(args).execute()
+        if args.phase == 'stop-rehearsal':
+            stop_rehearsal(args.run_id)
+        else:
+            Upgrade(args).execute()
 
 
 if __name__ == '__main__':
