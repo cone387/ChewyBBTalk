@@ -1,0 +1,70 @@
+name: Inspect production data before migration
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: production-deployment
+      cancel-in-progress: false
+    env:
+      DEPLOY_DIR: ${{ secrets.DEPLOY_PATH || '/home/bzl/projects/ChewyBBTalk' }}
+    steps:
+      - name: Read production container and data locations
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          command_timeout: 5m
+          envs: DEPLOY_DIR
+          script: |
+            set -eu
+            cd "$DEPLOY_DIR"
+            printf 'DEPLOY_DIRECTORY=%s\n' "$PWD"
+            df -Pk .
+            docker --version
+            if test -f .env; then echo ROOT_ENV_PRESENT=yes; else echo ROOT_ENV_PRESENT=no; fi
+            for name in chewy-bbtalk chewybbtalk chewybbtalk-backend chewy-bbtalk-previous; do
+              if docker container inspect "$name" >/dev/null 2>&1; then
+                docker inspect --format 'NAME={{.Name}} IMAGE={{.Config.Image}} IMAGE_ID={{.Image}} STATUS={{.State.Status}} MOUNTS={{json .Mounts}}' "$name"
+                if test "$(docker inspect --format '{{.State.Running}}' "$name")" = true; then
+                  docker exec -i "$name" python - <<'PY'
+            import json, os, pathlib, sqlite3
+            from urllib.parse import urlsplit
+            result = {'paths': {key: os.environ.get(key) for key in ('DATA_DIR', 'MEDIA_ROOT')},
+                      'secret_key_in_environment': bool(os.environ.get('SECRET_KEY'))}
+            url = os.environ.get('DATABASE_URL', '')
+            parsed = urlsplit(url)
+            result['database'] = {'scheme': parsed.scheme, 'host': parsed.hostname,
+                                  'port': parsed.port, 'path': parsed.path}
+            candidates = {pathlib.Path('/app/data/db/db.sqlite3'),
+                          pathlib.Path('/app/backend/var/db.sqlite3'),
+                          pathlib.Path('/app/backend/chewy_space/db.sqlite3')}
+            if url.startswith('sqlite:///'):
+                candidates.add(pathlib.Path(url[len('sqlite:///'):]).resolve())
+            result['sqlite_files'] = []
+            for path in sorted(candidates):
+                if not path.is_file():
+                    continue
+                with sqlite3.connect(path.as_uri() + '?mode=ro', uri=True) as db:
+                    tables = [row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")]
+                    counts = {}
+                    for table in tables:
+                        if table.startswith(('cb_', 'token_blacklist_', 'django_', 'auth_')):
+                            quoted = '"' + table.replace('"', '""') + '"'
+                            counts[table] = db.execute('SELECT count(*) FROM ' + quoted).fetchone()[0]
+                    revision = db.execute('SELECT version_num FROM alembic_version').fetchall() if 'alembic_version' in tables else []
+                    result['sqlite_files'].append({'path': str(path), 'bytes': path.stat().st_size,
+                        'revision': revision, 'counts': counts})
+            print(json.dumps(result, ensure_ascii=False))
+            PY
+                fi
+            done

@@ -27,6 +27,12 @@ def isolated_database():
     if not configured:
         pytest.skip('TEST_DATABASE_URL is not configured')
     url = make_url(configured)
+    # Match Settings: SQLAlchemy's unqualified PostgreSQL URL can select
+    # psycopg v3, while this project installs psycopg2 (and PyMySQL for MySQL).
+    if url.drivername == 'postgresql':
+        url = url.set(drivername='postgresql+psycopg2')
+    elif url.drivername == 'mysql':
+        url = url.set(drivername='mysql+pymysql')
     if url.get_backend_name() not in {'postgresql', 'mysql'}:
         pytest.skip('Disposable database tests require PostgreSQL or MySQL')
     name = 'bbtalk_migration_test_' + uuid4().hex
