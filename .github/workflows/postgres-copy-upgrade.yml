@@ -18,6 +18,12 @@ on:
         type: string
         required: true
 
+      staged_images_run_id:
+        description: 'Optional verified image transfer run ID, when server registry downloads are unavailable'
+        type: string
+        default: ''
+        required: false
+
 permissions:
   contents: read
 
@@ -34,6 +40,7 @@ jobs:
       OPS_PHASE: ${{ inputs.phase }}
       OPS_IMAGE: ${{ inputs.image }}
       OPS_RUN_ID: ${{ inputs.run_id }}
+      OPS_STAGED_RUN_ID: ${{ inputs.staged_images_run_id }}
     steps:
       - name: Back up, restore and verify a separate database before any cutover
         uses: appleboy/ssh-action@v1.0.3
@@ -43,7 +50,7 @@ jobs:
           key: ${{ secrets.DEPLOY_KEY }}
           port: ${{ secrets.DEPLOY_PORT || 22 }}
           command_timeout: 30m
-          envs: DEPLOY_DIR,OPS_COMMIT,OPS_PHASE,OPS_IMAGE,OPS_RUN_ID
+          envs: DEPLOY_DIR,OPS_COMMIT,OPS_PHASE,OPS_IMAGE,OPS_RUN_ID,OPS_STAGED_RUN_ID
           script: |
             set -eu
             umask 077
@@ -54,4 +61,4 @@ jobs:
             git show "$OPS_COMMIT:scripts/postgres-copy-worker.py" > "$ops_dir/postgres-copy-worker.py"
             git show "$OPS_COMMIT:scripts/postgres-copy-smoke.py" > "$ops_dir/postgres-copy-smoke.py"
             # Temporary operational source is kept if interrupted; backup data is never cleaned up here.
-            python3 "$ops_dir/postgres-copy-upgrade.py" "$OPS_PHASE" --image "$OPS_IMAGE" --run-id "$OPS_RUN_ID"
+            python3 "$ops_dir/postgres-copy-upgrade.py" "$OPS_PHASE" --image "$OPS_IMAGE" --run-id "$OPS_RUN_ID" --staged-images-run-id "$OPS_STAGED_RUN_ID"

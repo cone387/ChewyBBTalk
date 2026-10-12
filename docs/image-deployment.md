@@ -108,3 +108,5 @@ python3 -m unittest discover -s scripts/tests -v
 正式发布前失败会恢复旧容器，旧数据库从未被修改。发布后可能已产生新写入，工具不会自动切回旧库：必须先停写、保存新库并核对新增记录。若主机断电或进程被强制终止，应检查容器状态与备份中的 `CUTOVER_COMPLETE`，不能直接重跑相同 `run_id`。不要删除原库、旧容器或备份来腾空间。
 
 文件归档覆盖实际挂载目录；S3 对象不在该本地归档中，数据库引用和访问配置会保留。若使用 S3，需要单独保留桶版本/对象备份，并验证访问，不能将数据库备份当作远端对象备份。
+
+服务器访问 GHCR/Docker Hub 超时时，可先手动执行 `Stage public migration images through SSH`：GitHub runner 下载固定摘要的公开镜像，通过既有 SSH 通道传送到 `.tmp/migration-images/<run_id>/`，校验归档及加载后的镜像内容 ID，再生成 `READY`。之后迁移工作流填写 `staged_images_run_id`，将跳过服务器联网拉取，使用通过内容 ID 校验的本地镜像；仍须填写原始不可变 `image` 摘要。中转不包含任何生产数据、配置或密钥。

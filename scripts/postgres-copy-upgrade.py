@@ -105,6 +105,8 @@ class Upgrade:
         self.stopped = False
         self.published = False
         self.renamed = False
+        self.runtime_image = args.image
+        self.pg_image = 'postgres:16'
 
     def run(self, *command, timeout=300, input=None, quiet=False):
         result = subprocess.run(command, input=input, capture_output=True, timeout=timeout)
@@ -123,7 +125,7 @@ class Upgrade:
         output = self.docker('run', '--rm', '--env-file', str(self.root / 'source.env'),
                     '-e', 'TARGET_DATABASE=' + self.target, '-e', 'PYTHONPATH=/app/backend',
                     '-v', str(self.worker.parent) + ':/ops:ro', '-w', '/app/backend',
-                    '--entrypoint', 'python', self.args.image, '/ops/postgres-copy-worker.py', task,
+                    '--entrypoint', 'python', self.runtime_image, '/ops/postgres-copy-worker.py', task,
                     quiet=True)
         (self.root / (task + '.json')).write_bytes(output)
         print(output.decode().strip(), flush=True)
@@ -171,7 +173,7 @@ class Upgrade:
 
     def pg(self, env, *command):
         self.docker('run', '--rm', '--env-file', str(self.root / env), '-v',
-                    str(self.root) + ':/backup', '--entrypoint', command[0], 'postgres:16', *command[1:], quiet=True)
+                    str(self.root) + ':/backup', '--entrypoint', command[0], self.pg_image, *command[1:], quiet=True)
 
     def backup_and_clone(self):
         self.pg('pg-source.env', 'pg_dump', '--format=custom', '--file=/backup/database.dump')
@@ -229,7 +231,7 @@ class Upgrade:
     def launch(self, name, port, restart):
         self.docker('run', '-d', '--name', name, '--restart', restart, '-p', port,
                     '--env-file', str(self.root / 'target.env'), '-v', str(self.live_data) + ':/app/data',
-                    '--entrypoint', '/bin/bash', self.args.image, '-c', BOOT, quiet=True)
+                    '--entrypoint', '/bin/bash', self.runtime_image, '-c', BOOT, quiet=True)
 
     def health(self, name):
         for _ in range(45):
@@ -269,11 +271,44 @@ class Upgrade:
         print(json.dumps({'cutover_complete': True, 'database': self.target,
                           'retained_container': self.legacy, 'persistent_data': str(self.live_data)}), flush=True)
 
-    def execute(self):
-        self.inspect()
+    def prepare_images(self):
+        staged = self.args.staged_images_run_id
+        if staged:
+            if not re.fullmatch(RUN_RE, staged):
+                raise RuntimeError('Invalid staged image run ID')
+            directory = self.directory / '.tmp' / 'migration-images' / staged
+            if not (directory / 'READY').is_file():
+                raise RuntimeError('Staged images have not been verified')
+            if (directory / 'READY').read_text(encoding='utf8').strip() != file_hash(directory / 'image-map.json'):
+                raise RuntimeError('Staged image mapping checksum mismatch')
+            mapping = json.loads((directory / 'image-map.json').read_text(encoding='utf8'))
+            if mapping.get('image') != self.args.image or not re.fullmatch(r'[a-f0-9]{40}', mapping.get('revision', '')):
+                raise RuntimeError('Staged image provenance differs from requested image')
+            for key in ('image_id', 'postgres_image_id'):
+                expected = mapping.get(key, '')
+                if not re.fullmatch(r'sha256:[a-f0-9]{64}', expected):
+                    raise RuntimeError('Invalid staged image content ID')
+                info = json.loads(self.docker('image', 'inspect', expected.removeprefix('sha256:'), quiet=True))[0]
+                actual = str(info.get('Id') or info.get('ID') or '').removeprefix('sha256:')
+                if actual != expected.removeprefix('sha256:'):
+                    raise RuntimeError('Loaded image content ID mismatch')
+                if key == 'image_id' and info.get('Config', {}).get('Labels', {}).get('org.opencontainers.image.revision') != mapping['revision']:
+                    raise RuntimeError('Loaded application revision mismatch')
+            self.runtime_image = mapping['image_id'].removeprefix('sha256:')
+            self.pg_image = mapping['postgres_image_id'].removeprefix('sha256:')
+            print('VERIFIED_STAGED_IMAGES_READY', flush=True)
+            return
         for image in (self.args.image, 'postgres:16'):
+            cached = subprocess.run(['docker', 'image', 'inspect', image], capture_output=True, timeout=30)
+            if cached.returncode == 0:
+                print('USING_CACHED_IMAGE ' + image, flush=True)
+                continue
             print('PULLING ' + image, flush=True)
             self.docker('pull', image, timeout=600, quiet=True)
+
+    def execute(self):
+        self.inspect()
+        self.prepare_images()
         self.worker_task('preflight')
         if shutil.disk_usage(self.root).free < 512 * 1024 * 1024:
             raise RuntimeError('Less than 512 MiB free before backup')
@@ -307,6 +342,7 @@ def main():
     parser.add_argument('phase', choices=['rehearse', 'cutover'])
     parser.add_argument('--image', required=True)
     parser.add_argument('--run-id', required=True)
+    parser.add_argument('--staged-images-run-id', default='')
     args = parser.parse_args()
     if not re.fullmatch(IMAGE_RE, args.image) or not re.fullmatch(RUN_RE, args.run_id):
         parser.error('An immutable project image and safe unique run ID are required')

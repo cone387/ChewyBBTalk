@@ -1,5 +1,6 @@
-﻿"""Safety checks for the production copy-and-switch orchestrator (no real server)."""
+"""Safety checks for the production copy-and-switch orchestrator (no real server)."""
 import importlib.util
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -46,7 +47,7 @@ class CopyUpgradeSafetyTests(unittest.TestCase):
         value.root = Path(tempfile.gettempdir())
         value.old, value.candidate, value.legacy = 'old', 'candidate', 'retained'
         value.stopped = value.published = value.renamed = False
-        for method in ('inspect', 'docker', 'worker_task', 'backup_and_clone', 'prepare_service', 'publish'):
+        for method in ('inspect', 'docker', 'worker_task', 'backup_and_clone', 'prepare_service', 'prepare_images', 'publish'):
             setattr(value, method, Mock())
         return value
 
@@ -74,6 +75,39 @@ class CopyUpgradeSafetyTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'public health failed'):
             value.execute()
         self.assertFalse(any(call.args[:2] == ('start', 'old') for call in value.docker.call_args_list))
+
+    def test_staged_image_digest_and_content_ids_are_checked(self):
+        with tempfile.TemporaryDirectory() as root:
+            value = self.fixture()
+            value.directory = Path(root)
+            value.args.staged_images_run_id = 's20261012'
+            directory = value.directory / '.tmp' / 'migration-images' / 's20261012'
+            directory.mkdir(parents=True)
+            (directory / 'READY').touch()
+            mapping = {'image': 'test', 'image_id': 'sha256:' + 'a' * 64,
+                       'postgres_image_id': 'sha256:' + 'b' * 64, 'revision': 'c' * 40}
+            (directory / 'image-map.json').write_text(json.dumps(mapping))
+            (directory / 'READY').write_text(ops.file_hash(directory / 'image-map.json'))
+            value.docker.side_effect = [json.dumps([{'Id': 'a' * 64, 'Config': {
+                'Labels': {'org.opencontainers.image.revision': 'c' * 40}}}]).encode(),
+                json.dumps([{'Id': 'sha256:' + 'b' * 64}]).encode()]
+            ops.Upgrade.prepare_images(value)
+            self.assertEqual(value.runtime_image, 'a' * 64)
+            self.assertEqual(value.pg_image, 'b' * 64)
+            mapping['image'] = 'different-reference'
+            (directory / 'image-map.json').write_text(json.dumps(mapping))
+            (directory / 'READY').write_text(ops.file_hash(directory / 'image-map.json'))
+            with self.assertRaisesRegex(RuntimeError, 'provenance differs'):
+                ops.Upgrade.prepare_images(value)
+
+    def test_staged_images_require_ready_marker(self):
+        with tempfile.TemporaryDirectory() as root:
+            value = self.fixture()
+            value.directory = Path(root)
+            value.args.staged_images_run_id = 's20261012'
+            with self.assertRaisesRegex(RuntimeError, 'not been verified'):
+                ops.Upgrade.prepare_images(value)
+            value.docker.assert_not_called()
 
     def test_boot_does_not_initialize_or_migrate(self):
         self.assertNotIn('cli init', ops.BOOT)

@@ -1,0 +1,188 @@
+name: Stage public migration images through SSH
+
+on:
+  workflow_dispatch:
+    inputs:
+      image:
+        description: 'Immutable image: ghcr.io/cone387/chewy-bbtalk@sha256:...'
+        type: string
+        required: true
+      run_id:
+        description: 'Unique lowercase run ID (letters, digits and underscores, 6-36 characters)'
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  stage:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    concurrency:
+      group: production-deployment
+      cancel-in-progress: false
+    env:
+      DEPLOY_DIR: ${{ secrets.DEPLOY_PATH || '/home/bzl/projects/ChewyBBTalk' }}
+      STAGE_IMAGE: ${{ inputs.image }}
+      STAGE_RUN_ID: ${{ inputs.run_id }}
+    steps:
+      - name: Validate inputs and save only public images
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 - <<'PY'
+          import os, re
+          if not re.fullmatch(r'ghcr\.io/cone387/chewy-bbtalk@sha256:[a-f0-9]{64}', os.environ['STAGE_IMAGE']):
+              raise SystemExit('Invalid immutable application image')
+          if not re.fullmatch(r'[a-z0-9][a-z0-9_]{5,35}', os.environ['STAGE_RUN_ID']):
+              raise SystemExit('Invalid staging run ID')
+          PY
+          mkdir -p ".tmp/migration-images/$STAGE_RUN_ID"
+          docker pull --platform linux/amd64 "$STAGE_IMAGE"
+          docker pull --platform linux/amd64 postgres:16
+          docker tag "$STAGE_IMAGE" "bbtalk-migration:$STAGE_RUN_ID"
+          python3 - <<'PY'
+          import json, os, pathlib, re, subprocess
+          def inspect(reference):
+              return json.loads(subprocess.check_output(['docker', 'image', 'inspect', reference]))[0]
+          application = inspect(os.environ['STAGE_IMAGE'])
+          postgres = inspect('postgres:16')
+          revision = (application['Config'].get('Labels') or {}).get('org.opencontainers.image.revision', '')
+          if not re.fullmatch(r'[a-f0-9]{40}', revision):
+              raise SystemExit('Application revision label is missing or invalid')
+          for item in (application, postgres):
+              if not re.fullmatch(r'sha256:[a-f0-9]{64}', item['Id']):
+                  raise SystemExit('Invalid image configuration identity')
+              if item['Architecture'] != 'amd64' or item['Os'] != 'linux':
+                  raise SystemExit('Only linux/amd64 images are supported')
+          if os.environ['STAGE_IMAGE'] not in application.get('RepoDigests', []):
+              raise SystemExit('Pulled image does not retain the requested manifest digest')
+          mapping = {'image': os.environ['STAGE_IMAGE'], 'image_id': application['Id'],
+                     'postgres_image_id': postgres['Id'], 'revision': revision}
+          path = pathlib.Path('.tmp/migration-images') / os.environ['STAGE_RUN_ID'] / 'image-map.pending.json'
+          path.write_text(json.dumps(mapping, sort_keys=True) + '\n', encoding='utf8')
+          PY
+          docker save "bbtalk-migration:$STAGE_RUN_ID" postgres:16 | gzip -1 > ".tmp/migration-images/$STAGE_RUN_ID/images.tar.gz"
+          cd ".tmp/migration-images/$STAGE_RUN_ID"
+          sha256sum images.tar.gz image-map.pending.json > SHA256SUMS
+
+      - name: Prepare a new restricted staging directory
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          command_timeout: 2m
+          envs: DEPLOY_DIR,STAGE_RUN_ID
+          script: |
+            set -eu
+            umask 077
+            python3 - <<'PY'
+            import os, pathlib, platform, re
+            run = os.environ['STAGE_RUN_ID']
+            if not re.fullmatch(r'[a-z0-9][a-z0-9_]{5,35}', run):
+                raise SystemExit('Invalid staging run ID')
+            if platform.machine() not in ('x86_64', 'amd64'):
+                raise SystemExit('Host architecture does not match staged images')
+            root = pathlib.Path(os.environ['DEPLOY_DIR']).resolve(strict=True)
+            parent = root / '.tmp' / 'migration-images'
+            if not parent.resolve().is_relative_to(root):
+                raise SystemExit('Staging path leaves deployment directory')
+            parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            target = parent / run
+            target.mkdir(mode=0o700, exist_ok=False)
+            target.chmod(0o700)
+            PY
+
+      - name: Copy public image archive and checksums through the deployment SSH channel
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          command_timeout: 25m
+          source: .tmp/migration-images/${{ inputs.run_id }}/images.tar.gz,.tmp/migration-images/${{ inputs.run_id }}/image-map.pending.json,.tmp/migration-images/${{ inputs.run_id }}/SHA256SUMS
+          target: ${{ env.DEPLOY_DIR }}/.tmp/migration-images/${{ inputs.run_id }}/
+          tar_tmp_path: ${{ env.DEPLOY_DIR }}/.tmp/migration-images/${{ inputs.run_id }}/
+          strip_components: 3
+
+      - name: Verify archive and loaded identities before publishing the offline mapping
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          command_timeout: 10m
+          envs: DEPLOY_DIR,STAGE_IMAGE,STAGE_RUN_ID
+          script: |
+            set -eu
+            umask 077
+            python3 - <<'PY'
+            import hashlib, json, os, pathlib, re, shutil, subprocess
+            run, reference = os.environ['STAGE_RUN_ID'], os.environ['STAGE_IMAGE']
+            if not re.fullmatch(r'[a-z0-9][a-z0-9_]{5,35}', run):
+                raise SystemExit('Invalid staging run ID')
+            if not re.fullmatch(r'ghcr\.io/cone387/chewy-bbtalk@sha256:[a-f0-9]{64}', reference):
+                raise SystemExit('Invalid immutable application image')
+            root = pathlib.Path(os.environ['DEPLOY_DIR']).resolve(strict=True)
+            target = (root / '.tmp' / 'migration-images' / run).resolve(strict=True)
+            if not target.is_relative_to(root):
+                raise SystemExit('Staging path leaves deployment directory')
+            target.chmod(0o700)
+            if (target / 'READY').exists() or (target / 'image-map.json').exists():
+                raise SystemExit('Staging run was already published')
+            checks = {}
+            for line in (target / 'SHA256SUMS').read_text(encoding='utf8').splitlines():
+                match = re.fullmatch(r'([a-f0-9]{64})  (images\.tar\.gz|image-map\.pending\.json)', line)
+                if match is None or match[2] in checks:
+                    raise SystemExit('Invalid checksum manifest')
+                checks[match[2]] = match[1]
+            if set(checks) != {'images.tar.gz', 'image-map.pending.json'}:
+                raise SystemExit('Incomplete checksum manifest')
+            for name, expected in checks.items():
+                path = target / name
+                if path.is_symlink() or not path.is_file():
+                    raise SystemExit('Unexpected staged file')
+                path.chmod(0o600)
+                digest = hashlib.sha256()
+                with path.open('rb') as stream:
+                    for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+                        digest.update(chunk)
+                if digest.hexdigest() != expected:
+                    raise SystemExit('Staged file checksum mismatch')
+            mapping = json.loads((target / 'image-map.pending.json').read_text(encoding='utf8'))
+            if set(mapping) != {'image', 'image_id', 'postgres_image_id', 'revision'} or mapping['image'] != reference:
+                raise SystemExit('Staged mapping does not match requested image')
+            if not re.fullmatch(r'[a-f0-9]{40}', mapping['revision']):
+                raise SystemExit('Invalid revision in mapping')
+            for key in ('image_id', 'postgres_image_id'):
+                if not re.fullmatch(r'sha256:[a-f0-9]{64}', mapping[key]):
+                    raise SystemExit('Invalid configuration identity in mapping')
+            archive = target / 'images.tar.gz'
+            if shutil.disk_usage(target).free < archive.stat().st_size * 3:
+                raise SystemExit('Insufficient free disk for loading images')
+            subprocess.run(['docker', 'load', '--input', str(archive)], check=True, timeout=480)
+            def inspect(reference):
+                return json.loads(subprocess.check_output(['docker', 'image', 'inspect', reference]))[0]
+            for reference, identity in ((f'bbtalk-migration:{run}', mapping['image_id']), ('postgres:16', mapping['postgres_image_id'])):
+                item = inspect(reference)
+                actual = item['Id'] if item['Id'].startswith('sha256:') else 'sha256:' + item['Id']
+                if actual != identity or item['Architecture'] != 'amd64' or item['Os'] != 'linux':
+                    raise SystemExit('Loaded image configuration does not match mapping')
+                if reference.startswith('bbtalk-migration:') and (item['Config'].get('Labels') or {}).get('org.opencontainers.image.revision') != mapping['revision']:
+                    raise SystemExit('Loaded application revision does not match mapping')
+            published = target / 'image-map.json'
+            with published.open('x', encoding='utf8') as stream:
+                stream.write(json.dumps(mapping, sort_keys=True) + '\n')
+            published.chmod(0o600)
+            with (target / 'READY').open('x', encoding='utf8') as stream:
+                stream.write(hashlib.sha256(published.read_bytes()).hexdigest() + '\n')
+            (target / 'READY').chmod(0o600)
+            print(json.dumps({'ready': True, 'image_id': mapping['image_id'], 'postgres_image_id': mapping['postgres_image_id'], 'revision': mapping['revision']}))
+            PY
