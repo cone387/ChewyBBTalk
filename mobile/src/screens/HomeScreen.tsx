@@ -29,6 +29,9 @@ import TagPickerModal from '../components/TagPickerModal';
 import VisibilityPickerModal from '../components/VisibilityPickerModal';
 import OfflineBanner from '../components/OfflineBanner';
 import CommentInputModal from '../components/CommentInputModal';
+import DraftNotice from '../components/DraftNotice';
+import OutboxNotice from '../components/OutboxNotice';
+import { onRecordsChanged } from '../services/recordChanges';
 import { usePrivacyMode } from '../hooks/usePrivacyMode';
 import { useTagSwipe } from '../hooks/useTagSwipe';
 import { useBBTalkActions } from '../hooks/useBBTalkActions';
@@ -36,12 +39,15 @@ import { useBatchMode } from '../hooks/useBatchMode';
 import { useOfflineCache } from '../hooks/useOfflineCache';
 import { logError } from '../utils/errorHandler';
 import { xAlert, xConfirm } from '../utils/crossAlert';
+import { getSession, isCurrentSession } from '../services/session';
 
 if (Platform.OS === 'android') UIManager.setLayoutAnimationEnabledExperimental?.(true);
 
 interface Props { selectedTag: string | null; selectedDate: string | null; onLockChange?: (locked: boolean) => void; onSelectTag?: (tagId: string | null) => void; }
 
 export default function HomeScreen({ selectedTag, selectedDate, onLockChange, onSelectTag }: Props) {
+  const session = useRef(getSession()).current;
+  const searchHistoryKey = `search_history:${session.scope}`;
   const navigation = useNavigation<any>();
   const dispatch = useAppDispatch();
   const insets = useSafeAreaInsets();
@@ -192,7 +198,11 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
   }, [isLoading, bbtalks.length]);
 
   useEffect(() => {
-    AsyncStorage.getItem('search_history').then(v => { if (v) try { setSearchHistory(JSON.parse(v)); } catch (e) { logError(e, 'parse search history'); } });
+    AsyncStorage.getItem(searchHistoryKey).then(v => {
+      if (!v || !isCurrentSession(session)) return;
+      try { const values = JSON.parse(v); if (Array.isArray(values)) setSearchHistory(values.filter(value => typeof value === 'string').slice(0, 10)); }
+      catch (e) { logError(e, 'parse search history'); }
+    }).catch(e => logError(e, 'read search history'));
     AsyncStorage.getItem('show_tag_tabs').then(v => { setShowTagTabs(v !== 'false'); });
   }, []);
 
@@ -260,6 +270,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
     return promise;
   }, [dispatch, selectedTagName, selectedDate, isOffline, activeSearch]);
   onRefreshRef.current = onRefresh;
+  useEffect(() => onRecordsChanged(() => { void onRefreshRef.current?.(); }), []);
   const foregroundRefreshAt = useRef(0);
   const foregroundRefresh = useCallback(() => {
     if (!navigation.isFocused() || AppState.currentState !== 'active' || Date.now() - foregroundRefreshAt.current < 1000) return;
@@ -298,15 +309,24 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
   // --- Search ---
 
   const saveSearchHistory = useCallback((term: string) => {
-    if (!term.trim()) return;
+    term = term.trim();
+    setSearchText(term);
+    setActiveSearch(term);
+    if (!term || !isCurrentSession(session)) return;
     setSearchHistory(prev => {
       const next = [term, ...prev.filter(s => s !== term)].slice(0, 10);
-      AsyncStorage.setItem('search_history', JSON.stringify(next));
+      AsyncStorage.setItem(searchHistoryKey, JSON.stringify(next)).catch(e => logError(e, 'save search history'));
       return next;
     });
-    setActiveSearch(term.trim());
-  }, [dispatch, selectedTag, selectedDate, tags]);
-  const clearSearchHistory = useCallback(() => { setSearchHistory([]); AsyncStorage.removeItem('search_history'); }, []);
+  }, [searchHistoryKey, session]);
+  const clearSearchHistory = useCallback(() => { setSearchHistory([]); AsyncStorage.removeItem(searchHistoryKey).catch(e => logError(e, 'clear search history')); }, [searchHistoryKey]);
+  const changeSearchText = useCallback((text: string) => {
+    setSearchText(text);
+    if (!text.trim()) setActiveSearch('');
+  }, []);
+  const clearFilters = useCallback(() => {
+    setSearchText(''); setActiveSearch(''); handleSelectTag(null);
+  }, [handleSelectTag]);
 
   const filteredBBTalks = bbtalks;
 
@@ -392,13 +412,12 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
             <Ionicons name="options-outline" size={24} color={selectedTag ? c.primary : c.text} />
           </TouchableOpacity>
           {searchVisible ? (
-            <SearchInput searchText={searchText} onSearchTextChange={setSearchText} onSubmit={saveSearchHistory} theme={theme} />
+            <SearchInput searchText={searchText} onSearchTextChange={changeSearchText} onSubmit={saveSearchHistory} theme={theme} />
           ) : (
             <View style={[styles.headerCenter, { alignItems: 'center' }]}><Text style={{ fontSize: 22, fontWeight: '700', color: c.text }}>记录</Text></View>
           )}
           <TouchableOpacity onPress={() => {
             if (searchVisible) {
-              if (searchText.trim()) saveSearchHistory(searchText);
               setSearchText('');
               setActiveSearch('');
               // Reload without search filter
@@ -412,8 +431,21 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
       )}
 
       <SearchBar visible={searchVisible} searchText={searchText} searchHistory={searchHistory}
-        onSearchTextChange={setSearchText} onSubmit={saveSearchHistory} onClearHistory={clearSearchHistory}
-        onHistoryItemPress={setSearchText} onClose={() => setSearchVisible(false)} theme={theme} />
+        onSearchTextChange={changeSearchText} onSubmit={saveSearchHistory} onClearHistory={clearSearchHistory}
+        onHistoryItemPress={saveSearchHistory} onClose={() => setSearchVisible(false)} theme={theme} />
+      <DraftNotice />
+      <OutboxNotice />
+
+      {(activeSearch || selectedTagName) && <View style={{ paddingHorizontal: 16, flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        {!!activeSearch && <TouchableOpacity accessibilityRole="button" accessibilityLabel={`清除关键词筛选：${activeSearch}`}
+          style={{ minHeight: 44, justifyContent: 'center' }} onPress={() => changeSearchText('')}>
+          <Text style={{ color: c.primary }}>关键词：{activeSearch} ×</Text>
+        </TouchableOpacity>}
+        {!!selectedTagName && <TouchableOpacity accessibilityRole="button" accessibilityLabel={`清除标签筛选：${selectedTagName}`}
+          style={{ minHeight: 44, justifyContent: 'center' }} onPress={() => handleSelectTag(null)}>
+          <Text style={{ color: c.primary }}>标签：{selectedTagName} ×</Text>
+        </TouchableOpacity>}
+      </View>}
 
       {selectedDate && (
         <TouchableOpacity onPress={() => handleSelectTag(null)} accessibilityRole="button"
@@ -440,12 +472,13 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
           ListEmptyComponent={bbtalks.length === 0 && isLoading ? (
             <View>{[0, 1, 2, 3].map(i => <SkeletonCard key={i} />)}</View>
           ) : !isLoading ? (
-            searchText || selectedTag || selectedDate ? (
+            activeSearch || selectedTag || selectedDate ? (
               <EmptyState
                 icon="search-outline"
                 iconColor={c.textTertiary}
                 title="没有找到匹配的碎碎念"
                 hint="试试其他关键词或筛选条件"
+                actionLabel="清除筛选" onAction={clearFilters}
               />
             ) : (
               <EmptyState
@@ -475,6 +508,13 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
         </TouchableOpacity>
       )}
 
+      {!batch.batchMode && (
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="语音记录" onPress={() => setVoiceRecording(true)}
+          style={[styles.fab, { right: 88, width: 88, flexDirection: 'row', gap: 4, bottom: insets.bottom + 24, backgroundColor: c.surface }]}>
+          <Ionicons name="mic-outline" size={22} color={c.primary} />
+          <Text style={{ color: c.primary, fontSize: 14 }}>录音</Text>
+        </TouchableOpacity>
+      )}
       {!batch.batchMode && (
         <View style={[styles.fab, { bottom: insets.bottom + 24, backgroundColor: c.primary, shadowColor: '#000', opacity: holdRecording.pressed ? 0.85 : 1 }]}
           {...holdRecording.handlers} accessibilityRole="button" accessibilityLabel="新建碎碎念">

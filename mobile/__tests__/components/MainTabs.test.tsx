@@ -54,14 +54,13 @@ it.each([['Records', 'chatbubble-ellipses'], ['Calendar', 'calendar'], ['Mine', 
   expect(options.tabBarIcon({ focused: false, color: 'gray', size: 20 }).props.name).toBe(`${icon}-outline`);
   expect(options.headerShown).toBe(route !== 'Records');
 });
-it('makes selecting a tag or calendar date mutually exclusive and passes the filter to records', () => {
+it('keeps record filters independent from in-place calendar reading', () => {
   mount();
   act(() => tree.root.findByType('HomeScreen').props.onSelectTag('work'));
   expect(tree.root.findByType('HomeScreen').props).toMatchObject({ selectedTag: 'work', selectedDate: null });
-  act(() => tree.root.findByType('CalendarScreen').props.onSelectDate('2026-09-30'));
-  expect(tree.root.findByType('HomeScreen').props).toMatchObject({ selectedTag: null, selectedDate: '2026-09-30' });
+  expect(tree.root.findByType('CalendarScreen').props.onSelectDate).toBeUndefined();
   act(() => tree.root.findByType('HomeScreen').props.onSelectTag(null));
-  expect(tree.root.findByType('CalendarScreen').props.selectedDate).toBeNull();
+  expect(tree.root.findByType('HomeScreen').props).toMatchObject({ selectedTag: null, selectedDate: null });
 });
 it('keeps the records lock UI mounted while hiding calendar, settings, headers and the tab bar', () => {
   mount(); const navigation = tabBar();

@@ -1,17 +1,25 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, Modal, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
 import { bbtalkApi } from '../services/api/bbtalkApi';
 import { historyIsLocked, recordHistoryActivity } from '../services/historyPrivacy';
+import { getSession, isCurrentSession } from '../services/session';
+import { readCalendarCache, writeCalendarCache } from '../services/calendarCache';
+import CalendarDayRecords from '../components/CalendarDayRecords';
+import { onRecordsChanged } from '../services/recordChanges';
 
-export default function CalendarScreen({ selectedDate, onSelectDate }: {
-  selectedDate: string | null; onSelectDate: (date: string) => void;
-}) {
+export default function CalendarScreen({ selectedDate: initialDate = null, onSelectDate }: {
+  selectedDate?: string | null; onSelectDate?: (date: string) => void;
+} = {}) {
   const { theme } = useTheme();
   const c = theme.colors;
   const navigation = useNavigation<any>();
+  const [selectedDate, setSelectedDate] = useState(initialDate);
+  const [pickerVisible, setPickerVisible] = useState(false);
+  const [pickerYear, setPickerYear] = useState(String(new Date().getFullYear()));
+  const [cachedMonth, setCachedMonth] = useState(false);
   const [month, setMonth] = useState(() => {
     const today = new Date();
     return new Date(today.getFullYear(), today.getMonth(), 1);
@@ -20,6 +28,7 @@ export default function CalendarScreen({ selectedDate, onSelectDate }: {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [retry, setRetry] = useState(0);
+  React.useEffect(() => onRecordsChanged(() => setRetry(value => value + 1)), []);
   const year = month.getFullYear();
   const monthIndex = month.getMonth();
   useFocusEffect(useCallback(() => {
@@ -27,10 +36,23 @@ export default function CalendarScreen({ selectedDate, onSelectDate }: {
     setLoading(true);
     setError(false);
     setCounts({});
-    bbtalkApi.getDateCounts({ year, month: monthIndex + 1 }).then(data => {
-      if (active && !historyIsLocked()) setCounts(Object.fromEntries(data.map(day => [day.date, day.count])));
-    }).catch(() => { if (active) setError(true); })
-      .finally(() => { if (active) setLoading(false); });
+    setCachedMonth(false);
+    const session = getSession();
+    const name = `month:${year}-${monthIndex + 1}`;
+    const valid = () => active && isCurrentSession(session) && !historyIsLocked();
+    void (async () => {
+      const cached = await readCalendarCache<Record<string, number>>(name, session);
+      if (valid() && cached) { setCounts(cached); setCachedMonth(true); }
+      try {
+        const data = await bbtalkApi.getDateCounts({ year, month: monthIndex + 1 });
+        if (valid()) {
+          const next = Object.fromEntries(data.map(day => [day.date, day.count]));
+          setCounts(next); setCachedMonth(false);
+          await writeCalendarCache(name, next, session).catch(() => {});
+        }
+      } catch { if (active) setError(true); }
+      finally { if (active) setLoading(false); }
+    })();
     return () => { active = false; };
   }, [year, monthIndex, retry]));
 
@@ -42,7 +64,8 @@ export default function CalendarScreen({ selectedDate, onSelectDate }: {
     Array.from({ length: 7 }, (_, column) => days[index * 7 + column] ?? null));
   const total = Object.values(counts).reduce((sum, count) => sum + count, 0);
   const today = new Date();
-  const moveMonth = (offset: number) => setMonth(new Date(year, monthIndex + offset, 1));
+  const chooseMonth = (value: Date) => { setMonth(value); setSelectedDate(null); };
+  const moveMonth = (offset: number) => chooseMonth(new Date(year, monthIndex + offset, 1));
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: c.background }}
@@ -53,7 +76,9 @@ export default function CalendarScreen({ selectedDate, onSelectDate }: {
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="上个月" style={styles.monthButton} onPress={() => moveMonth(-1)}>
             <Ionicons name="chevron-back" size={22} color={c.text} />
           </TouchableOpacity>
-          <Text style={[styles.monthTitle, { color: c.text }]}>{year}年{monthIndex + 1}月</Text>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="选择年月" style={{ minHeight: 48, justifyContent: 'center' }} onPress={() => { setPickerYear(String(year)); setPickerVisible(true); }}>
+            <Text style={[styles.monthTitle, { color: c.text }]}>{year}年{monthIndex + 1}月</Text>
+          </TouchableOpacity>
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="下个月" style={styles.monthButton} onPress={() => moveMonth(1)}>
             <Ionicons name="chevron-forward" size={22} color={c.text} />
           </TouchableOpacity>
@@ -73,12 +98,12 @@ export default function CalendarScreen({ selectedDate, onSelectDate }: {
             return (
               <View key={key} style={styles.cell}>
                 <TouchableOpacity accessibilityRole="button" accessibilityLabel={`${key}，${count}条记录`}
-                  accessibilityState={{ selected, disabled: count === 0 || loading || error }}
-                  disabled={count === 0 || loading || error}
+                  accessibilityState={{ selected, disabled: count === 0 || (!cachedMonth && (loading || error)) }}
+                  disabled={count === 0 || (!cachedMonth && (loading || error))}
                   onPress={() => {
                     if (historyIsLocked()) return;
-                    onSelectDate(key);
-                    navigation.navigate('Records');
+                    setSelectedDate(key);
+                    onSelectDate?.(key);
                   }}
                   style={[styles.day, selected && { backgroundColor: c.primary },
                     isToday && { borderWidth: 1, borderColor: c.primary }]}>
@@ -97,11 +122,27 @@ export default function CalendarScreen({ selectedDate, onSelectDate }: {
           {total > 0 ? `本月记录了 ${Object.keys(counts).length} 天，共 ${total} 条碎碎念` : '这个月还没有记录，试试其他月份。'}
         </Text>}
       </View>
+      {cachedMonth && <Text style={[styles.hint, { color: c.textSecondary }]}>正在显示本机日历缓存{loading ? '，更新中…' : ''}</Text>}
       <TouchableOpacity accessibilityRole="button" style={styles.todayButton}
-        onPress={() => setMonth(new Date(today.getFullYear(), today.getMonth(), 1))}>
+        onPress={() => chooseMonth(new Date(today.getFullYear(), today.getMonth(), 1))}>
         <Text style={{ color: c.primary, fontWeight: '600' }}>回到本月</Text>
       </TouchableOpacity>
       <Text style={[styles.hint, { color: c.textSecondary }]}>点击有记录的日期，查看当天的碎碎念。</Text>
+      {selectedDate && <CalendarDayRecords key={selectedDate} date={selectedDate} />}
+      <Modal visible={pickerVisible} transparent animationType="fade" onRequestClose={() => setPickerVisible(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 24 }}>
+          <View accessibilityViewIsModal style={{ backgroundColor: c.surface, borderRadius: 20, padding: 20, maxWidth: 420, width: '100%', alignSelf: 'center' }}>
+            <Text style={{ color: c.text, fontSize: 18, fontWeight: '600' }}>选择年月</Text>
+            <TextInput accessibilityLabel="年份" keyboardType="number-pad" maxLength={4} value={pickerYear} onChangeText={setPickerYear}
+              style={{ color: c.text, fontSize: 20, minHeight: 48, borderBottomWidth: 1, borderBottomColor: c.border, marginVertical: 12 }} />
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>{Array.from({ length: 12 }, (_, i) => <TouchableOpacity key={i} accessibilityRole="button" accessibilityLabel={`选择${i + 1}月`}
+              disabled={!/^\d{4}$/.test(pickerYear) || Number(pickerYear) < 1900 || Number(pickerYear) > 9999}
+              style={{ width: '25%', minHeight: 48, alignItems: 'center', justifyContent: 'center' }}
+              onPress={() => { chooseMonth(new Date(Number(pickerYear), i, 1)); setPickerVisible(false); }}><Text style={{ color: c.primary }}>{i + 1}月</Text></TouchableOpacity>)}</View>
+            <TouchableOpacity accessibilityRole="button" onPress={() => setPickerVisible(false)} style={{ minHeight: 48, justifyContent: 'center', alignItems: 'center' }}><Text style={{ color: c.textSecondary }}>取消</Text></TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }

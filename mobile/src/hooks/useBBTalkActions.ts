@@ -59,24 +59,6 @@ export function useBBTalkActions({ showError, onNavigateCompose }: UseBBTalkActi
 
   const handleDismiss = useCallback(() => { setPendingDelete(null); }, []);
 
-  const showMenu = useCallback((item: BBTalk) => {
-    const pinLabel = item.isPinned ? '取消置顶' : '置顶';
-    xActionSheet('操作', [
-      { text: '编辑' },
-      { text: pinLabel },
-      { text: '分享' },
-      { text: '复制' },
-      { text: '删除', destructive: true },
-    ], (idx) => {
-      if (!isCurrentSession(session)) return;
-      if (idx === 0) onNavigateCompose(item);
-      if (idx === 1) dispatch(togglePinAsync(item.id));
-      if (idx === 2) shareBBTalk(item);
-      if (idx === 3) Clipboard.setStringAsync(item.content);
-      if (idx === 4) handleDelete(item);
-    });
-  }, [dispatch, handleDelete, onNavigateCompose, shareBBTalk]);
-
   const toggleVisibility = useCallback((item: BBTalk) => {
     const newVis = item.visibility === 'public' ? 'private' : 'public';
     const apply = () => {
@@ -86,6 +68,25 @@ export function useBBTalkActions({ showError, onNavigateCompose }: UseBBTalkActi
     if (newVis === 'public') confirmPublicVisibility(apply);
     else xConfirm('设为仅自己可见？', '更改后，公开页面将无法继续查看这条记录。', apply);
   }, [dispatch]);
+
+  const showMenu = useCallback((item: BBTalk) => {
+    xActionSheet('操作', [
+      { text: '编辑' },
+      { text: item.isPinned ? '取消置顶' : '置顶' },
+      { text: '分享' },
+      { text: '复制' },
+      { text: '删除', destructive: true },
+      { text: item.visibility === 'public' ? '设为仅自己可见' : '设为公开可见' },
+    ], idx => {
+      if (!isCurrentSession(session)) return;
+      if (idx === 0) onNavigateCompose(item);
+      if (idx === 1) dispatch(togglePinAsync(item.id));
+      if (idx === 2) shareBBTalk(item);
+      if (idx === 3) Clipboard.setStringAsync(item.content);
+      if (idx === 4) handleDelete(item);
+      if (idx === 5) toggleVisibility(item);
+    });
+  }, [dispatch, handleDelete, onNavigateCompose, shareBBTalk, toggleVisibility]);
 
   const handleVoiceFinish = useCallback(async (result: { text: string; audioUri: string | null; audioDuration: number }) => {
     if (!isCurrentSession(session)) return;

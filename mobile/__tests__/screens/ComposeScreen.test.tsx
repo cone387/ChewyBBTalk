@@ -22,6 +22,8 @@ const mockRetainMedia = jest.fn();
 const mockUploadRetained = jest.fn();
 const mockPruneRetained = jest.fn();
 const mockSubmissions: any = {};
+const mockEnqueue = jest.fn();
+jest.mock('../../src/services/outbox', () => ({ enqueueSubmission: (...args: any[]) => mockEnqueue(...args), reviseFailedSubmission: (...args: any[]) => mockEnqueue(...args) }));
 const mockApi: any = {};
 const mockAttachmentApi: any = {};
 const mockImagePicker: any = {};
@@ -219,6 +221,7 @@ function installWebWindow() {
 beforeAll(() => { setSession('https://api.example', '1'); });
 
 beforeEach(() => {
+  require('../../src/services/historyPrivacy').setHistoryLocked(false);
   mockPlatform.OS = 'ios';
   mockHoldPressed = false;
   mockNavHolder.value = { goBack: jest.fn(), dispatch: jest.fn(), setParams: jest.fn() };
@@ -244,6 +247,7 @@ beforeEach(() => {
   mockUploadRetained.mockReset();
   mockPruneRetained.mockReset().mockResolvedValue(undefined);
   mockSubmissions.begin = jest.fn(async (payload: any) => ({ key: 'sub_1', payload, state: 'pending' }));
+  mockEnqueue.mockReset().mockImplementation(async (value: any) => ({ ...value, state: 'queued' }));
   mockSubmissions.read = jest.fn(async () => undefined);
   mockSubmissions.confirm = jest.fn(async () => {});
   mockSubmissions.forget = jest.fn(async () => {});
@@ -326,7 +330,7 @@ describe('ComposeScreen drafts', () => {
     expect(hasText('31.2304, 121.4737')).toBe(true);
     expect(hasText('附件待上传，草稿保存在本机')).toBe(true);
     expect(hasText('p1.jpg')).toBe(true);
-    expect(tappable('发布').props.disabled).toBe(true);
+    expect(tappable('发布').props.disabled).toBe(false);
   });
 
   it('falls back to a legacy plain-text draft', async () => {
@@ -361,8 +365,8 @@ describe('ComposeScreen drafts', () => {
       resolveDraft(draftJson({ version: 1, content: '旧会话草稿', visibility: 'private', attachments: [], location: null, pendingMedia: [] }));
     });
     await settle();
-    expect(input().props.value).toBe('');
-    expect(input().props.editable).toBe(false); // draftReady never flipped for the stale session
+    expect(input()).toBeUndefined();
+    expect(hasText('编辑内容已锁定')).toBe(true);
     setSession('https://api.example', '1');
   });
 });
@@ -372,15 +376,10 @@ describe('ComposeScreen publish', () => {
     await mountCompose();
     await typeIn('#随笔 hello ');
     await press('保存');
-    expect(mockSubmissions.begin).toHaveBeenCalledWith({
+    expect(mockEnqueue).toHaveBeenCalledWith(expect.objectContaining({ payload: {
       content: 'hello', tags: ['随笔'], visibility: 'private', attachments: [], context: { source: SOURCE_CONTEXT },
-    }, getSession());
-    expect(mockCreateThunk).toHaveBeenCalledWith({
-      content: 'hello', tags: ['随笔'], visibility: 'private', attachments: [],
-      context: { source: SOURCE_CONTEXT }, submissionKey: 'sub_1',
-    });
-    expect(mockSubmissions.confirm).toHaveBeenCalledWith('sub_1', getSession());
-    expect(mockSubmissions.forget).toHaveBeenCalledWith('sub_1', getSession());
+    } }), getSession());
+    expect(mockCreateThunk).not.toHaveBeenCalled();
     expect(mockAutosave.save).toHaveBeenCalledTimes(1);
     expect(mockAutosave.clear).toHaveBeenCalledTimes(1);
     expect(mockLoadTags).toHaveBeenCalled();
@@ -398,35 +397,35 @@ describe('ComposeScreen publish', () => {
     await mountCompose();
     expect(tappable('保存').props.disabled).toBe(false);
     await press('保存');
-    expect(mockSubmissions.begin.mock.calls[0][0]).toEqual({
+    expect(mockEnqueue.mock.calls[0][0].payload).toEqual({
       content: '附件记录', tags: [], visibility: 'private', attachments: [att('only1')], context: { source: SOURCE_CONTEXT },
     });
   });
 
   it('submits only once per press burst', async () => {
     let resolveCreate!: (value: any) => void;
-    mockThunkResults.create = jest.fn(() => new Promise<any>((resolve) => { resolveCreate = resolve; }));
+    mockEnqueue.mockImplementation(() => new Promise<any>((resolve) => { resolveCreate = resolve; }));
     await mountCompose();
     await typeIn('hello');
     const submit = tappable('保存');
     const handler = submit.props.onPress;
     await act(async () => { void handler(); void handler(); });
-    expect(mockCreateThunk).toHaveBeenCalledTimes(1);
+    expect(mockEnqueue).toHaveBeenCalledTimes(1);
     expect(submit.props.disabled).toBe(true);
     await act(async () => { resolveCreate(undefined); });
     await settle();
-    expect(mockCreateThunk).toHaveBeenCalledTimes(1);
+    expect(mockEnqueue).toHaveBeenCalledTimes(1);
     expect(mockNavHolder.value.goBack).toHaveBeenCalledTimes(1);
   });
 
-  it('warns when publishing succeeds but local cleanup fails', async () => {
+  it('leaves cleanup to the durable queue when local draft removal fails', async () => {
     mockAutosave.clear = jest.fn(async () => { throw new Error('disk full'); });
     await mountCompose();
     await typeIn('hello');
     await press('保存');
-    expect(hasText('发布成功，但本地清理失败。请核对原提交，避免重复发布。')).toBe(true);
-    expect(mockNavHolder.value.goBack).not.toHaveBeenCalled();
-    expect(hasText('查看原提交内容')).toBe(true);
+    expect(mockAutosave.clear).toHaveBeenCalledWith(true);
+    expect(mockNavHolder.value.goBack).toHaveBeenCalled();
+    expect(mockEnqueue).toHaveBeenCalledTimes(1);
   });
 
   it('updates an existing record with the expected revision', async () => {
@@ -437,21 +436,21 @@ describe('ComposeScreen publish', () => {
     expect(tappable('更新')).toBeDefined();
     await typeIn('#工作 改后的内容');
     await press('更新');
-    expect(mockUpdateThunk).toHaveBeenCalledWith({
-      id: 'rec_1',
+    expect(mockEnqueue).toHaveBeenCalledWith(expect.objectContaining({
+      recordId: 'rec_1',
       expectedUpdatedAt: '2026-01-02T00:00:00Z',
-      data: {
+      payload: {
         content: '改后的内容',
-        tags: [{ id: '', name: '工作', color: '', sortOrder: 0, bbtalkCount: 0 }],
+        tags: ['工作'],
         visibility: 'private', attachments: [], context: { source: SOURCE_CONTEXT },
       },
-    });
+    }), getSession());
     expect(mockSubmissions.begin).not.toHaveBeenCalled();
     expect(mockAutosave.clear).toHaveBeenCalledTimes(1);
     expect(mockNavHolder.value.goBack).toHaveBeenCalledTimes(1);
   });
 
-  it('recovers from an edit conflict by adopting the server revision', async () => {
+  it('preserves the base revision for later conflict detection by the queue', async () => {
     mockRoute.params = { editItem: makeEditItem() };
     mockThunkResults.update = jest.fn(async () => { throw { code: 'edit_conflict', current: {
       id: 'rec_1', content: '服务器版本', tags: [{ name: '新' }], visibility: 'public',
@@ -460,25 +459,18 @@ describe('ComposeScreen publish', () => {
     await mountCompose();
     await typeIn('#工作 本地修改');
     await press('更新');
-    expect(mockXConfirm).toHaveBeenCalledWith('记录已有新版本', expect.stringContaining('服务器版本'), expect.any(Function), undefined, {
-      confirmText: '保留修改继续编辑', cancelText: '暂不处理',
-    });
-    const onConfirm = mockXConfirm.mock.calls[0][2];
-    await act(async () => { onConfirm(); });
-    expect(hasText('已核对最新版本，可继续修改后再次保存。')).toBe(true);
-    mockThunkResults.update = jest.fn(async () => undefined);
-    await press('更新');
-    expect(mockUpdateThunk).toHaveBeenLastCalledWith(expect.objectContaining({ expectedUpdatedAt: '2026-05-01T00:00:00Z' }));
+    expect(mockEnqueue.mock.calls[0][0]).toMatchObject({ recordId: 'rec_1', expectedUpdatedAt: '2026-01-02T00:00:00Z', payload: { content: '本地修改' } });
+    expect(mockUpdateThunk).not.toHaveBeenCalled();
     expect(mockNavHolder.value.goBack).toHaveBeenCalledTimes(1);
   });
 
   it('keeps local input when an update fails without a conflict', async () => {
     mockRoute.params = { editItem: makeEditItem() };
-    mockThunkResults.update = jest.fn(async () => { throw { message: '服务不可用' }; });
+    mockEnqueue.mockRejectedValue(new Error('磁盘不可用'));
     await mountCompose();
     await typeIn('#工作 改后的内容');
     await press('更新');
-    expect(hasText('发布或更新失败，内容已保留。服务不可用')).toBe(true);
+    expect(hasText('本机保存失败，内容仍保留。磁盘不可用')).toBe(true);
     expect(input().props.value).toBe('#工作 改后的内容');
     expect(mockNavHolder.value.goBack).not.toHaveBeenCalled();
   });
@@ -639,9 +631,9 @@ describe('ComposeScreen locked capture', () => {
     expect(tappable('解锁查看历史')).toBeDefined();
     await typeIn('快速记一条');
     await press('保存');
-    expect(mockSubmissions.begin).toHaveBeenCalledTimes(1);
+    expect(mockEnqueue).toHaveBeenCalledTimes(1);
     expect(input().props.value).toBe('');
-    expect(hasText('已保存')).toBe(true);
+    expect(hasText('已保存到本机，联网后自动同步')).toBe(true);
     expect(mockAutosave.clear).toHaveBeenCalledTimes(1);
     expect(mockAutosave.resume).toHaveBeenCalledTimes(1);
     expect(mockNavHolder.value.goBack).not.toHaveBeenCalled();
@@ -732,7 +724,8 @@ describe('ComposeScreen media', () => {
     await act(async () => { resolveUpload(att('late')); });
     await settle();
     expect(mockWriteDraft).not.toHaveBeenCalled();
-    expect(hasText('p1.jpg')).toBe(true);
+    expect(hasText('p1.jpg')).toBe(false);
+    expect(hasText('编辑内容已锁定')).toBe(true);
     setSession('https://api.example', '1');
   });
 
@@ -1014,14 +1007,14 @@ describe('ComposeScreen editing details', () => {
 
   it('surfaces string and unknown update failures verbatim', async () => {
     mockRoute.params = { editItem: makeEditItem() };
-    mockThunkResults.update = jest.fn(async () => { throw '网络断开'; });
+    mockEnqueue.mockRejectedValue('磁盘不可用');
     await mountCompose();
     await typeIn('#工作 改');
     await press('更新');
-    expect(hasText('发布或更新失败，内容已保留。网络断开')).toBe(true);
-    mockThunkResults.update = jest.fn(async () => { throw {}; });
+    expect(hasText('本机保存失败，内容仍保留。磁盘不可用')).toBe(true);
+    mockEnqueue.mockRejectedValue({});
     await press('更新');
-    expect(hasText('发布或更新失败，内容已保留。请重试')).toBe(true);
+    expect(hasText('本机保存失败，内容仍保留。请重试')).toBe(true);
   });
 
   it('publishes with the captured location context', async () => {
@@ -1031,7 +1024,7 @@ describe('ComposeScreen editing details', () => {
     }));
     await mountCompose();
     await press('保存');
-    expect(mockSubmissions.begin.mock.calls[0][0].context).toEqual({
+    expect(mockEnqueue.mock.calls[0][0].payload.context).toEqual({
       source: SOURCE_CONTEXT, location: { latitude: 1, longitude: 2 },
     });
   });
@@ -1042,7 +1035,7 @@ describe('ComposeScreen editing details', () => {
     await press('移除位置');
     await typeIn('#工作 改');
     await press('更新');
-    expect(mockUpdateThunk.mock.calls[0][0].data.context).toEqual({ source: SOURCE_CONTEXT });
+    expect(mockEnqueue.mock.calls[0][0].payload.context).toEqual({ source: SOURCE_CONTEXT });
   });
 
   it('returns to private visibility without asking again', async () => {

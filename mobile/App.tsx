@@ -1,5 +1,8 @@
 import AdvancedSettingsScreen from './src/screens/AdvancedSettingsScreen';
 import RecordDetailScreen from './src/screens/RecordDetailScreen';
+import DraftsScreen from './src/screens/DraftsScreen';
+import OutboxSync from './src/components/OutboxSync';
+import OutboxScreen from './src/screens/OutboxScreen';
 import PasswordRecoveryScreen from './src/screens/PasswordRecoveryScreen';
 import { getSession, onSessionChange } from './src/services/session';
 import React, { useState, useEffect, useCallback } from 'react';
@@ -79,6 +82,8 @@ function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
         Login: 'login',
         Home: { path: 'app', screens: { Records: '', Calendar: 'calendar', Mine: 'me' } },
         Compose: 'compose',
+        Drafts: 'drafts',
+        Outbox: 'outbox',
         RecordDetail: 'record',
         PasswordRecovery: 'password-recovery',
         Settings: 'settings',
@@ -99,12 +104,15 @@ function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
 
   return (
     <NavigationContainer linking={linking}>
+      {isAuthenticated && <OutboxSync />}
       {isAuthenticated ? (
         <Stack.Navigator>
           <Stack.Screen name="Home" options={{ headerShown: false }}>
             {() => <MainTabs onLogout={onLogout} />}
           </Stack.Screen>
           <Stack.Screen name="RecordDetail" component={RecordDetailScreen} options={{ title: '记录', ...headerOptions }} />
+          <Stack.Screen name="Drafts" component={DraftsScreen} options={{ title: '未完成记录', ...headerOptions }} />
+          <Stack.Screen name="Outbox" component={OutboxScreen} options={{ title: '同步记录', ...headerOptions }} />
           <Stack.Screen name="Compose" component={ComposeScreen}
             options={{ headerShown: false, presentation: 'modal', animation: 'slide_from_bottom', gestureEnabled: true }} />
           <Stack.Screen name="Settings" options={{ title: '设置', ...headerOptions }}>

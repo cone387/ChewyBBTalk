@@ -1,6 +1,9 @@
 import DraftStatus from '../components/DraftStatus';
-import { beginSubmission, readSubmission, confirmSubmission, forgetConfirmedSubmission, type SubmissionIntent } from '../services/submissions';
-import { bbtalkApi, transformBBTalk } from '../services/api/bbtalkApi';
+import { readSubmission, confirmSubmission, type SubmissionIntent } from '../services/submissions';
+import { enqueueSubmission, reviseFailedSubmission } from '../services/outbox';
+import { isSyncOnline } from '../services/syncConnectivity';
+import { historyIsLocked, subscribeHistoryPrivacy, recordHistoryActivity } from '../services/historyPrivacy';
+import { bbtalkApi } from '../services/api/bbtalkApi';
 import { getSession, isCurrentSession } from '../services/session';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
@@ -18,7 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute, usePreventRemove } from '@react-navigation/native';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { createBBTalkAsync, updateBBTalkAsync } from '../store/slices/bbtalkSlice';
+import { createBBTalkAsync } from '../store/slices/bbtalkSlice';
 import { loadTags } from '../store/slices/tagSlice';
 import { attachmentApi } from '../services/api/mediaApi';
 import { getMarkdownStyles } from '../utils/markdownStyles';
@@ -29,7 +32,7 @@ import VoiceRecordingOverlay from '../components/VoiceRecordingOverlay';
 import { useHoldToRecord } from '../hooks/useHoldToRecord';
 import { xAlert, xConfirm, xActionSheet } from '../utils/crossAlert';
 import { useDraftAutosave } from '../hooks/useDraftAutosave';
-import { readDraft, writeDraft } from '../services/drafts';
+import { isScopedDraftKey, readDraft, writeDraft } from '../services/drafts';
 import { retainMedia, uploadRetainedMedia, pruneRetainedMedia, type PendingMedia } from '../services/pendingMedia';
 import { confirmPublicVisibility } from '../utils/confirmPublicVisibility';
 import { COMPOSE_TOOLBAR_LABELS } from '../utils/composeToolbarLabels';
@@ -116,13 +119,16 @@ const compactStyles = StyleSheet.create({
     width: 60, height: 60, borderRadius: 8, borderWidth: 1,
     justifyContent: 'center', alignItems: 'center', gap: 2,
   },
-  label: { fontSize: 9 },
+  label: { fontSize: 12 },
 });
 
 export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }: { lockedCapture?: boolean; onRequestUnlock?: () => void } = {}) {
+  const historyLocked = React.useSyncExternalStore(subscribeHistoryPrivacy, historyIsLocked, historyIsLocked);
+  useEffect(() => { if (historyLocked && !lockedCapture) { Keyboard.dismiss(); setVoiceRecording(false); } }, [historyLocked, lockedCapture]);
   const session = useRef(getSession()).current;
   const regularDraftKey = `compose_draft:${session.scope ?? 'signed-out'}`;
   const captureId = useRef(`${Date.now()}_${Math.random().toString(36).slice(2)}`).current;
+  const [queueSequence, setQueueSequence] = useState(0);
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const dispatch = useAppDispatch();
@@ -135,9 +141,13 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
   const editItem: BBTalk | undefined = lockedCapture ? undefined : route.params?.editItem;
   const isEditing = !!editItem;
   useEffect(() => { void pruneRetainedMedia(session); }, [session]);
-  const [draftKey, setDraftKey] = useState(lockedCapture ? `${regularDraftKey}:locked:${captureId}` : editItem ? `${regularDraftKey}:edit:${editItem.id}` : regularDraftKey);
+  const [draftKey, setDraftKey] = useState(lockedCapture ? `${regularDraftKey}:locked:${captureId}` :
+    typeof route.params?.draftKey === 'string' && isScopedDraftKey(route.params.draftKey, session) ? route.params.draftKey :
+    editItem ? `${regularDraftKey}:edit:${editItem.id}` : regularDraftKey);
+  const [restoredDraft, setRestoredDraft] = useState(false);
   const [pendingMedia, setPendingMedia] = useState<PendingMedia[]>([]);
   const [uploadError, setUploadError] = useState('');
+  const [uploadingId, setUploadingId] = useState<string>();
   const uploadBusy = useRef(false);
   const [showMoreTools, setShowMoreTools] = useState(false);
   const leavingRef = useRef(false);
@@ -202,7 +212,7 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
     } finally { submittingRef.current = false; setSubmitting(false); }
   };
 
-  const draftValue = React.useMemo(() => isEditing || content.trim() || attachments.length || pendingMedia.length ? { version: 1, content, visibility, attachments, location, pendingMedia, baseUpdatedAt } : null, [content, visibility, attachments, location, pendingMedia, baseUpdatedAt, isEditing]);
+  const draftValue = React.useMemo(() => isEditing || content.trim() || attachments.length || pendingMedia.length ? { version: 1, draftId: `${captureId}_${queueSequence}`, content, visibility, attachments, location, pendingMedia, baseUpdatedAt, editItem, outboxId: route.params?.outboxId } : null, [content, visibility, attachments, location, pendingMedia, baseUpdatedAt, isEditing, editItem, route.params?.outboxId, captureId, queueSequence]);
   const latestDraft = useRef(draftValue); latestDraft.current = draftValue;
   const autosave = useDraftAutosave(draftKey, draftValue, draftReady, session);
 
@@ -229,13 +239,14 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
         const regular = await readDraft(draftKey);
         if (regular || isEditing) return regular;
         // Recover locked captures only inside the regular, unlocked editor.
-        const keys = (await AsyncStorage.getAllKeys()).filter(key => key.startsWith(`${regularDraftKey}:locked:`)).sort();
+        const keys = (await AsyncStorage.getAllKeys()).filter(key => key.startsWith(`${regularDraftKey}:locked:`) && !key.startsWith(`${regularDraftKey}:locked:outbox_`)).sort();
         if (!keys.length || cancelled || !isCurrentSession(session)) return null;
         setDraftKey(keys[0]);
         return readDraft(keys[0]);
       })().then(draft => {
         if (cancelled || !isCurrentSession(session)) return;
         if (draft) {
+          setRestoredDraft(true);
           let saved: any;
           try { saved = JSON.parse(draft); } catch { /* Legacy plain text. */ }
           if (saved?.version === 1 && typeof saved.content === 'string' && Array.isArray(saved.attachments)) {
@@ -291,6 +302,7 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
     uploadBusy.current = true; setUploading(true); setUploadError('');
     try {
       for (const item of items) {
+        setUploadingId(item.id);
         const att = await uploadRetainedMedia(item, session);
         if (!isCurrentSession(session)) return;
         const snapshot = latestDraft.current;
@@ -301,8 +313,18 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
         setAttachments(next.attachments);
         setPendingMedia(next.pendingMedia);
       }
-    } catch { setUploadError('上传未完成，附件已保留在本机。联网后可重试。'); }
-    finally { uploadBusy.current = false; setUploading(false); }
+    } catch {
+      if (!isCurrentSession(session)) return;
+      setUploadError('上传未完成，附件已保留在本机。联网后可重试。');
+      const snapshot = latestDraft.current;
+      if (snapshot) {
+        const remaining = snapshot.pendingMedia.map(item => items.some(attempt => attempt.id === item.id) ? { ...item, error: '上传未完成' } : item);
+        const next = { ...snapshot, pendingMedia: remaining };
+        latestDraft.current = next; setPendingMedia(remaining);
+        await writeDraft(draftKey, next, session).catch(() => {});
+      }
+    }
+    finally { uploadBusy.current = false; setUploading(false); setUploadingId(undefined); }
   };
   const addMedia = async (assets: { uri: string; name: string; mime: string }[]) => {
     if (uploadBusy.current) return;
@@ -312,14 +334,14 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
       for (const asset of assets) {
         const item = await retainMedia(asset.uri, asset.name, asset.mime, session);
         retained.push(item);
-        const next = { ...latestDraft.current, version: 1, content: latestDraft.current?.content ?? content, visibility, attachments: latestDraft.current?.attachments || attachments, location, pendingMedia: [...pendingMedia, ...retained], baseUpdatedAt };
+        const next = { ...latestDraft.current, version: 1, draftId: `${captureId}_${queueSequence}`, content: latestDraft.current?.content ?? content, visibility, attachments: latestDraft.current?.attachments || attachments, location, pendingMedia: [...pendingMedia, ...retained], baseUpdatedAt, editItem, outboxId: route.params?.outboxId };
         latestDraft.current = next;
         setPendingMedia(next.pendingMedia);
         await writeDraft(draftKey, next, session);
       }
     } catch (error: any) { setUploadError(error.message || '无法保存附件，请重试'); return; }
     finally { uploadBusy.current = false; setUploading(false); }
-    if (retained.length) await uploadPending(retained);
+    if (retained.length && isSyncOnline()) await uploadPending(retained);
   };
   const pickMedia = async (type: 'images' | 'videos') => {
     try {
@@ -393,68 +415,49 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
   }, [draftReady]);
 
   const handleSubmit = async () => {
-    if (submittingRef.current || uploading || pendingMedia.length > 0 || !submissionReady || !draftReady || !isCurrentSession(session)) return;
-    const cleaned = cleanContent(content) || (attachments.length ? '附件记录' : ''); if (!cleaned) { xAlert('提示', '请输入内容'); return; }
+    if ((!lockedCapture && historyIsLocked()) || submittingRef.current || uploading || !submissionReady || !draftReady || !isCurrentSession(session)) return;
+    const cleaned = cleanContent(content) || (attachments.length || pendingMedia.length ? '附件记录' : ''); if (!cleaned) { xAlert('提示', '请输入内容'); return; }
     submittingRef.current = true; Keyboard.dismiss(); setSubmitting(true);
+    let queued = false;
+    const ctx: Record<string, any> = { ...editItem?.context, source: { client: 'ChewyBBTalk Mobile', version: '1.0', platform: 'mobile' } }; if (location) ctx.location = location; else delete ctx.location;
+    const payload = { content: cleaned, tags: currentTags, visibility, attachments, context: ctx };
     try {
       await autosave.save();
-      const ctx: Record<string, any> = { ...editItem?.context, source: { client: 'ChewyBBTalk Mobile', version: '1.0', platform: 'mobile' } }; if (location) ctx.location = location; else delete ctx.location;
-      let intent: SubmissionIntent | undefined;
-      if (isEditing && editItem) {
-        await dispatch(updateBBTalkAsync({ id: editItem.id, expectedUpdatedAt: baseUpdatedAt, data: { content: cleaned, tags: currentTags.map(n => ({ id: '', name: n, color: '', sortOrder: 0, bbtalkCount: 0 })), visibility, attachments, context: ctx } })).unwrap();
-      } else {
-        intent = await beginSubmission({ content: cleaned, tags: currentTags, visibility, attachments, context: ctx }, session);
-        setSubmission(intent);
-        if (!isCurrentSession(session)) return;
-        await dispatch(createBBTalkAsync({ ...intent.payload, submissionKey: intent.key })).unwrap();
-      }
+      if (submission?.state === 'pending') { setSubmissionMessage('请先核对或重试原提交，当前输入仍保留。'); return; }
+      const input = { id: `mobile_queue_${captureId}_${queueSequence}`, payload, pendingMedia, sourceDraftKey: draftKey, draft: latestDraft.current,
+        recordId: editItem?.id, expectedUpdatedAt: baseUpdatedAt };
+      if (route.params?.outboxId) await reviseFailedSubmission(route.params.outboxId, input, session);
+      else await enqueueSubmission(input, session);
+      queued = true;
+      // The durable queue owns this snapshot now, including cleanup after a crash.
+      // Never let a transient removal failure resurrect it through autosave on unmount.
+      await autosave.clear(true).catch(() => {});
       if (!isCurrentSession(session)) return;
-      dispatch(loadTags());
-      try {
-        if (intent) {
-          await confirmSubmission(intent.key, session);
-          setSubmission({ ...intent, state: 'confirmed' });
-        }
-        await autosave.clear();
-        if (intent) await forgetConfirmedSubmission(intent.key, session);
-      } catch {
-        setSubmissionMessage('发布成功，但本地清理失败。请核对原提交，避免重复发布。');
-        return;
-      }
+      setQueueSequence(value => value + 1);
       if (lockedCapture) {
         setContent(''); setAttachments([]); setPendingMedia([]); autosave.resume(); setLocation(null); setVisibility('private');
-        setCursorPos(0); setEditMode('edit'); setSubmission(undefined);
-        setSubmissionMessage('已保存');
-        inputRef.current?.focus();
+        setSubmission(undefined); setSubmissionMessage('已保存到本机，联网后自动同步');
+        setCursorPos(0); setEditMode('edit'); inputRef.current?.focus();
       } else { publishedRef.current = true; navigation.goBack(); }
     } catch (error: any) {
       if (!isCurrentSession(session)) return;
-      if (error.code === 'edit_conflict' && error.current) {
-        const latest = transformBBTalk(error.current);
-        xConfirm('记录已有新版本',
-          `你的输入仍保留。服务器最新内容：
-
-${latest.content}
-
-标签：${latest.tags.map(t => t.name).join('、') || '无'}
-可见性：${latest.visibility}
-附件：${latest.attachments.map(a => a.filename || a.uid).join('、') || '无'}`,
-          () => { if (isCurrentSession(session)) { setBaseUpdatedAt(latest.updatedAt); setSubmissionMessage('已核对最新版本，可继续修改后再次保存。'); } },
-          undefined, { confirmText: '保留修改继续编辑', cancelText: '暂不处理' });
-      } else {
-        setSubmissionMessage(`发布或更新失败，内容已保留。${error.message || (typeof error === 'string' ? error : '请重试')}`);
-      }
+      setSubmissionMessage(queued ? '已加入同步记录，但草稿清理失败。请在同步记录中核对，避免重复保存。' : `本机保存失败，内容仍保留。${error?.message || (typeof error === 'string' ? error : '请重试')}`);
     } finally { submittingRef.current = false; setSubmitting(false); }
   };
 
-  const canSubmit = (cleanContent(content).length > 0 || attachments.length > 0) && pendingMedia.length === 0 && submissionReady && draftReady && !submitting && !uploading;
+  const canSubmit = (cleanContent(content).length > 0 || attachments.length > 0 || pendingMedia.length > 0) && submissionReady && draftReady && !submitting && !uploading;
 
   // 计算工具栏高度（大约）
   const toolbarHeight = 44 + (showQuickTags ? 40 : 0) + (location ? 28 : 0) + 36; // main + tags + location + md
   const bottomPad = keyboardH > 0 ? 0 : (insets.bottom || 12);
 
+  if (!lockedCapture && historyLocked) return <View style={[styles.container, { padding: 24, paddingTop: insets.top + 24, backgroundColor: c.background }]}>
+    <Text style={{ color: c.text }}>编辑内容已锁定</Text>
+    <TouchableOpacity accessibilityRole="button" onPress={() => navigation.popToTop()} style={{ minHeight: 48, justifyContent: 'center' }}><Text style={{ color: c.primary }}>返回首页解锁</Text></TouchableOpacity>
+  </View>;
+
   return (
-    <View pointerEvents={submitting ? 'none' : 'auto'} style={[styles.container, { paddingTop: insets.top, backgroundColor: c.background }]}>
+    <View onTouchStart={recordHistoryActivity} pointerEvents={submitting ? 'none' : 'auto'} style={[styles.container, { paddingTop: insets.top, backgroundColor: c.background }]}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: c.headerBg, borderBottomColor: c.border }]}>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel={lockedCapture ? '解锁查看历史' : '取消'}
@@ -502,15 +505,17 @@ ${latest.content}
         </View>}
       </View>}
       <DraftStatus visibility={visibility} onVisibility={() => visibility === 'public' ? setVisibility('private') : confirmPublicVisibility(() => { if (isCurrentSession(session)) setVisibility('public'); })}
-        status={autosave.status} onSave={() => { void autosave.save().catch(() => {}); }} pending={pendingMedia} uploading={uploading} error={uploadError}
+        status={autosave.status} onSave={() => { void autosave.save().catch(() => {}); }} pending={pendingMedia} uploading={uploading} uploadingId={uploadingId} error={uploadError}
+        onRetryItem={item => { void uploadPending([item]); }}
         onRetry={() => { void uploadPending(); }} onRemove={id => { setPendingMedia(prev => prev.filter(item => item.id !== id)); setUploadError(''); }} />
+      {restoredDraft && <Text accessibilityLiveRegion="polite" style={{ color: c.textSecondary, fontSize: 13, paddingHorizontal: 16, paddingVertical: 6 }}>已恢复上次未完成内容</Text>}
       {/* 编辑区 / 预览区 */}
       {editMode === 'edit' ? (
         <View style={[styles.editorArea, { backgroundColor: c.surface }]}>
           <TextInput ref={inputRef} style={[styles.textInput, { color: c.text }]}
             accessibilityLabel="记录内容"
             placeholder="此刻，有什么想记下来的？" placeholderTextColor={c.textTertiary}
-            editable={!submitting && draftReady} value={content} onChangeText={setContent} multiline textAlignVertical="top" autoFocus
+            editable={!submitting && draftReady} value={content} onChangeText={value => { recordHistoryActivity(); setContent(value); }} multiline textAlignVertical="top" autoFocus
             onSelectionChange={(e) => setCursorPos(e.nativeEvent.selection.start)}
             scrollEnabled={true} />
         </View>
@@ -660,7 +665,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 17, fontWeight: '600' },
   headerCenter: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   modeToggleBtn: { padding: 4, minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  publishBtn: { borderRadius: 20, paddingHorizontal: 18, paddingVertical: 8 },
+  publishBtn: { minHeight: 44, justifyContent: 'center', borderRadius: 22, paddingHorizontal: 18, paddingVertical: 8 },
   publishText: { color: '#fff', fontSize: 15, fontWeight: '600' },
   scroll: { flex: 1 },
   editorArea: { flex: 1 },
@@ -673,7 +678,7 @@ const styles = StyleSheet.create({
   attachmentItem: { position: 'relative' },
   attachmentImage: { width: 60, height: 60, borderRadius: 8 },
   filePlaceholder: { width: 60, height: 60, borderRadius: 8, borderWidth: 1, justifyContent: 'center', alignItems: 'center', padding: 2 },
-  fileName: { fontSize: 8, marginTop: 1, textAlign: 'center' },
+  fileName: { fontSize: 12, marginTop: 1, textAlign: 'center' },
   removeBtn: { position: 'absolute', top: -4, right: -4, width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
   parsedTag: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5 },
   parsedTagText: { fontSize: 13, fontWeight: '500' },

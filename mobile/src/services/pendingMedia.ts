@@ -4,8 +4,9 @@ import { attachmentApi } from './api/mediaApi';
 import { isCurrentSession, type Session } from './session';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { waitForDraftWrites } from './drafts';
+import { waitForOutboxWrites } from './outboxWrites';
 
-export interface PendingMedia { id: string; uri: string; name: string; mime: string; }
+export interface PendingMedia { id: string; uri: string; name: string; mime: string; error?: string; }
 
 export async function retainMedia(uri: string, name: string, mime: string, session: Session): Promise<PendingMedia> {
   if (!session.scope || !isCurrentSession(session)) throw new Error('请重新登录后添加附件');
@@ -45,7 +46,7 @@ export async function pruneRetainedMedia(session: Session) {
   if (Platform.OS === 'web' || !session.scope) return;
   try {
     const directory = `${FileSystem.documentDirectory}draft-media/${encodeURIComponent(session.scope)}/`;
-    const keys = (await AsyncStorage.getAllKeys()).filter(key => key.startsWith(`compose_draft:${session.scope}`));
+    const keys = (await AsyncStorage.getAllKeys()).filter(key => key.startsWith(`compose_draft:${session.scope}`) || key === `outbox:${session.scope}`);
     const drafts = (await AsyncStorage.multiGet(keys)).map(([, value]) => value || '').join('\n');
     for (const name of await FileSystem.readDirectoryAsync(directory)) {
       if (!isCurrentSession(session)) return;
@@ -60,7 +61,8 @@ export async function pruneRetainedMedia(session: Session) {
 export async function removeAccountDrafts(scope: string | null) {
   if (!scope) return;
   await waitForDraftWrites(scope);
-  const keys = (await AsyncStorage.getAllKeys()).filter(key => key.startsWith(`compose_draft:${scope}`));
+  await waitForOutboxWrites();
+  const keys = (await AsyncStorage.getAllKeys()).filter(key => key.startsWith(`compose_draft:${scope}`) || key === `outbox:${scope}` || key.startsWith(`calendar:${scope}:`) || key === `search_history:${scope}`);
   await AsyncStorage.multiRemove(keys);
   if (Platform.OS !== 'web') {
     await FileSystem.deleteAsync(`${FileSystem.documentDirectory}draft-media/${encodeURIComponent(scope)}/`, { idempotent: true });

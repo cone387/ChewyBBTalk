@@ -1,3 +1,5 @@
+jest.mock('../../src/components/DraftNotice', () => () => null);
+jest.mock('../../src/components/OutboxNotice', () => () => null);
 // Factories execute during the import phase: all references to module-body
 // holders are deferred (arrow wrappers or getters).
 const mockNav: any = {};
@@ -369,7 +371,7 @@ beforeEach(() => {
   mockSearchHistoryJson = null;
   mockShowTagTabs = null;
   mockAsyncStorage.getItem = jest.fn(async (key: string) =>
-    key === 'search_history' ? mockSearchHistoryJson : key === 'show_tag_tabs' ? mockShowTagTabs : null);
+    key === 'search_history:null' ? mockSearchHistoryJson : key === 'show_tag_tabs' ? mockShowTagTabs : null);
   mockAsyncStorage.setItem = jest.fn(async () => undefined);
   mockAsyncStorage.removeItem = jest.fn(async () => undefined);
 });
@@ -572,7 +574,7 @@ describe('HomeScreen search', () => {
       tree.root.findAllByType(SearchTextInput)[0].props.onChangeText('关键词');
     });
     await press('提交搜索');
-    expect(mockAsyncStorage.setItem).toHaveBeenCalledWith('search_history', JSON.stringify(['关键词']));
+    expect(mockAsyncStorage.setItem).toHaveBeenCalledWith('search_history:null', JSON.stringify(['关键词']));
     expect(mockSlice.loadBBTalks).toHaveBeenLastCalledWith({ search: '关键词', tags: [], date: undefined });
     await press('关闭搜索');
     expect(mockSlice.loadBBTalks).toHaveBeenLastCalledWith({ search: undefined, tags: [], date: undefined });
@@ -588,7 +590,7 @@ describe('HomeScreen search', () => {
     await press('历史词条 旧词');
     expect(tree.root.findAllByType(SearchTextInput)[0].props.value).toBe('旧词');
     await press('清空搜索历史');
-    expect(mockAsyncStorage.removeItem).toHaveBeenCalledWith('search_history');
+    expect(mockAsyncStorage.removeItem).toHaveBeenCalledWith('search_history:null');
   });
 });
 
@@ -802,12 +804,12 @@ describe('HomeScreen search and pickers', () => {
     expect(tappable('提交搜索')).toBeUndefined();
   });
 
-  it('saves the typed term when closing the search', async () => {
+  it('does not save an unsubmitted term when closing search', async () => {
     await mountHome();
     await press('搜索');
     await act(async () => { tree.root.findAllByType(SearchTextInput)[0].props.onChangeText('临时'); });
     await press('关闭搜索');
-    expect(mockAsyncStorage.setItem).toHaveBeenCalledWith('search_history', JSON.stringify(['临时']));
+    expect(mockAsyncStorage.setItem).not.toHaveBeenCalled();
     expect(tappable('提交搜索')).toBeUndefined();
   });
 

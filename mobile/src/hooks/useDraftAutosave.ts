@@ -38,11 +38,11 @@ export function useDraftAutosave(key: string, value: unknown | null, ready: bool
     });
     return () => { mounted.current = false; listener.remove(); void save().catch(() => {}); };
   }, [save]);
-  const clear = useCallback(async () => {
+  const clear = useCallback(async (transferred = false) => {
     stopped.current = true;
     ++revision.current;
     try { await writeDraft(latest.current.key, null, session); }
-    catch (error) { stopped.current = false; throw error; }
+    catch (error) { if (!transferred) stopped.current = false; throw error; }
   }, [session]);
   const resume = useCallback(() => { stopped.current = false; setStatus(''); }, []);
   return { status, save, clear, resume };

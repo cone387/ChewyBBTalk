@@ -1,6 +1,8 @@
+jest.mock('@react-native-async-storage/async-storage', () => require('@react-native-async-storage/async-storage/jest/async-storage-mock'));
+jest.mock('../../src/components/CalendarDayRecords', () => 'CalendarDayRecords');
 jest.mock('react-native', () => ({
   View: 'View', Text: 'Text', TouchableOpacity: 'TouchableOpacity',
-  ScrollView: 'ScrollView', ActivityIndicator: 'ActivityIndicator',
+  Modal: 'Modal', TextInput: 'TextInput', ScrollView: 'ScrollView', ActivityIndicator: 'ActivityIndicator',
   StyleSheet: { create: (value: unknown) => value },
 }));
 jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Icon' }));
@@ -134,12 +136,13 @@ describe('CalendarScreen loading states', () => {
 });
 
 describe('CalendarScreen day selection', () => {
-  it('notifies the parent and navigates to the records list', async () => {
+  it('selects the day for in-place reading', async () => {
     (bbtalkApi.getDateCounts as jest.Mock).mockResolvedValue([{ date: key(1), count: 2 }]);
     await mount();
     await press(dayCell(key(1)));
     expect(onSelectDate).toHaveBeenCalledWith(key(1));
-    expect(NavState.navigate).toHaveBeenCalledWith('Records');
+    expect(NavState.navigate).not.toHaveBeenCalled();
+    expect(tree.root.findByType('CalendarDayRecords').props.date).toBe(key(1));
   });
 
   it('highlights the selected and today cells', async () => {

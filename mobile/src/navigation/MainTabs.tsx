@@ -32,10 +32,6 @@ export default function MainTabs({ onLogout }: { onLogout: () => void }) {
     setSelectedTag(id);
     setSelectedDate(null);
   }, []);
-  const selectDate = useCallback((date: string) => {
-    setSelectedDate(date);
-    setSelectedTag(null);
-  }, []);
   const handleLockChange = useCallback((value: boolean) => {
     setWidgetAuthState({ locked: value });
     if (value) void clearWidget('locked');
@@ -79,7 +75,7 @@ export default function MainTabs({ onLogout }: { onLogout: () => void }) {
       </Tabs.Screen>
       <Tabs.Screen name="Calendar" options={{ title: '日历' }}>
         {() => locked ? <View style={{ flex: 1, backgroundColor: c.background }} /> :
-          <CalendarScreen selectedDate={selectedDate} onSelectDate={selectDate} />}
+          <CalendarScreen />}
       </Tabs.Screen>
       <Tabs.Screen name="Mine" options={{ title: '我的' }}>
         {() => locked ? <View style={{ flex: 1, backgroundColor: c.background }} /> :

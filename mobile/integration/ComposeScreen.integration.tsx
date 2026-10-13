@@ -13,7 +13,10 @@ import bbtalkReducer from '../src/store/slices/bbtalkSlice';
 import tagReducer from '../src/store/slices/tagSlice';
 import { apiClient } from '../src/services/api/apiClient';
 import { getSession, setSession, clearSession } from '../src/services/session';
-import { readSubmission } from '../src/services/submissions';
+import { beginSubmission, readSubmission } from '../src/services/submissions';
+import { listOutbox, drainOutbox, retrySubmission } from '../src/services/outbox';
+import { updateSyncConnectivity } from '../src/services/syncConnectivity';
+import { setHistoryLocked } from '../src/services/historyPrivacy';
 import { xConfirm, xActionSheet } from '../src/utils/crossAlert';
 
 const mockNavigation = { goBack: jest.fn(), dispatch: jest.fn(), addListener: jest.fn(() => () => {}) };
@@ -46,12 +49,94 @@ beforeEach(async () => {
   jest.clearAllMocks();
   await AsyncStorage.clear();
   clearSession(); setSession('https://integration.example', 'owner');
+  setHistoryLocked(false);
   mockParams = {};
+  updateSyncConnectivity(true);
   (apiClient.get as jest.Mock).mockResolvedValue([]);
   (apiClient.post as jest.Mock).mockReset();
   (apiClient.patch as jest.Mock).mockReset();
 });
 afterEach(cleanup);
+
+test('privacy lock hides an open draft, blocks stale save handlers and preserves input', async () => {
+  const screen = mount(); await act(async () => {});
+  fireEvent.changeText(screen.getByPlaceholderText('此刻，有什么想记下来的？'), '锁定后不能泄露');
+  const save = screen.getByText('保存');
+  await act(async () => { setHistoryLocked(true); });
+  expect(screen.queryByDisplayValue('锁定后不能泄露')).toBeNull();
+  expect(screen.getByText('编辑内容已锁定')).toBeTruthy();
+  fireEvent.press(save);
+  expect(await listOutbox()).toEqual([]);
+  await act(async () => { setHistoryLocked(false); });
+  expect(screen.getByDisplayValue('锁定后不能泄露')).toBeTruthy();
+});
+
+test('normal draft recovery never adopts failed outbox edit drafts as a new record', async () => {
+  await AsyncStorage.setItem(`compose_draft:${getSession().scope}:locked:outbox_retry`, JSON.stringify({ version: 1, content: '失败的编辑', outboxId: 'retry', editItem: { id: 'original' } }));
+  const screen = mount(); await act(async () => {});
+  expect(screen.queryByDisplayValue('失败的编辑')).toBeNull();
+});
+
+test('a failed draft cleanup after enqueue cannot resurrect the submitted snapshot on unmount', async () => {
+  const first = mount(); await act(async () => {});
+  fireEvent.changeText(first.getByPlaceholderText('此刻，有什么想记下来的？'), '只创建一次');
+  (AsyncStorage.removeItem as jest.Mock).mockRejectedValueOnce(new Error('temporary storage failure'));
+  fireEvent.press(first.getByText('保存', { exact: true })); await act(async () => {});
+  await waitFor(() => expect(mockNavigation.goBack).toHaveBeenCalled());
+  (apiClient.post as jest.Mock).mockResolvedValueOnce(wire);
+  await act(async () => { await drainOutbox(); });
+  first.unmount(); await act(async () => {});
+  const second = mount(); await act(async () => {});
+  expect(second.queryByDisplayValue('只创建一次')).toBeNull();
+  expect(await AsyncStorage.getItem(`compose_draft:${getSession().scope}`)).toBeNull();
+  expect(apiClient.post).toHaveBeenCalledTimes(1);
+});
+
+test('identical consecutive locked captures have separate ownership and keep the second unsent draft', async () => {
+  updateSyncConnectivity(false);
+  const first = mount({ lockedCapture: true }); await act(async () => {});
+  fireEvent.changeText(first.getByPlaceholderText('此刻，有什么想记下来的？'), '吃药');
+  fireEvent.press(first.getByText('保存', { exact: true })); await act(async () => {});
+  await first.findByText('已保存到本机，联网后自动同步');
+  fireEvent.changeText(first.getByPlaceholderText('此刻，有什么想记下来的？'), '吃药');
+  first.unmount(); await act(async () => {});
+  (apiClient.post as jest.Mock).mockResolvedValueOnce(wire);
+  await drainOutbox();
+  const second = mount(); await act(async () => {});
+  expect(second.getByDisplayValue('吃药')).toBeTruthy();
+  expect(apiClient.post).toHaveBeenCalledTimes(1);
+});
+
+test('opening a selected draft restores that draft and explains the recovery', async () => {
+  const key = `compose_draft:${getSession().scope}:locked:chosen`;
+  await AsyncStorage.setItem(`compose_draft:${getSession().scope}`, JSON.stringify({ version: 1, content: '普通草稿', attachments: [] }));
+  await AsyncStorage.setItem(key, JSON.stringify({ version: 1, content: '选中的草稿', attachments: [], pendingMedia: [] }));
+  mockParams = { draftKey: key };
+  const screen = mount();
+  await screen.findByDisplayValue('选中的草稿');
+  expect(screen.getByText('已恢复上次未完成内容')).toBeTruthy();
+  expect(screen.queryByDisplayValue('普通草稿')).toBeNull();
+});
+
+test('offline attachment-only save can leave the editor and resume upload from the durable queue', async () => {
+  updateSyncConnectivity(false);
+  const media = { id: 'photo', uri: 'file:///retained.jpg', name: 'photo.jpg', mime: 'image/jpeg' };
+  await AsyncStorage.setItem(`compose_draft:${getSession().scope}`, JSON.stringify({ version: 1, content: '', visibility: 'private', attachments: [], pendingMedia: [media] }));
+  const screen = mount();
+  await screen.findByText('photo.jpg');
+  fireEvent.press(screen.getByText('保存'));
+  await act(async () => {});
+  await waitFor(() => expect(mockNavigation.goBack).toHaveBeenCalled());
+  expect(apiClient.post).not.toHaveBeenCalled();
+  expect((await listOutbox())[0]).toMatchObject({ payload: { content: '附件记录' }, pendingMedia: [media] });
+  screen.unmount();
+  const next = mount(); await act(async () => {});
+  expect(next.queryByText('photo.jpg')).toBeNull();
+  (uploadRetainedMedia as jest.Mock).mockResolvedValueOnce({ uid: 'photo', type: 'image', url: '/photo' });
+  (apiClient.post as jest.Mock).mockResolvedValueOnce(wire);
+  await drainOutbox();
+  expect((await listOutbox())[0].state).toBe('synced');
+});
 
 test('real editor restores a pending submission after remount and retries its original payload and key', async () => {
   const attachment = { uid: 'file-1', type: 'file', url: 'https://integration.example/file', filename: 'notes.txt' };
@@ -63,14 +148,11 @@ test('real editor restores a pending submission after remount and retries its or
   const input = first.getByPlaceholderText('此刻，有什么想记下来的？');
   fireEvent.changeText(input, '#工作 原始内容');
   await act(async () => {});
-  (apiClient.post as jest.Mock).mockRejectedValueOnce(new Error('response lost'));
-  fireEvent.press(first.getByText('发布'));
-  await first.findByText(/发布或更新失败/);
-  const intent = await readSubmission();
+  // Legacy versions used a separate durable intent. Upgrades must still recover it.
+  const intent = await beginSubmission({ content: '原始内容', tags: ['工作'], visibility: 'public', attachments: [attachment], context: { location: { latitude: 1, longitude: 2 } } });
   expect(intent?.payload.content).toBe('原始内容');
   expect(intent?.payload.attachments).toEqual([attachment]);
   expect(intent?.payload.visibility).toBe('public');
-  const originalCall = (apiClient.post as jest.Mock).mock.calls[0];
   first.unmount();
   const reopened = mount();
   await reopened.findByText('有一份发布结果待核对');
@@ -78,7 +160,7 @@ test('real editor restores a pending submission after remount and retries its or
   (apiClient.post as jest.Mock).mockResolvedValueOnce(wire);
   fireEvent.press(reopened.getByText('重试原提交'));
   await reopened.findByText('已确认原提交发布成功，当前输入仍保留。修改后可发布新记录。');
-  expect((apiClient.post as jest.Mock).mock.calls[1]).toEqual(originalCall);
+  expect((apiClient.post as jest.Mock).mock.calls[0][2]).toEqual({ 'Idempotency-Key': intent.key });
   expect(reopened.getByDisplayValue('后来输入')).toBeTruthy();
   expect((await readSubmission())?.state).toBe('confirmed');
   expect(reopened.store.getState().bbtalk.bbtalks).toHaveLength(1);
@@ -96,7 +178,7 @@ test('persistent write failure prevents a request and keeps editor input', async
   fireEvent.changeText(screen.getByPlaceholderText('此刻，有什么想记下来的？'), '不能丢失');
   (AsyncStorage.setItem as jest.Mock).mockRejectedValueOnce(new Error('disk full'));
   fireEvent.press(screen.getByText('保存'));
-  await screen.findByText(/发布或更新失败/);
+  await screen.findByText(/本机保存失败/);
   expect(apiClient.post).not.toHaveBeenCalled();
   expect(screen.getByDisplayValue('不能丢失')).toBeTruthy();
 });
@@ -108,14 +190,17 @@ test('actual edit flow retains input on conflict and only advances the version a
   fireEvent.changeText(screen.getByPlaceholderText('此刻，有什么想记下来的？'), '我的修改');
   (apiClient.patch as jest.Mock).mockRejectedValueOnce({ status: 409, code: 'edit_conflict', current: { ...wire, content: '另一端修改', update_time: '2026-09-07T10:00:00Z' } });
   fireEvent.press(screen.getByText('更新'));
-  await waitFor(() => expect(xConfirm).toHaveBeenCalled());
-  expect(screen.getByDisplayValue('我的修改')).toBeTruthy();
-  expect((xConfirm as jest.Mock).mock.calls[0][1]).toContain('另一端修改');
-  expect(apiClient.patch).toHaveBeenCalledTimes(1);
-  await act(async () => { (xConfirm as jest.Mock).mock.calls[0][2](); });
-  (apiClient.patch as jest.Mock).mockResolvedValueOnce({ ...wire, content: '我的修改' });
-  fireEvent.press(screen.getByText('更新'));
   await waitFor(() => expect(mockNavigation.goBack).toHaveBeenCalled());
+  await act(async () => { await drainOutbox(); });
+  const entry = (await listOutbox())[0];
+  expect(entry.payload.content).toBe('我的修改');
+  expect(entry.conflict?.content).toBe('另一端修改');
+  expect(apiClient.patch).toHaveBeenCalledTimes(1);
+  await drainOutbox();
+  expect(apiClient.patch).toHaveBeenCalledTimes(1);
+  await retrySubmission(entry.id, entry.conflict?.updatedAt);
+  (apiClient.patch as jest.Mock).mockResolvedValueOnce({ ...wire, content: '我的修改' });
+  await drainOutbox();
   expect((apiClient.patch as jest.Mock).mock.calls[0][2]).toEqual({ 'If-Match': wire.update_time });
   expect((apiClient.patch as jest.Mock).mock.calls[1][2]).toEqual({ 'If-Match': '2026-09-07T10:00:00Z' });
 });
@@ -124,11 +209,10 @@ test('reopening under another account never exposes the previous pending submiss
   const first = mount();
   await act(async () => {});
   fireEvent.changeText(first.getByPlaceholderText('此刻，有什么想记下来的？'), '账号一私密内容');
-  (apiClient.post as jest.Mock).mockRejectedValueOnce(new Error('offline'));
   fireEvent.press(first.getByText('保存'));
-  await first.findByText(/发布或更新失败/);
+  await waitFor(() => expect(mockNavigation.goBack).toHaveBeenCalled());
   const owner = getSession();
-  expect(await readSubmission(owner)).toBeDefined();
+  expect(await listOutbox(owner)).toHaveLength(1);
   first.unmount();
   setSession('https://integration.example', 'another');
   const second = mount();
@@ -136,6 +220,7 @@ test('reopening under another account never exposes the previous pending submiss
   expect(second.queryByText('有一份发布结果待核对')).toBeNull();
   expect(second.queryByDisplayValue('账号一私密内容')).toBeNull();
   expect(await readSubmission()).toBeUndefined();
+  expect(await listOutbox()).toEqual([]);
 });
 
 
@@ -152,9 +237,10 @@ test('locked capture hides old drafts, edit parameters and pending submissions',
   expect(apiClient.get).not.toHaveBeenCalled();
   fireEvent.changeText(screen.getByPlaceholderText('此刻，有什么想记下来的？'), 'new note');
   fireEvent.press(screen.getByText('保存'));
-  await screen.findByText(/还有一份发布结果未确认/);
+  await screen.findByText('已保存到本机，联网后自动同步');
   expect((await readSubmission())?.payload.content).toBe('old secret');
-  expect(screen.getByDisplayValue('new note')).toBeTruthy();
+  expect((await listOutbox())[0].payload.content).toBe('new note');
+  expect(screen.queryByDisplayValue('new note')).toBeNull();
 });
 
 test('locked capture saves repeatedly without navigating or touching the regular draft', async () => {
@@ -167,11 +253,13 @@ test('locked capture saves repeatedly without navigating or touching the regular
     (apiClient.post as jest.Mock).mockResolvedValueOnce({ ...wire, content });
     fireEvent.press(screen.getByText('保存'));
     await waitFor(() => expect(screen.getByPlaceholderText('此刻，有什么想记下来的？').props.value).toBe(''));
-    expect(screen.getByText('已保存')).toBeTruthy();
+    expect(screen.getByText('已保存到本机，联网后自动同步')).toBeTruthy();
     expect(screen.queryByText(/仍受保护|仍然锁/)).toBeNull();
     expect(await AsyncStorage.getItem(key)).toBe('new note');
   }
+  await drainOutbox();
   expect(apiClient.post).toHaveBeenCalledTimes(2);
+  expect(new Set((await listOutbox()).map(entry => entry.id)).size).toBe(2);
   expect(mockNavigation.goBack).not.toHaveBeenCalled();
   expect(await readSubmission()).toBeUndefined();
 });
@@ -284,6 +372,24 @@ test('failed attachment upload survives remount and retries before submitting', 
   await waitFor(() => expect(restored.queryByText('重试上传')).toBeNull());
   (apiClient.post as jest.Mock).mockResolvedValueOnce(wire);
   fireEvent.press(restored.getByText('保存'));
-  await waitFor(() => expect(apiClient.post).toHaveBeenCalled());
+  await waitFor(() => expect(mockNavigation.goBack).toHaveBeenCalled());
+  await drainOutbox();
   expect((apiClient.post as jest.Mock).mock.calls[0][1].attachments).toEqual([expect.objectContaining({ uid: 'uploaded-1' })]);
+});
+
+test('failed attachments can be retried individually without uploading the others', async () => {
+  const one = { id: 'one', uri: 'file:///one.jpg', name: 'one.jpg', mime: 'image/jpeg' };
+  const two = { id: 'two', uri: 'file:///two.jpg', name: 'two.jpg', mime: 'image/jpeg' };
+  await AsyncStorage.setItem(`compose_draft:${getSession().scope}`, JSON.stringify({ version: 1, content: '照片', attachments: [], pendingMedia: [one, two] }));
+  const screen = mount();
+  await screen.findByText('two.jpg');
+  (uploadRetainedMedia as jest.Mock).mockResolvedValueOnce({ uid: 'two-uploaded', type: 'image', url: 'https://integration.example/two.jpg' });
+  fireEvent.press(screen.getByLabelText('重试上传 two.jpg'));
+  await act(async () => {});
+  await waitFor(() => expect(screen.queryByLabelText('重试上传 two.jpg')).toBeNull());
+  expect(screen.getByLabelText('重试上传 one.jpg')).toBeTruthy();
+  expect(uploadRetainedMedia).toHaveBeenCalledWith(two, getSession());
+  const saved = JSON.parse((await AsyncStorage.getItem(`compose_draft:${getSession().scope}`))!);
+  expect(saved.pendingMedia).toEqual([one]);
+  expect(saved.attachments[0].uid).toBe('two-uploaded');
 });

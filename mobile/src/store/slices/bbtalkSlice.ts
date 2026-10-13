@@ -107,7 +107,7 @@ export const updateBBTalkAsync = createAsyncThunk(
     try {
       return await bbtalkApi.updateBBTalk(id, data, expectedUpdatedAt);
     } catch (error: any) {
-      return rejectWithValue({ message: error.message || '更新失败', code: error.code, current: error.current });
+      return rejectWithValue({ message: error.message || '更新失败', status: error.status, code: error.code, current: error.current });
     }
   }
 );

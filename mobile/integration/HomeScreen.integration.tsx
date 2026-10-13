@@ -8,6 +8,7 @@ import HomeScreen from '../src/screens/HomeScreen';
 import bbtalkReducer from '../src/store/slices/bbtalkSlice';
 import tagReducer from '../src/store/slices/tagSlice';
 import { apiClient } from '../src/services/api/apiClient';
+import { getSession, setSession } from '../src/services/session';
 
 const mockFocus = new Set<() => void>();
 const mockNavigation = { navigate: jest.fn(), isFocused: () => true, addListener: (_event: string, callback: () => void) => { mockFocus.add(callback); return () => mockFocus.delete(callback); } };
@@ -52,10 +53,37 @@ function mount() {
 }
 beforeEach(async () => {
   await AsyncStorage.clear();
+  setSession('https://integration.example', 'owner');
   jest.clearAllMocks(); mockFocus.clear(); mockCache.isOffline = false;
   mockPrivacy.locked = false; mockPrivacy.settingsReady = true;
   AppState.currentState = 'active';
   (apiClient.get as jest.Mock).mockImplementation((url: string) => Promise.resolve(url.endsWith('/tags') ? [{ uid: 'tag-1', name: '工作' }] : result('初始记录')));
+});
+
+test('history search applies immediately and clearing input restores unsearched results', async () => {
+  await AsyncStorage.setItem(`search_history:${getSession().scope}`, JSON.stringify(['雨天']));
+  (apiClient.get as jest.Mock).mockImplementation((url: string, params: any) => Promise.resolve(
+    url.endsWith('/tags') ? [] : result(params?.search ? '雨天的记录' : '全部记录')));
+  const screen = mount();
+  await screen.findByText('全部记录');
+  fireEvent.press(screen.getByLabelText('搜索'));
+  fireEvent.press(await screen.findByText('雨天'));
+  await screen.findByText('雨天的记录');
+  expect(screen.getByLabelText('清除关键词筛选：雨天')).toBeTruthy();
+  fireEvent.press(screen.getByLabelText('清除搜索'));
+  await screen.findByText('全部记录');
+  expect(screen.queryByLabelText('清除关键词筛选：雨天')).toBeNull();
+});
+
+test('closing an unsubmitted search does not add it to history', async () => {
+  const screen = mount();
+  await screen.findByText('初始记录');
+  fireEvent.press(screen.getByLabelText('搜索'));
+  fireEvent.changeText(screen.getByLabelText('搜索碎碎念'), '尚未搜索');
+  fireEvent.press(screen.getByLabelText('关闭搜索'));
+  fireEvent.press(screen.getByLabelText('搜索'));
+  expect(screen.queryByText('尚未搜索')).toBeNull();
+  expect(await AsyncStorage.getItem(`search_history:${getSession().scope}`)).toBeNull();
 });
 afterEach(() => { cleanup(); jest.restoreAllMocks(); });
 

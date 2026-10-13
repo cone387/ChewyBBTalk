@@ -21,9 +21,10 @@ interface Props {
   /** Externally added comment (from CommentInputModal) — append to list */
   newComment?: Comment | null;
   theme: Theme;
+  collapsedLimit?: number;
 }
 
-export default function InlineComments({ bbtalkId, commentCount, commentPreview, commentsRevision, newComment, theme }: Props) {
+export default function InlineComments({ bbtalkId, commentCount, commentPreview, commentsRevision, newComment, theme, collapsedLimit = MAX_COLLAPSED }: Props) {
   const c = theme.colors;
   const dispatch = useAppDispatch();
   const [comments, setComments] = useState<Comment[]>([]);
@@ -164,9 +165,9 @@ export default function InlineComments({ bbtalkId, commentCount, commentPreview,
   if (blockedPreview.current?.value === commentPreview && blockedPreview.current) return null;
   if (comments.length === 0 && !loading && !loadError && (commentCount === 0 || commentPreview === undefined)) return null;
 
-  const visible = expanded ? comments : comments.slice(0, MAX_COLLAPSED);
+  const visible = expanded ? comments : comments.slice(0, collapsedLimit);
   const total = Math.max(comments.length, commentCount);
-  const hasMore = total > MAX_COLLAPSED || total > comments.length;
+  const hasMore = total > collapsedLimit || total > comments.length;
   const toggleExpanded = () => {
     setExpanded(!expanded);
     if (!expanded && entry.current.hasMore && entry.current.page === 0 && commentCount > comments.length) void loadComments();

@@ -70,6 +70,22 @@ beforeEach(() => {
 afterEach(() => { act(() => { tree?.unmount(); }); tree = undefined; });
 
 describe('BBTalkCard rendering', () => {
+  it('summarizes long content and opens the complete original record', async () => {
+    const item = talk({ content: '这是一段长记录。'.repeat(100) });
+    await mountCard(item);
+    expect(mockMarkdown).not.toHaveBeenCalled();
+    expect(hasText('展开全文')).toBe(true);
+    await press('展开全文');
+    expect(cb.onEdit).toHaveBeenCalledWith(item);
+  });
+  it('limits image tiles while preview keeps every image', async () => {
+    const attachments = Array.from({ length: 8 }, (_, i) => ({ uid: `${i}`, url: `https://image/${i}`, type: 'image' }));
+    await mountCard(talk({ attachments }));
+    expect(tree.root.findAllByType('ExpoImage')).toHaveLength(4);
+    expect(hasText('+4')).toBe(true);
+    await press('查看图片 4');
+    expect(cb.onImagePreview).toHaveBeenCalledWith(attachments.map(a => a.url), 3);
+  });
   it('forwards changed embedded previews even when the server omits a collection revision', async () => {
     const comment: Comment = { uid: 'c1', user: 1, content: 'before', userDisplayName: '', userUsername: 'alice', userAvatar: '', createdAt: '', updatedAt: '' };
     const item = talk({ commentCount: 1, commentPreview: [comment] });
@@ -153,22 +169,23 @@ describe('BBTalkCard rendering', () => {
 });
 
 describe('BBTalkCard footer interactions', () => {
-  it('forwards menu, edit, comment and visibility presses', async () => {
+  it('forwards menu, read and comment presses without a visibility shortcut', async () => {
     const item = talk();
     await mountCard(item);
     await press('更多操作');
     expect(cb.onMenu).toHaveBeenCalledWith(item);
     await press('评论');
     expect(cb.onComment).toHaveBeenCalledWith(item);
-    await press('切换为私密');
-    expect(cb.onToggleVisibility).toHaveBeenCalledWith(item);
+    expect(tappable('切换为私密')).toBeUndefined();
+    expect(hasText('公开可见')).toBe(true);
     await press(`碎碎念：${item.content}`);
     expect(cb.onEdit).toHaveBeenCalledWith(item);
   });
 
-  it('labels the visibility toggle for private records', async () => {
+  it('shows private visibility as a noninteractive status', async () => {
     await mountCard(talk({ visibility: 'private' }));
-    expect(tappable('切换为公开')).toBeDefined();
+    expect(tappable('切换为公开')).toBeUndefined();
+    expect(hasText('仅自己')).toBe(true);
     expect(tappable('切换为私密')).toBeUndefined();
   });
 

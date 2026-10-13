@@ -57,6 +57,14 @@ it('appends a newly created comment without fetching an empty record', async () 
   await act(async () => tree.update(<InlineComments {...values} newComment={comment('new')} />));
   expect(rows()).toHaveLength(1); expect(text()).toContain('body-new'); expect(api).not.toHaveBeenCalled();
 });
+
+it('compact feed previews one comment and still expands to every comment', async () => {
+  api.mockResolvedValue(commentPage(['one', 'two', 'three'].map(comment)));
+  await mount({ collapsedLimit: 1 });
+  expect(rows()).toHaveLength(1);
+  act(() => tree.root.findAllByType('TouchableOpacity').at(-1).props.onPress());
+  expect(rows()).toHaveLength(3);
+});
 it('does not duplicate an existing comment when a new object with the same uid is received', async () => {
   const values = await mount();
   await act(async () => tree.update(<InlineComments {...values} newComment={{ ...comment('one'), content: 'updated' }} />));

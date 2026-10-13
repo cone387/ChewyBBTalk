@@ -121,6 +121,8 @@ const BBTalkCard = React.memo(function BBTalkCard({
   const loc = item.context?.location as { latitude: number; longitude: number } | undefined;
   const images = item.attachments.filter(a => a.type === 'image');
   const files = item.attachments.filter(a => a.type !== 'image');
+  const isLong = item.content.length > 280 || item.content.split('\n').length > 6;
+  const preview = item.content.slice(0, 400).replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/(^|\n)[#>]+\s*/g, '$1').replace(/[*_`]/g, '');
 
   return (
     <View style={[styles.card, { backgroundColor: c.cardBg }]}>
@@ -138,10 +140,13 @@ const BBTalkCard = React.memo(function BBTalkCard({
       <TouchableOpacity activeOpacity={0.8} onPress={() => onEdit(item)} accessibilityRole="button" accessibilityLabel={`碎碎念：${item.content.slice(0, 50)}${item.content.length > 50 ? '…' : ''}`}>
 
 
-        <Markdown style={{ ...getMarkdownStyles(c), body: { ...getMarkdownStyles(c).body, paddingRight: 28 } }}>
+        {isLong ? <Text numberOfLines={6} style={{ color: c.text, fontSize: 16, lineHeight: 25, paddingRight: 28 }}>{preview}</Text> : <Markdown style={{ ...getMarkdownStyles(c), body: { ...getMarkdownStyles(c).body, paddingRight: 28 } }}>
           {item.content}
-        </Markdown>
+        </Markdown>}
       </TouchableOpacity>
+      {isLong && <TouchableOpacity accessibilityRole="button" accessibilityLabel="展开全文" onPress={() => onEdit(item)} style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' }}>
+        <Text style={{ color: c.primary, fontSize: 14 }}>展开全文</Text>
+      </TouchableOpacity>}
 
       {/* Tags row */}
       {item.tags.length > 0 && (
@@ -157,9 +162,12 @@ const BBTalkCard = React.memo(function BBTalkCard({
       {/* Image thumbnails */}
       {images.length > 0 && (
         <View style={styles.imageRow}>
-          {images.map((att, idx) => (
-            <TouchableOpacity key={att.uid} onPress={() => onImagePreview(images.map(i => i.url), idx)} accessibilityRole="button" accessibilityLabel={`查看图片 ${idx + 1}`}>
+          {images.slice(0, 4).map((att, idx) => (
+            <TouchableOpacity key={att.uid} style={{ width: images.length === 1 ? '100%' : '48.5%' }} onPress={() => onImagePreview(images.map(i => i.url), idx)} accessibilityRole="button" accessibilityLabel={`查看图片 ${idx + 1}`}>
               <Image source={buildImageSource(att.url)} style={[styles.thumbnail, { backgroundColor: c.borderLight }]} contentFit="cover" cachePolicy="disk" />
+              {idx === 3 && images.length > 4 && <View pointerEvents="none" style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 10, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: '#fff', fontSize: 24, fontWeight: '600' }}>+{images.length - 4}</Text>
+              </View>}
             </TouchableOpacity>
           ))}
         </View>
@@ -188,19 +196,20 @@ const BBTalkCard = React.memo(function BBTalkCard({
               <Text style={[styles.commentBtnCount, { color: c.textTertiary }]}>{item.commentCount}</Text>
             )}
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => onToggleVisibility(item)} style={styles.footerIcon} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityRole="button" accessibilityLabel={item.visibility === 'public' ? '切换为私密' : '切换为公开'}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <Ionicons
               name={item.visibility === 'public' ? 'globe-outline' : 'lock-closed-outline'}
               size={16}
               color={item.visibility === 'public' ? c.textTertiary : c.textTertiary}
             />
-          </TouchableOpacity>
+            <Text style={{ color: c.textSecondary, fontSize: 12 }}>{item.visibility === 'public' ? '公开可见' : '仅自己'}</Text>
+          </View>
         </View>
       </View>
 
       {/* Inline comments */}
       {((item.commentCount ?? 0) > 0 || newComment) && (
-        <InlineComments bbtalkId={item.id} commentCount={item.commentCount ?? 0} commentPreview={item.commentPreview} commentsRevision={item.commentsRevision} newComment={newComment} theme={theme} />
+        <InlineComments bbtalkId={item.id} collapsedLimit={1} commentCount={item.commentCount ?? 0} commentPreview={item.commentPreview} commentsRevision={item.commentsRevision} newComment={newComment} theme={theme} />
       )}
     </View>
   );
@@ -223,8 +232,8 @@ const styles = StyleSheet.create({
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12 },
   tag: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 12 },
   tagText: { color: '#fff', fontSize: 12, fontWeight: '500' },
-  imageRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
-  thumbnail: { width: 100, height: 100, borderRadius: 10 },
+  imageRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 8, marginTop: 12 },
+  thumbnail: { width: '100%', aspectRatio: 1.4, borderRadius: 10 },
   fileRow: { marginTop: 12, gap: 8 },
   fileCard: {
     flexDirection: 'row', alignItems: 'center', gap: 10,

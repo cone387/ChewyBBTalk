@@ -73,6 +73,9 @@ export function transformBBTalk(data: any): BBTalk {
 }
 
 export const bbtalkApi = {
+  async getBBTalk(uid: string): Promise<BBTalk> {
+    return transformBBTalk(await apiClient.get<any>(`/api/v1/bbtalk/${encodeURIComponent(uid)}`));
+  },
   async getBBTalks(params?: {
     page?: number;
     search?: string;

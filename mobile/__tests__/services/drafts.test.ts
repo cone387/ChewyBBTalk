@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { readDraft, waitForDraftWrites, writeDraft } from '../../src/services/drafts';
+import { listDrafts, readDraft, waitForDraftWrites, writeDraft } from '../../src/services/drafts';
 import { clearSession, getSession, setSession } from '../../src/services/session';
 jest.mock('@react-native-async-storage/async-storage', () => require('@react-native-async-storage/async-storage/jest/async-storage-mock'));
 
@@ -14,6 +14,23 @@ test('ordered clear waits for an in-flight write and read waits for clear', asyn
   expect(AsyncStorage.removeItem).not.toHaveBeenCalled();
   release(); await saved; await cleared;
   expect(await readDraft('draft')).toBeNull();
+});
+
+test('draft directory includes attachment-only and edit drafts but excludes empty and other accounts', async () => {
+  const session = getSession();
+  const prefix = `compose_draft:${session.scope}`;
+  await writeDraft(prefix, { version: 1, content: '', attachments: [], pendingMedia: [{ id: 'photo' }] }, session);
+  await writeDraft(`${prefix}:edit:r1`, { version: 1, content: '修改', attachments: [], pendingMedia: [] }, session);
+  await writeDraft(`${prefix}:locked:empty`, { version: 1, content: '', attachments: [], pendingMedia: [] }, session);
+  await writeDraft('compose_draft:another', { content: '别人的秘密' }, session);
+  expect(await listDrafts(session)).toEqual(expect.arrayContaining([
+    expect.objectContaining({ key: prefix, preview: '附件记录', pendingCount: 1 }),
+    expect.objectContaining({ key: `${prefix}:edit:r1`, preview: '修改', recordId: 'r1' }),
+  ]));
+  expect(await listDrafts(session)).toHaveLength(2);
+  setSession('https://draft.example', 'another');
+  await expect(listDrafts(session)).rejects.toThrow('账号已切换');
+  expect(await listDrafts(getSession())).toEqual([]);
 });
 
 test('failed writes remain retryable without poisoning the queue', async () => {
@@ -54,4 +71,15 @@ test('waitForDraftWrites settles when a scope draft failed and was abandoned', a
   await expect(writeDraft(`compose_draft:${scope}`, { content: 'lost' }, getSession())).rejects.toThrow('disk full');
   await expect(waitForDraftWrites(scope)).resolves.toBeUndefined();
   await expect(waitForDraftWrites('https://nobody.example|none')).resolves.toBeUndefined();
+});
+
+test('a crash between queue persistence and draft cleanup cannot restore the transferred draft', async () => {
+  const session = getSession(); const key = `compose_draft:${session.scope}`;
+  const draft = { content: 'already queued', draftId: 'original' };
+  await writeDraft(key, draft, session);
+  await AsyncStorage.setItem(`outbox:${session.scope}`, JSON.stringify([{ id: 'q1', state: 'queued', sourceDraftKey: key, draft }]));
+  expect(await readDraft(key)).toBeNull();
+  expect(await listDrafts(session)).toEqual([]);
+  await writeDraft(key, { content: 'already queued', draftId: 'new recording' }, session);
+  expect(await readDraft(key)).not.toBeNull();
 });

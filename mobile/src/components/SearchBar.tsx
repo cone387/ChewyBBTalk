@@ -39,7 +39,7 @@ function SearchBar({
         <View style={[styles.searchHistoryWrap, { backgroundColor: c.cardBg, borderBottomColor: c.border }]}>
           <View style={styles.searchHistoryHeader}>
             <Text style={[styles.searchHistoryTitle, { color: c.textSecondary }]}>最近搜索</Text>
-            <TouchableOpacity onPress={onClearHistory}>
+            <TouchableOpacity onPress={onClearHistory} accessibilityRole="button" accessibilityLabel="清除搜索历史" style={styles.clearButton}>
               <Text style={[styles.searchHistoryClear, { color: c.textTertiary }]}>清除</Text>
             </TouchableOpacity>
           </View>
@@ -49,6 +49,7 @@ function SearchBar({
                 key={i}
                 style={[styles.searchHistoryChip, { backgroundColor: c.borderLight }]}
                 onPress={() => onHistoryItemPress(term)}
+                accessibilityRole="button" accessibilityLabel={`搜索：${term}`}
               >
                 <Text style={[styles.searchHistoryChipText, { color: c.text }]}>{term}</Text>
               </TouchableOpacity>
@@ -88,7 +89,7 @@ export function SearchInput({
         accessibilityLabel="搜索碎碎念"
       />
       {searchText.length > 0 && (
-        <TouchableOpacity onPress={() => onSearchTextChange('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityRole="button" accessibilityLabel="清除搜索">
+        <TouchableOpacity style={styles.clearButton} onPress={() => onSearchTextChange('')} accessibilityRole="button" accessibilityLabel="清除搜索">
           <Ionicons name="close-circle" size={18} color={c.textTertiary} />
         </TouchableOpacity>
       )}
@@ -101,10 +102,10 @@ export default React.memo(SearchBar);
 const styles = StyleSheet.create({
   searchBar: {
     flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8,
-    borderRadius: 10, paddingHorizontal: 10, marginHorizontal: 8, height: 38,
+    borderRadius: 10, paddingLeft: 10, marginHorizontal: 8, minHeight: 44,
   },
   searchInput: {
-    flex: 1, fontSize: 15, paddingVertical: 0, paddingHorizontal: 0,
+    flex: 1, fontSize: 16, paddingVertical: 0, paddingHorizontal: 0,
     lineHeight: 20, includeFontPadding: false,
   },
   searchHistoryWrap: { paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 0.5 },
@@ -112,6 +113,7 @@ const styles = StyleSheet.create({
   searchHistoryTitle: { fontSize: 12, fontWeight: '500' },
   searchHistoryClear: { fontSize: 12 },
   searchHistoryTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  searchHistoryChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14 },
+  clearButton: { minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' },
+  searchHistoryChip: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14 },
   searchHistoryChipText: { fontSize: 13 },
 });
