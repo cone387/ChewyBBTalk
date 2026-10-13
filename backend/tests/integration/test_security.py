@@ -83,6 +83,25 @@ def test_old_jwt_claims_are_rejected(app):
         )
 
 
+@pytest.mark.parametrize('version', [None, True, -1, '0', 1.5])
+def test_signed_invalid_credential_version_returns_401(app, version):
+    token = jwt.encode(
+        {
+            'exp': now() + timedelta(hours=1),
+            'jti': 'invalid-version',
+            'sub': str(app.state.owner_id),
+            'purpose': 'access',
+            'credential_version': version,
+        },
+        app.state.settings.secret_key,
+        algorithm='HS256',
+    )
+    with TestClient(app) as anonymous:
+        response = anonymous.get(BASE + '/user/me', headers={'Authorization': 'Bearer ' + token})
+        assert response.status_code == 401
+        assert response.json()['code'] == 'token_not_valid'
+
+
 def test_secret_compatibility(app):
     settings = app.state.settings
     assert encrypt_secret('', settings) == ''
@@ -432,6 +451,9 @@ def test_pkce_wrong_verifier_does_not_consume_code_and_inactive_denied(app, clie
         '{"v":1,"kdf":"pbkdf2","hash":"sha256","iterations":100000000000,"salt":"cw==","digest":"ZA=="}',
         '{"v":1,"kdf":"scrypt","n":3,"r":8,"p":1,"salt":"cw==","digest":"ZA=="}',
         '{"v":true,"kdf":"pbkdf2"}',
+        '{"v":1,"kdf":"unknown","salt":"cw==","digest":"ZA=="}',
+        '{"v":1,"kdf":"pbkdf2","salt":"","digest":"ZA=="}',
+        json.dumps({'v': 1, 'salt': base64.b64encode(b's' * 1025).decode(), 'digest': 'ZA=='}),
     ],
 )
 def test_malformed_native_password_record_fails_closed(encoded):

@@ -50,3 +50,18 @@ def test_comments_always_paginate(client):
 def test_schema_uses_native_documentation_paths(client):
     assert client.get('/openapi.json').status_code == 200
     assert client.get('/api/schema/', follow_redirects=False).status_code == 404
+
+
+def test_imported_tag_names_skip_blanks_and_reject_excessive_length(app):
+    from core.errors import APIError
+    from models import BBTalk
+    from services.records import set_tags
+
+    with app.state.sessions() as db:
+        record = BBTalk(user_id=app.state.owner_id, content='imported record')
+        db.add(record)
+        db.flush()
+        set_tags(db, record, ['', ' imported ', 'imported', ' '])
+        assert [tag.name for tag in record.tags] == ['imported']
+        with pytest.raises(APIError):
+            set_tags(db, record, ['x' * 51])
