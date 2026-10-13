@@ -105,9 +105,13 @@ function SortableTagItem({
 
 export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
   const feedback = useActionFeedback()
+  const feedbackRef = useRef(feedback)
+  feedbackRef.current = feedback
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
   const { bbtalks, isLoading, hasMore, totalCount } = useAppSelector((state) => state.bbtalk)
+  const recordsRef = useRef(bbtalks)
+  recordsRef.current = bbtalks
   const { tags } = useAppSelector((state) => state.tag)
   const [isPublishing, setIsPublishing] = useState(false)
   const [showBackToTop, setShowBackToTop] = useState(false)
@@ -198,6 +202,23 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
     search: search || undefined,
     tags: selectedTagName ? [selectedTagName] : [],
   }), [search, selectedTagName])
+
+  // Keep card callbacks stable so scrolling and appending a page do not reparse
+  // every existing record. Deletion still uses the latest list position.
+  const queueDeletion = deletion.remove
+  const handleDelete = useCallback((item: typeof bbtalks[0]) => {
+    const index = recordsRef.current.findIndex(record => record.id === item.id)
+    if (index !== -1) queueDeletion({ bbtalk: item, index })
+  }, [queueDeletion])
+  const handleTogglePin = useCallback((record: typeof bbtalks[0]) => {
+    void dispatch(updateBBTalkAsync({ id: record.id, data: { isPinned: !record.isPinned }, expectedUpdatedAt: record.updatedAt }))
+      .unwrap().then(() => dispatch(loadBBTalks(buildFilterParams())))
+      .catch(() => feedbackRef.current.report('置顶状态更新失败，请刷新后重试'))
+  }, [dispatch, buildFilterParams])
+  const handleShareSuccess = useCallback((id: string) => {
+    setCopyTip({ show: true, id })
+    setTimeout(() => setCopyTip({ show: false, id: null }), 2000)
+  }, [])
 
   useEffect(() => {
     if (!isPublic) dispatch(loadTags())
@@ -377,9 +398,9 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
   }
 
   // 处理编辑按钮点击
-  const handleEdit = (bbtalk: typeof bbtalks[0]) => {
+  const handleEdit = useCallback((bbtalk: typeof bbtalks[0]) => {
     setEditingBBTalk(bbtalk)
-  }
+  }, [])
   
   // 取消编辑
   const handleCancelEdit = () => {
@@ -549,21 +570,15 @@ export default function BBTalkPage({ isPublic = false }: BBTalkPageProps) {
 
                 return (
                   <BBTalkItem
-                    onTogglePin={isPublic ? undefined : record => { void dispatch(updateBBTalkAsync({ id: record.id, data: { isPinned: !record.isPinned }, expectedUpdatedAt: record.updatedAt })).unwrap().then(() => dispatch(loadBBTalks(buildFilterParams()))).catch(() => feedback.report('置顶状态更新失败，请刷新后重试')) }}
+                    onTogglePin={isPublic ? undefined : handleTogglePin}
                     key={bbtalk.id}
                     bbtalk={bbtalk}
                     searchKeyword={searchKeyword.trim()}
                     isPublic={isPublic}
                     onEdit={handleEdit}
-                    onDelete={(item) => {
-                      const index = bbtalks.findIndex(b => b.id === item.id)
-                      if (index !== -1) deletion.remove({ bbtalk: item, index })
-                    }}
+                    onDelete={handleDelete}
                     onPreviewImage={setPreviewImage}
-                    onShareSuccess={(id) => {
-                      setCopyTip({ show: true, id })
-                      setTimeout(() => setCopyTip({ show: false, id: null }), 2000)
-                    }}
+                    onShareSuccess={handleShareSuccess}
                   />
                 )
               })

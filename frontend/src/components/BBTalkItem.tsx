@@ -457,7 +457,7 @@ const BBTalkItem: React.FC<BBTalkItemProps> = React.memo(function BBTalkItem({
                     <CachedImage
                       src={attachment.url}
                       alt={attachment.originalFilename || ''}
-                      className={`w-full max-w-full ${images.length > 1 ? 'aspect-square' : 'max-h-80'} object-contain bg-gray-50 rounded-lg cursor-pointer hover:opacity-90 transition-opacity`}
+                      className={`w-full max-w-full ${images.length > 1 ? 'aspect-square' : 'h-80'} object-contain bg-gray-50 rounded-lg cursor-pointer hover:opacity-90 transition-opacity`}
                       onClick={() => onPreviewImage?.({ src: attachment.url, alt: attachment.originalFilename || '', images: images.map(item => ({ src: item.url, alt: item.originalFilename || '' })) })}
                       objectFit="contain"
                     />
