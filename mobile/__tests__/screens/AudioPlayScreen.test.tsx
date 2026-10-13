@@ -34,6 +34,8 @@ jest.mock('@react-navigation/native', () => {
   return { __esModule: true, useRoute: () => ({ params: state.params }), __state: state };
 });
 jest.mock('../../src/theme/ThemeContext', () => ({ useTheme: () => ({ theme: require('../../src/theme/themes').THEMES[0] }) }));
+jest.mock('../../src/utils/imageSource', () => ({ buildImageSource: (url: string) =>
+  url.startsWith('https://api.test/api/') ? { uri: url, headers: { Authorization: 'Bearer token' } } : url }));
 
 import React from 'react';
 import AudioPlayScreen from '../../src/screens/AudioPlayScreen';
@@ -76,6 +78,12 @@ async function mount(params: any) {
 }
 
 describe('AudioPlayScreen download flow', () => {
+  it('authenticates a private API download without sending credentials to external media', async () => {
+    await mount({ url: 'https://api.test/api/v1/attachments/files/private/preview' });
+    expect(FS.downloadAsync).toHaveBeenCalledWith('https://api.test/api/v1/attachments/files/private/preview', expect.any(String), { headers: { Authorization: 'Bearer token' } });
+    await mount({ url: 'https://bucket.test/audio?signature=abc' });
+    expect(FS.downloadAsync).toHaveBeenLastCalledWith('https://bucket.test/audio?signature=abc', expect.any(String), { headers: undefined });
+  });
   it('asks for a real audio source when the route has no url', async () => {
     await mount(undefined); // route.params is undefined → defaults apply
     expect(hasText('请从记录中选择一段音频播放')).toBe(true);
@@ -85,7 +93,7 @@ describe('AudioPlayScreen download flow', () => {
 
   it('downloads the file on native and hands it to the player', async () => {
     await mount({ url: 'https://a.example/v.m4a', name: 'song.mp3' });
-    expect(FS.downloadAsync).toHaveBeenCalledWith('https://a.example/v.m4a', expect.stringMatching(/audio_\d+\.mp3$/));
+    expect(FS.downloadAsync).toHaveBeenCalledWith('https://a.example/v.m4a', expect.stringMatching(/audio_\d+\.mp3$/), { headers: undefined });
     expect(hasText('song.mp3')).toBe(true);
     expect(Audio.useAudioPlayer).toHaveBeenCalledWith('file:///cache/dl.m4a');
     expect(Audio.setAudioModeAsync).toHaveBeenCalledWith({ playsInSilentMode: true, allowsRecording: false });
@@ -93,7 +101,7 @@ describe('AudioPlayScreen download flow', () => {
 
   it('falls back to the m4a extension for empty names', async () => {
     await mount({ url: 'https://a.example/v', name: '' });
-    expect(FS.downloadAsync).toHaveBeenCalledWith('https://a.example/v', expect.stringMatching(/audio_\d+\.m4a$/));
+    expect(FS.downloadAsync).toHaveBeenCalledWith('https://a.example/v', expect.stringMatching(/audio_\d+\.m4a$/), { headers: undefined });
   });
 
   it('reports non-2xx downloads and recovers through retry', async () => {

@@ -2,6 +2,18 @@
 
 本轮变更：`mobile-launch-readiness`。实现与审核通过是两个阶段；此文档记录代码能力和发布前仍需实测的条件。
 
+## FastAPI 3.0 移动适配补充
+
+后续变更 `mobile-fastapi-adaptation` 修复上传默认权限、文件请求认证/超时/会话隔离、导入部分完成反馈和编辑定位保存，并将列表音频改为按需下载。升级说明见 [README](README.md#fastapi-30-适配与升级)。
+
+自动回归覆盖 401 后相同载荷只重试一次、响应体超时、账号切换后不继续导入/保存/分享、422 错误解析、完整导入统计、定位更新/清除、音频点击加载/缓存/失败重试和迟到响应隔离。后端测试验证匿名附件权限与公开状态转换、Range 和导入响应契约。
+
+2026-10-13 验证：移动端单测 101 套 / 1229 项、界面集成 7 套 / 44 项、`npx tsc --noEmit` 全部通过；后端 `test_storage.py`、`test_data.py`、`test_fastapi_contract.py` 共 64 项通过。后端仅有既有 Starlette TestClient/httpx 弃用提示。独立审查发现的缓存换源隔离、下载暂存和切换账号时 ZIP 清理均已修复并通过复审。
+
+`npx expo export --platform all --output-dir dist/fastapi-adaptation --max-workers 2` 通过，生成 iOS/Android Hermes 字节码及 Web 包；产物留在模块的 `dist/`，不进入提交。这证明多平台打包通过，不等于签名 IPA/APK 或真机验收。
+
+发布前仍需在 iOS/Android 真机验证：长音频点击后播放与二次缓存播放、私有媒体鉴权及 S3 跳转、后台恢复后上传、超时/断网后的手动恢复、JSON/ZIP 系统分享。自动化组件测试不代表原生播放器、系统分享面板或签名构建已经实测。
+
 ## 本轮实现
 
 - 输入停止 400ms 后保存草稿，切后台及卸载编辑器时立即尝试落盘；状态明确标注“本机”。编辑草稿按记录 ID 隔离并保留冲突检测版本。

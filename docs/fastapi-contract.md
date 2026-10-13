@@ -67,4 +67,6 @@ JWT 使用字符串 `sub` 及 `purpose: access|refresh`，刷新和撤销使用�
 
 客户端显示字段位置和提示，不拼接原始敏感输入。业务错误保留对应状态码和业务字段。主要 JSON 响应声明 `response_model`；文件下载提供二进制、Range 与签名重定向规则。私有附件经权限校验，不公开媒体目录。
 
+移动端文件上传默认 `is_public=false`，记录发布、编辑及删除后由后端同步附件可见性。文件请求遇到明确 401 时刷新并重试一次，网络或服务错误不自动重放上传/导入；账号切换后取消请求并丢弃旧响应。导入响应中的 `partial`、附件/评论跳过统计及逐行 `errors` 必须呈现，`success=true` 不代表完整恢复。移动端升级与超时规则见 [App 说明](../mobile/README.md#fastapi-30-适配与升级)。
+
 Swagger 位于 `/docs`，ReDoc 位于 `/redoc`，OpenAPI 位于 `/openapi.json`；`/api/schema/` 系列入口已移除。单容器和 Compose Nginx 均转发新地址，存活检查继续使用 `/healthz`。

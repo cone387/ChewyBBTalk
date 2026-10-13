@@ -108,6 +108,25 @@ def test_attachment_permissions_head_ranges_and_visibility(app,client):
     assert client.get(file['preview_url']).status_code==404
 
 
+def test_mobile_private_upload_stays_hidden_until_public_record(app, client):
+    file = client.post(FILES.rstrip('/'), files={'file': ('voice.mp3', b'0123456789')},
+                       data={'is_public': 'false'}).json()
+    with TestClient(app) as anonymous:
+        assert anonymous.get(FILES.rstrip('/')).json()['total'] == 0
+        assert anonymous.get(file['preview_url']).status_code == 404
+        record = client.post(BASE.rstrip('/'), json={
+            'content': 'mobile draft', 'visibility': 'private', 'attachments': [{'uid': file['id']}],
+        }).json()
+        assert anonymous.get(file['preview_url']).status_code == 404
+        client.patch(BASE + record['uid'], json={'visibility': 'public'})
+        assert anonymous.get(file['preview_url']).status_code == 200
+        ranged = anonymous.get(file['preview_url'], headers={'Range': 'bytes=2-4'})
+        assert ranged.status_code == 206 and ranged.content == b'234'
+        client.patch(BASE + record['uid'], json={'visibility': 'private'})
+        assert anonymous.get(file['preview_url']).status_code == 404
+        assert anonymous.get(FILES.rstrip('/')).json()['total'] == 0
+
+
 def test_https_proxy_attachment_urls_preserve_scheme(client):
     file=client.post((FILES).rstrip('/'),files={'file':('https.txt',b'https')},headers={'X-Forwarded-Proto':'https','X-Forwarded-For':'203.0.113.8'}).json()
     assert file['preview_url'].startswith('https://testserver/')

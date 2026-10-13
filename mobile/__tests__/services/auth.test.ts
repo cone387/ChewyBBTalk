@@ -56,6 +56,20 @@ function setupAuth(opts: SetupOpts = {}) {
 }
 
 describe('auth flows', () => {
+  it('times out a stalled refresh and permits a later refresh without clearing credentials', async () => {
+    jest.useFakeTimers();
+    const h = setupAuth({ storage: { bbtalk_refresh_token: 'refresh', bbtalk_access_token: 'old' } });
+    h.fetchMock.mockImplementationOnce((_url: string, options: RequestInit) => new Promise((_resolve, reject) => {
+      options.signal!.addEventListener('abort', () => reject(Object.assign(new Error('timeout'), { name: 'AbortError' })));
+    }));
+    const pending = h.auth.refreshAccessToken();
+    await jest.advanceTimersByTimeAsync(10_001);
+    expect(h.fetchMock.mock.calls[0][1].signal?.aborted).toBe(true);
+    expect(await pending).toBe(false);
+    expect(h.secureStore.get('bbtalk_refresh_token')).toBe('refresh');
+    h.fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ access: 'new' })));
+    expect(await h.auth.refreshAccessToken()).toBe(true);
+  });
   beforeEach(() => {
     jest.resetModules();
     jest.clearAllMocks();

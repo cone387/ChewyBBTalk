@@ -56,6 +56,11 @@ it('allows explicitly clearing content, tags and attachments while preserving re
   await bbtalkApi.updateBBTalk('record', {});
   expect(apiClient.patch).toHaveBeenLastCalledWith('/api/v1/bbtalk/record', {}, undefined);
 });
+
+it.each([{ location: { latitude: 1, longitude: 2 }, weather: '晴' }, {}])('sends explicit editing context %j', async context => {
+  await bbtalkApi.updateBBTalk('record', { context }, 'revision');
+  expect(apiClient.patch).toHaveBeenCalledWith('/api/v1/bbtalk/record', { context }, { 'If-Match': 'revision' });
+});
 it('maps private and public pagination without losing next-page markers or filters', async () => {
   (apiClient.get as jest.Mock).mockResolvedValue({ total: 3, has_more: true, page: 1, page_size: 20, items: [wire] });
   expect(await bbtalkApi.getBBTalks({ page: 2, search: 'body' })).toMatchObject({ total: 3, has_more: true, items: [{ id: 'record' }] });

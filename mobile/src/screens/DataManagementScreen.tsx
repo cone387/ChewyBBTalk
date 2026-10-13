@@ -7,8 +7,7 @@ import { writeAsStringAsync } from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getAccessToken } from '../services/auth';
-import { getApiBaseUrl } from '../config';
+import { createFileRequest } from '../services/fileRequest';
 import { useTheme } from '../theme/ThemeContext';
 import { clearCache } from '../services/offlineCacheService';
 import { xAlert, xConfirm } from '../utils/crossAlert';
@@ -33,7 +32,8 @@ function blobToText(blob: Blob): Promise<string> {
   });
 }
 
-async function saveAndShare(blob: Blob, fileName: string, mimeType: string) {
+async function saveAndShare(blob: Blob, fileName: string, mimeType: string, assertCurrent: () => void) {
+  assertCurrent();
   if (Platform.OS === 'web') {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -42,24 +42,37 @@ async function saveAndShare(blob: Blob, fileName: string, mimeType: string) {
     return '已开始下载，请在浏览器下载列表查看文件';
   }
 
-  // 写文件
+  const contents = mimeType === 'application/json' ? await blobToText(blob) : await blobToBase64(blob);
+  assertCurrent();
+  // 解码完成后再次核对会话，再写文件。
   const exportDir = new Directory(Paths.document, 'bbtalk_exports');
   if (!exportDir.exists) exportDir.create();
   const file = new FSFile(exportDir, fileName);
 
-  if (mimeType === 'application/json') {
-    file.write(await blobToText(blob));
-  } else {
-    // 二进制(ZIP)：用 legacy API 写 base64 -> 真正的二进制文件
-    const base64 = await blobToBase64(blob);
-    await writeAsStringAsync(file.uri, base64, { encoding: 'base64' });
-  }
+  try {
+    if (mimeType === 'application/json') {
+      file.write(contents);
+    } else {
+      // 二进制(ZIP)：用 legacy API 写 base64 -> 真正的二进制文件
+      await writeAsStringAsync(file.uri, contents, { encoding: 'base64' });
+    }
 
-  if (await Sharing.isAvailableAsync()) {
-    await Sharing.shareAsync(file.uri, { mimeType, dialogTitle: '导出数据' });
-    return '文件已生成，请在分享面板中保存或发送';
+    assertCurrent();
+    const canShare = await Sharing.isAvailableAsync();
+    assertCurrent();
+    if (canShare) {
+      await Sharing.shareAsync(file.uri, { mimeType, dialogTitle: '导出数据' });
+      assertCurrent();
+      return '文件已生成，请在分享面板中保存或发送';
+    }
+    return `文件已保存至：${file.uri}`;
+  } finally {
+    try { assertCurrent(); }
+    catch {
+      // An asynchronous native write can finish after the account has changed.
+      try { file.delete(); } catch { /* OS cleanup can fail, but never share stale data. */ }
+    }
   }
-  return `文件已保存至：${file.uri}`;
 }
 
 export default function DataManagementScreen() {
@@ -75,29 +88,29 @@ export default function DataManagementScreen() {
   const handleExport = async (format: 'json' | 'zip') => {
     if (busyRef.current) return;
     busyRef.current = true; setExporting(format);
+    const operation = createFileRequest();
     try {
-      const token = await getAccessToken();
-      const res = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/data/export?format=${format}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) { xAlert('导出失败', `服务器返回 ${res.status}`); return; }
-      const blob = await res.blob();
+      const blob = await operation.request(`/api/v1/bbtalk/data/export?format=${format}`, {}, res => res.blob(), 120_000, '导出失败');
+      operation.assertCurrent();
       const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
       const ext = format === 'zip' ? 'zip' : 'json';
       const mime = format === 'zip' ? 'application/zip' : 'application/json';
-      const message = await saveAndShare(blob, `bbtalk_export_${ts}.${ext}`, mime);
+      const message = await saveAndShare(blob, `bbtalk_export_${ts}.${ext}`, mime, operation.assertCurrent);
+      operation.assertCurrent();
       xAlert('导出文件已生成', message);
-    } catch (e: any) { xAlert('导出失败', e.message); }
+    } catch (e: any) { if (operation.isCurrent()) xAlert('导出失败', e.message); }
     finally { busyRef.current = false; setExporting(null); }
   };
 
   const handleImport = async () => {
     if (busyRef.current) return;
     busyRef.current = true; setImporting(true);
+    const operation = createFileRequest();
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: ['application/json', 'application/zip', 'application/octet-stream', '*/*'],
       });
+      operation.assertCurrent();
       if (result.canceled || !result.assets?.length) return;
       const picked = result.assets[0];
       if (!/\.(json|zip)$/i.test(picked.name)) { xAlert('文件格式不支持', '请选择本应用导出的 JSON 或 ZIP 文件'); return; }
@@ -106,41 +119,34 @@ export default function DataManagementScreen() {
       if (picked.name.toLowerCase().endsWith('.json')) mimeType = 'application/json';
       else if (picked.name.toLowerCase().endsWith('.zip')) mimeType = 'application/zip';
 
-      const token = await getAccessToken();
-
+      const formData = new FormData();
       if (Platform.OS === 'web') {
         // Web: fetch URI -> blob -> File 对象
         const blob = await (await fetch(picked.uri)).blob();
-        const formData = new FormData();
+        operation.assertCurrent();
         formData.append('file', new File([blob], picked.name, { type: mimeType }));
-        const res = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/data/import`, {
-          method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData,
-        });
-        if (!res.ok) throw new Error(`导入失败，服务器返回 ${res.status}`);
-        var data = await res.json();
       } else {
         // Native: 用 fetch + FormData，RN fetch 原生支持 file:// URI
-        const formData = new FormData();
         formData.append('file', { uri: picked.uri, name: picked.name, type: mimeType } as any);
-        const res = await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/data/import`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-          body: formData,
-        });
-        if (!res.ok) throw new Error(`导入失败，服务器返回 ${res.status}`);
-        var data = await res.json();
       }
+      const data = await operation.request('/api/v1/bbtalk/data/import', { method: 'POST', body: formData },
+        res => res.json(), 120_000, '导入失败');
+      operation.assertCurrent();
       if (data.success) {
         const s = data.stats;
-        xAlert('导入完成', [
+        const partial = data.partial || s.errors?.length || s.attachments_skipped || s.comments_skipped;
+        xAlert(partial ? '导入部分完成' : '导入完成', [
           `标签: 新增 ${s.tags_created}，跳过 ${s.tags_skipped}，共 ${s.tags_created + s.tags_skipped}`,
           `BBTalk: 新增 ${s.bbtalks_created}，跳过 ${s.bbtalks_skipped}，共 ${s.bbtalks_created + s.bbtalks_skipped}`,
-          s.errors?.length ? `错误: ${s.errors.length} 条` : '',
+          `附件: 新增 ${s.attachments_created ?? 0}，跳过 ${s.attachments_skipped ?? 0}`,
+          `评论: 新增 ${s.comments_created ?? 0}，跳过 ${s.comments_skipped ?? 0}`,
+          `存储配置: 新增 ${s.storage_settings_created ?? 0}`,
+          s.errors?.length ? `错误: ${s.errors.length} 条\n${s.errors.join('\n')}` : '',
         ].filter(Boolean).join('\n'));
       } else {
         xAlert('导入失败', apiErrorMessage(data, '未知错误'));
       }
-    } catch (e: any) { xAlert('导入失败', e.message); }
+    } catch (e: any) { if (operation.isCurrent()) xAlert('导入失败', e.message); }
     finally { busyRef.current = false; setImporting(false); }
   };
 

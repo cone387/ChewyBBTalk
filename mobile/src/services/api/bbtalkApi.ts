@@ -125,6 +125,7 @@ export const bbtalkApi = {
   async updateBBTalk(uid: string, bbtalk: Partial<BBTalk>, expectedUpdatedAt?: string): Promise<BBTalk> {
     const payload: any = {};
     if (bbtalk.content !== undefined) payload.content = bbtalk.content;
+    if (bbtalk.context !== undefined) payload.context = bbtalk.context;
     if (bbtalk.tags !== undefined) payload.tags = bbtalk.tags.map(t => t.name);
     if (bbtalk.visibility) payload.visibility = bbtalk.visibility;
     if (bbtalk.attachments !== undefined) {

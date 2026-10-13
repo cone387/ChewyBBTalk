@@ -1,8 +1,6 @@
 import { normalizeAttachmentUrl } from '../attachmentUrl';
-import { apiErrorMessage } from '../apiErrorMessage';
-import { getSession, isCurrentSession } from '../session';
+import { createFileRequest } from '../fileRequest';
 import { Platform } from 'react-native';
-import { getAccessToken } from '../auth';
 import { getApiBaseUrl } from '../../config';
 import type { Attachment } from '../../types';
 
@@ -54,38 +52,15 @@ function transformAttachment(data: any): Attachment {
   };
 }
 
-function captureUploadSession(): () => void {
-  const session = getSession(); const base = getApiBaseUrl();
-  return () => {
-    if (!isCurrentSession(session) || base !== getApiBaseUrl()) throw new Error('账号已切换');
-  };
-}
-
-async function uploadRequest(formData: FormData, assertCurrent: () => void): Promise<Response> {
-  const base = getApiBaseUrl();
-  const token = await getAccessToken();
-  assertCurrent();
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 60000);
-  try {
-    const response = await fetch(`${base}/api/v1/attachments/files`, { method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : {}, body: formData, signal: controller.signal });
-    assertCurrent();
-    return response;
-  } catch (error: any) {
-    if (error.name === 'AbortError') throw new Error('上传超时，附件仍保留，可稍后重试');
-    throw error;
-  } finally { clearTimeout(timer); }
-}
-
 export const attachmentApi = {
   async upload(uri: string, fileName: string, mimeType: string): Promise<Attachment> {
-    const assertCurrent = captureUploadSession();
+    const operation = createFileRequest();
     // Web 平台：RN 风格的 { uri, name, type } 对象不被浏览器 FormData 识别，
     // 会被 toString() 成 "[object Object]"。需要先 fetch 成 Blob 再用 File 包装。
     if (Platform.OS === 'web') {
       const resp = await fetch(uri);
       const blob = await resp.blob();
-      assertCurrent();
+      operation.assertCurrent();
       const file = new File([blob], fileName, { type: mimeType || blob.type });
       return this.uploadFile(file);
     }
@@ -97,38 +72,24 @@ export const attachmentApi = {
       name: fileName,
       type: mimeType,
     } as any);
-    formData.append('is_public', 'true');
+    formData.append('is_public', 'false');
 
-    const response = await uploadRequest(formData, assertCurrent);
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      assertCurrent();
-      throw new Error(apiErrorMessage(error, '上传失败'));
-    }
-
-    const data = await response.json();
-    assertCurrent();
+    const data = await operation.request('/api/v1/attachments/files', { method: 'POST', body: formData },
+      response => response.json(), 60_000, '上传失败', '上传超时，附件仍保留，请先核对结果再重试');
+    operation.assertCurrent();
     return transformAttachment(data);
   },
 
   /** Web-only: upload a File/Blob object directly */
   async uploadFile(file: File): Promise<Attachment> {
-    const assertCurrent = captureUploadSession();
+    const operation = createFileRequest();
     const formData = new FormData();
     formData.append('file', file, file.name || 'upload');
-    formData.append('is_public', 'true');
+    formData.append('is_public', 'false');
 
-    const response = await uploadRequest(formData, assertCurrent);
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      assertCurrent();
-      throw new Error(apiErrorMessage(error, '上传失败'));
-    }
-
-    const data = await response.json();
-    assertCurrent();
+    const data = await operation.request('/api/v1/attachments/files', { method: 'POST', body: formData },
+      response => response.json(), 60_000, '上传失败', '上传超时，附件仍保留，请先核对结果再重试');
+    operation.assertCurrent();
     return transformAttachment(data);
   },
 };

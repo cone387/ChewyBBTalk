@@ -13,7 +13,7 @@ jest.mock('react-native', () => {
 jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Icon' }));
 jest.mock('expo-audio', () => {
   const player = { pause: jest.fn(), play: jest.fn(), seekTo: jest.fn() };
-  const status = { playing: false, didJustFinish: false, duration: 0, currentTime: 0 };
+  const status = { playing: false, didJustFinish: false, duration: 0, currentTime: 0, isLoaded: true };
   return {
     __esModule: true,
     useAudioPlayer: jest.fn(() => player),
@@ -27,7 +27,9 @@ jest.mock('expo-file-system/legacy', () => ({
   __esModule: true,
   cacheDirectory: 'file:///cache/',
   getInfoAsync: jest.fn(async () => ({ exists: false })),
-  downloadAsync: jest.fn(async () => ({ uri: 'file:///dl.m4a' })),
+  downloadAsync: jest.fn(async () => ({ uri: 'file:///dl.m4a', status: 200 })),
+  deleteAsync: jest.fn(async () => {}),
+  moveAsync: jest.fn(async () => {}),
 }));
 jest.mock('../../src/theme/ThemeContext', () => ({ useTheme: () => ({ theme: require('../../src/theme/themes').THEMES[0] }) }));
 jest.mock('../../src/utils/imageSource', () => ({
@@ -38,6 +40,7 @@ jest.mock('../../src/utils/imageSource', () => ({
 import React from 'react';
 import AudioPlayerButton from '../../src/components/AudioPlayerButton';
 import type { Attachment } from '../../src/types';
+import { setSession } from '../../src/services/session';
 
 const { create, act } = require('react-test-renderer');
 const RN: any = require('react-native');
@@ -61,6 +64,7 @@ const childText = (children: any): string =>
 const hasText = (s: string) => tree.root.findAllByType('Text').some((t: any) => childText(t.props.children) === s);
 
 beforeEach(() => {
+  setSession('https://api.test', 'alice');
   jest.clearAllMocks();
   RN.__state.os = 'ios';
   Object.assign(Audio.__status, { playing: false, didJustFinish: false, duration: 0, currentTime: 0 });
@@ -68,7 +72,7 @@ beforeEach(() => {
   Audio.__player.play.mockClear();
   Audio.__player.seekTo.mockClear();
   FS.getInfoAsync.mockImplementation(async () => ({ exists: false }));
-  FS.downloadAsync.mockImplementation(async () => ({ uri: 'file:///dl.m4a' }));
+  FS.downloadAsync.mockImplementation(async () => ({ uri: 'file:///dl.m4a', status: 200 }));
 });
 
 afterEach(() => { act(() => { tree?.unmount(); }); tree = undefined; });
@@ -88,45 +92,56 @@ describe('AudioPlayerButton download flow', () => {
     FS.getInfoAsync.mockImplementation(async () => ({ exists: true }));
     await mountButton(att({ originalFilename: 'voice_123.m4a' }));
     expect(FS.downloadAsync).not.toHaveBeenCalled();
-    expect(Audio.useAudioPlayer).toHaveBeenCalledWith({ uri: 'file:///cache/audio_u1.m4a' });
+    expect(Audio.useAudioPlayer).toHaveBeenCalledWith({ uri: expect.stringMatching(/audio_v2_[a-f0-9]+\.m4a$/) });
     expect(hasText('语音记录')).toBe(true);
   });
 
   it('downloads when the cache is empty and forwards auth headers', async () => {
     await mountButton(att({ url: 'https://a.example/auth/x.m4a', filename: 'song.mp3' }));
+    expect(FS.downloadAsync).not.toHaveBeenCalled();
+    await act(async () => { tree.root.findAllByType('TouchableOpacity')[0].props.onPress(); }); await settle();
     expect(FS.downloadAsync).toHaveBeenCalledWith(
       'https://a.example/auth/x.m4a',
-      'file:///cache/audio_u1.mp3',
+      expect.stringMatching(/audio_v2_[a-f0-9]+\.mp3\..+\.part$/),
       { headers: { Authorization: 'Bearer t' } },
     );
-    expect(Audio.useAudioPlayer).toHaveBeenCalledWith({ uri: 'file:///dl.m4a' });
+    expect(Audio.useAudioPlayer).toHaveBeenCalledWith({ uri: expect.stringMatching(/audio_v2_[a-f0-9]+\.mp3$/) });
+    expect(FS.moveAsync).toHaveBeenCalledWith({ from: expect.stringMatching(/\.part$/), to: expect.stringMatching(/\.mp3$/) });
+    expect(Audio.__player.play).toHaveBeenCalledTimes(1);
   });
 
-  it('falls back to the remote URL when the download fails', async () => {
+  it('keeps a failed download retryable without silently playing the remote URL', async () => {
     FS.downloadAsync.mockImplementationOnce(() => Promise.reject(new Error('空间不足')));
     await mountButton(att());
-    expect(Audio.useAudioPlayer).toHaveBeenCalledWith({ uri: 'https://a.example/x.m4a' });
+    await act(async () => { tree.root.findAllByType('TouchableOpacity')[0].props.onPress(); }); await settle();
+    expect(Audio.useAudioPlayer).not.toHaveBeenCalled();
+    expect(hasText('空间不足，点击重试')).toBe(true);
+    await act(async () => { tree.root.findAllByType('TouchableOpacity')[0].props.onPress(); }); await settle();
+    expect(Audio.useAudioPlayer).toHaveBeenCalledWith({ uri: expect.stringMatching(/audio_v2_[a-f0-9]+\.m4a$/) });
   });
 
   it('renders the placeholder card with spinner and size while downloading', async () => {
-    let resolveDownload!: (v: { uri: string }) => void;
+    let resolveDownload!: (v: { uri: string; status: number }) => void;
     FS.downloadAsync.mockImplementation(() => new Promise((resolve) => { resolveDownload = resolve; }));
     await act(async () => { tree = create(<AudioPlayerButton attachment={att({ fileSize: 20_480 })} />); });
     await settle();
+    expect(FS.downloadAsync).not.toHaveBeenCalled();
+    await act(async () => { tree.root.findAllByType('TouchableOpacity')[0].props.onPress(); }); await settle();
     // Still on the placeholder card: spinner + loading label, no player yet.
     expect(tree.root.findAllByType('ActivityIndicator')).toHaveLength(1);
     expect(hasText('加载中...')).toBe(true);
     expect(Audio.useAudioPlayer).not.toHaveBeenCalled();
+    expect(FS.moveAsync).not.toHaveBeenCalled();
 
-    await act(async () => { resolveDownload({ uri: 'file:///dl.m4a' }); });
+    await act(async () => { resolveDownload({ uri: 'file:///dl.m4a', status: 200 }); });
     await settle();
     expect(Audio.useAudioPlayer).toHaveBeenCalled();
   });
 
-  it('starts the download on demand when the auto check stalls', async () => {
+  it('starts one download on demand even when the cache check stalls', async () => {
     let resolveInfo!: (v: { exists: boolean }) => void;
     FS.getInfoAsync.mockImplementation(() => new Promise((resolve) => { resolveInfo = resolve; }));
-    FS.downloadAsync.mockImplementationOnce(() => Promise.reject(new Error('手动失败')));
+    FS.downloadAsync.mockImplementationOnce(() => new Promise(() => {}));
     await act(async () => { tree = create(<AudioPlayerButton attachment={att({ fileSize: 5_120 })} />); });
     await settle();
     // Idle placeholder shows the size instead of a spinner.
@@ -134,11 +149,48 @@ describe('AudioPlayerButton download flow', () => {
     expect(hasText('音频 · 5KB')).toBe(true);
 
     const button = tree.root.findAllByType('TouchableOpacity')[0]!;
-    await act(async () => { void button.props.onPress(); });
+    await act(async () => { void button.props.onPress(); void button.props.onPress(); });
     await settle();
-    // The manual attempt failed, so the remote URL becomes the local source.
-    expect(Audio.useAudioPlayer).toHaveBeenCalledWith({ uri: 'https://a.example/x.m4a' });
+    expect(FS.downloadAsync).toHaveBeenCalledTimes(1);
+    expect(Audio.useAudioPlayer).not.toHaveBeenCalled();
     void resolveInfo;
+  });
+
+  it('does not cache or play a non-2xx response', async () => {
+    FS.downloadAsync.mockResolvedValueOnce({ uri: 'file:///bad.m4a', status: 401 });
+    await mountButton(att());
+    await act(async () => { tree.root.findAllByType('TouchableOpacity')[0].props.onPress(); }); await settle();
+    expect(Audio.useAudioPlayer).not.toHaveBeenCalled();
+    expect(FS.deleteAsync).toHaveBeenCalledWith(expect.stringMatching(/\.part$/), { idempotent: true });
+    expect(FS.moveAsync).not.toHaveBeenCalled();
+    expect(hasText('音频下载失败 (401)，点击重试')).toBe(true);
+  });
+
+  it('ignores a late download after changing the audio source', async () => {
+    let finish!: (value: any) => void;
+    FS.downloadAsync.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    await mountButton(att());
+    await act(async () => { tree.root.findAllByType('TouchableOpacity')[0].props.onPress(); }); await settle();
+    await act(async () => { tree.update(<AudioPlayerButton attachment={att({ uid: 'new', url: 'https://a.example/new.m4a' })} />); });
+    await settle();
+    await act(async () => { finish({ uri: 'file:///old.m4a', status: 200 }); }); await settle();
+    expect(Audio.useAudioPlayer).not.toHaveBeenCalledWith({ uri: 'file:///old.m4a' });
+    expect(Audio.__player.play).not.toHaveBeenCalled();
+    expect(FS.moveAsync).not.toHaveBeenCalled();
+    expect(FS.deleteAsync).toHaveBeenCalledWith(expect.stringMatching(/\.part$/), { idempotent: true });
+  });
+
+  it('does not reuse cached bytes for the same uid after changing source or account', async () => {
+    FS.getInfoAsync.mockResolvedValueOnce({ exists: true });
+    await mountButton(att());
+    const oldPath = FS.getInfoAsync.mock.calls[0][0];
+    FS.getInfoAsync.mockImplementation(async (path: string) => ({ exists: path === oldPath }));
+    Audio.useAudioPlayer.mockClear();
+    await act(async () => { tree.update(<AudioPlayerButton attachment={att({ url: 'https://other.test/new.m4a' })} />); }); await settle();
+    expect(Audio.useAudioPlayer).not.toHaveBeenCalled();
+    await act(async () => { setSession('https://api.test', 'bob'); tree.update(<AudioPlayerButton attachment={att()} />); }); await settle();
+    expect(Audio.useAudioPlayer).not.toHaveBeenCalled();
+    expect(FS.getInfoAsync.mock.calls[2][0]).not.toBe(oldPath);
   });
 
   it('uses the remote URL directly on the web platform', async () => {

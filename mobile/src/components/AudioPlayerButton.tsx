@@ -6,6 +6,8 @@ import * as FileSystem from 'expo-file-system/legacy';
 import type { Attachment } from '../types';
 import { useTheme } from '../theme/ThemeContext';
 import { buildImageSource } from '../utils/imageSource';
+import { getSession, isCurrentSession } from '../services/session';
+import { audioCachePath, audioStagingPath } from '../services/audioCache';
 
 function downloadHeaders(url: string) {
   const source = buildImageSource(url);
@@ -17,11 +19,18 @@ interface Props {
 }
 
 // Inner component that plays from a local URI
-function PlayerCard({ uri, attachment }: { uri: string; attachment: Attachment }) {
+function PlayerCard({ uri, attachment, autoPlay = false }: { uri: string; attachment: Attachment; autoPlay?: boolean }) {
   const { theme } = useTheme();
   const c = theme.colors;
   const player = useAudioPlayer(buildImageSource(uri));
   const status = useAudioPlayerStatus(player);
+  const started = useRef(false);
+  useEffect(() => {
+    if (!autoPlay || !status.isLoaded || started.current) return;
+    started.current = true;
+    setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false }).catch(() => {});
+    player.play();
+  }, [autoPlay, status.isLoaded, player]);
 
   const toggle = () => {
     setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false }).catch(() => {});
@@ -62,51 +71,64 @@ function PlayerCard({ uri, attachment }: { uri: string; attachment: Attachment }
 }
 
 export default function AudioPlayerButton({ attachment }: Props) {
+  return <AudioCard key={`${getSession().scope}:${attachment.uid}:${attachment.url}`} attachment={attachment} />;
+}
+
+function AudioCard({ attachment }: Props) {
   const { theme } = useTheme();
   const c = theme.colors;
   const [localUri, setLocalUri] = useState<string | null>(Platform.OS === 'web' ? attachment.url : null);
   const [downloading, setDownloading] = useState(false);
+  const [error, setError] = useState('');
+  const [autoPlay, setAutoPlay] = useState(false);
+  const busy = useRef(false);
+  const alive = useRef(true);
+  const session = useRef(getSession()).current;
+  const current = () => alive.current && isCurrentSession(session);
+  const dest = audioCachePath(attachment, session.scope);
 
-  // Auto-download on native (check cache first)
+  // Listing records only probes the local cache; network work requires a tap.
   useEffect(() => {
-    if (Platform.OS !== 'web' && !localUri) {
-      (async () => {
-        try {
-          const ext = (attachment.filename || 'm4a').split('.').pop();
-          const dest = FileSystem.cacheDirectory + `audio_${attachment.uid}.${ext}`;
-          const info = await FileSystem.getInfoAsync(dest);
-          if (info.exists) {
-            setLocalUri(dest);
-          } else {
-            setDownloading(true);
-            const result = await FileSystem.downloadAsync(attachment.url, dest, { headers: downloadHeaders(attachment.url) });
-            setLocalUri(result.uri);
-          }
-        } catch {
-          setLocalUri(attachment.url);
-        } finally {
-          setDownloading(false);
-        }
-      })();
+    alive.current = true;
+    if (Platform.OS !== 'web') {
+      void FileSystem.getInfoAsync(dest).then(info => {
+        if (current() && !busy.current && info.exists) setLocalUri(dest);
+      }).catch(() => { /* A cache miss never triggers a network request. */ });
     }
+    return () => { alive.current = false; };
   }, []);
 
+  const load = async () => {
+    if (busy.current || !current()) return;
+    busy.current = true; setDownloading(true); setError('');
+    const staging = audioStagingPath(dest);
+    try {
+      const result = await FileSystem.downloadAsync(attachment.url, staging, { headers: downloadHeaders(attachment.url) });
+      if (!(result.status >= 200 && result.status < 300)) throw new Error(`音频下载失败 (${result.status})`);
+      if (!current()) return;
+      try { await FileSystem.moveAsync({ from: staging, to: dest }); }
+      catch (error) {
+        // Another card may have completed the same audio while this one downloaded.
+        if (!(await FileSystem.getInfoAsync(dest)).exists) throw error;
+      }
+      if (current()) { setAutoPlay(true); setLocalUri(dest); }
+    } catch (e: any) {
+      if (current()) setError(`${e.message || '音频下载失败'}，点击重试`);
+    } finally {
+      await FileSystem.deleteAsync(staging, { idempotent: true }).catch(() => {});
+      busy.current = false;
+      if (current()) setDownloading(false);
+    }
+  };
+
   if (localUri) {
-    return <PlayerCard uri={localUri} attachment={attachment} />;
+    return <PlayerCard uri={localUri} attachment={attachment} autoPlay={autoPlay} />;
   }
 
   return (
-    <TouchableOpacity style={[styles.card, { backgroundColor: c.borderLight, borderColor: c.border }]} activeOpacity={0.7} onPress={() => {
-      if (!downloading) {
-        setDownloading(true);
-        const ext = (attachment.filename || 'm4a').split('.').pop();
-        const dest = FileSystem.cacheDirectory + `audio_${attachment.uid}.${ext}`;
-        FileSystem.downloadAsync(attachment.url, dest, { headers: downloadHeaders(attachment.url) })
-          .then(r => setLocalUri(r.uri))
-          .catch(() => setLocalUri(attachment.url))
-          .finally(() => setDownloading(false));
-      }
-    }}>
+    <TouchableOpacity style={[styles.card, { backgroundColor: c.borderLight, borderColor: c.border }]} activeOpacity={0.7}
+      accessibilityRole="button" accessibilityLabel={`${error ? '重试' : '播放'}音频 ${attachment.originalFilename || attachment.filename || ''}`}
+      disabled={downloading} onPress={load}>
       <View style={[styles.iconWrap, { backgroundColor: c.primary + '18' }]}>
         {downloading ? <ActivityIndicator size="small" color={c.primary} /> : <Ionicons name="play" size={20} color={c.primary} />}
       </View>
@@ -115,7 +137,7 @@ export default function AudioPlayerButton({ attachment }: Props) {
           {/^voice_\d+/.test(attachment.originalFilename || attachment.filename || '') ? '语音记录' : attachment.originalFilename || attachment.filename || '语音记录'}
         </Text>
         <Text style={[styles.meta, { color: c.textTertiary }]}>
-          {downloading ? '加载中...' : `音频${attachment.fileSize ? ` · ${(attachment.fileSize / 1024).toFixed(0)}KB` : ''}`}
+          {downloading ? '加载中...' : error || `音频${attachment.fileSize ? ` · ${(attachment.fileSize / 1024).toFixed(0)}KB` : ''}`}
         </Text>
       </View>
     </TouchableOpacity>

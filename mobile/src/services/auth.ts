@@ -131,11 +131,14 @@ async function doRefresh(): Promise<boolean> {
   const refreshToken = await getRefreshToken();
   if (!refreshToken || !isCurrentSession(session)) return false;
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
   try {
     const response = await fetch(`${server}/api/v1/bbtalk/auth/token/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh: refreshToken }),
+      signal: controller.signal,
     });
 
     if (!isCurrentSession(session)) return false;
@@ -166,6 +169,8 @@ async function doRefresh(): Promise<boolean> {
     // 网络错误仅允许原会话重试。
     if (isCurrentSession(session)) scheduleRefreshRetry();
     return false;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 

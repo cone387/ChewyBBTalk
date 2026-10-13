@@ -1,8 +1,8 @@
 jest.mock('react-native', () => ({ Platform: { OS: 'ios' } }));
-jest.mock('../../src/services/auth', () => ({ getAccessToken: jest.fn() }));
+jest.mock('../../src/services/auth', () => ({ getAccessToken: jest.fn(), refreshAccessToken: jest.fn() }));
 jest.mock('../../src/config', () => ({ getApiBaseUrl: jest.fn() }));
 import { Platform } from 'react-native';
-import { getAccessToken } from '../../src/services/auth';
+import { getAccessToken, refreshAccessToken } from '../../src/services/auth';
 import { getApiBaseUrl } from '../../src/config';
 import { setSession, clearSession } from '../../src/services/session';
 import { attachmentApi } from '../../src/services/api/mediaApi';
@@ -30,8 +30,20 @@ it('sends the native file descriptor and bearer token as multipart without JSON 
   expect(await attachmentApi.upload('file:///photo.jpg', 'photo.jpg', 'image/jpeg')).toMatchObject({ uid: 'file', url: 'https://example.com/preview/', type: 'image' });
   const options = fetchMock.mock.calls[0][1];
   expect(options.body.get('file')).toEqual({ uri: 'file:///photo.jpg', name: 'photo.jpg', type: 'image/jpeg' });
+  expect(options.body.get('is_public')).toBe('false');
   expect(options.headers).toEqual({ Authorization: 'Bearer access' });
   expect(jest.getTimerCount()).toBe(0);
+});
+it('refreshes an expired upload token once and preserves the private multipart payload', async () => {
+  (refreshAccessToken as jest.Mock).mockResolvedValue(true);
+  (getAccessToken as jest.Mock).mockResolvedValueOnce('old').mockResolvedValueOnce('fresh');
+  fetchMock.mockResolvedValueOnce(response({}, 401));
+  await attachmentApi.upload('file:///photo.jpg', 'photo.jpg', 'image/jpeg');
+  expect(refreshAccessToken).toHaveBeenCalledTimes(1);
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+  expect(fetchMock.mock.calls[1][1].headers).toEqual({ Authorization: 'Bearer fresh' });
+  expect(fetchMock.mock.calls[1][1].body).toBe(fetchMock.mock.calls[0][1].body);
+  expect(fetchMock.mock.calls[1][1].body.get('is_public')).toBe('false');
 });
 it('omits the Authorization header entirely when no token is available', async () => {
   (getAccessToken as jest.Mock).mockResolvedValueOnce(null);
@@ -51,6 +63,7 @@ it('names a nameless upload explicitly', async () => {
   await attachmentApi.uploadFile(new File(['file'], ''));
   const options = fetchMock.mock.calls[0][1];
   expect(options.body.get('file')).toBeInstanceOf(File);
+  expect(options.body.get('is_public')).toBe('false');
   expect(options.body.filenames.get('file')).toBe('upload');
 });
 it.each(['image/jpeg', 'video/mp4', 'audio/mp4', 'application/pdf'])('infers the attachment kind from %s', async mime => {
@@ -82,16 +95,16 @@ it('keeps HTTP errors with non-JSON bodies retryable', async () => {
 });
 it('blocks requests when token loading crosses an account switch', async () => {
   (getAccessToken as jest.Mock).mockImplementation(async () => { clearSession(); return 'old'; });
-  await expect(attachmentApi.upload('file:///photo', 'photo.jpg', 'image/jpeg')).rejects.toThrow('账号已切换');
+  await expect(attachmentApi.upload('file:///photo', 'photo.jpg', 'image/jpeg')).rejects.toThrow('会话已改变');
   expect(fetchMock).not.toHaveBeenCalled();
 });
 it('rejects a successful upload response from a previous account', async () => {
   fetchMock.mockImplementation(async () => { clearSession(); return response(); });
-  await expect(attachmentApi.uploadFile(new File(['file'], 'file'))).rejects.toThrow('账号已切换');
+  await expect(attachmentApi.uploadFile(new File(['file'], 'file'))).rejects.toThrow('会话已改变');
 });
 it('rejects results if account switches during JSON parsing', async () => {
   const res = response(); res.json.mockImplementation(async () => { clearSession(); return { uid: 'old-file' }; }); fetchMock.mockResolvedValue(res);
-  await expect(attachmentApi.uploadFile(new File(['file'], 'file'))).rejects.toThrow('账号已切换');
+  await expect(attachmentApi.uploadFile(new File(['file'], 'file'))).rejects.toThrow('会话已改变');
 });
 it('times out a stalled upload and clears the deadline timer', async () => {
   fetchMock.mockImplementation((_url, options) => new Promise((_resolve, reject) => options.signal.addEventListener('abort', () => reject(Object.assign(new Error(), { name: 'AbortError' })))));
@@ -108,7 +121,7 @@ it('converts browser blob URIs to files rather than submitting a native descript
 it('does not upload a browser blob into the newly switched account', async () => {
   (Platform as any).OS = 'web';
   fetchMock.mockResolvedValueOnce({ blob: async () => { clearSession(); return new Blob(['file']); } });
-  await expect(attachmentApi.upload('blob:photo', 'photo.jpg', '')).rejects.toThrow('账号已切换');
+  await expect(attachmentApi.upload('blob:photo', 'photo.jpg', '')).rejects.toThrow('会话已改变');
   expect(fetchMock).toHaveBeenCalledTimes(1);
 });
 

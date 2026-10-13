@@ -6,6 +6,8 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRoute } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
+import { buildImageSource } from '../utils/imageSource';
+import { getSession, isCurrentSession } from '../services/session';
 
 export default function AudioPlayScreen() {
   const route = useRoute<any>();
@@ -18,7 +20,7 @@ export default function AudioPlayScreen() {
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
 
-  // Download file first on native (AVPlayer needs Range support which our server lacks)
+  // Native playback keeps a local copy; FastAPI also supports Range streaming.
   useEffect(() => {
     setError(null);
     setLocalUri(null);
@@ -28,15 +30,18 @@ export default function AudioPlayScreen() {
       return;
     }
     let cancelled = false;
+    const session = getSession();
+    const current = () => !cancelled && isCurrentSession(session);
     (async () => {
       try {
-        const ext = name.split('.').pop() || 'm4a';
+        const ext = /\.([a-z0-9]{1,8})$/i.exec(name)?.[1] || 'm4a';
         const dest = FileSystem.cacheDirectory + `audio_${Date.now()}.${ext}`;
-        const result = await FileSystem.downloadAsync(url, dest);
+        const source = buildImageSource(url);
+        const result = await FileSystem.downloadAsync(url, dest, { headers: typeof source === 'string' ? undefined : source.headers });
         if (result.status < 200 || result.status >= 300) throw new Error('音频下载失败，请重试');
-        if (!cancelled) setLocalUri(result.uri);
+        if (current()) setLocalUri(result.uri);
       } catch (e: any) {
-        if (!cancelled) setError(e.message || '下载失败');
+        if (current()) setError(e.message || '下载失败');
       }
     })();
     return () => { cancelled = true; };
@@ -75,7 +80,7 @@ function AudioPlayerUI({ uri, name }: { uri: string; name: string }) {
   const c = theme.colors;
   const insets = useSafeAreaInsets();
 
-  const player = useAudioPlayer(uri);
+  const player = useAudioPlayer(buildImageSource(uri));
   const status = useAudioPlayerStatus(player);
 
   useEffect(() => {
