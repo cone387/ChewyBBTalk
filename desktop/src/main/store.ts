@@ -4,6 +4,7 @@
  * 结构对齐 design.md "数据模型" 章节的 schema。
  */
 import Store from 'electron-store';
+import { migrateComposeV1 } from './migrations/composeV1';
 import type { SubmissionIntent, UploadItem } from '../shared/ipc-types';
 import type { Edge } from '../shared/constants';
 import type { PreferredSnapPoint } from './ball/snap';
@@ -32,6 +33,7 @@ export interface SettingsSchema {
     outbox: unknown[];
     drafts?: Record<string, string>;
     submissions?: Record<string, SubmissionIntent>;
+    submissionsVersion?: number;
   };
   ai: { provider: string; openaiApiKey: string; customEndpoint: string };
 }
@@ -64,6 +66,10 @@ export const store = new Store<SettingsSchema>({
   name: 'chewybbtalk',
   defaults: DEFAULTS,
 });
+
+const savedCompose = store.get('compose');
+const migratedCompose = migrateComposeV1(savedCompose);
+if (migratedCompose !== savedCompose) store.set('compose', migratedCompose);
 
 export function getBallState(): BallState {
   return store.get('ball');

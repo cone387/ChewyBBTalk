@@ -20,6 +20,23 @@ SPEC.loader.exec_module(worker)
 
 
 class CopyWorkerTests(unittest.TestCase):
+    def test_native_manifest_transforms_credentials_and_revocation_column_only(self):
+        source = {'id': 1, 'identity_type': 'password', 'credential': 'pbkdf2_sha256$2$salt$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='}
+        converted = worker.native_row('cb_identities', source)
+        self.assertEqual(json.loads(converted['credential']), {
+            'v': 1, 'kdf': 'pbkdf2', 'hash': 'sha256', 'iterations': 2,
+            'salt': 'c2FsdA==', 'digest': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
+        })
+        self.assertEqual(source['credential'], 'pbkdf2_sha256$2$salt$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=')
+        # A source already upgraded to the current revision is still verifiable.
+        self.assertEqual(worker.native_row('cb_identities', converted), converted)
+        disabled = {**source, 'credential': '!disabled'}
+        self.assertEqual(worker.native_row('cb_identities', disabled), disabled)
+        oauth = {**source, 'identity_type': 'oauth'}
+        self.assertEqual(worker.native_row('cb_identities', oauth), oauth)
+        self.assertEqual(worker.native_row('token_blacklist_blacklistedtoken', {'id': 3, 'blacklisted_at': 'old-time'}), {'id': 3, 'revoked_at': 'old-time'})
+        self.assertEqual(worker.native_row('cb_revoked_tokens', {'id': 3, 'blacklisted_at': 'old-time'}), {'id': 3, 'revoked_at': 'old-time'})
+
     def test_target_must_be_separate_and_use_reserved_prefix(self):
         for target in (
             "chewy_bbtalk",
@@ -157,6 +174,8 @@ class CopyWorkerPostgresTests(unittest.TestCase):
                     )
                 )
                 session.flush()
+                session.add(old.Identity(user_id=99, identity_type="password", identifier="historical",
+                    credential="pbkdf2_sha256$2$salt$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="))
                 session.add(
                     old.Tag(id=77, user_id=99, name="precise", sort_order=16777217.25)
                 )

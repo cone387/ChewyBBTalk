@@ -28,14 +28,14 @@ sed "s/\${NGINX_CLIENT_MAX_BODY_SIZE}/$NGINX_CLIENT_MAX_BODY_SIZE/g" /etc/nginx/
 exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
 '''
 PROBE = '''import json, urllib.request, urllib.error
-for path, expected in [('/', 200), ('/healthz', 200), ('/api/schema/', 200), ('/api/v1/bbtalk/user/me', 401)]:
+for path, expected in [('/', 200), ('/healthz', 200), ('/openapi.json', 200), ('/api/v1/bbtalk/user/me', 401)]:
     try:
         response = urllib.request.urlopen('http://127.0.0.1:4010' + path, timeout=5)
     except urllib.error.HTTPError as error:
         response = error
     with response:
         assert response.status == expected, (path, response.status)
-        if path == '/api/schema/':
+        if path == '/openapi.json':
             value = json.load(response)
             assert value['info']['title'] == 'ChewyBBTalk API'
 print('HTTP_SMOKE_OK')

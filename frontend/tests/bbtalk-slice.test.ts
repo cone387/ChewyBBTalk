@@ -17,8 +17,8 @@ vi.mock('../src/services/api', () => ({ bbtalkApi: api }));
 function record(id: string, content = `内容${id}`): BBTalk {
   return { id, content, visibility: 'private', tags: [], attachments: [], createdAt: '2026-01-01T00:00:00Z', updatedAt: `v-${id}` };
 }
-function paged(results: BBTalk[], next: string | null = null, count = results.length) {
-  return { count, next, previous: null, results };
+function paged(items: BBTalk[], hasMore = false, total = items.length) {
+  return { total, totalCount: total, has_more: hasMore, page: 1, page_size: 20, items };
 }
 function store() {
   return configureStore({ reducer: { bbtalk: bbtalkReducer } });
@@ -70,17 +70,17 @@ describe('loadBBTalks', () => {
     });
     expect(state(s)).toMatchObject({
       bbtalks: [record('b1'), record('b2')], currentPage: 2, hasMore: false, isLoading: false,
-      totalCount: 0, // filtered loads never refresh the total
+      totalCount: 2, // server total remains unfiltered
     });
   });
 
-  it('keeps the previous total when the load is filtered', async () => {
+  it('uses the unfiltered server total independently of the filtered page size', async () => {
     const s = store();
     await s.dispatch(loadBBTalks()); // full load, totalCount 2
-    api.getBBTalks.mockResolvedValue(paged([record('b3')], null, 99));
+    api.getBBTalks.mockResolvedValue({ ...paged([record('b3')]), totalCount: 99 });
     await s.dispatch(loadBBTalks({ search: '关键' }));
     expect(state(s).bbtalks).toHaveLength(1);
-    expect(state(s).totalCount).toBe(2);
+    expect(state(s).totalCount).toBe(99);
   });
 
   it('excludes records hidden by an optimistic delete', async () => {
@@ -100,8 +100,8 @@ describe('loadBBTalks', () => {
   });
 
   it('ignores responses from superseded requests', async () => {
-    const slow = { count: 1, next: null, previous: null, results: [record('slow')] };
-    const fast = { count: 1, next: null, previous: null, results: [record('fast')] };
+    const slow = { total: 1, totalCount: 1, has_more: false, page: 1, page_size: 20, items: [record('slow')] };
+    const fast = { total: 1, totalCount: 1, has_more: false, page: 1, page_size: 20, items: [record('fast')] };
     let resolveSlow!: (value: typeof slow) => void;
     let resolveFast!: (value: typeof fast) => void;
     api.getBBTalks.mockImplementationOnce(() => new Promise(resolve => { resolveSlow = resolve; }))
@@ -123,7 +123,7 @@ describe('loadMoreBBTalks', () => {
   it('appends the next page computed from current state', async () => {
     const s = store();
     await s.dispatch(loadBBTalks({ page: 1 }));
-    api.getBBTalks.mockResolvedValue(paged([record('b3')], '/?page=3'));
+    api.getBBTalks.mockResolvedValue(paged([record('b3')], true));
     await s.dispatch(loadMoreBBTalks({ search: 'x', tags: ['t'] }));
     expect(api.getBBTalks).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2, search: 'x', tags: ['t'] }));
     expect(state(s).bbtalks.map(item => item.id)).toEqual(['b1', 'b2', 'b3']);
@@ -141,8 +141,8 @@ describe('loadMoreBBTalks', () => {
 describe('public feed', () => {
   it('loads and paginates public records', async () => {
     const s = store();
-    api.getPublicBBTalks.mockResolvedValueOnce(paged([record('p1')], '/?page=2', 5))
-      .mockResolvedValueOnce(paged([record('p2')], null, 5));
+    api.getPublicBBTalks.mockResolvedValueOnce(paged([record('p1')], true, 5))
+      .mockResolvedValueOnce(paged([record('p2')], false, 5));
     await s.dispatch(loadPublicBBTalks({ page: 1 }));
     expect(state(s)).toMatchObject({ bbtalks: [record('p1')], currentPage: 1, hasMore: true, totalCount: 5 });
     await s.dispatch(loadMorePublicBBTalks());
@@ -159,8 +159,8 @@ describe('public feed', () => {
   });
 
   it('ignores superseded public responses and reports load-more failures', async () => {
-    const slow = { count: 1, next: null, previous: null, results: [record('slow')] };
-    const fast = { count: 1, next: null, previous: null, results: [record('fast')] };
+    const slow = { total: 1, totalCount: 1, has_more: false, page: 1, page_size: 20, items: [record('slow')] };
+    const fast = { total: 1, totalCount: 1, has_more: false, page: 1, page_size: 20, items: [record('fast')] };
     let resolveSlow!: (value: typeof slow) => void;
     let resolveFast!: (value: typeof fast) => void;
     api.getPublicBBTalks.mockImplementationOnce(() => new Promise(resolve => { resolveSlow = resolve; }))

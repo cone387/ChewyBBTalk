@@ -318,7 +318,7 @@ describe('initAuth robustness', () => {
 })
 
 describe('logout', () => {
-  it('does not clear or redirect a newer login when an old blacklist request finishes', async () => {
+  it('does not clear or redirect a newer login when an old revoke request finishes', async () => {
     seed(); const auth = await import('../src/services/auth')
     let finish!: (value: ReturnType<typeof response>) => void
     fetchMock.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
@@ -335,26 +335,26 @@ describe('logout', () => {
     expect(navigatedTo).toBeUndefined()
   })
 
-  it('blacklists the refresh token, clears local state and redirects to the login page', async () => {
+  it('revokes the refresh token, clears local state and redirects to the login page', async () => {
     seed(); const auth = await import('../src/services/auth')
     fetchMock.mockResolvedValue(response({}))
     await auth.logout()
     expect(fetchMock).toHaveBeenCalledTimes(1)
-    expect(fetchMock.mock.calls[0][0]).toContain('/auth/token/blacklist')
+    expect(fetchMock.mock.calls[0][0]).toContain('/auth/token/revoke')
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ refresh: 'refresh-old' })
     expect(auth.getAccessToken()).toBeNull()
     expect(auth.getCurrentUser()).toBeNull()
     expect(navigatedTo).toBe('/login')
   })
 
-  it('skips the blacklist call when no refresh token is stored', async () => {
+  it('skips the revoke call when no refresh token is stored', async () => {
     const auth = await import('../src/services/auth')
     await auth.logout()
     expect(fetchMock).not.toHaveBeenCalled()
     expect(navigatedTo).toBe('/login')
   })
 
-  it('still signs out locally when the blacklist request fails', async () => {
+  it('still signs out locally when the revoke request fails', async () => {
     seed(); const auth = await import('../src/services/auth')
     fetchMock.mockRejectedValue(new Error('offline'))
     await auth.logout()

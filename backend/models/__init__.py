@@ -113,7 +113,7 @@ class Identity(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey('cb_users.id', ondelete='CASCADE'), index=True)
     identity_type: Mapped[str] = mapped_column(String(32), default='password')
     identifier: Mapped[str] = mapped_column(String(255))
-    credential: Mapped[str] = mapped_column(String(255), default='')
+    credential: Mapped[str] = mapped_column(Text().with_variant(LONGTEXT(), 'mysql'), default='')
     provider: Mapped[str] = mapped_column(String(32), default='')
     provider_user_id: Mapped[str] = mapped_column(String(255), default='')
     is_verified: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -270,7 +270,7 @@ class PasswordRecovery(Base):
     expires_at: Mapped[datetime] = mapped_column(UTCDateTime)
 
 
-class OutstandingToken(Base):
+class RefreshToken(Base):
     __tablename__ = 'cb_refresh_tokens'
     id: Mapped[int] = mapped_column(ID, primary_key=True)
     user_id: Mapped[int | None] = mapped_column(
@@ -282,13 +282,13 @@ class OutstandingToken(Base):
     expires_at: Mapped[datetime] = mapped_column(UTCDateTime)
 
 
-class BlacklistedToken(Base):
+class RevokedToken(Base):
     __tablename__ = 'cb_revoked_tokens'
     id: Mapped[int] = mapped_column(ID, primary_key=True)
     token_id: Mapped[int] = mapped_column(
         ForeignKey('cb_refresh_tokens.id', ondelete='CASCADE'), unique=True
     )
-    blacklisted_at: Mapped[datetime] = mapped_column(UTCDateTime, default=now)
+    revoked_at: Mapped[datetime] = mapped_column(UTCDateTime, default=now)
 
 
 class SessionToken(Base):

@@ -1,6 +1,7 @@
+import { normalizeAttachmentUrl } from '../attachmentUrl';
 import { apiClient } from './apiClient';
 import { getApiBaseUrl } from '../../config';
-import type { BBTalk, PaginatedResponse, Attachment, Comment, CommentPage } from '../../types';
+import type { BBTalk, BBTalkPage, Attachment, Comment, CommentPage } from '../../types';
 
 function transformAttachment(data: any): Attachment {
   const apiBase = getApiBaseUrl();
@@ -14,10 +15,12 @@ function transformAttachment(data: any): Attachment {
       try {
         const parsed = new URL(url);
         const base = new URL(apiBase);
-        parsed.protocol = base.protocol;
-        parsed.host = base.host;
-        parsed.port = base.port;
-        url = parsed.toString();
+        if (/^\/api\/v1\/attachments\/files\/[^/]+\/(preview|download|content)\/?$/.test(parsed.pathname)) {
+          parsed.protocol = base.protocol;
+          parsed.host = base.host;
+          parsed.port = base.port;
+          url = parsed.toString();
+        }
       } catch {}
     } else if (url.startsWith('/')) {
       url = apiBase + url;
@@ -31,7 +34,7 @@ function transformAttachment(data: any): Attachment {
   }
   return {
     uid: data.uid || data.id || '',
-    url,
+    url: normalizeAttachmentUrl(url, apiBase),
     type: data.type || 'file',
     filename: data.filename,
     originalFilename: data.original_filename,
@@ -77,13 +80,15 @@ export const bbtalkApi = {
     created_on?: string;
     created_from?: string;
     created_to?: string;
-  }, options?: { signal?: AbortSignal }): Promise<PaginatedResponse<BBTalk>> {
+  }, options?: { signal?: AbortSignal }): Promise<BBTalkPage> {
     const data = await (options ? apiClient.get<any>('/api/v1/bbtalk', params, options) : apiClient.get<any>('/api/v1/bbtalk', params));
     return {
-      count: data.count,
-      next: data.next,
-      previous: data.previous,
-      results: data.results.map(transformBBTalk),
+      totalCount: data.total_count,
+      total: data.total,
+      page: data.page,
+      page_size: data.page_size,
+      has_more: data.has_more,
+      items: data.items.map(transformBBTalk),
     };
   },
 
@@ -141,11 +146,15 @@ export const bbtalkApi = {
     await apiClient.delete(`/api/v1/bbtalk/${uid}`);
   },
 
-  async getPublicBBTalks(params?: { page?: number }): Promise<PaginatedResponse<BBTalk>> {
+  async getPublicBBTalks(params?: { page?: number }): Promise<BBTalkPage> {
     const data = await apiClient.get<any>('/api/v1/bbtalk/public', params);
     return {
-      count: data.count, next: data.next, previous: data.previous,
-      results: data.results.map(transformBBTalk),
+      totalCount: data.total_count,
+      total: data.total,
+      page: data.page,
+      page_size: data.page_size,
+      has_more: data.has_more,
+      items: data.items.map(transformBBTalk),
     };
   },
 
@@ -158,25 +167,10 @@ export const bbtalkApi = {
     return apiClient.get<{ date: string; count: number }[]>('/api/v1/bbtalk/date-counts', params);
   },
 
-  async getComments(bbtalkUid: string): Promise<Comment[]> {
-    const data = await apiClient.get<any[]>(`/api/v1/bbtalk/${bbtalkUid}/comments`);
-    return data.map((c: any) => ({
-      uid: c.uid,
-      user: c.user,
-      userDisplayName: c.user_display_name || '',
-      userAvatar: c.user_avatar || '',
-      userUsername: c.user_username || '',
-      content: c.content,
-      createdAt: c.create_time,
-      updatedAt: c.update_time,
-    }));
-  },
-
   async getCommentPage(bbtalkUid: string, page = 1): Promise<CommentPage> {
     const data = await apiClient.get<any>(`/api/v1/bbtalk/${bbtalkUid}/comments`, { page, page_size: 20 });
-    // Older servers ignore pagination and return their legacy array.
-    if (Array.isArray(data)) return { count: data.length, next: null, previous: null, results: data.map(transformComment) };
-    return { ...data, results: data.results.map(transformComment) };
+    return { total: data.total, page: data.page, page_size: data.page_size,
+      has_more: data.has_more, items: data.items.map(transformComment), revision: data.revision };
   },
 
   async createComment(bbtalkUid: string, content: string): Promise<Comment> {

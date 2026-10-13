@@ -9,19 +9,19 @@ from core.errors import fail
 from models import (
     Attachment,
     BBTalk,
-    BlacklistedToken,
     Comment,
     DesktopAuthorization,
     Identity,
-    OutstandingToken,
     PasswordRecovery,
     RecordTag,
+    RefreshToken,
+    RevokedToken,
     SessionToken,
     StorageConfig,
     SubmissionReceipt,
     Tag,
 )
-from services.security import make_password
+from services.security import hash_password
 
 
 def user_data(user):
@@ -49,9 +49,9 @@ def delete_user(db, user):
     )
     db.execute(delete(Comment).where((Comment.user_id == user.id) | Comment.bbtalk_id.in_(records)))
     db.execute(
-        delete(BlacklistedToken).where(
-            BlacklistedToken.token_id.in_(
-                select(OutstandingToken.id).where(OutstandingToken.user_id == user.id)
+        delete(RevokedToken).where(
+            RevokedToken.token_id.in_(
+                select(RefreshToken.id).where(RefreshToken.user_id == user.id)
             )
         )
     )
@@ -59,7 +59,7 @@ def delete_user(db, user):
         SessionToken,
         DesktopAuthorization,
         PasswordRecovery,
-        OutstandingToken,
+        RefreshToken,
         SubmissionReceipt,
         Identity,
         StorageConfig,
@@ -86,7 +86,7 @@ def change_password(db, user, password):
     )
     if not identity:
         fail(400, '此账号未设置密码身份')
-    identity.credential = make_password(password)
+    identity.credential = hash_password(password)
     user.credential_version += 1
     for model in (PasswordRecovery, DesktopAuthorization, SessionToken):
         db.execute(delete(model).where(model.user_id == user.id))

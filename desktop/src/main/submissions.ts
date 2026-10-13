@@ -17,6 +17,14 @@ function read(scope: string): SubmissionIntent | undefined {
 function write(scope: string, intent: SubmissionIntent) {
   store.set('compose.submissions', { ...store.get('compose.submissions'), [scope]: intent });
 }
+function canonicalPayload(payload: SubmissionPayload): string {
+  return JSON.stringify(payload, (_key, value) => {
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      return Object.fromEntries(Object.keys(value).sort().map(key => [key, value[key]]));
+    }
+    return value;
+  });
+}
 const busy = new Set<string>();
 async function exclusive<T>(expected: SubmissionSession, work: () => Promise<T>): Promise<T> {
   assertSession(expected);
@@ -31,7 +39,8 @@ export async function submissionSnapshot(): Promise<SubmissionSnapshot | null> {
   assertSession(session);
   return { session: { scope: session.scope, generation: session.generation }, intent: read(session.scope) };
 }
-async function request(expected: SubmissionSession, intent: SubmissionIntent, retry: boolean) {
+async function request(expected: SubmissionSession, intent: SubmissionIntent, retry: boolean, retryIfMissing = false): Promise<SubmissionIntent> {
+  if (retry && intent.receiptCheckRequired) return request(expected, intent, false, true);
   const token = await getValidAccessToken();
   assertSession(expected);
   if (!token) throw new Error('请先登录');
@@ -44,6 +53,11 @@ async function request(expected: SubmissionSession, intent: SubmissionIntent, re
   }, expected.generation);
   const data = await response.json().catch(() => ({}));
   assertSession(expected);
+  if (response.status === 404 && retryIfMissing) {
+    const ready = { ...intent, receiptCheckRequired: false };
+    write(expected.scope, ready);
+    return request(expected, ready, true);
+  }
   if (response.status === 410) {
     const confirmed: SubmissionIntent = { ...intent, state: 'confirmed', deleted: true };
     write(expected.scope, confirmed);
@@ -60,7 +74,8 @@ async function request(expected: SubmissionSession, intent: SubmissionIntent, re
 export function publishSubmission(expected: SubmissionSession, payload: SubmissionPayload) {
   return exclusive(expected, async () => {
     const current = read(expected.scope);
-    const same = current && JSON.stringify(current.payload) === JSON.stringify(payload);
+    const same = current && canonicalPayload(current.payload) === canonicalPayload(payload);
+    if (same && current.state === 'confirmed') return current;
     if (current?.state === 'pending' && !same) throw new Error('还有一份发布结果未确认，请先核对或重试原提交');
     const intent: SubmissionIntent = same ? current : {
       key: randomUUID(), payload: JSON.parse(JSON.stringify(payload)), state: 'pending',

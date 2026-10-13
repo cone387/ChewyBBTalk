@@ -46,13 +46,13 @@ from services.accounts import (
     valid_redirect,
 )
 from services.security import (
-    check_password,
     claim_refresh,
     create_user,
     digest,
     limit,
     password_user,
     token_pair,
+    verify_password,
 )
 
 router = APIRouter(prefix='/api/v1/bbtalk', tags=['Auth'])
@@ -123,8 +123,8 @@ def refresh(data: RefreshInput, request: Request, db: DB):
         raise APIError(401, {'detail': 'Token 已失效', 'code': 'token_not_valid'})
 
 
-@router.post('/auth/token/blacklist', response_model=MessageOutput)
-def blacklist(data: RefreshInput, request: Request, db: DB, user: CurrentUser):
+@router.post('/auth/token/revoke', response_model=MessageOutput)
+def revoke_refresh(data: RefreshInput, request: Request, db: DB, user: CurrentUser):
     if not data.refresh:
         fail(400, 'Refresh Token 不能为空')
     try:
@@ -142,7 +142,7 @@ def blacklist(data: RefreshInput, request: Request, db: DB, user: CurrentUser):
 def login(data: LoginInput, request: Request, response: Response, db: DB):
     user = authenticate(data, request, db)
     key, csrf = secrets.token_urlsafe(32), secrets.token_hex(32)
-    if previous := request.cookies.get('sessionid'):
+    if previous := request.cookies.get('cb_session'):
         db.execute(delete(SessionToken).where(SessionToken.key_hash == digest(previous)))
     db.add(
         SessionToken(
@@ -155,7 +155,7 @@ def login(data: LoginInput, request: Request, response: Response, db: DB):
     )
     db.commit()
     response.set_cookie(
-        'sessionid',
+        'cb_session',
         key,
         max_age=14 * 86400,
         httponly=True,
@@ -163,7 +163,7 @@ def login(data: LoginInput, request: Request, response: Response, db: DB):
         secure=request.app.state.settings.cookie_secure,
     )
     response.set_cookie(
-        'csrftoken',
+        'cb_csrf',
         csrf,
         max_age=14 * 86400,
         samesite='lax',
@@ -176,12 +176,12 @@ def login(data: LoginInput, request: Request, response: Response, db: DB):
 def logout(request: Request, response: Response, db: DB, user: CurrentUser):
     db.execute(
         delete(SessionToken).where(
-            SessionToken.key_hash == digest(request.cookies.get('sessionid', ''))
+            SessionToken.key_hash == digest(request.cookies.get('cb_session', ''))
         )
     )
     db.commit()
-    response.delete_cookie('sessionid')
-    response.delete_cookie('csrftoken')
+    response.delete_cookie('cb_session')
+    response.delete_cookie('cb_csrf')
     return {'message': '登出成功'}
 
 
@@ -214,7 +214,7 @@ def change(data: PasswordInput, request: Request, db: DB, user: CurrentUser):
     identity = db.scalar(
         select(Identity).where(Identity.user_id == user.id, Identity.identity_type == 'password')
     )
-    if not identity or not check_password(data.old_password, identity.credential):
+    if not identity or not verify_password(data.old_password, identity.credential):
         fail(400, '当前密码不正确')
     change_password(db, user, data.new_password)
     db.commit()

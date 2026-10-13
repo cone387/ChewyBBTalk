@@ -91,8 +91,8 @@ test('real Electron restart, lost response retry and wake account isolation', as
     await expect(page.getByPlaceholder('你要BB什么？')).toHaveValue('后来输入的新草稿')
     const records = await request.get(backend + '/api/v1/bbtalk', { headers: { Authorization: `Bearer ${owner.access}` } })
     const savedRecords = await records.json()
-    expect(savedRecords.count).toBe(1)
-    expect(savedRecords.results[0].tags.map((tag: any) => tag.name)).toEqual(['桌面标签'])
+    expect(savedRecords.total).toBe(1)
+    expect(savedRecords.items[0].tags.map((tag: any) => tag.name)).toEqual(['桌面标签'])
     await application!.close(); application = undefined
     page = await launch()
     if (!persistent) await login(page, username)
@@ -130,7 +130,7 @@ test('real Electron restart, lost response retry and wake account isolation', as
     await expect(page.locator('.submission-recovery').getByRole('status')).toContainText('原提交已确认')
     expect(submissionKeys).toHaveLength(requestsBeforeWake)
     const afterWake = await request.get(backend + '/api/v1/bbtalk', { headers: { Authorization: `Bearer ${owner.access}` } })
-    expect((await afterWake.json()).count).toBe(2)
+    expect((await afterWake.json()).total).toBe(2)
   } finally {
     await application?.close()
     await new Promise<void>(resolve => proxy.close(() => resolve()))

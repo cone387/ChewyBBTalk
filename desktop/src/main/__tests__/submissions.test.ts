@@ -1,4 +1,5 @@
 import { beforeEach, afterEach, expect, it, vi } from 'vitest';
+import { migrateComposeV1 } from '../migrations/composeV1';
 const state = vi.hoisted(() => ({
   data: {} as Record<string, unknown>,
   session: { scope: 'server-a/user-1', generation: 1, apiUrl: 'https://a.test' },
@@ -14,13 +15,81 @@ vi.mock('../auth', () => ({
   tryRestoreSession: async () => true,
   authenticatedFetch: (path: string, init: RequestInit) => fetch(state.session.apiUrl + path, init),
 }));
-const payload = { content: 'original', post_tags: 'tag', attachments: [{ uid: 'file' }], visibility: 'private' as const, context: {} };
+const payload = { content: 'original', tags: ['tag'], attachments: [{ uid: 'file' }], visibility: 'private' as const, context: {} };
 beforeEach(() => {
   vi.resetModules();
   state.data = {}; state.failWrite = false;
   state.session = { scope: 'server-a/user-1', generation: 1, apiUrl: 'https://a.test' };
 });
 afterEach(() => vi.unstubAllGlobals());
+
+it.each(['pending', 'recovered'])('reuses a migrated %s submission despite renderer object field order', async scenario => {
+  const migrated = migrateComposeV1({
+    draft: '', visibility: 'private', lastSize: null, outbox: [],
+    submissions: { [state.session.scope]: {
+      key: 'historical-key', state: 'pending',
+      payload: { content: 'original', post_tags: 'tag', attachments: [{ uid: 'file' }],
+        visibility: 'private', context: { location: { lat: 1, lon: 2 }, label: 'saved' } },
+    } },
+  } as any);
+  state.data['compose.submissions'] = migrated.submissions;
+  const rendererPayload = { content: 'original', tags: ['tag'], attachments: [{ uid: 'file' }],
+    visibility: 'private' as const, context: { label: 'saved', location: { lon: 2, lat: 1 } } };
+  const fetchMock = vi.fn().mockImplementation(async () => new Response(JSON.stringify({ uid: 'existing-record' })));
+  vi.stubGlobal('fetch', fetchMock);
+  const api = await import('../submissions');
+  if (scenario === 'recovered') await api.recoverSubmission(state.session, false);
+  const confirmed = await api.publishSubmission(state.session, rendererPayload);
+  expect(confirmed).toMatchObject({ key: 'historical-key', state: 'confirmed' });
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  expect(fetchMock.mock.calls[0][1].method).toBe('GET');
+  expect((await api.submissionSnapshot())?.intent?.key).toBe('historical-key');
+});
+
+it('preserves array order when comparing a pending submission', async () => {
+  state.data['compose.submissions'] = { [state.session.scope]: {
+    key: 'existing-key', payload: { ...payload, tags: ['first', 'second'] }, state: 'pending',
+  } };
+  const fetchMock = vi.fn();
+  vi.stubGlobal('fetch', fetchMock);
+  const api = await import('../submissions');
+  await expect(api.publishSubmission(state.session, { ...payload, tags: ['second', 'first'] }))
+    .rejects.toThrow('未确认');
+  expect(fetchMock).not.toHaveBeenCalled();
+});
+
+it.each([200, 410])('checks migrated pending receipts before retry and never duplicates an existing record (%s)', async status => {
+  state.data['compose.submissions'] = { [state.session.scope]: { key: 'old-key', payload, state: 'pending', receiptCheckRequired: true } };
+  const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ uid: 'existing' }), { status }));
+  vi.stubGlobal('fetch', fetchMock);
+  const api = await import('../submissions');
+  expect((await api.recoverSubmission(state.session, true)).state).toBe('confirmed');
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  expect(fetchMock.mock.calls[0][1].method).toBe('GET');
+});
+
+it('resubmits migrated payload with the same key only after a missing receipt', async () => {
+  state.data['compose.submissions'] = { [state.session.scope]: { key: 'old-key', payload, state: 'pending', receiptCheckRequired: true } };
+  const fetchMock = vi.fn().mockResolvedValueOnce(new Response('{}', { status: 404 }))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ uid: 'created' }), { status: 201 }));
+  vi.stubGlobal('fetch', fetchMock);
+  const api = await import('../submissions');
+  expect((await api.publishSubmission(state.session, payload)).state).toBe('confirmed');
+  expect(fetchMock.mock.calls.map(call => call[1].method)).toEqual(['GET', 'POST']);
+  expect(fetchMock.mock.calls[1][1].headers['Idempotency-Key']).toBe('old-key');
+  expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual(payload);
+});
+
+it('keeps migrated work pending if receipt checking fails', async () => {
+  state.data['compose.submissions'] = { [state.session.scope]: { key: 'old-key', payload, state: 'pending', receiptCheckRequired: true } };
+  const fetchMock = vi.fn().mockRejectedValue(new Error('offline'));
+  vi.stubGlobal('fetch', fetchMock);
+  const api = await import('../submissions');
+  await expect(api.recoverSubmission(state.session, true)).rejects.toThrow('offline');
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  expect(fetchMock.mock.calls[0][1].method).toBe('GET');
+  expect((await api.submissionSnapshot())?.intent).toMatchObject({ state: 'pending', receiptCheckRequired: true });
+});
 
 it('uses the canonical array contract and displays FastAPI validation locations', async () => {
   const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ detail: [

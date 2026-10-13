@@ -60,8 +60,8 @@ export const loadBBTalks = createAsyncThunk(
         created_on: date,
       });
       return {
-        bbtalks: result.results, page, hasMore: !!result.next,
-        totalCount: result.count,
+        bbtalks: result.items, page, hasMore: result.has_more,
+        totalCount: result.totalCount,
         isFullLoad: !search && (!tags || tags.length === 0) && !date,
       };
     } catch (error: any) {
@@ -80,7 +80,7 @@ export const loadMoreBBTalks = createAsyncThunk(
         page: nextPage, search: params.search, tags: params.tags,
         created_on: params.date,
       });
-      return { bbtalks: result.results, page: nextPage, hasMore: !!result.next };
+      return { bbtalks: result.items, page: nextPage, hasMore: result.has_more };
     } catch (error: any) {
       return rejectWithValue(error.message || '加载更多失败');
     }
@@ -191,7 +191,7 @@ const bbtalkSlice = createSlice({
         state.isFiltered = !action.payload.isFullLoad;
         state.currentPage = action.payload.page;
         state.hasMore = action.payload.hasMore;
-        if (action.payload.isFullLoad) state.totalCount = action.payload.totalCount;
+        state.totalCount = action.payload.totalCount;
       })
       .addCase(loadBBTalks.rejected, (state, action) => {
         if (state.activeRequestId !== action.meta.requestId) return;

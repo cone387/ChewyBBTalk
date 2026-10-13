@@ -3,7 +3,7 @@ import { installMiniDom, type MiniDom } from '../../__tests__/miniDom';
 import { ComposeWindow } from '../ComposeWindow';
 import type { AuthState, SubmissionIntent, SubmissionSnapshot, UploadItem } from '../../../shared/ipc-types';
 
-const defaultPayload = { content: 'old', post_tags: '', attachments: [], visibility: 'private' as const, context: {} };
+const defaultPayload = { content: 'old', tags: [], attachments: [], visibility: 'private' as const, context: {} };
 
 const state = vi.hoisted(() => ({
   snapshot: { session: { scope: 'user:1', generation: 1 } } as SubmissionSnapshot | null,

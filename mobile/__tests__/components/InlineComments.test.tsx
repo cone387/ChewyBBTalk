@@ -1,5 +1,5 @@
 jest.mock('react-native', () => ({ View: 'View', Text: 'Text', TouchableOpacity: 'TouchableOpacity', ActivityIndicator: 'ActivityIndicator', StyleSheet: { create: (styles: unknown) => styles } }));
-jest.mock('../../src/services/api/bbtalkApi', () => ({ bbtalkApi: { getComments: jest.fn(), getCommentPage: jest.fn(), deleteComment: jest.fn() } }));
+jest.mock('../../src/services/api/bbtalkApi', () => ({ bbtalkApi: { getCommentPage: jest.fn(), deleteComment: jest.fn() } }));
 jest.mock('../../src/utils/crossAlert', () => ({ xAlert: jest.fn(), xConfirm: jest.fn() }));
 jest.mock('../../src/store/hooks', () => ({ useAppDispatch: jest.fn() }));
 jest.mock('../../src/store/slices/bbtalkSlice', () => ({ decrementCommentCount: (id: string) => ({ type: 'bbtalk/decrementCommentCount', payload: id }) }));
@@ -14,7 +14,7 @@ import type { Comment } from '../../src/types';
 const { create, act } = require('react-test-renderer');
 let tree: any;
 const dispatch = jest.fn();
-const api = bbtalkApi.getComments as jest.Mock;
+const api = bbtalkApi.getCommentPage as jest.Mock;
 const remove = bbtalkApi.deleteComment as jest.Mock;
 const comment = (uid: string): Comment => ({ uid, user: 1, content: `body-${uid}`, userUsername: 'alice', userDisplayName: '', userAvatar: '', createdAt: '2026-01-01T00:00:00Z', updatedAt: '' });
 function props(overrides = {}) { return { bbtalkId: 'first', commentCount: 1, theme: THEMES[0], ...overrides }; }
@@ -27,7 +27,7 @@ const rows = () => tree.root.findAllByType('TouchableOpacity').filter((row: any)
 const text = () => JSON.stringify(tree.toJSON());
 const confirm = () => (xConfirm as jest.Mock).mock.calls.at(-1)[2] as () => Promise<void>;
 beforeEach(() => {
-  jest.clearAllMocks(); api.mockReset().mockResolvedValue([comment('one')]); remove.mockReset().mockResolvedValue(undefined);
+  jest.clearAllMocks(); api.mockReset().mockResolvedValue(commentPage([comment('one')])); remove.mockReset().mockResolvedValue(undefined);
   (useAppDispatch as jest.Mock).mockReturnValue(dispatch);
   clearSession(); setSession('https://server.example', 'alice');
 });
@@ -36,7 +36,7 @@ it('does not request or display an empty comment section', async () => {
   await mount({ commentCount: 0 }); expect(tree.toJSON()).toBeNull(); expect(api).not.toHaveBeenCalled();
 });
 it('loads the current record and shows the author and body', async () => {
-  await mount(); expect(api).toHaveBeenCalledWith('first');
+  await mount(); expect(api).toHaveBeenCalledWith('first', 1);
   expect(text()).toContain('alice'); expect(text()).toContain('body-one'); expect(rows()).toHaveLength(1);
 });
 it('shows pending load state without requesting the same record twice', async () => {
@@ -46,7 +46,7 @@ it('shows pending load state without requesting the same record twice', async ()
   expect(api).toHaveBeenCalledTimes(1);
 });
 it('expands all comments and collapses back to the first three', async () => {
-  api.mockResolvedValue(['one', 'two', 'three', 'four'].map(comment)); await mount();
+  api.mockResolvedValue(commentPage(['one', 'two', 'three', 'four'].map(comment))); await mount();
   expect(rows()).toHaveLength(3); expect(text()).toContain('查看全部 4 条评论');
   act(() => tree.root.findAllByType('TouchableOpacity').at(-1).props.onPress());
   expect(rows()).toHaveLength(4); expect(text()).toContain('收起');
@@ -63,11 +63,11 @@ it('does not duplicate an existing comment when a new object with the same uid i
   expect(rows()).toHaveLength(1); expect(text()).toContain('updated');
 });
 it('preserves locally added comments when an earlier list request completes', async () => {
-  let finish!: (data: Comment[]) => void;
+  let finish!: (data: ReturnType<typeof commentPage>) => void;
   api.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
   const values = await mount();
   await act(async () => tree.update(<InlineComments {...values} newComment={comment('new')} />));
-  await act(async () => finish([comment('one')]));
+  await act(async () => finish(commentPage([comment('one')])));
   expect(rows()).toHaveLength(2); expect(text()).toContain('body-new');
 });
 it('asks for confirmation and changes the list and count only after deletion succeeds', async () => {
@@ -83,17 +83,17 @@ it('keeps the comment and count unchanged after deletion fails', async () => {
   expect(rows()).toHaveLength(1); expect(dispatch).not.toHaveBeenCalled(); expect(xAlert).toHaveBeenCalledWith('删除失败', 'offline');
 });
 it('ignores a late list result belonging to the previous record', async () => {
-  let finish!: (data: Comment[]) => void;
-  api.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; })).mockResolvedValue([comment('second')]);
+  let finish!: (data: ReturnType<typeof commentPage>) => void;
+  api.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; })).mockResolvedValue(commentPage([comment('second')]));
   const values = await mount();
   await act(async () => tree.update(<InlineComments {...values} bbtalkId="second" />));
-  await act(async () => finish([comment('old')]));
+  await act(async () => finish(commentPage([comment('old')])));
   expect(text()).toContain('body-second'); expect(text()).not.toContain('body-old');
 });
 it('resets record-specific loaded state when showing another record', async () => {
-  const values = await mount(); api.mockResolvedValue([comment('second')]);
+  const values = await mount(); api.mockResolvedValue(commentPage([comment('second')]));
   await act(async () => tree.update(<InlineComments {...values} bbtalkId="second" />));
-  expect(api).toHaveBeenLastCalledWith('second'); expect(text()).not.toContain('body-one');
+  expect(api).toHaveBeenLastCalledWith('second', 1); expect(text()).not.toContain('body-one');
 });
 it('rejects an old confirmation after the account changes', async () => {
   await mount(); act(() => rows()[0].props.onLongPress()); const pending = confirm();
@@ -107,25 +107,25 @@ it('prevents duplicate confirmed deletions while the first request is pending', 
   expect(remove).toHaveBeenCalledTimes(1);
 });
 it('shows a load failure and allows explicit retry', async () => {
-  api.mockRejectedValueOnce(new Error('offline')).mockResolvedValue([comment('one')]); await mount();
+  api.mockRejectedValueOnce(new Error('offline')).mockResolvedValue(commentPage([comment('one')])); await mount();
   expect(text()).toContain('评论加载失败');
   const retry = tree.root.findAllByType('TouchableOpacity').find((button: any) => button.props.accessibilityLabel === '重试加载评论');
   await act(async () => retry.props.onPress()); expect(rows()).toHaveLength(1); expect(api).toHaveBeenCalledTimes(2);
 });
 it('does not restore a successfully deleted comment from an earlier list response', async () => {
-  let finish!: (data: Comment[]) => void;
+  let finish!: (data: ReturnType<typeof commentPage>) => void;
   api.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
   const values = await mount();
   await act(async () => tree.update(<InlineComments {...values} newComment={comment('new')} />));
   act(() => rows()[0].props.onLongPress()); await act(async () => confirm()());
-  await act(async () => finish([comment('one'), comment('new')]));
+  await act(async () => finish(commentPage([comment('one'), comment('new')])));
   expect(rows()).toHaveLength(1); expect(text()).not.toContain('body-new');
 });
 it('does not apply an old deletion result to another record or its comment count', async () => {
   let finish!: () => void;
   remove.mockImplementationOnce(() => new Promise<void>(resolve => { finish = resolve; }));
   const values = await mount(); act(() => rows()[0].props.onLongPress());
-  act(() => { void confirm()(); }); api.mockResolvedValue([comment('second')]);
+  act(() => { void confirm()(); }); api.mockResolvedValue(commentPage([comment('second')]));
   await act(async () => tree.update(<InlineComments {...values} bbtalkId="second" />));
   await act(async () => finish());
   expect(text()).toContain('body-second'); expect(dispatch).not.toHaveBeenCalled();
@@ -133,25 +133,25 @@ it('does not apply an old deletion result to another record or its comment count
 
 it('renders embedded previews without per-card requests and pages only on expansion', async () => {
   const page = bbtalkApi.getCommentPage as jest.Mock;
-  page.mockResolvedValue({ count: 5, next: 'page2', previous: null, results: ['one','two','three','four'].map(comment), revision: 'r1' });
+  page.mockResolvedValue({ total: 5, has_more: true, page: 1, page_size: 20, items: ['one','two','three','four'].map(comment), revision: 'r1' });
   await mount({ commentCount: 5, commentPreview: ['one','two','three'].map(comment), commentsRevision: 'r1' });
   expect(rows()).toHaveLength(3); expect(api).not.toHaveBeenCalled(); expect(page).not.toHaveBeenCalled();
   expect(text()).toContain('查看全部 5 条评论');
   await act(async () => tree.root.findAllByType('TouchableOpacity').at(-1).props.onPress());
   expect(rows()).toHaveLength(4); expect(page).toHaveBeenCalledWith('first', 1);
-  page.mockResolvedValue({ count: 5, next: null, previous: 'page1', results: [comment('five')], revision: 'r1' });
+  page.mockResolvedValue({ total: 5, has_more: false, page: 1, page_size: 20, items: [comment('five')], revision: 'r1' });
   await act(async () => tree.root.findAllByType('TouchableOpacity').find((x: any) => x.props.accessibilityLabel === '加载更多评论').props.onPress());
   expect(rows()).toHaveLength(5); expect(page).toHaveBeenLastCalledWith('first', 2);
 });
 it('reuses expanded comments after remount and invalidates a changed remote revision', async () => {
   const page = bbtalkApi.getCommentPage as jest.Mock;
-  page.mockResolvedValue({ count: 4, next: null, previous: null, results: ['one','two','three','four'].map(comment), revision: 'r1' });
+  page.mockResolvedValue({ total: 4, has_more: false, page: 1, page_size: 20, items: ['one','two','three','four'].map(comment), revision: 'r1' });
   const values = await mount({ commentCount: 4, commentPreview: ['one','two','three'].map(comment), commentsRevision: 'r1' });
   await act(async () => tree.root.findAllByType('TouchableOpacity').at(-1).props.onPress());
   act(() => tree.unmount()); await mount(values);
   await act(async () => tree.root.findAllByType('TouchableOpacity').at(-1).props.onPress());
   expect(page).toHaveBeenCalledTimes(1); expect(rows()).toHaveLength(4);
-  page.mockResolvedValue({ count: 4, next: null, previous: null, results: ['changed','two','three','four'].map(comment), revision: 'r2' });
+  page.mockResolvedValue({ total: 4, has_more: false, page: 1, page_size: 20, items: ['changed','two','three','four'].map(comment), revision: 'r2' });
   await act(async () => tree.update(<InlineComments {...values} commentsRevision="r2" commentPreview={[comment('changed')]} />));
   expect(text()).toContain('body-changed'); expect(text()).not.toContain('body-one');
 });
@@ -163,10 +163,10 @@ it('does not display the previous account embedded preview after session replace
 });
 it('updates an expanded list when its remote revision changes without closing it', async () => {
   const page = bbtalkApi.getCommentPage as jest.Mock;
-  page.mockResolvedValue({ count: 4, next: null, previous: null, results: ['one','two','three','four'].map(comment), revision: 'r1' });
+  page.mockResolvedValue({ total: 4, has_more: false, page: 1, page_size: 20, items: ['one','two','three','four'].map(comment), revision: 'r1' });
   const values = await mount({ commentCount: 4, commentPreview: ['one','two','three'].map(comment), commentsRevision: 'r1' });
   await act(async () => tree.root.findAllByType('TouchableOpacity').at(-1).props.onPress());
-  page.mockResolvedValue({ count: 4, next: null, previous: null, results: ['changed','two','three','four'].map(comment), revision: 'r2' });
+  page.mockResolvedValue({ total: 4, has_more: false, page: 1, page_size: 20, items: ['changed','two','three','four'].map(comment), revision: 'r2' });
   await act(async () => tree.update(<InlineComments {...values} commentsRevision="r2" commentPreview={[comment('changed')]} />));
   expect(rows()).toHaveLength(4); expect(text()).toContain('body-changed'); expect(text()).not.toContain('body-one');
   expect(page).toHaveBeenCalledTimes(2);
@@ -183,8 +183,10 @@ it('does not allow a pending old revision page to replace refreshed comments', a
   page.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
   const values = await mount({ commentCount: 4, commentPreview: [comment('old')], commentsRevision: 'r1' });
   await act(async () => tree.root.findAllByType('TouchableOpacity').at(-1).props.onPress());
-  page.mockResolvedValue({ count: 4, next: null, previous: null, results: ['new','two','three','four'].map(comment), revision: 'r2' });
+  page.mockResolvedValue({ total: 4, has_more: false, page: 1, page_size: 20, items: ['new','two','three','four'].map(comment), revision: 'r2' });
   await act(async () => tree.update(<InlineComments {...values} commentPreview={[comment('new')]} commentsRevision="r2" />));
-  await act(async () => finish({ count: 4, next: null, previous: null, results: [comment('old')], revision: 'r1' }));
+  await act(async () => finish({ total: 4, has_more: false, page: 1, page_size: 20, items: [comment('old')], revision: 'r1' }));
   expect(text()).toContain('body-new'); expect(text()).not.toContain('body-old');
 });
+
+const commentPage = (items: Comment[]) => ({ items, total: items.length, page: 1, page_size: 20, has_more: false, revision: 'r1' });

@@ -497,7 +497,7 @@ export async function logout(): Promise<void> {
   if (refreshToken) {
     try {
       const accessToken = getAccessToken();
-      await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/auth/token/blacklist`, {
+      await fetch(`${getApiBaseUrl()}/api/v1/bbtalk/auth/token/revoke`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,

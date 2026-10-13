@@ -44,7 +44,7 @@ jest.mock('../src/components/OfflineBanner', () => () => null);
 jest.mock('../src/components/CommentInputModal', () => () => null);
 
 const tag = { id: 'tag-1', name: '工作', color: '#123456', sortOrder: 0, bbtalkCount: 1 };
-function result(content: string) { return { count: 1, next: null, results: [{ uid: 'record', content, tags: [], attachments: [] }] }; }
+function result(content: string) { return { total: 1, total_count: 1, page: 1, page_size: 20, has_more: false, items: [{ uid: 'record', content, tags: [], attachments: [] }] }; }
 function mount() {
   const store = configureStore({ reducer: { bbtalk: bbtalkReducer, tag: tagReducer }, preloadedState: { tag: { tags: [tag], isLoading: false, error: null } } });
   const tree = () => <Provider store={store}><HomeScreen selectedTag="tag-1" selectedDate="2026-09-07" /></Provider>;

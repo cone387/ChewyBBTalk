@@ -5,12 +5,12 @@ from application import create_app
 from core.config import Settings
 from database.upgrade import upgrade
 from models import Identity, User
-from services.security import make_password, token_pair
+from services.security import hash_password, token_pair
 
 
 @pytest.fixture(scope='session')
 def password_hash():
-    return make_password('test-password-2026')
+    return hash_password('test-password-2026')
 
 
 @pytest.fixture

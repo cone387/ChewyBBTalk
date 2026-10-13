@@ -271,13 +271,13 @@ describe('auth logout and user cache', () => {
     jest.clearAllMocks();
   });
 
-  it('blacklists the refresh token on the server and clears local state', async () => {
+  it('revokes the refresh token on the server and clears local state', async () => {
     const h = setupAuth({ storage: { bbtalk_access_token: 'old-a', bbtalk_refresh_token: 'r1' } });
     h.fetchMock.mockImplementation(async () => new Response('{}', { status: 200 }));
     await h.auth.logout();
     await new Promise<void>((resolve) => { setImmediate(resolve); });
     expect(h.fetchMock).toHaveBeenCalledWith(
-      'https://example.test/api/v1/bbtalk/auth/token/blacklist',
+      'https://example.test/api/v1/bbtalk/auth/token/revoke',
       expect.objectContaining({
         method: 'POST',
         headers: expect.objectContaining({ Authorization: 'Bearer old-a' }),

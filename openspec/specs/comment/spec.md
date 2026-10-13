@@ -12,7 +12,7 @@
 系统 SHALL 允许已认证用户对自己的 BBTalk 添加评论。
 
 #### Scenario: 添加评论
-- **WHEN** 作者通过 `POST /api/v1/bbtalk/{uid}/comments/` 提交 `content`
+- **WHEN** 作者通过 `POST /api/v1/bbtalk/{uid}/comments` 提交 `content`
 - **THEN** 系统创建 Comment，返回 201 与完整对象，BBTalk 的评论计数 +1
 
 #### Scenario: 拒绝空评论
@@ -20,17 +20,17 @@
 - **THEN** 系统返回 400
 
 ### Requirement: 列出评论
-系统 SHALL 按时间正序返回某 BBTalk 的所有评论。
+系统 SHALL 按时间正序分页返回某 BBTalk 的评论，默认每页 20，最多 100 条；不传 page 时返回第一页。
 
 #### Scenario: 获取评论列表
-- **WHEN** 客户端请求 `GET /api/v1/bbtalk/{uid}/comments/`
-- **THEN** 返回评论数组，按 `create_time` 升序
+- **WHEN** 客户端请求 `GET /api/v1/bbtalk/{uid}/comments`
+- **THEN** 返回 `{items,total,page,page_size,has_more,revision}`，items 按 `create_time,id` 升序；页间 revision 变化时重新从第一页读取
 
 ### Requirement: 删除评论
 系统 SHALL 仅允许评论作者删除自己的评论。
 
 #### Scenario: 作者删除
-- **WHEN** 作者调用 `DELETE /api/v1/bbtalk/{bbtalkUid}/comments/{commentUid}/`
+- **WHEN** 作者调用 `DELETE /api/v1/bbtalk/{bbtalkUid}/comments/{commentUid}`
 - **THEN** 系统物理删除评论，BBTalk 评论计数 -1，返回 204
 
 #### Scenario: 非作者尝试删除

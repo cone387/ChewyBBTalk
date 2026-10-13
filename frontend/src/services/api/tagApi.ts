@@ -17,9 +17,7 @@ export const tagApi = {
   },
   async getTags(): Promise<Tag[]> {
     const data = await apiClient.get<any>('/api/v1/bbtalk/tags');
-    // API 返回分页结果
-    const results = data.results || data;
-    return (Array.isArray(results) ? results : []).map(transformTag);
+    return data.map(transformTag);
   },
 
   async createTag(tag: Partial<Tag>): Promise<Tag> {

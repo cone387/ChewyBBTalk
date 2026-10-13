@@ -1,78 +1,70 @@
-# FastAPI 路由与参数契约
+# FastAPI 3.0 接口契约
 
-后端通过 Pydantic 请求/响应模型、`Query`、`Path`、`Header`、`Form` 和安全依赖声明 HTTP 契约。FastAPI 本身不强制 URL 是否带尾斜杠；本项目统一将**不带尾斜杠**的路径作为规范入口，OpenAPI 只展示规范入口。
+API 3.0.0 只提供原生 FastAPI 契约。旧客户端必须随服务端升级；账号与业务数据保留，旧 HTTP 协议和旧登录令牌不再接受。停写、备份、迁移与回退步骤见[后端升级说明](../backend/README.md#已有实例升级)，验证范围见[本次整改报告](native-contract-cleanup.md)。
 
-## 路由
+## 路径与方法
 
-| 操作 | 规范入口 |
+所有 `/api/v1` 业务路径不带尾斜杠，不做尾斜杠重定向；`.json` 后缀和存储配置 `/create`、`/{pk}/delete` 别名已移除。
+
+| 操作 | 入口 |
 | --- | --- |
-| 查询、创建记录 | `GET /api/v1/bbtalk`、`POST /api/v1/bbtalk` |
+| 查询、创建记录 | `GET/POST /api/v1/bbtalk` |
 | 查询、更新、删除记录 | `GET/PUT/PATCH/DELETE /api/v1/bbtalk/{uid}` |
 | 标签集合 | `GET/POST /api/v1/bbtalk/tags` |
 | 获取令牌 | `POST /api/v1/bbtalk/auth/token` |
+| 刷新、撤销令牌 | `POST /api/v1/bbtalk/auth/token/refresh`、`POST /api/v1/bbtalk/auth/token/revoke` |
 | 附件列表、上传 | `GET/POST /api/v1/attachments/files` |
 | 创建存储配置 | `POST /api/v1/bbtalk/settings/storage` |
 | 更新、删除存储配置 | `PUT/PATCH/DELETE /api/v1/bbtalk/settings/storage/{pk}` |
 | 导出、导入 | `GET /api/v1/bbtalk/data/export`、`POST /api/v1/bbtalk/data/import` |
 
-`uid` 是长度 1–64 的业务字符串，兼容历史导入数据，不强制转换为 UUID。存储配置等数字 ID 必须为正整数。`GET` 保留对应的 `HEAD` 能力及相同鉴权。
+`uid` 为长度 1–64 的业务字符串，保留历史导入标识，不强制转换 UUID；数字 ID 必须为正整数。`GET` 具有同权限的 `HEAD`。记录和标签的 `PUT` 替换整个可编辑对象，省略的可选字段恢复默认值；`PATCH` 仅修改提供的字段。存储配置保留 PUT/PATCH 局部更新和密钥保留规则。
 
-旧带尾斜杠路径、JSON 后缀、存储配置 `/create/` 和 `/{pk}/delete/` 由兼容层处理，不依赖重定向，也不重复展示在 OpenAPI 中。记录和标签的规范 `PUT` 替换整个可编辑对象，省略的可选字段恢复默认值；`PATCH` 仅修改提供的字段。旧尾斜杠记录/标签 `PUT` 保留原来的局部更新语义，记录仍须提供正文。存储配置继续保留原有 PUT/PATCH 局部更新及密钥保留规则。
+## 查询与分页
 
-## 查询参数
+查询由类型化 Pydantic 模型校验。未知查询字段、旧 ORM 风格 `__` 过滤字段和非法值均返回 422。分页使用 `page`（至少 1）和 `page_size`（1–100）；记录默认每页 100，附件与评论默认 20。超出实际页数返回 200 和空分页对象（`items: []`、`has_more: false`），仍保留总数及请求页码。
 
-分页使用 `page`（至少 1）、`page_size`（1–100；记录默认 100，附件默认 20）。无效值返回 422；超出实际页数保留 404。布尔值使用 `true`/`false`，并兼容 Pydantic 支持的 `1`/`0` 等布尔表示。
-
-多标签使用重复查询参数，例如 `?tags=工作&tags=生活`，表示同时包含这些标签。日期采用 ISO 8601。无时区时间按后端配置的时区解释；日期上限包含当天，内部转换为次日零点的开区间。记录排序支持 `create_time`、`-create_time`、`update_time`、`-update_time`。
-
-| 旧参数（兼容输入） | 规范参数 |
+| 参数 | 含义 |
 | --- | --- |
-| `tags__name=工作,生活` | `tags=工作&tags=生活` |
-| `create_time__gte` / `create_time__lte` | `created_from` / `created_to` |
-| `create_date__gte` / `create_date__lte` | `created_date_from` / `created_date_to` |
-| `create_time__date` | `created_on` |
-| `export_format` | `format`（`json` 或 `zip`） |
+| `tags=工作&tags=生活` | 同时包含所有指定标签 |
+| `created_from` / `created_to` | 创建时间范围，ISO 8601 |
+| `created_date_from` / `created_date_to` | 创建日期范围 |
+| `created_on` | 指定创建日期 |
+| `ordering` | `create_time`、`-create_time`、`update_time`、`-update_time` |
+| `format` | 导出格式 `json` 或 `zip` |
 
-同一请求同时提供一组新旧参数会返回 422，包括显式提供默认值的情况。未声明的额外查询字段继续忽略。
+无时区时间按后端配置时区解释；日期上限包含当天，内部使用次日零点的开区间。布尔查询接受 Pydantic 支持的布尔表示。
 
-## 请求体与请求头
+所有分页响应统一为 `{items,total,page,page_size,has_more}`，不再返回 `count/results/next/previous`。记录流额外返回 `total_count`；评论额外返回 `revision`。标签集合仍返回完整数组，供全量排序使用。
 
-### 评论读取
+`GET /api/v1/bbtalk/{uid}/comments` 和 `/api/v1/bbtalk/public/{uid}/comments` 始终分页；不传 `page` 时也返回第一页对象，不再返回完整数组。客户端逐页加载，页间 `revision` 改变时从第一页重新读取。
 
-`GET /api/v1/bbtalk/{uid}/comments` 是记录下的评论集合，公开记录使用 `/api/v1/bbtalk/public/{uid}/comments`。路径中的 `uid` 保持资源标识语义。
+记录响应含 `comment_preview`（最早三条，按 `create_time,id` 升序）、`comment_count` 和不透明 `comments_revision`。评论版本独立于记录编辑时间，增删和预览外评论变化都会改变版本；后端批量读取评论元信息，版本计算仍与相关评论数量有关。
 
-列表、详情和记录写入响应新增 `comment_preview`（最早三条，按 `create_time,id` 升序）和 `comments_revision`（不透明版本字符串），并保留 `comment_count`。客户端显示卡片预览时无需逐条发起评论 GET。
+## 写入与幂等
 
-完整评论使用 `?page=1&page_size=20`，返回 `{count,next,previous,results,revision}`；页码至少 1，默认每页 20，最大 100。页间版本变化时客户端重新从第一页读取，避免错位拼接。不传 `page` 的旧请求继续返回数组；这一兼容入口仍可能返回全部评论，新客户端不应依赖它。
-
-评论版本独立于记录编辑时间，增删及预览外评论变化都会失效。后端批量计算预览与版本，不按记录逐条查询；版本计算仍需扫描结果记录的评论元数据，不等同于评论总量无关的常数执行时间。
-
-### 写入载荷
-
-创建记录使用 JSON 数组传递标签：
+标签只使用字符串数组，不再接收 `post_tags`：
 
 ```json
 {"content":"今天完成了接口整理","tags":["开发","记录"],"visibility":"private"}
 ```
 
-旧 `post_tags` 逗号字符串仍可输入，但不能同时提供 `tags`。标签名去除首尾空白并去重。标签排序接受 `{"uids":["uid-1","uid-2"]}` 或 `{"items":[{"uid":"uid-1","sort_order":1}]}`，两种形式只能选一种。存储迁移使用 `target_config_id` 正整数或 `null`；附件上传仍使用 multipart 文件和表单字段。
+标签名去除首尾空白并去重。标签排序接受 `{"uids":["uid-1","uid-2"]}` 或 `{"items":[{"uid":"uid-1","sort_order":1}]}`，两种形式只能选一种。存储迁移使用正整数或 `null` 的 `target_config_id`。附件上传使用 multipart。
 
-`Idempotency-Key` 通过 Header 声明并校验，保留持久化提交回执：首次创建返回 201，相同载荷重试返回 200，冲突返回 409。兼容旧客户端 `post_tags` 与新客户端 `tags` 的等价提交，桌面端仍可读取已保存的旧载荷。历史回执保留原始请求哈希，任意改变原始 CSV 空白等表示不保证被识别为等价载荷。
+`Idempotency-Key` 对应持久提交回执：首次创建 201、同载荷重试 200、冲突 409。历史回执保留原始请求哈希；服务器不再解释旧 CSV 标签载荷。桌面端在加载持久化数据时执行独立版本迁移，将旧标签转为数组并保留账号、草稿、附件和原 key。迁移后的未确认提交先查询 `submission-status`：已有或已删除的记录直接确认，只有明确 404 才用新载荷与原 key 重试；网络或服务错误时保留待确认状态。
 
-`If-Match` 接收完整的记录 `update_time`，必须包含时区，可带双引号。非法时间返回 422，版本冲突返回 409。
+`If-Match` 使用带时区的完整 `update_time`，可带双引号；非法时间 422，版本冲突 409。
 
-## 错误、响应和认证
+## 认证与错误
 
-参数校验使用 FastAPI 默认 **422**，不再转换为旧的 400 字符串：
+JWT 使用字符串 `sub` 及 `purpose: access|refresh`，刷新和撤销使用原生 `RefreshToken`、`RevokedToken`。旧 JWT 与刷新令牌必须重新登录。Cookie 为 `cb_session`、`cb_csrf`，写请求头为 `X-CSRF-Token`；升级前的 Cookie 会话也需要重新登录。
+
+字段校验采用 FastAPI 的 422 `detail` 数组，例如：
 
 ```json
 {"detail":[{"type":"greater_than_equal","loc":["query","page"],"msg":"Input should be greater than or equal to 1","input":0,"ctx":{"ge":1}}]}
 ```
 
-这是有意的错误契约变化；旧成功请求仍兼容，但外部客户端如依赖旧错误格式，需要适配 `detail` 数组。Web、移动端、桌面端已同步展示字段位置和提示，不将校验错误中的原始输入拼入提示。业务错误继续使用原来的状态码和业务字段。
+客户端显示字段位置和提示，不拼接原始敏感输入。业务错误保留对应状态码和业务字段。主要 JSON 响应声明 `response_model`；文件下载提供二进制、Range 与签名重定向规则。私有附件经权限校验，不公开媒体目录。
 
-主要 JSON 响应声明 `response_model`；历史导入的 JSON `context` 仍可读取。文件下载声明二进制类型，附件文档同时说明 Range 和签名重定向。JWT Bearer 与 Session Cookie 通过实际安全依赖生成 OpenAPI，保留权限、会话 CSRF 和附件访问规则。
-
-接口文档地址保持 `/api/schema/`、`/api/schema/swagger-ui/`、`/api/schema/redoc/`。本次不涉及数据库结构或部署环境变量变更。新增契约回归位于 `backend/tests/integration/test_fastapi_contract.py`。
-
-实现依据：[FastAPI 查询模型](https://fastapi.tiangolo.com/tutorial/query-param-models/)、[校验错误](https://fastapi.tiangolo.com/tutorial/handling-errors/)、[响应模型](https://fastapi.tiangolo.com/tutorial/response-model/)、[安全依赖](https://fastapi.tiangolo.com/reference/security/)。
+Swagger 位于 `/docs`，ReDoc 位于 `/redoc`，OpenAPI 位于 `/openapi.json`；`/api/schema/` 系列入口已移除。单容器和 Compose Nginx 均转发新地址，存活检查继续使用 `/healthz`。

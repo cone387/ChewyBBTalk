@@ -6,10 +6,12 @@
 
 本系统采用 User / Identity 分离的认证模型：User 持有用户资料，Identity 表示一种登录方式，一个 User 可绑定多个 Identity。当前实现以「密码」类型 Identity 为主，为后续 OAuth / 微信 / 邮箱验证码扩展预留接口。
 
+API 3.0 使用字符串 `sub` 和 `purpose: access|refresh`，Cookie 为 `cb_session` / `cb_csrf`，写请求须带 `X-CSRF-Token`。旧令牌和会话必须重新登录。历史 PBKDF2/scrypt 密码在版本迁移中无损转换为原生 JSON 编码，原密码不变。
+
 ## Requirements
 
 ### Requirement: 用户注册
-系统 SHALL 提供 `POST /api/v1/bbtalk/auth/register/` 接口，接受 `username` + `password`（可选 `email`、`display_name`），创建 User + 密码 Identity，并直接返回 JWT token 对。
+系统 SHALL 提供 `POST /api/v1/bbtalk/auth/register` 接口，接受 `username` + `password`（可选 `email`、`display_name`），创建 User + 密码 Identity，并直接返回 JWT token 对。
 
 #### Scenario: 成功注册
 - **WHEN** 提交合法的 `{ username, password }`
@@ -24,7 +26,7 @@
 - **THEN** 系统返回 400 与具体原因
 
 ### Requirement: 密码登录
-系统 SHALL 提供 `POST /api/v1/bbtalk/auth/token/` 接口，接受 `username` + `password`，验证成功后返回 JWT token 对。
+系统 SHALL 提供 `POST /api/v1/bbtalk/auth/token` 接口，接受 `username` + `password`，验证成功后返回 JWT token 对。
 
 #### Scenario: 登录成功
 - **WHEN** 用户名密码正确
@@ -35,32 +37,32 @@
 - **THEN** 返回 401，错误信息保持模糊（不暴露是用户名错还是密码错）
 
 ### Requirement: Token 刷新
-系统 SHALL 提供 `POST /api/v1/bbtalk/auth/token/refresh/`，使用未过期的 refresh token 换取新的 access token。
+系统 SHALL 提供 `POST /api/v1/bbtalk/auth/token/refresh`，使用未过期的 refresh token 换取新的 access token。
 
 #### Scenario: 刷新成功
 - **WHEN** 提交有效 refresh token
 - **THEN** 返回新的 access token
 
-#### Scenario: refresh 已过期或在黑名单
+#### Scenario: refresh 已过期或被撤销
 - **WHEN** 提交无效 refresh token
 - **THEN** 返回 401
 
-### Requirement: 登出（黑名单）
-系统 SHALL 提供 `POST /api/v1/bbtalk/auth/token/blacklist/`，将 refresh token 加入黑名单使其失效。
+### Requirement: 登出（撤销令牌）
+系统 SHALL 提供 `POST /api/v1/bbtalk/auth/token/revoke`，撤销 refresh token 使其失效。
 
 #### Scenario: 客户端登出
 - **WHEN** 用户点击「退出登录」
-- **THEN** 客户端调用黑名单接口并清除本地存储的 token
+- **THEN** 客户端调用令牌撤销接口并清除本地存储的 token
 
 ### Requirement: 当前用户信息
-系统 SHALL 提供 `GET /api/v1/bbtalk/user/me/`，返回当前已认证用户的资料。
+系统 SHALL 提供 `GET /api/v1/bbtalk/user/me`，返回当前已认证用户的资料。
 
 #### Scenario: 获取个人资料
 - **WHEN** 已认证用户请求
 - **THEN** 返回 `{ id, username, email, display_name, avatar, bio, is_staff, ... }`
 
 ### Requirement: 删除账户
-系统 SHALL 提供 `POST /api/v1/bbtalk/user/delete-account/`，要求二次密码确认，删除该用户及其所有数据（BBTalk、Tag、Comment、Attachment 元数据、StorageSettings）。
+系统 SHALL 提供 `POST /api/v1/bbtalk/user/delete-account`，要求二次密码确认，删除该用户及其所有数据（BBTalk、Tag、Comment、Attachment 元数据、StorageSettings）。
 
 #### Scenario: 密码正确
 - **WHEN** 用户提交正确密码
@@ -89,7 +91,7 @@ Web、iOS/Android 和桌面端 SHALL 在 access token 到期前主动刷新，�
 - **THEN** 客户端保留现有登录态并持续重试，不立即清除 token
 
 #### Scenario: refresh token 明确失效
-- **WHEN** 服务端返回 401/403 表示 refresh token 过期或已在黑名单
+- **WHEN** 服务端返回 401/403 表示 refresh token 过期或已撤销
 - **THEN** 客户端清除认证信息并引导用户重新登录
 
 ### Requirement: Identity 扩展接口

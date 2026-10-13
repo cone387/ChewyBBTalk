@@ -29,15 +29,15 @@ class ExplicitBearer(HTTPBearer):
 
 
 jwt_auth = ExplicitBearer(auto_error=False, scheme_name='jwtAuth', bearerFormat='JWT')
-session_auth = APIKeyCookie(name='sessionid', auto_error=False, scheme_name='sessionAuth')
+session_auth = APIKeyCookie(name='cb_session', auto_error=False, scheme_name='sessionAuth')
 Bearer = Annotated[HTTPAuthorizationCredentials | None, Security(jwt_auth)]
 SessionCookie = Annotated[str | None, Security(session_auth)]
 CSRFToken = Annotated[
     str | None,
     Header(
-        alias='X-CSRFToken',
+        alias='X-CSRF-Token',
         description=(
-            'Session Cookie 认证的 POST/PUT/PATCH/DELETE 请求必须提供登录时的 csrftoken；'
+            'Session Cookie 认证的 POST/PUT/PATCH/DELETE 请求必须提供登录时的 cb_csrf；'
             'Bearer 认证及 GET/HEAD/OPTIONS 无需此头。'
         ),
     ),

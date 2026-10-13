@@ -290,7 +290,7 @@ def attachment_list(
         .order_by(Attachment.created_at.desc())
     )
     result = paginate(db, query, request, params)
-    result['results'] = [attachment_data(file, request) for file in result['results']]
+    result['items'] = [attachment_data(file, request) for file in result['items']]
     return result
 
 

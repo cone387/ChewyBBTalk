@@ -59,17 +59,17 @@ def race(app, operation):
 
 def test_duplicate_submissions_are_durable(concurrent_app):
     app = concurrent_app
-    payload = {'content': 'concurrent record', 'post_tags': 'once'}
+    payload = {'content': 'concurrent record', 'tags': ['once']}
     headers = {'Idempotency-Key': 'concurrent-create-key'}
-    results = race(app, lambda client, _: client.post(BASE, json=payload, headers=headers))
+    results = race(app, lambda client, _: client.post((BASE).rstrip('/'), json=payload, headers=headers))
     assert 201 in [r.status_code for r in results]
     assert all(r.status_code in {200, 201, 503} for r in results)
     with TestClient(app) as client:
         client.headers['Authorization'] = 'Bearer ' + app.state.tokens['access']
-        retry = client.post(BASE, json=payload, headers=headers)
+        retry = client.post((BASE).rstrip('/'), json=payload, headers=headers)
         assert retry.status_code == 200
         assert retry.headers['Idempotency-Replayed'] == 'true'
-        assert client.post(BASE, json={'content': 'different'}, headers=headers).status_code == 409
+        assert client.post((BASE).rstrip('/'), json={'content': 'different'}, headers=headers).status_code == 409
     with app.state.sessions() as db:
         assert db.scalar(select(func.count()).select_from(BBTalk).where(BBTalk.user_id == app.state.owner_id)) == 1
         assert db.scalar(select(func.count()).select_from(SubmissionReceipt).where(SubmissionReceipt.user_id == app.state.owner_id)) == 1
@@ -79,21 +79,21 @@ def test_conditional_edits_have_one_winner(concurrent_app):
     app = concurrent_app
     with TestClient(app) as client:
         client.headers['Authorization'] = 'Bearer ' + app.state.tokens['access']
-        row = client.post(BASE, json={'content': 'original'}).json()
-    results = race(app, lambda client, index: client.patch(BASE + row['uid'] + '/', json={'content': f'edit-{index}'}, headers={'If-Match': row['update_time']}))
+        row = client.post((BASE).rstrip('/'), json={'content': 'original'}).json()
+    results = race(app, lambda client, index: client.patch(BASE + row['uid'], json={'content': f'edit-{index}'}, headers={'If-Match': row['update_time']}))
     statuses = sorted(r.status_code for r in results)
     assert statuses in ([200, 409], [200, 503])
     with TestClient(app) as client:
         client.headers['Authorization'] = 'Bearer ' + app.state.tokens['access']
-        assert client.patch(BASE + row['uid'] + '/', json={'content': 'stale'}, headers={'If-Match': row['update_time']}).status_code == 409
-        assert client.get(BASE + row['uid'] + '/').json()['content'] in {'edit-0', 'edit-1'}
+        assert client.patch(BASE + row['uid'], json={'content': 'stale'}, headers={'If-Match': row['update_time']}).status_code == 409
+        assert client.get(BASE + row['uid']).json()['content'] in {'edit-0', 'edit-1'}
 
 
 def test_refresh_is_single_use(concurrent_app):
     app = concurrent_app
     payload = {'refresh': app.state.tokens['refresh']}
-    results = race(app, lambda client, _: client.post(BASE + 'auth/token/refresh/', json=payload))
+    results = race(app, lambda client, _: client.post(BASE + 'auth/token/refresh', json=payload))
     assert sum(r.status_code == 200 for r in results) == 1
     assert all(r.status_code in {200, 401, 503} for r in results)
     with TestClient(app) as client:
-        assert client.post(BASE + 'auth/token/refresh/', json=payload).status_code == 401
+        assert client.post(BASE + 'auth/token/refresh', json=payload).status_code == 401

@@ -176,6 +176,7 @@ jobs:
                                     found += sum(name in wanted for name in files)
                             details['missing_files_found_elsewhere_in_container'] = found
                             if modules and missing:
+                                # Historical Django-container audit only; current API probes are below.
                                 import jwt, time, urllib.request, urllib.error
                                 from uuid import uuid4
                                 from urllib.parse import urlsplit
@@ -238,7 +239,7 @@ jobs:
                 import importlib.util, urllib.request, urllib.error
                 details['django_package_installed'] = importlib.util.find_spec('django') is not None
                 details['http_checks'] = {}
-                for endpoint, expected in (('/healthz', 200), ('/api/schema/', 200), ('/api/v1/bbtalk/user/me', 401)):
+                for endpoint, expected in (('/healthz', 200), ('/openapi.json', 200), ('/api/v1/bbtalk/user/me', 401)):
                     try:
                         response = urllib.request.urlopen('http://127.0.0.1:4010' + endpoint, timeout=10)
                     except urllib.error.HTTPError as error:

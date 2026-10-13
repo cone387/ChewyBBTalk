@@ -69,7 +69,7 @@ function record(id: string, content: string): BBTalk {
     createdAt: '2026-01-01T00:00:00Z', updatedAt: `2026-01-02T00:00:00Z-${id}`,
   };
 }
-const page1 = { count: 2, next: '/api/v1/bbtalks?page=2', previous: null, results: [record('b1', '第一条'), record('b2', '第二条')] };
+const page1 = { total: 2, totalCount: 2, has_more: true, page: 1, page_size: 20, items: [record('b1', '第一条'), record('b2', '第二条')] };
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -79,7 +79,7 @@ beforeEach(() => {
   vi.spyOn(console, 'log').mockImplementation(() => {});
   vi.spyOn(console, 'error').mockImplementation(() => {});
   api.getBBTalks.mockResolvedValue(page1);
-  api.getPublicBBTalks.mockResolvedValue({ ...page1, results: [record('p1', '公开记录')] });
+  api.getPublicBBTalks.mockResolvedValue({ ...page1, items: [record('p1', '公开记录')] });
   api.createBBTalk.mockImplementation(async (data: any) => ({ ...record('new', data.content) }));
   api.updateBBTalk.mockImplementation(async (id: string) => ({ ...record(id, '更新后的内容') }));
   api.deleteBBTalk.mockResolvedValue(undefined);
@@ -171,7 +171,7 @@ describe('initial rendering', () => {
     // Keep loading visible until the single initial request resolves.
     expect(screen.queryByText('暂无碎碎念')).toBeNull();
     await waitFor(() => expect(screen.getAllByText('skeleton')).toHaveLength(3));
-    await act(async () => { finish({ ...page1, results: [] }); });
+    await act(async () => { finish({ ...page1, items: [] }); });
     expect(screen.getByText('暂无碎碎念')).toBeTruthy();
     expect(screen.getByText('从今天的一件小事开始，写下第一条记录。')).toBeTruthy();
   });
@@ -251,19 +251,19 @@ describe('search and tag filters', () => {
     let finishOld!: (value: typeof page1) => void;
     api.getBBTalks.mockImplementation((params: { tags?: string }) => params.tags?.includes('工作')
       ? new Promise(resolve => { finishOld = resolve; })
-      : Promise.resolve({ ...page1, results: [record('life', '生活结果')] }));
+      : Promise.resolve({ ...page1, items: [record('life', '生活结果')] }));
     fireEvent.click(screen.getByRole('button', { name: '工作' }));
     await act(async () => { await vi.advanceTimersByTimeAsync(300); });
     fireEvent.click(screen.getByRole('button', { name: '生活' }));
     await act(async () => { await vi.advanceTimersByTimeAsync(300); });
     expect(screen.getByText('生活结果')).toBeTruthy();
-    await act(async () => { finishOld({ ...page1, results: [record('work', '过期工作结果')] }); });
+    await act(async () => { finishOld({ ...page1, items: [record('work', '过期工作结果')] }); });
     expect(screen.getByText('生活结果')).toBeTruthy();
     expect(screen.queryByText('过期工作结果')).toBeNull();
   });
 
   it('clears search and selected tags from an empty result without adding filter controls', async () => {
-    api.getBBTalks.mockResolvedValue({ ...page1, results: [] });
+    api.getBBTalks.mockResolvedValue({ ...page1, items: [] });
     page();
     await screen.findByText('暂无碎碎念');
     fireEvent.change(screen.getByLabelText('搜索记录'), { target: { value: '关键词' } });
@@ -368,7 +368,7 @@ describe('list refresh and paging', () => {
     const view = await loaded();
     await waitFor(() => expect(api.getBBTalks).toHaveBeenCalledTimes(1));
     api.getBBTalks.mockClear();
-    api.getBBTalks.mockResolvedValueOnce({ count: 3, next: null, previous: null, results: [record('b3', '第三条')] });
+    api.getBBTalks.mockResolvedValueOnce({ total: 3, totalCount: 3, has_more: false, page: 1, page_size: 20, items: [record('b3', '第三条')] });
 
     vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => { callback(0); return 0; });
     const container = scrollContainer();
@@ -412,8 +412,8 @@ describe('list refresh and paging', () => {
 
   it('loads more public records through the public endpoint', async () => {
     api.getPublicBBTalks.mockReset();
-    api.getPublicBBTalks.mockResolvedValueOnce({ count: 2, next: '/page2', previous: null, results: [record('p1', '公开记录')] })
-      .mockResolvedValueOnce({ count: 2, next: null, previous: null, results: [record('p2', '更多公开')] });
+    api.getPublicBBTalks.mockResolvedValueOnce({ total: 2, totalCount: 2, has_more: true, page: 1, page_size: 20, items: [record('p1', '公开记录')] })
+      .mockResolvedValueOnce({ total: 2, totalCount: 2, has_more: false, page: 1, page_size: 20, items: [record('p2', '更多公开')] });
     vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => { callback(0); return 0; });
     const view = page(true);
     await screen.findByText('公开记录');

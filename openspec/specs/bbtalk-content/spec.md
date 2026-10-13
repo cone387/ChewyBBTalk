@@ -27,7 +27,7 @@ BBTalk 是本系统的核心内容实体，承载用户的 Markdown 内容、附
 系统 SHALL 允许 BBTalk 作者修改已发布的内容、标签、附件、可见性、置顶状态，并刷新 `update_time`。
 
 #### Scenario: 作者编辑自己的 BBTalk
-- **WHEN** 作者向 `PATCH /api/v1/bbtalk/{uid}/` 提交修改
+- **WHEN** 作者向 `PATCH /api/v1/bbtalk/{uid}` 提交修改
 - **THEN** 字段更新，`update_time` 刷新，列表排序按新时间反映
 
 #### Scenario: 非作者尝试编辑
@@ -38,14 +38,14 @@ BBTalk 是本系统的核心内容实体，承载用户的 Markdown 内容、附
 系统 SHALL 允许作者删除自己的 BBTalk，删除时同时清理关联评论与标签关系。
 
 #### Scenario: 作者删除
-- **WHEN** 作者调用 `DELETE /api/v1/bbtalk/{uid}/`
+- **WHEN** 作者调用 `DELETE /api/v1/bbtalk/{uid}`
 - **THEN** 系统物理删除该 BBTalk 及其评论与标签关系，返回 204
 
 ### Requirement: 可见性控制
 系统 SHALL 支持 `public` 与 `private` 两种可见性，默认为 `private`。
 
 #### Scenario: 公开列表只展示 public
-- **WHEN** 未认证用户请求 `/api/v1/bbtalk/public/`
+- **WHEN** 未认证用户请求 `/api/v1/bbtalk/public`
 - **THEN** 仅返回 `visibility=public` 的 BBTalk
 
 #### Scenario: 作者可见所有自己的内容
@@ -84,11 +84,11 @@ BBTalk 可关联零个或多个 Tag，关联通过中间表 `cb_bbtalk_tag_relat
 系统 SHALL 支持按关键词、标签、日历日期范围和是否包含附件筛选当前用户的 BBTalk，且同一条记录最多返回一次。
 
 #### Scenario: 关键词搜索
-- **WHEN** 用户请求 `GET /api/v1/bbtalk/?search=关键词`
+- **WHEN** 用户请求 `GET /api/v1/bbtalk?search=关键词`
 - **THEN** 系统在正文和标签名称中搜索并返回匹配结果
 
 #### Scenario: 组合筛选
-- **WHEN** 用户提交 `tags__name`、`create_date__gte`、`create_date__lte` 或 `has_attachments=true/false`
+- **WHEN** 用户提交 重复参数 `tags`、`created_date_from`、`created_date_to` 或 `has_attachments=true/false`
 - **THEN** 系统按所有条件组合过滤，日期范围按自然日（含首尾日期）计算
 
 #### Scenario: 关联标签命中去重

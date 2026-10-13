@@ -82,9 +82,9 @@ class CommentCache {
         this.entries.set(key, { ...entry, loaded: false, nextPage: 1 });
         return this.load(id, isPublic, 1, loader);
       }
-      const comments = page === 1 ? data.results : [...entry.comments, ...data.results];
+      const comments = page === 1 ? data.items : [...entry.comments, ...data.items];
       const unique = [...new Map(comments.map(comment => [comment.uid, comment])).values()];
-      const next = { ...entry, comments: unique, count: data.count, revision: data.revision, loaded: true, nextPage: data.next ? page + 1 : null };
+      const next = { ...entry, comments: unique, count: data.total, revision: data.revision, loaded: true, nextPage: data.has_more ? data.page + 1 : null };
       this.entries.set(key, next);
       this.notify(key);
       return next;

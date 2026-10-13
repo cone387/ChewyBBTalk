@@ -89,7 +89,7 @@ test('browser authorization, screenshots, partial retry, close/restart drafts, I
     await textarea.dispatchEvent('compositionstart')
     await textarea.press('Enter')
     const before = await request.get(server + '/api/v1/bbtalk', { headers: { Authorization: `Bearer ${owner.access}` } })
-    expect((await before.json()).count).toBe(0)
+    expect((await before.json()).total).toBe(0)
     await textarea.dispatchEvent('compositionend')
     await textarea.fill('立即关闭也保留的截图草稿')
     const image = await application!.evaluate(async ({ BrowserWindow }) => {
@@ -125,7 +125,7 @@ test('browser authorization, screenshots, partial retry, close/restart drafts, I
     await compose.getByRole('button', { name: /^发布/ }).click()
     await expect(compose.getByPlaceholder('你要BB什么？')).toHaveValue('')
     const after = await request.get(server + '/api/v1/bbtalk', { headers: { Authorization: `Bearer ${owner.access}` } })
-    const post = (await after.json()).results[0]
+    const post = (await after.json()).items[0]
     expect(post.attachments).toHaveLength(2)
     expect(post.attachments[0].url).toMatch(/^\/api\/v1\/attachments\/files\/[^/]+\/preview$/)
     expect((await request.get(server + post.attachments[0].url)).status()).toBe(404)

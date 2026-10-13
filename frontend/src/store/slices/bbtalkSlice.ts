@@ -37,8 +37,8 @@ export const loadBBTalks = createAsyncThunk(
   async (params: FeedFilters = {}, { rejectWithValue }) => {
     try {
       const { page = 1, search, tags, hasAttachments, dateFrom, dateTo, visibility, ordering } = params
-      const result = await bbtalkApi.getBBTalks({ 
-        page, 
+      const result = await bbtalkApi.getBBTalks({
+        page,
         search,
         tags: tags,
         has_attachments: hasAttachments,
@@ -46,12 +46,11 @@ export const loadBBTalks = createAsyncThunk(
         created_date_to: dateTo,
         visibility, ordering,
       })
-      return { 
-        bbtalks: result.results, 
-        page, 
-        hasMore: !!result.next,
-        totalCount: result.totalCount ?? result.count,
-        isFullLoad: result.totalCount !== undefined || (!search && (!tags || tags.length === 0) && !visibility && hasAttachments === undefined && !dateFrom && !dateTo)  // 标记是否是全量加载
+      return {
+        bbtalks: result.items,
+        page,
+        hasMore: result.has_more,
+        totalCount: result.totalCount,
       }
     } catch (error: any) {
       if (error?.name === 'AbortError') throw error
@@ -67,10 +66,10 @@ export const loadMoreBBTalks = createAsyncThunk(
       const state = getState() as any
       const currentPage = state.bbtalk.currentPage
       const nextPage = currentPage + 1
-      
+
       const { search, tags, hasAttachments, dateFrom, dateTo, visibility, ordering } = params
-      const result = await bbtalkApi.getBBTalks({ 
-        page: nextPage, 
+      const result = await bbtalkApi.getBBTalks({
+        page: nextPage,
         search,
         tags: tags,
         has_attachments: hasAttachments,
@@ -78,10 +77,10 @@ export const loadMoreBBTalks = createAsyncThunk(
         created_date_to: dateTo,
         visibility, ordering,
       })
-      return { 
-        bbtalks: result.results, 
-        page: nextPage, 
-        hasMore: !!result.next 
+      return {
+        bbtalks: result.items,
+        page: nextPage,
+        hasMore: result.has_more
       }
     } catch (error: any) {
       if (error?.name === 'AbortError') throw error
@@ -97,11 +96,11 @@ export const loadPublicBBTalks = createAsyncThunk(
     try {
       const { page = 1 } = params
       const result = await bbtalkApi.getPublicBBTalks({ page, search: params.search, tags: params.tags, has_attachments: params.hasAttachments, created_date_from: params.dateFrom, created_date_to: params.dateTo, ordering: params.ordering })
-      return { 
-        bbtalks: result.results, 
-        page, 
-        hasMore: !!result.next,
-        totalCount: result.totalCount ?? result.count,
+      return {
+        bbtalks: result.items,
+        page,
+        hasMore: result.has_more,
+        totalCount: result.totalCount,
       }
     } catch (error: any) {
       if (error?.name === 'AbortError') throw error
@@ -118,12 +117,12 @@ export const loadMorePublicBBTalks = createAsyncThunk(
       const state = getState() as any
       const currentPage = state.bbtalk.currentPage
       const nextPage = currentPage + 1
-      
+
       const result = await bbtalkApi.getPublicBBTalks({ page: nextPage, search: params.search, tags: params.tags, has_attachments: params.hasAttachments, created_date_from: params.dateFrom, created_date_to: params.dateTo, ordering: params.ordering })
-      return { 
-        bbtalks: result.results, 
-        page: nextPage, 
-        hasMore: !!result.next 
+      return {
+        bbtalks: result.items,
+        page: nextPage,
+        hasMore: result.has_more
       }
     } catch (error: any) {
       if (error?.name === 'AbortError') throw error
@@ -226,10 +225,7 @@ const bbtalkSlice = createSlice({
         state.bbtalks = action.payload.bbtalks.filter(item => !state.hiddenRecordIds.includes(item.id))
         state.currentPage = action.payload.page
         state.hasMore = action.payload.hasMore
-        // 只在全量加载时更新总数
-        if (action.payload.isFullLoad) {
-          state.totalCount = action.payload.totalCount
-        }
+        state.totalCount = action.payload.totalCount
       })
       .addCase(loadBBTalks.rejected, (state, action) => {
         if (state.activeRequestId !== action.meta.requestId) return;

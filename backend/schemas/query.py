@@ -1,9 +1,9 @@
-"""Typed HTTP query contracts, including narrowly scoped legacy input aliases."""
+"""Typed query parameters for the current API."""
 
 from datetime import date, datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 TagName = Annotated[str, Field(min_length=1, max_length=50)]
 RecordOrder = Literal['create_time', '-create_time', 'update_time', '-update_time']
@@ -12,19 +12,11 @@ TagOrder = Literal[
 ]
 
 
-def rename_legacy(values, aliases):
-    values = dict(values)
-    for old, new in aliases.items():
-        if old not in values:
-            continue
-        value = values.pop(old)
-        if values.get(new) not in (None, '', [], 'json'):
-            raise ValueError(f'不能同时提供 {old} 和 {new}')
-        values[new] = value
-    return values
+class QueryInput(BaseModel):
+    model_config = ConfigDict(extra='forbid')
 
 
-class PaginationQuery(BaseModel):
+class PaginationQuery(QueryInput):
     page: int = Field(default=1, ge=1)
     page_size: int = Field(default=100, ge=1, le=100)
 
@@ -33,8 +25,8 @@ class AttachmentQuery(PaginationQuery):
     page_size: int = Field(default=20, ge=1, le=100)
 
 
-class CommentQuery(BaseModel):
-    page: int | None = Field(default=None, ge=1)
+class CommentQuery(QueryInput):
+    page: int = Field(default=1, ge=1)
     page_size: int = Field(default=20, ge=1, le=100)
 
 
@@ -50,26 +42,8 @@ class RecordQuery(PaginationQuery):
     created_date_to: date | None = Field(default=None, lt=date.max)
     created_on: date | None = Field(default=None, lt=date.max)
 
-    @model_validator(mode='before')
-    @classmethod
-    def legacy_names(cls, values):
-        values = rename_legacy(
-            values,
-            {
-                'tags__name': 'tags',
-                'create_time__gte': 'created_from',
-                'create_time__lte': 'created_to',
-                'create_date__gte': 'created_date_from',
-                'create_date__lte': 'created_date_to',
-                'create_time__date': 'created_on',
-            },
-        )
-        if isinstance(values.get('tags'), str):
-            values['tags'] = [name.strip() for name in values['tags'].split(',') if name.strip()]
-        return values
 
-
-class TagQuery(BaseModel):
+class TagQuery(QueryInput):
     name: str | None = None
     search: str | None = None
     ordering: list[TagOrder] = Field(default_factory=lambda: ['sort_order', '-update_time'])
@@ -81,16 +55,11 @@ class TagQuery(BaseModel):
         return [part for item in values for part in item.split(',')]
 
 
-class DateCountsQuery(BaseModel):
+class DateCountsQuery(QueryInput):
     year: int | None = Field(default=None, ge=1, le=9999)
     month: int | None = Field(default=None, ge=1, le=12)
 
 
-class ExportQuery(BaseModel):
+class ExportQuery(QueryInput):
     format: Literal['json', 'zip'] = 'json'
     include_attachments: bool = False
-
-    @model_validator(mode='before')
-    @classmethod
-    def legacy_format(cls, values):
-        return rename_legacy(values, {'export_format': 'format'})

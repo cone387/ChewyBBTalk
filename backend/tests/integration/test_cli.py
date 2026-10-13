@@ -6,7 +6,7 @@ from sqlalchemy import func, select
 
 from cli import commands as cli
 from models import BBTalk, Comment, Identity, StorageConfig, Tag, User
-from services.security import check_password
+from services.security import verify_password
 
 
 def test_initialization_is_idempotent_and_demo_opt_in(app,monkeypatch,capsys):
@@ -20,7 +20,7 @@ def test_initialization_is_idempotent_and_demo_opt_in(app,monkeypatch,capsys):
         user=db.scalar(select(User).where(User.username=='native-admin'))
         identity=db.scalar(select(Identity).where(Identity.user_id==user.id))
         assert user.is_staff and user.is_superuser
-        assert check_password('provided-password',identity.credential)
+        assert verify_password('provided-password',identity.credential)
         assert not db.scalar(select(User).where(User.username=='demo'))
         monkeypatch.setenv('CREATE_DEMO_USER','true')
         cli.initialize(db,app.state.settings)
@@ -29,7 +29,7 @@ def test_initialization_is_idempotent_and_demo_opt_in(app,monkeypatch,capsys):
         demo=db.scalar(select(User).where(User.username=='demo'))
         demo_identity=db.scalar(select(Identity).where(Identity.user_id==demo.id))
         assert demo.is_active and not demo.is_staff and not demo.is_superuser
-        assert check_password('demo123',demo_identity.credential)
+        assert verify_password('demo123',demo_identity.credential)
         assert db.scalar(select(func.count()).select_from(Tag).where(Tag.user_id==demo.id))==19
         assert db.scalar(select(func.count()).select_from(Comment).where(Comment.user_id==demo.id))>=100
         cli.initialize(db,app.state.settings)

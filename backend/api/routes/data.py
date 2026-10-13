@@ -4,10 +4,9 @@ import json
 import zipfile
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, Query, Request, Response, UploadFile
+from fastapi import APIRouter, File, Form, Query, Request, Response, UploadFile
 from fastapi.responses import FileResponse
 
-from api.compat import reject_legacy_query_conflicts
 from api.dependencies import DB, CurrentUser
 from backups.transfer import FIELDS, DataExporter, import_data, read_import
 from core.errors import APIError, fail
@@ -27,7 +26,6 @@ def upload_content(file, settings):
 
 @router.get(
     '/export',
-    dependencies=[Depends(reject_legacy_query_conflicts)],
     response_class=Response,
     responses={
         200: {

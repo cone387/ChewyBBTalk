@@ -6,7 +6,7 @@ const password = 'request-budget-regression-2026'
 test.beforeEach(() => {
   test.skip(test.info().config.metadata.productionRequestBudget !== true, 'Requires the production request-budget config')
 })
-type RequestEvidence = { method: string; path: string; ms: number; status?: number; failure?: string; results?: number }
+type RequestEvidence = { method: string; path: string; ms: number; status?: number; failure?: string; itemCount?: number }
 type Scenario = { name: string; expected: number | [number, number]; requests: RequestEvidence[] }
 
 class BudgetRecorder {
@@ -29,7 +29,7 @@ class BudgetRecorder {
       row.status = response.status()
       if (row.path.includes('/comments') && row.method === 'GET' && response.ok()) {
         const body = await response.json().catch(() => null)
-        if (body) row.results = Array.isArray(body) ? body.length : body.results?.length
+        if (body) row.itemCount = Array.isArray(body) ? body.length : body.items?.length
       }
     })
     page.on('requestfailed', request => {
@@ -212,13 +212,13 @@ test('production paged comments, remount cache, public and detail previews', asy
     await expect(card.getByLabel('删除评论：note 0-19', { exact: true })).toBeVisible()
   })
   expect(first[0].path).toMatch(/page=1/)
-  expect(first[0].results).toBe(20)
+  expect(first[0].itemCount).toBe(20)
   const second = await budget.measure('comments_page_2', 1, async () => {
     await card.getByRole('button', { name: '加载更多评论' }).click()
     await expect(card.getByLabel('删除评论：note 0-24', { exact: true })).toBeVisible()
   })
   expect(second[0].path).toMatch(/page=2/)
-  expect(second[0].results).toBe(5)
+  expect(second[0].itemCount).toBe(5)
   await budget.measure('reexpand_cached_comments', 0, async () => {
     await card.getByRole('button', { name: '收起评论' }).click()
     await card.getByRole('button', { name: '查看全部 25 条评论' }).click()

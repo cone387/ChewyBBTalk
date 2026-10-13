@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import BBTalkItem from '../src/components/BBTalkItem';
 import type { BBTalk, Comment } from '../src/types';
 
-const api = vi.hoisted(() => ({ getComments: vi.fn(), getCommentPage: vi.fn(), createComment: vi.fn(), deleteComment: vi.fn() }));
+const api = vi.hoisted(() => ({ getCommentPage: vi.fn(), createComment: vi.fn(), deleteComment: vi.fn() }));
 const auth = vi.hoisted(() => ({ session: 0, listeners: new Set<() => void>() }));
 vi.mock('../src/services/api', () => ({ bbtalkApi: api }));
 vi.mock('../src/services/authSessionScope', () => ({ getAuthSessionScope: () => String(auth.session), subscribeAuthSession: (listener: () => void) => { auth.listeners.add(listener); return () => auth.listeners.delete(listener); } }));
@@ -18,19 +18,19 @@ function comment(n: number): Comment {
 function record(overrides: Partial<BBTalk> = {}): BBTalk {
   return { id: 'record', content: 'body', tags: [], attachments: [], visibility: 'private', createdAt: '', updatedAt: '', commentCount: 5, commentPreview: [comment(1), comment(2), comment(3)], commentsRevision: 'v1', ...overrides };
 }
-beforeEach(() => { vi.resetAllMocks(); api.getComments.mockResolvedValue([]); auth.session++; });
+beforeEach(() => { vi.resetAllMocks(); auth.session++; });
 afterEach(cleanup);
 
 it('renders 100 preview-bearing records without a per-card comment GET', () => {
   render(<>{Array.from({ length: 100 }, (_, n) => <BBTalkItem key={n} bbtalk={record({ id: `r${n}` })} />)}</>);
   expect(screen.getAllByText('reply-1')).toHaveLength(100);
-  expect(api.getComments).not.toHaveBeenCalled();
+  expect(api.getCommentPage).not.toHaveBeenCalled();
   expect(api.getCommentPage).not.toHaveBeenCalled();
 });
 
 it('loads pages on demand and reuses them after remount without replacing total count with page length', async () => {
-  api.getCommentPage.mockResolvedValueOnce({ count: 5, next: '?page=2', previous: null, results: [comment(1), comment(2), comment(3), comment(4)], revision: 'v1' })
-    .mockResolvedValueOnce({ count: 5, next: null, previous: '?page=1', results: [comment(5)], revision: 'v1' });
+  api.getCommentPage.mockResolvedValueOnce({ total: 5, has_more: true, page: 1, page_size: 20, items: [comment(1), comment(2), comment(3), comment(4)], revision: 'v1' })
+    .mockResolvedValueOnce({ total: 5, has_more: false, page: 1, page_size: 20, items: [comment(5)], revision: 'v1' });
   const first = render(<BBTalkItem bbtalk={record()} />);
   fireEvent.click(screen.getByText('查看全部 5 条评论'));
   await screen.findByText('reply-4');
@@ -46,8 +46,8 @@ it('loads pages on demand and reuses them after remount without replacing total 
 });
 
 it('replaces stale expanded comments when a refreshed record reports a new revision', async () => {
-  api.getCommentPage.mockResolvedValueOnce({ count: 5, next: null, previous: null, results: [1, 2, 3, 4, 5].map(comment), revision: 'v1' })
-    .mockResolvedValueOnce({ count: 4, next: null, previous: null, results: [2, 3, 4, 5].map(comment), revision: 'v2' });
+  api.getCommentPage.mockResolvedValueOnce({ total: 5, has_more: false, page: 1, page_size: 20, items: [1, 2, 3, 4, 5].map(comment), revision: 'v1' })
+    .mockResolvedValueOnce({ total: 4, has_more: false, page: 1, page_size: 20, items: [2, 3, 4, 5].map(comment), revision: 'v2' });
   const view = render(<BBTalkItem bbtalk={record()} />);
   fireEvent.click(screen.getByText('查看全部 5 条评论'));
   await screen.findByText('reply-5');
@@ -67,14 +67,14 @@ it('sends one request to append a comment and preserves the new count across rem
   // Rendering the comment does not flush the effect that updates its parent badge.
   await waitFor(() => expect(screen.getByTitle('评论').textContent).toBe('6'));
   expect(api.getCommentPage).not.toHaveBeenCalled();
-  expect(api.getComments).not.toHaveBeenCalled();
+  expect(api.getCommentPage).not.toHaveBeenCalled();
   first.unmount();
   render(<BBTalkItem bbtalk={record()} />);
   expect(screen.getByTitle('评论').textContent).toBe('6');
 });
 
 it('expands public comments with one public page request and no write controls', async () => {
-  api.getCommentPage.mockResolvedValue({ count: 5, next: null, previous: null, results: [1, 2, 3, 4, 5].map(comment), revision: 'v1' });
+  api.getCommentPage.mockResolvedValue({ total: 5, has_more: false, page: 1, page_size: 20, items: [1, 2, 3, 4, 5].map(comment), revision: 'v1' });
   render(<BBTalkItem bbtalk={record()} isPublic />);
   fireEvent.click(screen.getByTitle('评论'));
   await screen.findByText('reply-5');
@@ -96,7 +96,7 @@ it('clears mounted old-session previews without reseeding them until fresh recor
 
 it('can load missing comments after deleting a preview item drops the total below four', async () => {
   api.deleteComment.mockResolvedValue(undefined);
-  api.getCommentPage.mockResolvedValue({ count: 3, next: null, previous: null, results: [2, 3, 4].map(comment), revision: 'v2' });
+  api.getCommentPage.mockResolvedValue({ total: 3, has_more: false, page: 1, page_size: 20, items: [2, 3, 4].map(comment), revision: 'v2' });
   render(<BBTalkItem bbtalk={record({ commentCount: 4 })} />);
   fireEvent.click(screen.getByRole('button', { name: '删除评论：reply-1' }));
   fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '确认删除' }));

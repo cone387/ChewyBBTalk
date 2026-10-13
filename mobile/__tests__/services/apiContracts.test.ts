@@ -13,7 +13,7 @@ it('maps record defaults and all tag/comment metadata from the wire format', () 
   expect(transformBBTalk(wire)).toMatchObject({ tags: [], isPinned: false, commentCount: 0 });
 });
 it.each([
-  [{ uid: 'file', preview_url: 'http://localhost:8000/api/file/?q=1' }, 'https://example.com/api/file/?q=1'],
+  [{ uid: 'file', preview_url: 'http://localhost:8000/api/file/?q=1' }, 'http://localhost:8000/api/file/?q=1'],
   [{ id: 'file', download_url: '/download/' }, 'https://example.com/download/'],
   [{ uid: 'file', url: 'old/storage/path' }, 'https://example.com/api/v1/attachments/files/file/preview'],
   [{ url: '/legacy/file' }, 'https://example.com/legacy/file'],
@@ -57,15 +57,15 @@ it('allows explicitly clearing content, tags and attachments while preserving re
   expect(apiClient.patch).toHaveBeenLastCalledWith('/api/v1/bbtalk/record', {}, undefined);
 });
 it('maps private and public pagination without losing next-page markers or filters', async () => {
-  (apiClient.get as jest.Mock).mockResolvedValue({ count: 3, next: 'next', previous: null, results: [wire] });
-  expect(await bbtalkApi.getBBTalks({ page: 2, search: 'body' })).toMatchObject({ count: 3, next: 'next', results: [{ id: 'record' }] });
+  (apiClient.get as jest.Mock).mockResolvedValue({ total: 3, has_more: true, page: 1, page_size: 20, items: [wire] });
+  expect(await bbtalkApi.getBBTalks({ page: 2, search: 'body' })).toMatchObject({ total: 3, has_more: true, items: [{ id: 'record' }] });
   expect(apiClient.get).toHaveBeenCalledWith('/api/v1/bbtalk', { page: 2, search: 'body' });
-  expect((await bbtalkApi.getPublicBBTalks({ page: 2 })).results[0].id).toBe('record');
+  expect((await bbtalkApi.getPublicBBTalks({ page: 2 })).items[0].id).toBe('record');
 });
 it('maps comments with missing optional profile fields and preserves rich profiles', async () => {
   const comment = { uid: 'comment', user: 1, content: 'reply', create_time: 'created', update_time: 'updated' };
-  (apiClient.get as jest.Mock).mockResolvedValue([comment, { ...comment, user_display_name: 'Alice', user_avatar: 'avatar', user_username: 'alice' }]);
-  const comments = await bbtalkApi.getComments('record');
+  (apiClient.get as jest.Mock).mockResolvedValue({ items: [comment, { ...comment, user_display_name: 'Alice', user_avatar: 'avatar', user_username: 'alice' }], total: 2, page: 1, page_size: 20, has_more: false, revision: 'r1' });
+  const comments = (await bbtalkApi.getCommentPage('record')).items;
   expect(comments[0]).toMatchObject({ userDisplayName: '', userAvatar: '', userUsername: '', createdAt: 'created' });
   expect(comments[1]).toMatchObject({ userDisplayName: 'Alice', userAvatar: 'avatar', userUsername: 'alice' });
   (apiClient.post as jest.Mock).mockResolvedValue(comment);
@@ -73,10 +73,9 @@ it('maps comments with missing optional profile fields and preserves rich profil
   await bbtalkApi.deleteComment('record', 'comment');
   expect(apiClient.delete).toHaveBeenCalledWith('/api/v1/bbtalk/record/comments/comment');
 });
-it.each([[{ uid: 'tag', name: 'Work' }], { results: [{ uid: 'tag', name: 'Work' }] }, {}])('accepts paginated, array or empty tag responses', async payload => {
-  (apiClient.get as jest.Mock).mockResolvedValue(payload);
-  const tags = await tagApi.getTags();
-  expect(tags).toEqual('results' in payload || Array.isArray(payload) ? [expect.objectContaining({ id: 'tag', name: 'Work' })] : []);
+it('maps the complete tag array', async () => {
+  (apiClient.get as jest.Mock).mockResolvedValue([{ uid: 'tag', name: 'Work' }]);
+  expect(await tagApi.getTags()).toEqual([expect.objectContaining({ id: 'tag', name: 'Work' })]);
 });
 it('preserves tag clearing and zero sort order without deleting associated records by default', async () => {
   await tagApi.createTag({ name: 'Work', color: '#000000', sortOrder: 0 });
@@ -100,26 +99,26 @@ it('sends password and empty profile fields through the authenticated API', asyn
 it('maps embedded comment previews and paginated comments', async () => {
  const c = { uid: 'comment', content: 'preview', user: 1, create_time: 'created', update_time: 'updated' };
  expect(transformBBTalk({ ...wire, comment_preview: [c], comments_revision: 'r1' })).toMatchObject({ commentPreview: [{ uid: 'comment', content: 'preview', createdAt: 'created' }], commentsRevision: 'r1' });
- (apiClient.get as jest.Mock).mockResolvedValue({ count: 21, next: 'page2', previous: null, results: [c], revision: 'r1' });
- expect(await bbtalkApi.getCommentPage('record', 1)).toMatchObject({ count: 21, next: 'page2', results: [{ uid: 'comment' }], revision: 'r1' });
+ (apiClient.get as jest.Mock).mockResolvedValue({ total: 21, has_more: true, page: 1, page_size: 20, items: [c], revision: 'r1' });
+ expect(await bbtalkApi.getCommentPage('record', 1)).toMatchObject({ total: 21, has_more: true, items: [{ uid: 'comment' }], revision: 'r1' });
  expect(apiClient.get).toHaveBeenCalledWith('/api/v1/bbtalk/record/comments', { page: 1, page_size: 20 });
 });
 
 it('keeps cancellation attached to a filtered feed request', async () => {
   const controller = new AbortController();
-  (apiClient.get as jest.Mock).mockResolvedValue({ count: 1, next: null, previous: null, results: [wire] });
+  (apiClient.get as jest.Mock).mockResolvedValue({ total: 1, has_more: false, page: 1, page_size: 20, items: [wire] });
   const result = await bbtalkApi.getBBTalks({ page: 1, tags: ['Work'] }, { signal: controller.signal });
-  expect(result.results[0]).toMatchObject({ id: 'record', content: 'body' });
+  expect(result.items[0]).toMatchObject({ id: 'record', content: 'body' });
   expect(apiClient.get).toHaveBeenCalledWith('/api/v1/bbtalk', { page: 1, tags: ['Work'] }, { signal: controller.signal });
 });
 
-it('turns an old server comment array into a complete first page without inventing another page', async () => {
-  const comment = { uid: 'legacy-comment', user: 7, content: 'reply', create_time: 'created', update_time: 'updated',
-    user_display_name: 'Alice', user_avatar: 'avatar', user_username: 'alice' };
-  (apiClient.get as jest.Mock).mockResolvedValue([comment]);
-  expect(await bbtalkApi.getCommentPage('record')).toEqual({ count: 1, next: null, previous: null, results: [{
-    uid: 'legacy-comment', user: 7, content: 'reply', createdAt: 'created', updatedAt: 'updated',
-    userDisplayName: 'Alice', userAvatar: 'avatar', userUsername: 'alice',
-  }] });
-  expect(apiClient.get).toHaveBeenCalledWith('/api/v1/bbtalk/record/comments', { page: 1, page_size: 20 });
+it('rejects an invalid comment array response', async () => {
+  (apiClient.get as jest.Mock).mockResolvedValue([]);
+  await expect(bbtalkApi.getCommentPage('record')).rejects.toThrow();
+});
+
+it('preserves signed remote object previews while rehosting API attachment links', () => {
+  const signed = 'https://bucket.example/photo.jpg?signature=abc%2B123&expires=123';
+  expect(transformBBTalk({ ...wire, attachments: [{ uid: 'remote', preview_url: signed }] }).attachments[0].url).toBe(signed);
+  expect(transformBBTalk({ ...wire, attachments: [{ uid: 'local', preview_url: 'http://localhost:8000/api/v1/attachments/files/local/preview/?key=1' }] }).attachments[0].url).toBe('https://example.com/api/v1/attachments/files/local/preview?key=1');
 });

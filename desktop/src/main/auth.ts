@@ -41,10 +41,10 @@ export function getSessionGeneration() { return sessionGeneration; }
 export function acceptTokens(data: { access: string; refresh: string; username?: string }, apiUrl: string, generation: number): void {
   if (generation !== sessionGeneration) throw new Error('会话已改变，请重新登录');
   const info = payload(data.access);
-  if (!info.exp || info.exp * 1000 <= Date.now() || !data.refresh) throw new Error('服务器返回了无效会话');
+  if (!info.exp || info.exp * 1000 <= Date.now() || !data.refresh || typeof info.sub !== 'string' || !info.sub || info.purpose !== 'access') throw new Error('服务器返回了无效会话');
   store.set('auth.apiUrl', normalizeServer(apiUrl));
   store.set('auth.username', data.username || store.get('auth.username') || '');
-  if (info.user_id !== undefined) store.set('auth.userId', String(info.user_id));
+  store.set('auth.userId', info.sub);
   saveRefreshToken(data.refresh);
   accessToken = data.access;
   schedule(info.exp * 1000 - Date.now() - 5 * 60_000);
@@ -119,7 +119,7 @@ export function logout(): void {
 }
 export async function tryRestoreSession(): Promise<boolean> { return refreshAccessToken(); }
 export function getSubmissionSession(): { scope: string; generation: number; apiUrl: string } | null {
-  const userId = accessToken ? payload(accessToken).user_id : store.get('auth.userId');
+  const userId = accessToken ? payload(accessToken).sub : store.get('auth.userId');
   if (userId === undefined || userId === null || (!accessToken && !readRefreshToken())) return null;
   const apiUrl = getApiUrl().replace(/\/+$/, '');
   return { scope: JSON.stringify([apiUrl, String(userId)]), generation: sessionGeneration, apiUrl };

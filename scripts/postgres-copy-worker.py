@@ -9,6 +9,8 @@ Only ``create`` (CREATE DATABASE) and ``migrate`` (target only) perform writes.
 import argparse
 import base64
 import hashlib
+from functools import cache
+from importlib import import_module
 import json
 import os
 import re
@@ -33,7 +35,7 @@ RENAMED = {
     "token_blacklist_outstandingtoken": "cb_refresh_tokens",
     "token_blacklist_blacklistedtoken": "cb_revoked_tokens",
 }
-REVISION = "0003_native_schema"
+REVISION = "0004_native_credentials"
 
 
 class Refused(RuntimeError):
@@ -319,7 +321,7 @@ def native_imports():
         if candidate.is_dir():
             sys.path.insert(0, str(candidate))
             break
-    from database.migrations.schema_v3 import Base
+    from models import Base
     from database.upgrade import upgrade
     from sqlalchemy import create_engine, inspect
     from sqlalchemy.engine import make_url
@@ -427,13 +429,29 @@ def verify_schema(url, target):
     return checked
 
 
+@cache
+def credential_converter():
+    native_imports()
+    return import_module("database.migrations.versions.0004_native_credentials").convert_password
+
+
+def native_row(table, row):
+    """Expected, lossless v4 representation; source rows are never mutated."""
+    converted = dict(row)
+    if table == "cb_identities" and row.get("identity_type") == "password":
+        converted["credential"] = credential_converter()(row["credential"], allow_native=True)
+    if RENAMED.get(table, table) == "cb_revoked_tokens" and "blacklisted_at" in converted:
+        converted["revoked_at"] = converted.pop("blacklisted_at")
+    return converted
+
+
 def verify_native(source, target, url, target_name):
     _, sql = dependencies()
     original = manifest(source)
     expected = {
-        RENAMED.get(name, name): value
-        for name, value in original.items()
-        if name not in LEGACY | {"alembic_version"}
+        RENAMED.get(name, name): rows_digest(native_row(name, row) for row in table_rows(source, name))
+        for name in original
+        if name not in LEGACY | {"alembic_version", "cb_migration_archive"}
     }
     expected.setdefault("cb_sessions", rows_digest([]))
     actual_names = set(table_names(target))
@@ -449,8 +467,13 @@ def verify_native(source, target, url, target_name):
     if set(archives) - LEGACY:
         raise Refused("unexpected_archive_sources")
     archive_manifest = {}
+    previous_archives = defaultdict(list)
+    if "cb_migration_archive" in original:
+        for row in table_rows(source, "cb_migration_archive"):
+            previous_archives[row["source"]].append(decode_archive(json.loads(row["payload"])))
     for name in LEGACY:
-        expected_archive = original.get(name, rows_digest([]))
+        expected_archive = rows_digest([*previous_archives[name],
+            *(table_rows(source, name) if name in original else [])])
         actual_archive = rows_digest(archives[name])
         compare_manifests(expected_archive, actual_archive)
         if sorted(sequences[name]) != list(range(1, actual_archive["count"] + 1)):

@@ -51,7 +51,7 @@ def test_imported_long_tag_uid_can_use_both_reorder_formats(client, length):
     uid = 't' * length
     result = import_payload(client, {'tags': [{'uid': uid, 'name': 'imported'}]})
     assert result.json()['stats']['tags_created'] == 1
-    assert client.get(BASE + '/tags/' + uid).status_code == 200
+    assert client.get((BASE + '/tags/' + uid).rstrip('/')).status_code == 200
     for payload in ({'items': [{'uid': uid, 'sort_order': 5}]}, {'uids': [uid]}):
         assert client.post(BASE + '/tags/reorder', json=payload).status_code == 200
 
@@ -103,16 +103,16 @@ def test_authentication_consumes_injected_credentials(client, app):
         BASE + '/auth/login', json={'username': 'owner', 'password': 'test-password-2026'}
     )
     assert login.status_code == 200
-    session_key = client.cookies['sessionid']
-    csrf = client.cookies['csrftoken']
+    session_key = client.cookies['cb_session']
+    csrf = client.cookies['cb_csrf']
     client.cookies.clear()
     app.dependency_overrides[session_auth] = lambda: session_key
     try:
         assert client.get(BASE + '/user/me').status_code == 200
-        assert client.post(BASE, json={'content': 'missing csrf'}).status_code == 403
+        assert client.post((BASE).rstrip('/'), json={'content': 'missing csrf'}).status_code == 403
         assert (
             client.post(
-                BASE, json={'content': 'injected cookie'}, headers={'X-CSRFToken': csrf}
+                (BASE).rstrip('/'), json={'content': 'injected cookie'}, headers={'X-CSRF-Token': csrf}
             ).status_code
             == 201
         )
@@ -134,12 +134,12 @@ def test_empty_explicit_bearer_does_not_fall_back_to_cookie(client):
 
 
 def test_openapi_describes_dynamic_success_errors_and_csrf(client):
-    paths = client.get('/api/schema/').json()['paths']
+    paths = client.get('/openapi.json').json()['paths']
     for path in (BASE, BASE + '/tags'):
         assert {'200', '201', '401', '403', '409', '503'} <= paths[path]['post']['responses'].keys()
     headers = {param['name']: param for param in paths[BASE]['post']['parameters']}
-    assert 'Cookie' in headers['X-CSRFToken']['description']
-    assert headers['X-CSRFToken']['required'] is False
+    assert 'Cookie' in headers['X-CSRF-Token']['description']
+    assert headers['X-CSRF-Token']['required'] is False
 
 
 @pytest.mark.parametrize(
@@ -181,7 +181,7 @@ def test_uncertain_record_submission_keeps_client_retry_contract(client, monkeyp
     monkeypatch.setattr('api.routes.records.validate_attachments', unavailable)
     with caplog.at_level(logging.WARNING):
         response = client.post(
-            BASE, json={'content': secret}, headers={'Idempotency-Key': 'retry-original-key'}
+            (BASE).rstrip('/'), json={'content': secret}, headers={'Idempotency-Key': 'retry-original-key'}
         )
     assert response.status_code == 503
     assert response.json()['code'] == 'submission_retry'
@@ -207,7 +207,7 @@ def test_mysql_check_violation_is_not_retryable_outage(client, app, monkeypatch,
         app.get('/audit-mysql-check')(lambda: violated_check())
     with caplog.at_level(logging.WARNING):
         result = (
-            client.post(BASE, json={'content': 'invalid'})
+            client.post((BASE).rstrip('/'), json={'content': 'invalid'})
             if write
             else client.get('/audit-mysql-check')
         )
@@ -238,11 +238,11 @@ def test_competing_submission_unique_constraint_replays_committed_winner(client,
             # competing HTTP request between this lookup and its INSERT. The
             # database itself raises the duplicate-key error on the losing write.
             db.rollback()
-            winner.append(client.post(BASE, json=payload, headers=headers))
+            winner.append(client.post((BASE).rstrip('/'), json=payload, headers=headers))
         return result
 
     monkeypatch.setattr(Session, 'scalar', after_receipt_lookup)
-    loser = client.post(BASE, json=payload, headers=headers)
+    loser = client.post((BASE).rstrip('/'), json=payload, headers=headers)
     assert winner[0].status_code == 201
     assert loser.status_code == 200
     assert loser.headers['Idempotency-Replayed'] == 'true'
@@ -262,7 +262,7 @@ def test_failed_submission_without_winning_receipt_rolls_back(client, app, monke
 
     monkeypatch.setattr('api.routes.records.validate_attachments', duplicate_user)
     result = client.post(
-        BASE,
+        (BASE).rstrip('/'),
         json={'content': 'must not persist'},
         headers={'Idempotency-Key': key} if key else {},
     )
@@ -280,7 +280,7 @@ def test_conditional_edit_race_returns_winner_and_never_overwrites_it(client, ap
     from sqlalchemy import update
     from sqlalchemy.orm import Session
 
-    row = client.post(BASE, json={'content': 'before'}).json()
+    row = client.post((BASE).rstrip('/'), json={'content': 'before'}).json()
     winner_time = datetime.fromisoformat(row['update_time'].replace('Z', '+00:00')) + timedelta(
         seconds=1
     )
@@ -309,21 +309,21 @@ def test_conditional_edit_race_returns_winner_and_never_overwrites_it(client, ap
 
     monkeypatch.setattr(Session, 'execute', after_version_check)
     loser = client.patch(
-        BASE + '/' + row['uid'],
+        (BASE + '/' + row['uid']).rstrip('/'),
         json={'content': 'losing edit'},
         headers={'If-Match': row['update_time']},
     )
     assert loser.status_code == 409
     assert loser.json()['code'] == 'edit_conflict'
     assert loser.json()['current']['content'] == 'winning edit'
-    assert client.get(BASE + '/' + row['uid']).json()['content'] == 'winning edit'
+    assert client.get((BASE + '/' + row['uid']).rstrip('/')).json()['content'] == 'winning edit'
 
 
 def test_canonical_tag_put_replaces_optional_fields(client):
     tag = client.post(
         BASE + '/tags', json={'name': 'before', 'color': '#123456', 'sort_order': 42}
     ).json()
-    replaced = client.put(BASE + '/tags/' + tag['uid'], json={'name': 'after'})
+    replaced = client.put((BASE + '/tags/' + tag['uid']).rstrip('/'), json={'name': 'after'})
     assert replaced.status_code == 200
     assert replaced.json()['name'] == 'after'
     assert replaced.json()['color'] == ''

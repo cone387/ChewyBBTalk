@@ -41,8 +41,8 @@ Alembic 接管业务表并升级结构，保持已有业务记录及其标识。
 `0009_password_recovery`；字段不完整时会在修改业务表前拒绝迁移。
 更早版本先用旧版程序完成数据库升级，再执行原生迁移。空数据库直接创建完整表结构。
 
-保留原有 PBKDF2/scrypt 密码、JWT 和刷新令牌黑名单、记录/标签/评论 ID、附件路径及
-S3 加密密钥。**旧 Cookie 会话和管理后台需要重新登录**；JWT 客户端可继续使用有效令牌。
+保留账号、原密码验证能力、令牌状态行、记录/标签/评论 ID、附件路径及 S3 加密密钥。
+**API 3.0.0 是协议升级：Web、移动端、桌面端和外部客户端须同步更新，所有旧 JWT、刷新令牌、Cookie 和管理后台会话需要重新登录。**
 原生结构整理会把旧框架元数据归档后移除旧表；具体版本与归档说明见下文。
 直接运行后端命令且未指定路径时，本地数据统一放在 `backend/var/`，数据库为
 `var/db.sqlite3`，密钥及备份在 `var/data/`，附件在 `var/media/`。不再自动读取旧项目目录。
@@ -56,10 +56,10 @@ S3 加密密钥。**旧 Cookie 会话和管理后台需要重新登录**；JWT �
 应在根 `.env` 显式设置原来的 `DATABASE_URL`、`DATA_DIR` 和 `MEDIA_ROOT`，避免切换到另一份数据。
 容器继续使用 `/app/data` 挂载卷，宿主目录通过 `HOST_DATA_DIR` 设置。
 `STATIC_ROOT` 和 `staticfiles` 卷不再是部署要求；已有静态目录不自动删除，确认没有其他应用使用后由维护者清理。
-当前 Nginx 不公开 `/media/`，附件只通过鉴权 API 读取；历史数据库中的附件标识与 API URL 保持兼容。
+当前 Nginx 不公开 `/media/`，附件只通过鉴权 API 读取；历史数据库中的附件标识保留，客户端使用当前无尾斜杠 API URL。
 回退应恢复升级前的配套数据备份和旧代码。
 
-目录重组本身不使原生后端已签发的 Session/JWT 失效。升级到当前版本仍需执行迁移：
+升级到当前版本必须执行迁移，并按新的认证协议重新登录：
 `0002_web_sessions` 会补齐早期原生数据库可能缺失的 `cb_sessions` 表，修复 Cookie 登录返回 503。
 已有会话表会保留，迁移不会清空业务数据；不能仅更新代码而跳过 `python -m cli migrate`。
 
@@ -84,7 +84,11 @@ DATETIME(6)，保留 Unicode、长正文、排序精度和微秒。替换原表�
 内容不一致即拒绝替换。自定义视图、触发器、额外唯一约束或 CHECK 规则须先单独迁移；
 预检会明确拒绝，避免表重建时静默丢失扩展规则。SQLite 的 JSON 字段保留数据库有效性检查。
 
-上述说明描述迁移行为，实际验证环境与限制以本次 [整改报告](../docs/native-backend-cleanup.md) 为准；
+`0004_native_credentials` 将可验证的 PBKDF2/scrypt 密码序列化无损转换为带版本、算法、参数、salt 和 digest 的 JSON 文本，凭据列扩展为 Text（MySQL LONGTEXT）；原密码不变，无需用户重设。未知、损坏或禁用凭据保留原值且不能用于登录。撤销时间列由 `blacklisted_at` 改名为 `revoked_at`，令牌与会话历史行不清空；旧协议令牌仍须重新登录。
+
+不支持的密码成本及可疑历史格式会在整条迁移链的 DDL 前拒绝，需先在副本中处理；不会通过降低成本或悄悄启用凭据来继续。0004 支持校验并接续 MySQL 已完成扩列、重命名或部分密码转换的中间状态。字段缺失、新旧字段并存等异常结构仍会拒绝；0003 中断后的恢复要求不变。
+
+上述说明描述迁移行为，实际验证环境与限制以本次 [整改报告](../docs/native-contract-cleanup.md) 为准；
 不能把本地 SQLite 通过当作所有数据库已实测。该 revision 不支持自动 downgrade，回退必须恢复完整备份。
 
 自定义 Uvicorn 启动配置需改为 `main:app`；管理命令改为 `python -m cli`。
@@ -146,14 +150,14 @@ uv run python -m cli shell
 ## 接口和数据
 
 规范入口为 `/api/v1/bbtalk`、`/api/v1/attachments/files`，通过 Pydantic 声明请求和响应。
-旧尾斜杠路径及 JSON 后缀保留兼容；参数错误采用 FastAPI 422，三端已同步适配。
-旧过滤参数、`post_tags` 载荷和持久草稿仅作为已发布协议兼容；新调用使用规范路径与数组标签。
+只接受无尾斜杠规范路径；旧 JSON 后缀、存储别名、过滤别名与 `post_tags` 已移除。
+查询模型拒绝未知字段，校验错误采用 FastAPI 422。所有分页统一为 `items/total/page/page_size/has_more`，记录流另含 `total_count`，评论另含 `revision` 且始终分页。桌面端仅在加载历史数据时迁移旧草稿，未确认提交先核对服务器回执。
 UID 在路径、排序和导入中统一为 1–64 字符；导入缺失 UID 可自动生成，显式非法 UID 按行拒绝并计入导入错误。
-标签列表保持数组协议并返回完整集合。Cookie 会话的写请求还需 `X-CSRFToken`，不因保留 Session 而依赖旧框架。
+标签列表保持数组协议并返回完整集合。Cookie `cb_session` / `cb_csrf` 会话的写请求还需 `X-CSRF-Token`，不因保留 Session 而依赖旧框架。
 支持分页、持久幂等回执、条件编辑、桌面 PKCE 授权、密码恢复和附件 Range。
 路径、参数映射和 PUT/PATCH 语义见 [FastAPI 接口契约](../docs/fastapi-contract.md)。
-Swagger：`/api/schema/swagger-ui/`；ReDoc：`/api/schema/redoc/`；
-OpenAPI：`/api/schema/`；存活检查：`/healthz`。
+Swagger：`/docs`；ReDoc：`/redoc`；
+OpenAPI：`/openapi.json`；存活检查：`/healthz`。
 
 附件经鉴权读取，不直接公开媒体目录。S3 下载使用签名重定向。
 备份不导出存储密钥；完整 ZIP 包含 SHA-256 清单，跨账号还原重映射 ID 并保留时间戳，
@@ -179,7 +183,7 @@ backend/
 ├── cli/                    # 管理命令及演示数据
 ├── templates/              # 安装包内的公共页面模板
 ├── tests/
-│   ├── unit/               # 纯逻辑、路径兼容及依赖边界
+│   ├── unit/               # 纯逻辑、规范路由及依赖边界
 │   ├── integration/        # HTTP、数据库、并发和 CLI
 │   └── fixtures/           # 合成的旧数据库
 ├── tools/                  # 浏览器测试服务器、性能基准

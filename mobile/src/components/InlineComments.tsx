@@ -80,10 +80,10 @@ export default function InlineComments({ bbtalkId, commentCount, commentPreview,
     try {
       const target = commentEntry(bbtalkId, commentPreview, commentsRevision);
       entry.current = target;
-      await loadCommentEntry(bbtalkId, target, commentPreview === undefined);
+      await loadCommentEntry(bbtalkId, target);
       if (!isCurrent()) return;
       setComments(target.comments);
-      setNextPage(target.next);
+      setNextPage(target.hasMore);
       setLoaded(true);
     } catch {
       if (isCurrent()) setLoadError(true);
@@ -109,7 +109,7 @@ export default function InlineComments({ bbtalkId, commentCount, commentPreview,
     entry.current = commentEntry(bbtalkId, commentPreview, commentsRevision);
     setComments(entry.current.comments);
     setLoaded(entry.current.loaded);
-    setNextPage(entry.current.next);
+    setNextPage(entry.current.hasMore);
     setExpanded(keepExpanded);
     if (keepExpanded && revisionChanged && commentCount > entry.current.comments.length) void loadComments();
   }, [bbtalkId, commentPreview, commentsRevision, sessionVersion, reset]);
@@ -169,7 +169,7 @@ export default function InlineComments({ bbtalkId, commentCount, commentPreview,
   const hasMore = total > MAX_COLLAPSED || total > comments.length;
   const toggleExpanded = () => {
     setExpanded(!expanded);
-    if (!expanded && entry.current.next && entry.current.page === 0 && commentCount > comments.length) void loadComments();
+    if (!expanded && entry.current.hasMore && entry.current.page === 0 && commentCount > comments.length) void loadComments();
   };
 
   return (

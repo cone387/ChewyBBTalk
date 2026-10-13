@@ -7,10 +7,11 @@ from pydantic import BaseModel, JsonValue
 
 
 class Page[T](BaseModel):
-    count: int
-    next: str | None
-    previous: str | None
-    results: list[T]
+    total: int
+    page: int
+    page_size: int
+    has_more: bool
+    items: list[T]
 
 
 class TagOutput(BaseModel):

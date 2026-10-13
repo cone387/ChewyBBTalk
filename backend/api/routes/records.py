@@ -6,7 +6,6 @@ from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError, OperationalError
 
-from api.compat import reject_legacy_query_conflicts
 from api.dependencies import DB, CurrentUser
 from api.errors import database_conflict, log_database_error
 from api.filters import filter_records
@@ -61,7 +60,7 @@ from services.records import (
 router = APIRouter(prefix='/api/v1/bbtalk', tags=['BBTalk'])
 
 
-@router.get('', response_model=RecordPage, dependencies=[Depends(reject_legacy_query_conflicts)])
+@router.get('', response_model=RecordPage)
 def feed(request: Request, db: DB, user: CurrentUser, params: Annotated[RecordQuery, Query()]):
     ordering = params.ordering
     sort = BBTalk.create_time if ordering.lstrip('-') == 'create_time' else BBTalk.update_time
@@ -76,13 +75,11 @@ def feed(request: Request, db: DB, user: CurrentUser, params: Annotated[RecordQu
     result['total_count'] = db.scalar(
         select(func.count()).select_from(BBTalk).where(BBTalk.user_id == user.id)
     )
-    result['results'] = record_data(db, result['results'])
+    result['items'] = record_data(db, result['items'])
     return result
 
 
-@router.get(
-    '/public', response_model=RecordPage, dependencies=[Depends(reject_legacy_query_conflicts)]
-)
+@router.get('/public', response_model=RecordPage)
 def public_feed(request: Request, db: DB, params: Annotated[RecordQuery, Query()]):
     ordering = params.ordering
     sort = BBTalk.create_time if ordering.lstrip('-') == 'create_time' else BBTalk.update_time
@@ -93,7 +90,7 @@ def public_feed(request: Request, db: DB, params: Annotated[RecordQuery, Query()
     result['total_count'] = db.scalar(
         select(func.count()).select_from(BBTalk).where(BBTalk.visibility == 'public')
     )
-    result['results'] = record_data(db, result['results'])
+    result['items'] = record_data(db, result['items'])
     return result
 
 
@@ -105,7 +102,7 @@ def public_record(uid: RecordUID, db: DB):
     return record_data(db, [record])[0]
 
 
-@router.get('/public/{uid}/comments', response_model=list[CommentOutput] | CommentPage)
+@router.get('/public/{uid}/comments', response_model=CommentPage)
 def public_comments(
     uid: RecordUID, request: Request, db: DB, params: Annotated[CommentQuery, Query()]
 ):
@@ -136,26 +133,11 @@ async def raw_json(request: Request):
 
 
 def submission_hashes(original):
-    """Preserve receipts when a client upgrades only the tags wire representation."""
-    variants = [original]
-    if 'tags' in original and not any(',' in name for name in original['tags']):
-        legacy = {key: value for key, value in original.items() if key != 'tags'}
-        if original['tags']:
-            legacy['post_tags'] = ','.join(original['tags'])
-        variants.append(legacy)
-        if not original['tags']:
-            variants.extend([{**legacy, 'post_tags': ''}, {**legacy, 'post_tags': None}])
-    elif 'post_tags' in original:
-        native = {key: value for key, value in original.items() if key != 'post_tags'}
-        native['tags'] = [
-            name.strip() for name in (original['post_tags'] or '').split(',') if name.strip()
-        ]
-        variants.append(native)
+    """Fingerprint the submitted JSON without alternate wire representations."""
     return [
         hashlib.sha256(
-            json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()
+            json.dumps(original, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()
         ).hexdigest()
-        for value in variants
     ]
 
 
@@ -427,8 +409,7 @@ def replace(
     user: CurrentUser,
     expected: Revision = None,
 ):
-    # Deployed slash-URL clients historically used PUT for partial updates.
-    values = data.model_dump(exclude_unset=request.url.path.endswith('/'))
+    values = data.model_dump()
     return edit(uid, RecordPatch.model_validate(values), request, response, db, user, expected)
 
 
@@ -464,24 +445,20 @@ def comment_list(db, record_id, request, params):
         .where(Comment.bbtalk_id == record_id)
         .order_by(Comment.create_time, Comment.id)
     )
-    if params.page is None:
-        return [comment_data(db, comment, user) for comment, user in db.execute(query)]
     summary = comment_summaries(db, [record_id])[record_id]
     page, size, total = params.page, params.page_size, summary['count']
-    if page > 1 and (page - 1) * size >= total:
-        raise APIError(404, {'detail': '无效页码。'})
     rows = db.execute(query.offset((page - 1) * size).limit(size))
     return {
-        **summary,
-        'next': str(request.url.include_query_params(page=page + 1))
-        if page * size < total
-        else None,
-        'previous': str(request.url.include_query_params(page=page - 1)) if page > 1 else None,
-        'results': [comment_data(db, comment, user) for comment, user in rows],
+        'total': total,
+        'revision': summary['revision'],
+        'page': page,
+        'page_size': size,
+        'has_more': page * size < total,
+        'items': [comment_data(db, comment, user) for comment, user in rows],
     }
 
 
-@router.get('/{uid}/comments', response_model=list[CommentOutput] | CommentPage)
+@router.get('/{uid}/comments', response_model=CommentPage)
 def comments(
     uid: RecordUID,
     request: Request,

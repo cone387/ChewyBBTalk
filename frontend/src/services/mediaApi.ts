@@ -1,3 +1,4 @@
+import { normalizeAttachmentUrl } from './attachmentUrl';
 import { apiErrorMessage } from './apiErrorMessage';
 import { getPublicSetting } from '../config';
 import { apiClient } from './api/apiClient';
@@ -46,7 +47,7 @@ function transformAttachment(data: any): Attachment {
   
   return {
     uid: data.uid || data.id || '',
-    url: url,
+    url: normalizeAttachmentUrl(url, API_BASE_URL),
     type: type,
     filename: data.filename || data.original_name,
     originalFilename: data.original_filename || data.original_name,
@@ -98,23 +99,7 @@ export const attachmentApi = {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      // 同时支持 FastAPI detail 和旧客户端契约的字段校验错误。
-      let message = response.status === 413 ? '文件太大，请压缩后重试' : '上传失败，请重试';
-      if (error.detail) {
-        message = apiErrorMessage(error, '上传失败');
-      } else if (error.file) {
-        // 字段级错误兼容。
-        message = Array.isArray(error.file) ? error.file.join('; ') : String(error.file);
-      } else if (error.non_field_errors) {
-        message = Array.isArray(error.non_field_errors) ? error.non_field_errors.join('; ') : String(error.non_field_errors);
-      } else {
-        // 尝试提取任意字段的第一个错误
-        const firstKey = Object.keys(error)[0];
-        if (firstKey && error[firstKey]) {
-          const val = error[firstKey];
-          message = Array.isArray(val) ? val.join('; ') : String(val);
-        }
-      }
+      const message = apiErrorMessage(error, response.status === 413 ? '文件太大，请压缩后重试' : '上传失败，请重试');
       const err = new Error(message);
       (err as any).status = response.status;
       (err as any).response = { status: response.status, data: error };
@@ -138,9 +123,16 @@ export const attachmentApi = {
    * 获取文件列表
    */
   async list(): Promise<Attachment[]> {
-    const data = await apiClient.get<any>('/api/v1/attachments/files');
-    const results = data.results || data;
-    return (Array.isArray(results) ? results : []).map(transformAttachment);
+    const attachments: Attachment[] = [];
+    let page = 1;
+    let hasMore = true;
+    while (hasMore) {
+      const data = await apiClient.get<any>('/api/v1/attachments/files', { page });
+      attachments.push(...data.items.map(transformAttachment));
+      hasMore = data.has_more;
+      page = data.page + 1;
+    }
+    return attachments;
   },
 };
 

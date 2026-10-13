@@ -8,10 +8,10 @@
 
 ## 保留服务器历史数据升级
 
-本次 `0003_native_schema` 是保留业务数据的结构升级，不是新建空库，也不使用开发机数据库覆盖服务器。
+本次升级到 `0004_native_credentials`，包含 `0003_native_schema` 的结构接管，是保留业务数据的升级，不是新建空库，也不使用开发机数据库覆盖服务器。
 账号、密码凭据、记录正文、标签、评论、原 ID、时间、附件引用、存储配置和令牌状态均保留。
 七张旧框架表的行归档到 `cb_migration_archive` 后移除原表；这是历史审计/元数据归档，不是删除用户内容。
-旧 Django Cookie 需要重新登录；原生会话与仍有效的 JWT 按原协议保留。
+API 3.0.0 改为原生 HTTP、分页与认证契约，三端必须同步升级；所有旧 JWT、刷新令牌、Cookie 与管理后台会话都需要重新登录。原密码由迁移转换存储编码，仍可用于登录。
 
 1. **核对生产实例。** 记录运行容器、不可变旧镜像 ID/digest、实际数据库类型/位置，以及全部挂载。
    单容器使用 `HOST_DATA_DIR` 挂载 `/app/data`；核对服务器现有 `.env` 的 `DATABASE_URL`、`DATA_DIR`、
@@ -37,7 +37,7 @@
 
 `scripts/deploy-image.sh` **不会自动创建上述完整备份或验证历史数据**，其健康检查只证明 HTTP 服务可响应。
 务必先完成备份和副本验证，再手动启动生产部署。具体迁移能力与数据库版本要求见
-[后端升级说明](../backend/README.md#已有实例升级)，本地验证证据见[整改报告](native-backend-cleanup.md)。
+[后端升级说明](../backend/README.md#已有实例升级)，本次验证范围见[整改报告](native-contract-cleanup.md)，早期结构迁移证据保留在[历史报告](native-backend-cleanup.md)。
 
 ## 手动触发后的执行顺序
 
@@ -97,7 +97,7 @@ python3 -m unittest discover -s scripts/tests -v
 
 ### PostgreSQL 旧库保留式切换
 
-`Back up and migrate PostgreSQL through a verified copy` 工作流用于 Django 旧结构升级到 `0003_native_schema`。它只接受固定镜像摘要，在服务器本地保存密钥，不会把数据库、配置或文件上传到 GitHub。当前工具支持 PostgreSQL 16、单个 `chewy-bbtalk` 写入容器、`/app/data` 绑定挂载及 `/app/data/media` 媒体目录；其他布局会拒绝执行，须先单独评估。
+`Back up and migrate PostgreSQL through a verified copy` 工作流用于历史数据库通过独立副本升级到 `0004_native_credentials`（含旧框架结构接管）。它只接受固定镜像摘要，在服务器本地保存密钥，不会把数据库、配置或文件上传到 GitHub。当前工具支持 PostgreSQL 16、单个 `chewy-bbtalk` 写入容器、`/app/data` 绑定挂载及 `/app/data/media` 媒体目录；其他布局会拒绝执行，须先单独评估。
 
 1. 使用 `rehearse` 和唯一 `run_id`，在线备份并恢复到独立新库，比较全部表内容摘要，然后迁移副本。候选服务只绑定 `127.0.0.1:4011`，读取接口验证完成即停止。生产容器保持运行。
 2. 演练通过后，使用另一个唯一 `run_id` 执行 `cutover`。预检和拉取镜像在停服前完成；随后停止旧容器、检查其他数据库连接、重新生成最终备份并重复全部恢复和迁移验证。
@@ -113,7 +113,9 @@ python3 -m unittest discover -s scripts/tests -v
 
 迁移前会只读记录原服务器每个附件的可用性，保存 `attachment-baseline.json`。候选服务必须保持完全相同的历史缺失 ID 集合；任何新增缺失都会拒绝切换，现存本地文件仍逐个下载并核对 SHA-256。历史已缺失的文件不会被标记为已恢复，也不会删除其数据库记录。`stop-rehearsal` 仅停止名称、数据库、挂载路径及私有端口均匹配指定已验证演练的候选容器，保留其数据库、文件和备份。
 
-### 2026-10-12 生产迁移记录
+### 2026-10-12 历史生产迁移记录
+
+以下保留当时事实与验证证据，不代表 API 3.0 或 0004 已部署。
 
 2026-10-12 17:32:58（北京时间）完成正式切换。[完整演练](https://github.com/cone387/ChewyBBTalk/actions/runs/38230084838)、[正式迁移](https://github.com/cone387/ChewyBBTalk/actions/runs/38230325180)及[独立验收](https://github.com/cone387/ChewyBBTalk/actions/runs/38230668197)均成功。停写窗口约 2 分钟；候选容器及正式容器均完成认证读取和附件下载检查。[备份复核](https://github.com/cone387/ChewyBBTalk/actions/runs/38230891912)再次确认最终备份的 4 项摘要一致。
 

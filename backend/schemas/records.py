@@ -1,6 +1,6 @@
 from typing import Annotated, Any, Literal
 
-from pydantic import Field, StrictFloat, StrictInt, field_validator, model_validator
+from pydantic import ConfigDict, Field, StrictFloat, StrictInt, field_validator, model_validator
 
 from schemas.base import Input
 from schemas.identifiers import BusinessUID
@@ -8,6 +8,7 @@ from schemas.query import TagName
 
 
 class RecordFields(Input):
+    model_config = ConfigDict(extra='forbid')
     tags: list[TagName] = Field(default_factory=list)
 
     @field_validator('tags')
@@ -23,20 +24,6 @@ class RecordFields(Input):
         if not value.strip():
             raise ValueError('内容不能为空')
         return value
-
-    @model_validator(mode='before')
-    @classmethod
-    def legacy_tags(cls, values):
-        if not isinstance(values, dict) or 'post_tags' not in values:
-            return values
-        values = dict(values)
-        if 'tags' in values:
-            raise ValueError('不能同时提供 tags 和 post_tags')
-        names = values.pop('post_tags')
-        if names is not None and not isinstance(names, str):
-            raise ValueError('post_tags 必须是字符串')
-        values['tags'] = [name.strip() for name in (names or '').split(',') if name.strip()]
-        return values
 
 
 class RecordInput(RecordFields):

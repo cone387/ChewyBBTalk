@@ -85,8 +85,8 @@ function record(id: string, content: string): BBTalk {
     createdAt: '2026-01-01T00:00:00Z', updatedAt: `2026-01-02T00:00:00Z-${id}`,
   };
 }
-const page1 = { count: 2, next: '/api/v1/bbtalks?page=2', previous: null, results: [record('b1', '第一条'), record('b2', '第二条')] };
-const publicPage = { count: 1, next: null, previous: null, results: [record('p1', '公开记录')] };
+const page1 = { total: 2, totalCount: 2, has_more: true, page: 1, page_size: 20, items: [record('b1', '第一条'), record('b2', '第二条')] };
+const publicPage = { total: 1, totalCount: 1, has_more: false, page: 1, page_size: 20, items: [record('p1', '公开记录')] };
 
 let navigatedTo: string | undefined;
 const realLocation = window.location;
@@ -153,7 +153,7 @@ describe('PublicBBTalkPage', () => {
   });
 
   it('shows the public empty state and keeps refreshes on the public endpoint', async () => {
-    api.getPublicBBTalks.mockResolvedValue({ ...publicPage, results: [] });
+    api.getPublicBBTalks.mockResolvedValue({ ...publicPage, items: [] });
     page(false, <PublicBBTalkPage />);
     await screen.findByText('这里还没有公开的记录。');
     const before = api.getPublicBBTalks.mock.calls.length;
@@ -302,7 +302,7 @@ describe('BBTalkPage pagination with filters', () => {
     fireEvent.click(screen.getByRole('button', { name: '工作' }));
     await waitFor(() => expect(api.getBBTalks.mock.calls.length).toBeGreaterThanOrEqual(2));
     api.getBBTalks.mockClear();
-    api.getBBTalks.mockResolvedValueOnce({ count: 3, next: null, previous: null, results: [record('b3', '第三条')] });
+    api.getBBTalks.mockResolvedValueOnce({ total: 3, totalCount: 3, has_more: false, page: 1, page_size: 20, items: [record('b3', '第三条')] });
 
     const container = scrollContainer();
     Object.defineProperty(container, 'scrollHeight', { value: 1000, configurable: true });

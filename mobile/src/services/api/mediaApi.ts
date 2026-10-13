@@ -1,3 +1,4 @@
+import { normalizeAttachmentUrl } from '../attachmentUrl';
 import { apiErrorMessage } from '../apiErrorMessage';
 import { getSession, isCurrentSession } from '../session';
 import { Platform } from 'react-native';
@@ -21,10 +22,12 @@ function transformAttachment(data: any): Attachment {
       try {
         const parsed = new URL(url);
         const base = new URL(apiBase);
-        parsed.protocol = base.protocol;
-        parsed.host = base.host;
-        parsed.port = base.port;
-        url = parsed.toString();
+        if (/^\/api\/v1\/attachments\/files\/[^/]+\/(preview|download|content)\/?$/.test(parsed.pathname)) {
+          parsed.protocol = base.protocol;
+          parsed.host = base.host;
+          parsed.port = base.port;
+          url = parsed.toString();
+        }
       } catch {}
     } else {
       // 裸路径（如 "2026/05/05/xxx.jpg"）：不是可访问 URL，跳过
@@ -42,7 +45,7 @@ function transformAttachment(data: any): Attachment {
 
   return {
     uid: data.uid || data.id || '',
-    url,
+    url: normalizeAttachmentUrl(url, getApiBaseUrl()),
     type,
     filename: data.filename || data.original_name,
     originalFilename: data.original_filename || data.original_name,
@@ -101,7 +104,7 @@ export const attachmentApi = {
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       assertCurrent();
-      throw new Error(apiErrorMessage(error, JSON.stringify(error) || '上传失败'));
+      throw new Error(apiErrorMessage(error, '上传失败'));
     }
 
     const data = await response.json();
@@ -121,16 +124,7 @@ export const attachmentApi = {
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       assertCurrent();
-      // 保留字段级错误兼容: {"file": ["错误信息"]}。
-      let message = apiErrorMessage(error, '');
-      if (!message) {
-        const firstKey = Object.keys(error)[0];
-        if (firstKey) {
-          const val = error[firstKey];
-          message = Array.isArray(val) ? val.join('; ') : String(val);
-        }
-      }
-      throw new Error(message || '上传失败');
+      throw new Error(apiErrorMessage(error, '上传失败'));
     }
 
     const data = await response.json();

@@ -54,13 +54,13 @@ def test_hundred_record_previews_have_constant_sql_and_bounded_bodies(app, clien
     event.listen(app.state.engine, 'before_cursor_execute', collect)
     event.listen(app.state.sessions.class_, 'loaded_as_persistent', loaded)
     try:
-        small = client.get(BASE, params={'page_size': 1})
+        small = client.get((BASE).rstrip('/'), params={'page_size': 1})
         small_count = len(queries)
         queries.clear()
         bodies.clear()
-        response = client.get(BASE)
+        response = client.get((BASE).rstrip('/'))
         assert response.status_code == 200
-        rows = response.json()['results']
+        rows = response.json()['items']
         assert len(rows) == 100
         assert len(bodies) == 300
         assert len(queries) == small_count <= 7
@@ -82,40 +82,40 @@ def test_hundred_record_previews_have_constant_sql_and_bounded_bodies(app, clien
 
 
 @pytest.mark.parametrize('prefix', ['', '/public'])
-def test_comment_pagination_order_links_legacy_array_and_head(app, client, prefix):
+def test_comment_pagination_order_default_page_and_head(app, client, prefix):
     uid = seed(app, comment_count=25)[0]
     if prefix:
         client.headers.pop('Authorization')
     path = f'{BASE}{prefix}/{uid}/comments'
-    legacy = client.get(path)
-    assert legacy.status_code == 200 and isinstance(legacy.json(), list)
-    assert len(legacy.json()) == 25
-    first = client.get(path, params={'page': 1})
+    default = client.get(path)
+    assert default.status_code == 200 and len(default.json()['items']) == 20
+    first = client.get((path).rstrip('/'), params={'page': 1})
     assert first.status_code == 200
     page = first.json()
     assert isinstance(page, dict)
-    assert page['count'] == 25 and page['previous'] is None
-    assert len(page['results']) == 20
-    assert page['results'][:3] == client.get(f'{BASE}{prefix}/{uid}').json()['comment_preview']
-    assert page['revision'] == client.get(f'{BASE}{prefix}/{uid}').json()['comments_revision']
-    second = client.get(page['next']).json()
-    assert len(second['results']) == 5 and second['next'] is None
-    assert second['previous'] and second['revision'] == page['revision']
-    assert page['results'] + second['results'] == legacy.json()
-    assert [item['content'] for item in page['results'][:3]] == [
+    assert page['total'] == 25 and page['page'] == 1 and page['has_more']
+    assert len(page['items']) == 20
+    assert page['items'][:3] == client.get((f'{BASE}{prefix}/{uid}').rstrip('/')).json()['comment_preview']
+    assert page['revision'] == client.get((f'{BASE}{prefix}/{uid}').rstrip('/')).json()['comments_revision']
+    second = client.get(path, params={'page': 2}).json()
+    assert len(second['items']) == 5 and not second['has_more']
+    assert second['page'] == 2 and second['revision'] == page['revision']
+    assert len({row['uid'] for row in page['items'] + second['items']}) == 25
+    assert page == default.json()
+    assert [item['content'] for item in page['items'][:3]] == [
         'comment 24',
         'comment 22',
         'comment 23',
     ]
-    assert client.head(path, params={'page': 1}).status_code == 200
-    assert client.get(path, params={'page': 3}).status_code == 404
+    assert client.head((path).rstrip('/'), params={'page': 1}).status_code == 200
+    assert client.get(path, params={'page': 3}).json()['items'] == []
     for params in (
         {'page': 0},
         {'page': 'bad'},
         {'page': 1, 'page_size': 101},
         {'page': 1, 'page_size': 0},
     ):
-        assert client.get(path, params=params).status_code == 422
+        assert client.get((path).rstrip('/'), params=params).status_code == 422
 
 
 def test_preview_and_paginated_comments_keep_visibility_and_ownership(app, client):
@@ -127,28 +127,29 @@ def test_preview_and_paginated_comments_keep_visibility_and_ownership(app, clien
         db.commit()
         other_uid = other.uid
     for suffix in ('', '/comments', '/comments?page=1'):
-        assert client.get(f'{BASE}/public/{private_uid}{suffix}').status_code == 404
-        assert client.get(f'{BASE}/{other_uid}{suffix}').status_code == 404
+        assert client.get((f'{BASE}/public/{private_uid}{suffix}').rstrip('/')).status_code == 404
+        assert client.get((f'{BASE}/{other_uid}{suffix}').rstrip('/')).status_code == 404
     client.headers.pop('Authorization')
     assert client.get(f'{BASE}/{private_uid}/comments?page=1').status_code == 401
-    assert client.get(f'{BASE}/public').json()['results'] == []
+    assert client.get(f'{BASE}/public').json()['items'] == []
 
 
 def test_revision_tracks_insert_delete_and_reused_sqlite_id(app, client):
-    record = client.post(BASE, json={'content': 'revision'}).json()
+    record = client.post((BASE).rstrip('/'), json={'content': 'revision'}).json()
     path = f'{BASE}/{record["uid"]}'
     empty_revision = record['comments_revision']
     assert record['comment_preview'] == [] and record['comment_count'] == 0
     empty_page = client.get(path + '/comments?page=1').json()
     assert empty_page == {
-        'count': 0,
-        'next': None,
-        'previous': None,
-        'results': [],
+        'total': 0,
+        'page': 1,
+        'page_size': 20,
+        'has_more': False,
+        'items': [],
         'revision': empty_revision,
     }
     first = client.post(path + '/comments', json={'content': 'first'}).json()
-    first_record = client.get(path).json()
+    first_record = client.get((path).rstrip('/')).json()
     assert first_record['comments_revision'] != empty_revision
     with app.state.sessions() as db:
         first_row = db.scalar(select(Comment).where(Comment.uid == first['uid']))
@@ -157,35 +158,36 @@ def test_revision_tracks_insert_delete_and_reused_sqlite_id(app, client):
             first_row.create_time,
             first_row.update_time,
         )
-    assert client.delete(path + '/comments/' + first['uid']).status_code == 204
-    assert client.get(path).json()['comments_revision'] == empty_revision
+    assert client.delete((path + '/comments/' + first['uid']).rstrip('/')).status_code == 204
+    assert client.get((path).rstrip('/')).json()['comments_revision'] == empty_revision
     second = client.post(path + '/comments', json={'content': 'replacement'}).json()
     with app.state.sessions() as db:
         replacement = db.scalar(select(Comment).where(Comment.uid == second['uid']))
         assert replacement.id == original_id
         replacement.create_time, replacement.update_time = original_created, original_updated
         db.commit()
-    current = client.get(path).json()
+    current = client.get((path).rstrip('/')).json()
     assert current['comments_revision'] != first_record['comments_revision']
     assert current['comment_preview'][0]['content'] == 'replacement'
     assert client.get(path + '/comments?page=1').json()['revision'] == current['comments_revision']
 
 
-def test_comment_openapi_documents_opt_in_page(client):
-    schema = client.get('/api/schema/').json()
+def test_comment_openapi_documents_one_paginated_response(client):
+    schema = client.get('/openapi.json').json()
     for path in ('/api/v1/bbtalk/{uid}/comments', '/api/v1/bbtalk/public/{uid}/comments'):
         operation = schema['paths'][path]['get']
         params = {item['name']: item for item in operation['parameters']}
         assert params['page']['required'] is False
         assert params['page_size']['schema']['default'] == 20
-        variants = operation['responses']['200']['content']['application/json']['schema']['anyOf']
-        assert {'$ref': '#/components/schemas/CommentPage'} in variants
+        schema_ref = operation['responses']['200']['content']['application/json']['schema']['$ref']
+        assert schema_ref == '#/components/schemas/CommentPage'
+        assert params['page']['schema']['default'] == 1
 
 
 def test_revision_invalidates_changes_outside_preview_only_for_affected_record(app, client):
     first_uid, second_uid = seed(app, record_count=2)
-    before = client.get(f'{BASE}/{first_uid}').json()
-    unrelated = client.get(f'{BASE}/{second_uid}').json()
+    before = client.get((f'{BASE}/{first_uid}').rstrip('/')).json()
+    unrelated = client.get((f'{BASE}/{second_uid}').rstrip('/')).json()
     with app.state.sessions() as db:
         first = db.scalar(select(BBTalk).where(BBTalk.uid == first_uid))
         comment = db.scalar(
@@ -207,14 +209,14 @@ def test_revision_invalidates_changes_outside_preview_only_for_affected_record(a
             )
         )
         db.commit()
-    after = client.get(f'{BASE}/{first_uid}').json()
+    after = client.get((f'{BASE}/{first_uid}').rstrip('/')).json()
     assert after['comment_preview'] == before['comment_preview']
     assert after['comment_count'] == before['comment_count'] == 5
     assert after['comments_revision'] != before['comments_revision']
     assert (
-        client.get(f'{BASE}/{second_uid}').json()['comments_revision']
+        client.get((f'{BASE}/{second_uid}').rstrip('/')).json()['comments_revision']
         == unrelated['comments_revision']
     )
     comments = client.get(f'{BASE}/{first_uid}/comments?page=1').json()
     assert comments['revision'] == after['comments_revision']
-    assert any(item['content'] == 'remote replacement' for item in comments['results'])
+    assert any(item['content'] == 'remote replacement' for item in comments['items'])

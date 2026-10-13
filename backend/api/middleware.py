@@ -13,11 +13,7 @@ def install_middleware(app, settings):
         # (the latter is used for authentication rate limits).
         if request.headers.get('x-forwarded-proto', '').split(',')[0].strip() == 'https':
             request.scope['scheme'] = 'https'
-        # Old DRF JSON suffixes remain valid without a legacy router.
         path = request.scope['path']
-        if path.startswith('/api/v1/') and path.rstrip('/').endswith('.json'):
-            request.scope['path'] = path.rstrip('/')[:-5] + '/'
-            request.scope['raw_path'] = request.scope['path'].encode()
         if path.startswith('/admin') and request.method not in {'GET', 'HEAD', 'OPTIONS'}:
             source = request.headers.get('origin') or request.headers.get('referer', '')
             origin = urlsplit(source)
@@ -51,7 +47,7 @@ def install_middleware(app, settings):
             'accept',
             'authorization',
             'content-type',
-            'x-csrftoken',
+            'x-csrf-token',
             'x-requested-with',
             'idempotency-key',
             'if-match',

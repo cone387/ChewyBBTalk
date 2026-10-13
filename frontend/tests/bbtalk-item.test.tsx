@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import BBTalkItem from '../src/components/BBTalkItem';
 import type { BBTalk, Comment } from '../src/types';
 
-const api = vi.hoisted(() => ({ getComments: vi.fn(), createComment: vi.fn(), deleteComment: vi.fn() }));
+const api = vi.hoisted(() => ({ getCommentPage: vi.fn(), createComment: vi.fn(), deleteComment: vi.fn() }));
 vi.mock('../src/services/api', () => ({ bbtalkApi: api }));
 vi.mock('../src/components/MarkdownRenderer', () => ({
   default: ({ content, search }: { content: string; search?: string }) => (
@@ -185,10 +185,10 @@ describe('more menu', () => {
 
 describe('inline comments', () => {
   it('renders recent, multi-day and old comments with a username fallback', async () => {
-    api.getComments.mockResolvedValue([
+    api.getCommentPage.mockResolvedValue(commentPage([
       { ...comment('recent', 0), userDisplayName: '' },
       comment('days', 2 * 24 * 60), comment('old', 10 * 24 * 60),
-    ]);
+    ]));
     render(<BBTalkItem bbtalk={item({ commentCount: 3 })} />);
     expect(await screen.findByText('userrecent')).toBeTruthy();
     expect(screen.getByText('2天前')).toBeTruthy();
@@ -196,7 +196,7 @@ describe('inline comments', () => {
   });
 
   it('auto loads existing comments and reflects the count from the server', async () => {
-    api.getComments.mockResolvedValue([comment('c1'), comment('c2', 30), comment('c3', 5 * 3600000 / 60000)]);
+    api.getCommentPage.mockResolvedValue(commentPage([comment('c1'), comment('c2', 30), comment('c3', 5 * 3600000 / 60000)]));
     render(<BBTalkItem bbtalk={item({ commentCount: 2 })} />);
     expect(await screen.findByText('评论c1')).toBeTruthy();
     expect(screen.getByText('5小时前')).toBeTruthy();
@@ -204,17 +204,17 @@ describe('inline comments', () => {
   });
 
   it('shows a retryable error when loading comments fails', async () => {
-    api.getComments.mockRejectedValue(new Error('离线'));
+    api.getCommentPage.mockRejectedValue(new Error('离线'));
     render(<BBTalkItem bbtalk={item({ commentCount: 1 })} />);
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toContain('评论加载失败');
-    api.getComments.mockResolvedValue([comment('c1')]);
+    api.getCommentPage.mockResolvedValue(commentPage([comment('c1')]));
     fireEvent.click(within(alert).getByRole('button', { name: '重试操作' }));
     expect(await screen.findByText('评论c1')).toBeTruthy();
   });
 
   it('collapses long comment threads and expands them again', async () => {
-    api.getComments.mockResolvedValue([comment('c1'), comment('c2'), comment('c3'), comment('c4')]);
+    api.getCommentPage.mockResolvedValue(commentPage([comment('c1'), comment('c2'), comment('c3'), comment('c4')]));
     render(<BBTalkItem bbtalk={item({ commentCount: 4 })} />);
     await screen.findByText('评论c1');
     expect(screen.queryByText('评论c4')).toBeNull();
@@ -266,7 +266,7 @@ describe('inline comments', () => {
   });
 
   it('deletes a comment after confirmation', async () => {
-    api.getComments.mockResolvedValue([comment('c1')]);
+    api.getCommentPage.mockResolvedValue(commentPage([comment('c1')]));
     api.deleteComment.mockResolvedValue(undefined);
     render(<BBTalkItem bbtalk={item({ commentCount: 1 })} />);
     await screen.findByText('评论c1');
@@ -277,3 +277,5 @@ describe('inline comments', () => {
     expect(api.deleteComment).toHaveBeenCalledWith('b1', 'c1');
   });
 });
+
+const commentPage = (items: ReturnType<typeof comment>[]) => ({ items, total: items.length, page: 1, page_size: 20, has_more: false, revision: 'r1' });

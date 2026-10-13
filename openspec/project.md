@@ -81,15 +81,15 @@ ChewyBBTalk/
 
 ## 5. API 约定
 
-- 基础路径：`/api/v1/bbtalk`（规范路径无尾斜杠，旧路径兼容）
-- 认证：JWT（推荐）`Authorization: Bearer <token>` / Session（兼容）
+- 基础路径：`/api/v1/bbtalk`（只接受无尾斜杠规范路径）
+- 认证：JWT（推荐）`Authorization: Bearer <token>` / Cookie 会话（原生）
 - Token 端点：
   - `POST /auth/token` 获取 token
   - `POST /auth/token/refresh` 刷新
-  - `POST /auth/token/blacklist` 登出（加入黑名单）
+  - `POST /auth/token/revoke` 撤销刷新令牌
 - 注册：`POST /auth/register`（直接返回 JWT）
-- 参数校验：FastAPI 422；数组标签、日期过滤、旧参数映射及 PUT/PATCH 语义见 [接口契约](../docs/fastapi-contract.md)。
-- OpenAPI 文档：`/api/schema/`、`/api/schema/swagger-ui/`、`/api/schema/redoc/`（FastAPI）
+- 参数校验：FastAPI 422；数组标签、日期过滤、严格查询及 PUT/PATCH 语义见 [接口契约](../docs/fastapi-contract.md)。
+- OpenAPI 文档：`/openapi.json`、`/docs`、`/redoc`（FastAPI）
 
 ## 6. 跨平台开发约定（重要）
 

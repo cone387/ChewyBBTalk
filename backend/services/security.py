@@ -1,8 +1,9 @@
-"""Password/JWT compatibility without importing the previous web framework."""
+"""Native password records, signed credentials, and session authentication."""
 
 import base64
 import hashlib
 import hmac
+import json
 import math
 import secrets
 import threading
@@ -17,9 +18,9 @@ from sqlalchemy import select
 
 from core.errors import APIError
 from models import (
-    BlacklistedToken,
     Identity,
-    OutstandingToken,
+    RefreshToken,
+    RevokedToken,
     SessionToken,
     User,
     now,
@@ -30,40 +31,70 @@ def digest(value):
     return hashlib.sha256(value.encode()).hexdigest()
 
 
-def make_password(password):
-    salt = secrets.token_urlsafe(16)
+def hash_password(password):
+    salt = secrets.token_bytes(16)
     iterations = 1_000_000
-    value = base64.b64encode(
-        hashlib.pbkdf2_hmac('sha256', password.encode(), salt.encode(), iterations)
-    ).decode()
-    return f'pbkdf2_sha256${iterations}${salt}${value}'
+    value = hashlib.pbkdf2_hmac('sha256', password.encode(), salt, iterations)
+    return json.dumps(
+        {
+            'v': 1,
+            'kdf': 'pbkdf2',
+            'hash': 'sha256',
+            'iterations': iterations,
+            'salt': base64.b64encode(salt).decode(),
+            'digest': base64.b64encode(value).decode(),
+        },
+        separators=(',', ':'),
+    )
 
 
-def check_password(password, encoded):
-    if not isinstance(password, str) or not encoded:
+def verify_password(password, encoded):
+    if not isinstance(password, str) or not isinstance(encoded, str) or len(encoded) > 4096:
         return False
     try:
-        algorithm, *parts = encoded.split('$')
-        if algorithm in ('pbkdf2_sha256', 'pbkdf2_sha1'):
-            iterations, salt, expected = parts
-            value = hashlib.pbkdf2_hmac(
-                algorithm.removeprefix('pbkdf2_'), password.encode(), salt.encode(), int(iterations)
-            )
-        elif algorithm == 'scrypt':
-            work, salt, block, parallel, expected = parts
+        record = json.loads(encoded)
+        if not isinstance(record, dict) or type(record.get('v')) is not int or record['v'] != 1:
+            return False
+        salt = base64.b64decode(record['salt'], validate=True)
+        expected = base64.b64decode(record['digest'], validate=True)
+        if not salt or len(salt) > 1024:
+            return False
+        if record.get('kdf') == 'pbkdf2':
+            algorithm, iterations = record['hash'], record['iterations']
+            if (
+                algorithm not in ('sha256', 'sha1')
+                or type(iterations) is not int
+                or not 1 <= iterations <= 10_000_000
+                or len(expected) != {'sha256': 32, 'sha1': 20}[algorithm]
+            ):
+                return False
+            value = hashlib.pbkdf2_hmac(algorithm, password.encode(), salt, iterations)
+        elif record.get('kdf') == 'scrypt':
+            work, block, parallel = record['n'], record['r'], record['p']
+            if (
+                any(type(v) is not int for v in (work, block, parallel))
+                or work < 2
+                or work & (work - 1)
+                or block < 1
+                or parallel < 1
+                or 128 * work * block > 128 * 1024 * 1024
+                or work * block * parallel > 8_388_608
+                or len(expected) != 64
+            ):
+                return False
             value = hashlib.scrypt(
                 password.encode(),
-                salt=salt.encode(),
-                n=int(work),
-                r=int(block),
-                p=int(parallel),
+                salt=salt,
+                n=work,
+                r=block,
+                p=parallel,
                 dklen=64,
                 maxmem=128 * 1024 * 1024,
             )
         else:
             return False
-        return hmac.compare_digest(base64.b64encode(value).decode(), expected)
-    except (ValueError, TypeError, OverflowError):
+        return hmac.compare_digest(value, expected)
+    except (ValueError, TypeError, KeyError, OverflowError, UnicodeError):
         return False
 
 
@@ -139,7 +170,7 @@ def create_user(db, username, password, **values):
     )
     db.add(user)
     db.flush()
-    db.add(Identity(user_id=user.id, identifier=username, credential=make_password(password)))
+    db.add(Identity(user_id=user.id, identifier=username, credential=hash_password(password)))
     db.flush()
     return user
 
@@ -155,7 +186,7 @@ def password_user(db, username, password):
         if user
         else None
     )
-    if identity and check_password(password, identity.credential):
+    if identity and verify_password(password, identity.credential):
         user.last_login = identity.last_used = now()
         return user
     # Equalize unknown-user and invalid-password work without exposing account existence.
@@ -168,22 +199,22 @@ def token_pair(db, user, settings):
     issued = now()
     common = {
         'iat': int(issued.timestamp()),
-        'user_id': user.id,
+        'sub': str(user.id),
         'credential_version': user.credential_version,
     }
     access = jwt.encode(
-        {**common, 'token_type': 'access', 'jti': uuid4().hex, 'exp': issued + timedelta(hours=1)},
+        {**common, 'purpose': 'access', 'jti': uuid4().hex, 'exp': issued + timedelta(hours=1)},
         settings.secret_key,
         algorithm='HS256',
     )
     jti = uuid4().hex
     expires = issued + timedelta(days=7)
     refresh = jwt.encode(
-        {**common, 'token_type': 'refresh', 'jti': jti, 'exp': expires},
+        {**common, 'purpose': 'refresh', 'jti': jti, 'exp': expires},
         settings.secret_key,
         algorithm='HS256',
     )
-    db.add(OutstandingToken(user_id=user.id, token=refresh, jti=jti, expires_at=expires))
+    db.add(RefreshToken(user_id=user.id, token=refresh, jti=jti, expires_at=expires))
     return {'access': access, 'refresh': refresh}
 
 
@@ -193,10 +224,22 @@ def decode_token(token, settings, kind):
             token,
             settings.secret_key,
             algorithms=['HS256'],
-            options={'require': ['exp', 'jti', 'user_id']},
+            options={'require': ['exp', 'jti', 'sub', 'purpose', 'credential_version']},
         )
-        if data.get('token_type') != kind:
+        if data.get('purpose') != kind:
             raise ValueError('wrong token type')
+        subject = data['sub']
+        if (
+            not isinstance(subject, str)
+            or not subject.isascii()
+            or not subject.isdecimal()
+            or subject.startswith('0')
+            or len(subject) > 19
+            or int(subject) > 9_223_372_036_854_775_807
+        ):
+            raise ValueError('invalid subject')
+        if type(data['credential_version']) is not int or data['credential_version'] < 0:
+            raise ValueError('invalid credential version')
         return data
     except (jwt.PyJWTError, ValueError, TypeError):
         raise APIError(
@@ -207,12 +250,8 @@ def decode_token(token, settings, kind):
 
 
 def token_user(db, data):
-    user = db.get(User, data['user_id'])
-    if (
-        not user
-        or not user.is_active
-        or data.get('credential_version', 0) != user.credential_version
-    ):
+    user = db.get(User, int(data['sub']))
+    if not user or not user.is_active or data['credential_version'] != user.credential_version:
         raise APIError(
             401,
             {'detail': '密码已变更，请重新登录', 'code': 'credentials_changed'},
@@ -224,22 +263,22 @@ def token_user(db, data):
 def claim_refresh(db, token, settings):
     data = decode_token(token, settings, 'refresh')
     user = token_user(db, data)
-    outstanding = db.scalar(
-        select(OutstandingToken).where(OutstandingToken.jti == data['jti']).with_for_update()
+    refresh_record = db.scalar(
+        select(RefreshToken).where(RefreshToken.jti == data['jti']).with_for_update()
     )
-    if not outstanding:
-        outstanding = OutstandingToken(
+    if not refresh_record:
+        refresh_record = RefreshToken(
             user_id=user.id,
             token=token,
             jti=data['jti'],
             expires_at=datetime.fromtimestamp(data['exp'], timezone.utc),
         )
-        db.add(outstanding)
+        db.add(refresh_record)
         db.flush()
-    if db.scalar(select(BlacklistedToken.id).where(BlacklistedToken.token_id == outstanding.id)):
+    if db.scalar(select(RevokedToken.id).where(RevokedToken.token_id == refresh_record.id)):
         raise APIError(401, {'detail': 'Token 已失效', 'code': 'token_not_valid'})
     # Unique token_id makes simultaneous refresh/exchange claims single-use.
-    db.add(BlacklistedToken(token_id=outstanding.id))
+    db.add(RevokedToken(token_id=refresh_record.id))
     db.flush()
     return user
 

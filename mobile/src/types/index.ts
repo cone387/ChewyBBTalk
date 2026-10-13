@@ -49,10 +49,15 @@ export interface User {
 }
 
 export interface PaginatedResponse<T> {
-  count: number;
-  next: string | null;
-  previous: string | null;
-  results: T[];
+  total: number;
+  page: number;
+  page_size: number;
+  has_more: boolean;
+  items: T[];
+}
+
+export interface BBTalkPage extends PaginatedResponse<BBTalk> {
+  totalCount: number;
 }
 
 export interface StorageSettings {
@@ -82,4 +87,4 @@ export interface Comment {
   updatedAt: string;
 }
 
-export interface CommentPage extends PaginatedResponse<Comment> { revision?: string; }
+export interface CommentPage extends PaginatedResponse<Comment> { revision: string; }

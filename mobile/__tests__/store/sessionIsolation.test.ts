@@ -15,7 +15,7 @@ it('clears records and tags on logout and ignores a pending previous-account res
   clearSession();
   setSession('https://a.test', 2);
   expect(store.getState().bbtalk.bbtalks).toEqual([]);
-  resolve({ results: [{ id: 'private' }], count: 1, next: null });
+  resolve({ items: [{ id: 'private' }], total: 1, totalCount: 1, has_more: false });
   await request;
   store.dispatch(loadTags.fulfilled([{ id: 'secret', name: 'private', color: '#fff' }], 'tags-1', undefined));
   expect(store.getState().bbtalk.bbtalks).toEqual([]);

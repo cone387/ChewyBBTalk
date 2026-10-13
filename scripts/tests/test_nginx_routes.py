@@ -83,7 +83,7 @@ server {
                                 raise
                             time.sleep(0.1)
                     for route in ('/api/v1/bbtalk/user/me', '/admin/', '/admin/statics/css/theme.css',
-                                  '/privacy-policy/', '/support/', '/healthz'):
+                                  '/privacy-policy/', '/support/', '/healthz', '/docs', '/redoc', '/openapi.json'):
                         with self.subTest(route=route), urlopen(base + route, timeout=3) as response:
                             self.assertEqual(response.read().decode(), 'upstream:' + route, route)
                     with self.assertRaises(HTTPError) as blocked:

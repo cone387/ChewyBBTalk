@@ -88,9 +88,9 @@ def check():
                     {
                         "iat": int(time.time()),
                         "exp": int(time.time()) + 120,
-                        "user_id": user.id,
+                        "sub": str(user.id),
                         "credential_version": user.credential_version,
-                        "token_type": "access",
+                        "purpose": "access",
                         "jti": uuid4().hex,
                     },
                     settings.secret_key,
@@ -120,8 +120,8 @@ def check():
             assert feed["total_count"] == expected, "feed count differs"
             counts["feeds_checked"] += 1
             read("/api/v1/bbtalk/tags")
-            if feed["results"]:
-                uid = feed["results"][0]["uid"]
+            if feed["items"]:
+                uid = feed["items"][0]["uid"]
                 read("/api/v1/bbtalk/" + uid)
                 read("/api/v1/bbtalk/" + uid + "/comments")
             for attachment in db.scalars(

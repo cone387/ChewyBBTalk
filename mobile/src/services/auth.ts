@@ -283,7 +283,7 @@ export async function logout(): Promise<void> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
     // Local logout completes immediately, even if the server cannot be reached.
-    void fetch(`${server}/api/v1/bbtalk/auth/token/blacklist`, {
+    void fetch(`${server}/api/v1/bbtalk/auth/token/revoke`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh: refreshToken }), signal: controller.signal,

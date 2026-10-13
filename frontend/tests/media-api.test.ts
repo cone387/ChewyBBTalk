@@ -94,28 +94,10 @@ describe('upload error mapping', () => {
     expect(error.response).toEqual({ status: 507, data: { detail: '存储空间不足' } })
   })
 
-  it('joins field-level serializer errors', async () => {
-    const error = await rejectedWith({ file: ['格式不支持', '超过限制'] })
-    expect(error.message).toBe('格式不支持; 超过限制')
-  })
-
-  it('stringifies a scalar field-level error', async () => {
-    const error = await rejectedWith({ file: '病毒文件' })
-    expect(error.message).toBe('病毒文件')
-  })
-
-  it('joins non_field_errors', async () => {
-    const error = await rejectedWith({ non_field_errors: ['字段组合无效'] })
-    expect(error.message).toBe('字段组合无效')
-    const scalar = await rejectedWith({ non_field_errors: '整体被拒绝' })
-    expect(scalar.message).toBe('整体被拒绝')
-  })
-
-  it('falls back to the first unknown field error', async () => {
-    const error = await rejectedWith({ media_type: ['取值非法'] })
-    expect(error.message).toBe('取值非法')
-    const scalar = await rejectedWith({ media_type: '不支持' })
-    expect(scalar.message).toBe('不支持')
+  it('formats structured validation details and business errors', async () => {
+    expect((await rejectedWith({ detail: [{ loc: ['body', 'file'], msg: 'Unsupported format' }] })).message).toBe('file: Unsupported format')
+    expect((await rejectedWith({ error: 'Storage unavailable' })).message).toBe('Storage unavailable')
+    expect((await rejectedWith({ unexpected: ['Ignored'] })).message).toBe('上传失败，请重试')
   })
 
   it('suggests compression for oversized uploads and a generic retry otherwise', async () => {
@@ -210,19 +192,20 @@ describe('delete and list', () => {
     expect(client.delete).toHaveBeenCalledWith('/api/v1/attachments/files/uid-1')
   })
 
-  it('lists attachments from a paginated payload', async () => {
-    client.get.mockResolvedValue({ results: [{ id: 'p1', url: '/media/p1.png' }] })
+  it('collects every attachment page', async () => {
+    client.get.mockResolvedValueOnce({ items: [{ id: 'p1', url: '/media/p1.png' }], total: 2, page: 1, page_size: 1, has_more: true })
+      .mockResolvedValueOnce({ items: [{ id: 'p2', url: '/media/p2.png' }], total: 2, page: 2, page_size: 1, has_more: false })
     expect(await attachmentApi.list()).toEqual([
       expect.objectContaining({ uid: 'p1', url: '/media/p1.png' }),
+      expect.objectContaining({ uid: 'p2', url: '/media/p2.png' }),
     ])
-    expect(client.get).toHaveBeenCalledWith('/api/v1/attachments/files')
+    expect(client.get).toHaveBeenNthCalledWith(1, '/api/v1/attachments/files', { page: 1 })
+    expect(client.get).toHaveBeenNthCalledWith(2, '/api/v1/attachments/files', { page: 2 })
   })
 
-  it('accepts a bare array and falls back to an empty list for malformed payloads', async () => {
-    client.get.mockResolvedValue([{ id: 'bare' }])
-    expect(await attachmentApi.list()).toEqual([expect.objectContaining({ uid: 'bare' })])
-    client.get.mockResolvedValue({ unexpected: true })
-    expect(await attachmentApi.list()).toEqual([])
+  it('rejects malformed attachment collections', async () => {
+    client.get.mockResolvedValue([])
+    await expect(attachmentApi.list()).rejects.toThrow()
   })
 
   it('keeps the legacy mediaApi aliases wired to the same functions', () => {

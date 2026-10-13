@@ -3,9 +3,13 @@ import { beforeEach, expect, it, vi } from 'vitest';
 const state = vi.hoisted(() => {
   class FakeStore {
     static lastOptions: unknown;
+    static savedCompose: unknown;
     data = new Map<string, unknown>();
     options: any;
-    constructor(options?: any) { this.options = options; FakeStore.lastOptions = options; }
+    constructor(options?: any) {
+      this.options = options; FakeStore.lastOptions = options;
+      if (FakeStore.savedCompose) this.data.set('compose', structuredClone(FakeStore.savedCompose));
+    }
     get(key: string) {
       if (this.data.has(key)) return this.data.get(key);
       return this.options?.defaults?.[key];
@@ -20,6 +24,30 @@ vi.mock('electron-store', () => ({ default: state.FakeStore }));
 beforeEach(() => {
   vi.resetModules();
   state.FakeStore.lastOptions = undefined;
+  state.FakeStore.savedCompose = undefined;
+});
+
+it('migrates historical submissions on load without losing drafts, accounts, keys or attachments', async () => {
+  const oldPayload = { content: 'saved', post_tags: ' work, life,work, ', attachments: [{ uid: 'file' }], visibility: 'private', context: {} };
+  state.FakeStore.savedCompose = {
+    draft: 'current draft', drafts: { other: 'other draft' }, uploads: { other: [{ id: 'upload' }] },
+    submissions: {
+      old: { key: 'pending-key', state: 'pending', payload: oldPayload },
+      done: { key: 'done-key', state: 'confirmed', payload: { ...oldPayload, post_tags: '' } },
+      native: { key: 'native-key', state: 'pending', payload: { ...oldPayload, tags: ['native'], post_tags: undefined } },
+    },
+  };
+  const { store } = await import('../store');
+  const compose = store.get('compose');
+  expect(compose).toMatchObject({ draft: 'current draft', drafts: { other: 'other draft' }, uploads: { other: [{ id: 'upload' }] } });
+  expect(compose.submissions?.old).toMatchObject({ key: 'pending-key', state: 'pending', receiptCheckRequired: true,
+    payload: { content: 'saved', tags: ['work', 'life'], attachments: [{ uid: 'file' }] } });
+  expect(compose.submissions?.old.payload).not.toHaveProperty('post_tags');
+  expect(compose.submissions?.done.payload.tags).toEqual([]);
+  expect(compose.submissions?.native.payload.tags).toEqual(['native']);
+  state.FakeStore.savedCompose = compose;
+  vi.resetModules();
+  expect((await import('../store')).store.get('compose')).toEqual(compose);
 });
 
 it('creates the store with the app name and schema defaults', async () => {

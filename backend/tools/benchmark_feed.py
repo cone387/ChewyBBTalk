@@ -100,7 +100,7 @@ def main():
                             response = client.get('/api/v1/bbtalk', params=params)
                             elapsed = (time.perf_counter() - started) * 1000
                             assert response.status_code == 200, response.text
-                            rows = response.json()['results']
+                            rows = response.json()['items']
                             assert all(row['comment_count'] == 3 for row in rows)
                             assert len({row['uid'] for row in rows}) == len(rows)
                             if repetition >= 0:

@@ -4,21 +4,28 @@ TEST_DATABASE_URL must be a dedicated test server account with CREATE/DROP DATAB
 permission. Each test owns a randomly named database and removes only that database.
 """
 
+import base64
+import hashlib
 import json
 import os
 from datetime import datetime, timezone
+from pathlib import Path
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import Column, Integer, MetaData, Table, Text, create_engine, inspect, text
+from alembic import command
+from alembic.config import Config
+from sqlalchemy import Column, Integer, MetaData, Table, Text, create_engine, event, inspect, text
 from sqlalchemy.dialects.mysql import LONGTEXT
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.orm import Session
 
 from database.migrations import schema_v1 as old
+from database.migrations import schema_v3 as previous
 from database.upgrade import upgrade
-from models import BBTalk, BlacklistedToken, Comment, OutstandingToken, Tag, User
+from models import BBTalk, Comment, Identity, RefreshToken, RevokedToken, Tag, User
+from services.security import verify_password
 
 
 @pytest.fixture
@@ -144,8 +151,8 @@ def test_legacy_adoption_preserves_rows_archive_and_next_identity(isolated_datab
     upgrade(engine)
     upgrade(engine)
     with Session(engine) as session:
-        assert session.get(OutstandingToken, 81).token == 'historical-token'
-        assert session.get(BlacklistedToken, 88).token_id == 81
+        assert session.get(RefreshToken, 81).token == 'historical-token'
+        assert session.get(RevokedToken, 88).token_id == 81
         assert session.get(Tag, 77).uid == 'h' * 22
         assert session.get(Tag, 77).create_time == precise_time
         assert session.get(Tag, 77).update_time == precise_time
@@ -237,3 +244,115 @@ def test_extension_view_is_preserved_by_refusing_adoption(isolated_database):
     assert inspect(engine).get_table_names() == before
     with engine.connect() as connection:
         assert connection.exec_driver_sql('SELECT * FROM custom_token_report').all() == []
+
+
+@pytest.mark.parametrize('algorithm', ['sha1', 'sha256', 'scrypt'])
+def test_native_credentials_upgrade_preserves_passwords_and_revocations(
+    isolated_database, algorithm
+):
+    engine = isolated_database
+    config = Config()
+    config.set_main_option(
+        'script_location', str(Path(__file__).parents[2] / 'database/migrations')
+    )
+    with engine.begin() as connection:
+        config.attributes['connection'] = connection
+        command.upgrade(config, '0003_native_schema')
+    salt = 'salt-' + 'x' * 90
+    if algorithm == 'scrypt':
+        value = hashlib.scrypt(b'password', salt=salt.encode(), n=1024, r=8, p=1, dklen=64)
+        credential = f'scrypt$1024${salt}$8$1$' + base64.b64encode(value).decode()
+    else:
+        value = hashlib.pbkdf2_hmac(algorithm, b'password', salt.encode(), 100)
+        credential = f'pbkdf2_{algorithm}$100${salt}$' + base64.b64encode(value).decode()
+    timestamp = datetime(2026, 10, 9, 9, 0, 1, 123456, tzinfo=timezone.utc)
+    with Session(engine) as session:
+        session.add(previous.User(id=1, username='native-upgrade'))
+        session.flush()
+        session.add(
+            previous.Identity(id=1, user_id=1, identifier='native-upgrade', credential=credential)
+        )
+        session.add(
+            previous.OutstandingToken(
+                id=1, user_id=1, token='retained', jti='retained-jti', expires_at=timestamp
+            )
+        )
+        session.flush()
+        session.add(previous.BlacklistedToken(id=1, token_id=1, blacklisted_at=timestamp))
+        session.commit()
+    upgrade(engine)
+    upgrade(engine)
+    with Session(engine) as session:
+        converted = session.get(Identity, 1).credential
+        assert verify_password('password', converted)
+        assert not verify_password('wrong', converted)
+        assert base64.b64decode(json.loads(converted)['digest']) == value
+        assert base64.b64decode(json.loads(converted)['salt']) == salt.encode()
+        assert session.get(RefreshToken, 1).token == 'retained'
+        assert session.get(RevokedToken, 1).revoked_at == timestamp
+    columns = {column['name']: column for column in inspect(engine).get_columns('cb_identities')}
+    assert isinstance(columns['credential']['type'], (Text, LONGTEXT))
+
+
+def test_credentials_upgrade_resumes_committed_ddl(isolated_database):
+    engine = isolated_database
+    upgrade(engine)
+    timestamp = datetime(2026, 10, 9, 9, 0, 1, 123456, tzinfo=timezone.utc)
+    digest = base64.b64encode(hashlib.pbkdf2_hmac('sha256', b'password', b'salt', 100)).decode()
+    credential = 'pbkdf2_sha256$100$salt$' + digest
+    converted = json.dumps(
+        {
+            'v': 1,
+            'kdf': 'pbkdf2',
+            'hash': 'sha256',
+            'iterations': 100,
+            'salt': 'c2FsdA==',
+            'digest': digest,
+        }
+    )
+    with Session(engine) as session:
+        session.add(User(id=1, username='retry'))
+        session.flush()
+        for identity_id, value in ((1, credential), (2, converted)):
+            session.add(
+                Identity(id=identity_id, user_id=1, identifier=str(identity_id), credential=value)
+            )
+        session.add(
+            RefreshToken(id=1, user_id=1, token='retained', jti='retry-jti', expires_at=timestamp)
+        )
+        session.flush()
+        session.add(RevokedToken(id=1, token_id=1, revoked_at=timestamp))
+        session.commit()
+    with engine.begin() as connection:
+        connection.execute(text("UPDATE alembic_version SET version_num='0003_native_schema'"))
+    upgrade(engine)
+    upgrade(engine)
+    with Session(engine) as session:
+        assert verify_password('password', session.get(Identity, 1).credential)
+        assert session.get(Identity, 2).credential == converted
+        assert session.get(RefreshToken, 1).token == 'retained'
+        assert session.get(RevokedToken, 1).revoked_at == timestamp
+
+
+def test_legacy_unsupported_cost_fails_before_any_ddl(isolated_database):
+    engine = isolated_database
+    old.Base.metadata.create_all(engine)
+    credential = 'pbkdf2_sha256$10000001$salt$' + base64.b64encode(b'x' * 32).decode()
+    with Session(engine) as session:
+        session.add(old.User(id=1, username='cost'))
+        session.flush()
+        session.add(old.Identity(id=1, user_id=1, identifier='cost', credential=credential))
+        session.commit()
+    ddl = []
+
+    @event.listens_for(engine, 'before_cursor_execute')
+    def track_ddl(connection, cursor, statement, parameters, context, executemany):
+        if statement.lstrip().upper().startswith(('CREATE ', 'ALTER ', 'DROP ')):
+            ddl.append(statement)
+
+    with pytest.raises(RuntimeError, match='password cost'):
+        upgrade(engine)
+    assert ddl == []
+    assert not inspect(engine).has_table('alembic_version')
+    with Session(engine) as session:
+        assert session.get(old.Identity, 1).credential == credential

@@ -59,15 +59,15 @@ SQLAlchemy 声明式模型位于 `models/`，保留业务 `cb_*` 表与业务 ID
 
 原生迁移的令牌表、历史元数据归档及新旧结构校验见 [已有实例升级](../backend/README.md#已有实例升级)。旧框架 fixture 和冻结迁移仅服务于数据升级回归，应用运行不加载旧框架。
 
-## 5. HTTP 契约与兼容边界
+## 5. HTTP 契约与升级边界
 
 - 规范集合入口为 `/api/v1/bbtalk`、`/api/v1/bbtalk/tags`、`/api/v1/attachments/files`，不带尾斜杠。
 - `Query`、`Path`、`Header`、`Form` 和 Pydantic 模型描述参数；参数错误使用 FastAPI 422 `detail` 数组。三端展示字段位置和提示，不显示原始敏感输入。
 - 标签使用数组载荷及重复查询参数；日期、排序和分页参数见接口契约。标签列表返回完整数组，以支持现有三端全量排序。
-- JWT Bearer 为主要认证方式；Cookie 会话写请求另需匹配 `X-CSRFToken`。会话与 CSRF 是原生安全实现。
+- JWT Bearer 为主要认证方式；Cookie 会话写请求另需匹配 `X-CSRF-Token`。会话与 CSRF 是原生安全实现。
 - `Idempotency-Key` 支持持久提交与重放；`If-Match` 防止覆盖其他客户端的更新。
-- 已发布的尾斜杠/JSON 后缀、旧过滤参数、旧 `post_tags` 载荷与历史附件 URL 保留在兼容边界，避免破坏外部客户端和离线草稿。PBKDF2/scrypt 密码及既有 JWT 格式同样保留兼容；这不引入旧框架运行依赖。
-- `/api/schema/`、`/api/schema/swagger-ui/`、`/api/schema/redoc/` 提供 OpenAPI 与文档，`/healthz` 提供存活检查。
+- API 3.0.0 移除尾斜杠/JSON 后缀、旧过滤参数、`post_tags` 和存储别名；分页统一为 `items/total/page/page_size/has_more`，评论始终分页。桌面历史草稿通过独立版本迁移加载，未确认提交先查询回执。所有旧 JWT/刷新令牌/Cookie 须重新登录。
+- `/openapi.json`、`/docs`、`/redoc` 提供 OpenAPI 与文档，`/healthz` 提供存活检查。
 
 ## 6. 配置与部署
 
@@ -79,7 +79,7 @@ SQLAlchemy 声明式模型位于 `models/`，保留业务 `cb_*` 表与业务 ID
 
 ## 7. 安全与验收边界
 
-密码使用原生 PBKDF2 实现并兼容既有密码编码；PyJWT 校验令牌，刷新状态持久化到数据库。S3 密钥通过稳定的 `SECRET_KEY` 派生加密。主机和 CORS 检查由当前 ASGI 中间件处理，SQLAlchemy 查询采用参数绑定，Markdown 渲染进行安全清理。
+密码运行时仅使用原生版本化 JSON 编码，历史 PBKDF2/scrypt 参数由 `0004_native_credentials` 无损转换，原密码不变；未知/禁用编码保持不能登录。PyJWT 使用字符串 `sub` 和 `purpose`；`RefreshToken` / `RevokedToken` 持久化刷新与撤销状态。Cookie 为 `cb_session` / `cb_csrf`。S3 密钥通过稳定的 `SECRET_KEY` 派生加密。主机和 CORS 检查由当前 ASGI 中间件处理，SQLAlchemy 查询采用参数绑定，Markdown 渲染进行安全清理。
 
 后端 pytest 覆盖业务、HTTP 契约、迁移、权限和并发；Playwright 使用隔离的 FastAPI 测试服务器；三端运行各自单元测试及类型检查。SQLite 本地通过不等于 PostgreSQL/MySQL 已实测，验收必须列出实际运行环境。性能测量方式和历史数据见 [列表性能说明](../docs/search-list-performance.md)。
 

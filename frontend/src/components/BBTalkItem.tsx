@@ -62,15 +62,11 @@ function InlineCommentSection({
     seed()
     setLoading(true)
     try {
-      await commentCache.load(bbtalkId, readOnly, page, async requestedPage => {
-        if (preview !== undefined) return bbtalkApi.getCommentPage(bbtalkId, requestedPage, readOnly)
-        const data = await bbtalkApi.getComments(bbtalkId, readOnly)
-        return { count: data.length, next: null, previous: null, results: data, revision: '' }
-      })
+      await commentCache.load(bbtalkId, readOnly, page, requestedPage => bbtalkApi.getCommentPage(bbtalkId, requestedPage, readOnly))
     } finally {
       if (mounted.current) setLoading(false)
     }
-  }, [bbtalkId, readOnly, preview, seed, recordSession])
+  }, [bbtalkId, readOnly, seed, recordSession])
 
   const requestComments = useCallback((page = 1) => {
     void loadComments(page).catch(() => {

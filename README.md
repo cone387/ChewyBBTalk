@@ -115,7 +115,7 @@ VITE_SITE_COPYRIGHT=© 2024 ChewyBBTalk
 服务启动后，可通过以下地址访问：
 
 - **主页**: http://localhost:4010
-- **API 文档**: http://localhost:4010/api/schema/swagger-ui/
+- **API 文档**: http://localhost:4010/docs
 - **管理后台**: http://localhost:4010/admin/
 
 ## 🔐 默认账号
@@ -313,7 +313,7 @@ ChewyBBTalk/
 | POST | `/api/v1/bbtalk/storage/migration/preview` | 预览存储迁移 |
 | POST | `/api/v1/bbtalk/storage/migration/execute` | 执行存储迁移 |
 
-旧路径仍兼容；新代码使用上表规范路径。参数格式、422 错误及迁移说明见 [FastAPI 接口契约](docs/fastapi-contract.md)。
+API 3.0.0 只接受上表无尾斜杠路径、数组标签和规范查询参数；三端须同步升级并重新登录。分页统一为 `items/total/page/page_size/has_more`。参数格式与升级影响见 [FastAPI 接口契约](docs/fastapi-contract.md) 和[本次整改报告](docs/native-contract-cleanup.md)。
 
 ## 🚀 自动化部署
 
@@ -374,7 +374,7 @@ MIT License - 查看 [LICENSE](LICENSE) 文件了解详情
 Web 登录页读取服务端策略，关闭时展示管理员联系提示；策略读取失败可重试，不阻止已有账号登录。
 
 `AUTH_LOGIN_RATE=30/minute`、`AUTH_REGISTRATION_RATE=5/minute`、`AUTH_REFRESH_RATE=120/minute`
-分别控制登录（JWT 与旧登录接口共享额度）、注册和令牌刷新请求；成功与失败请求均计数。
+分别控制登录（JWT 与 Cookie 登录接口共享额度）、注册和令牌刷新请求；成功与失败请求均计数。
 达到限制返回 HTTP 429、中文原因、`Retry-After` 秒数和 `retry_after` 字段。
 设置某项为空可关闭该项限制，修改后需重启服务。
 

@@ -41,7 +41,7 @@ it('omits the Authorization header entirely when no token is available', async (
 it.each([{ detail: 'denied' }, {}])('surfaces a rejected native upload payload %j', async data => {
   fetchMock.mockResolvedValue(response(data, 400));
   await expect(attachmentApi.upload('file:///photo.jpg', 'photo.jpg', 'image/jpeg'))
-    .rejects.toThrow(Object.keys(data).length ? 'denied' : '{}');
+    .rejects.toThrow(Object.keys(data).length ? 'denied' : '上传失败');
 });
 it('falls back to a placeholder uid when the server response identifies no file', async () => {
   fetchMock.mockResolvedValue(response({ preview_url: '/preview/', mime_type: 'image/jpeg' }));
@@ -60,15 +60,20 @@ it.each(['image/jpeg', 'video/mp4', 'audio/mp4', 'application/pdf'])('infers the
   expect(attachment).toMatchObject({ uid: 'id', filename: 'original', originalFilename: 'original', fileSize: 5 });
 });
 it.each([
-  ['http://localhost:8000/preview/', 'https://example.com/preview/'],
+  ['http://localhost:8000/preview/', 'http://localhost:8000/preview/'],
+  ['/api/v1/attachments/files/file/preview/', 'https://example.com/api/v1/attachments/files/file/preview'],
   ['/preview/', 'https://example.com/preview/'], ['bare/storage/path', ''], ['', ''],
 ])('normalizes returned preview %s to the configured server', async (url, expected) => {
   fetchMock.mockResolvedValue(response({ uid: 'file', preview_url: url, type: 'video' }));
   expect((await attachmentApi.uploadFile(new File(['file'], 'file'))).url).toBe(expected);
 });
-it.each([{ detail: 'denied' }, { file: ['bad type', 'too large'] }, { error: 123 }, {}])('surfaces uploadFile error payload %j', async data => {
+it.each([
+  [{ detail: 'denied' }, 'denied'],
+  [{ detail: [{ loc: ['body', 'file'], msg: 'Unsupported format' }] }, 'file: Unsupported format'],
+  [{ unexpected: ['ignored'] }, '上传失败'],
+])('surfaces canonical upload error payload %j', async (data, message) => {
   fetchMock.mockResolvedValue(response(data, 400));
-  await expect(attachmentApi.uploadFile(new File(['file'], 'file'))).rejects.toThrow(Object.keys(data).length ? /denied|bad type; too large|123/ : '上传失败');
+  await expect(attachmentApi.uploadFile(new File(['file'], 'file'))).rejects.toThrow(message as string);
 });
 it('keeps HTTP errors with non-JSON bodies retryable', async () => {
   const res = response({}, 502); res.json.mockRejectedValue(new Error('html')); fetchMock.mockResolvedValue(res);
@@ -104,4 +109,10 @@ it('does not upload a browser blob into the newly switched account', async () =>
   fetchMock.mockResolvedValueOnce({ blob: async () => { clearSession(); return new Blob(['file']); } });
   await expect(attachmentApi.upload('blob:photo', 'photo.jpg', '')).rejects.toThrow('账号已切换');
   expect(fetchMock).toHaveBeenCalledTimes(1);
+});
+
+it('preserves a signed object-storage preview returned by upload', async () => {
+  const signed = 'https://bucket.example/photo.jpg?signature=abc%2B123&expires=123';
+  fetchMock.mockResolvedValue(response({ uid: 'remote', preview_url: signed }));
+  expect((await attachmentApi.uploadFile(new File(['file'], 'file'))).url).toBe(signed);
 });

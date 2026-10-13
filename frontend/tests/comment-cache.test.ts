@@ -6,7 +6,7 @@ vi.mock('../src/services/authSessionScope', () => ({ getAuthSessionScope: () => 
 
 function comment(n: number): Comment { return { uid: String(n), user: 1, content: String(n), userAvatar: '', userDisplayName: '', userUsername: '', createdAt: '', updatedAt: '' }; }
 const seed = (revision = 'v1', isPublic = false) => commentCache.seed('r', 5, [1, 2, 3].map(comment), revision, isPublic);
-const page = (revision = 'v1', results = [1, 2, 3, 4, 5]): CommentPage => ({ count: 5, next: null, previous: null, results: results.map(comment), revision });
+const page = (revision = 'v1', items = [1, 2, 3, 4, 5]): CommentPage => ({ total: 5, has_more: false, page: 1, page_size: 20, items: items.map(comment), revision });
 beforeEach(() => { commentCache.clear(); auth.session = 'user1/session1'; });
 
 it('deduplicates concurrent pages and retains them across mounts', async () => {
@@ -50,7 +50,7 @@ it('does not join pending pre-mutation pages or overwrite a local comment', asyn
   const pending = commentCache.load('r', false, 1, () => new Promise(resolve => { finish = resolve; }));
   const rejected = expect(pending).rejects.toThrow('已失效');
   commentCache.mutate('r', false, { add: comment(6) });
-  const fresh = await commentCache.load('r', false, 1, async () => ({ ...page('v2', [1, 2, 3, 4, 5, 6]), count: 6 }));
+  const fresh = await commentCache.load('r', false, 1, async () => ({ ...page('v2', [1, 2, 3, 4, 5, 6]), total: 6 }));
   finish(page());
   await rejected;
   expect(seed()).toBe(fresh);
@@ -59,7 +59,7 @@ it('does not join pending pre-mutation pages or overwrite a local comment', asyn
 
 it('restarts from page one when another client mutates the collection between pages', async () => {
   seed();
-  await commentCache.load('r', false, 1, async () => ({ ...page('v1', [1, 2, 3]), next: '?page=2' }));
+  await commentCache.load('r', false, 1, async () => ({ ...page('v1', [1, 2, 3]), has_more: true }));
   const loader = vi.fn(async (n: number) => n === 2 ? page('v2', [5]) : page('v2', [2, 3, 4, 5]));
   const current = await commentCache.load('r', false, 2, loader);
   expect(loader.mock.calls).toEqual([[2], [1]]);

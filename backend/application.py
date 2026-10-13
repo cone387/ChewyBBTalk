@@ -25,11 +25,12 @@ def create_app(settings=None):
 
     app = FastAPI(
         title='ChewyBBTalk API',
-        version='2.0.0',
+        version='3.0.0',
         lifespan=lifespan,
-        docs_url='/api/schema/swagger-ui/',
-        redoc_url='/api/schema/redoc/',
-        openapi_url='/api/schema/',
+        docs_url='/docs',
+        redoc_url='/redoc',
+        openapi_url='/openapi.json',
+        redirect_slashes=False,
     )
     app.state.settings, app.state.engine, app.state.sessions = settings, engine, sessions
     app.state.limiter = Limiter()

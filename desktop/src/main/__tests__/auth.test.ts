@@ -18,7 +18,7 @@ vi.mock('../store', () => ({
 }));
 
 function token(exp = Math.floor(Date.now() / 1000) + 3600) {
-  const payload = Buffer.from(JSON.stringify({ exp })).toString('base64url');
+  const payload = Buffer.from(JSON.stringify({ exp, sub: '42', purpose: 'access' })).toString('base64url');
   return `header.${payload}.signature`;
 }
 
@@ -133,7 +133,7 @@ it('refreshes once on a 401 and replays the request with the new token', async (
 
 describe('desktop auth state machine', () => {
   const userToken = (userId = 42, exp = Math.floor(Date.now() / 1000) + 3600) =>
-    `header.${Buffer.from(JSON.stringify({ exp, user_id: userId })).toString('base64url')}.signature`;
+    `header.${Buffer.from(JSON.stringify({ exp, sub: String(userId), purpose: 'access' })).toString('base64url')}.signature`;
 
   beforeEach(() => {
     vi.useFakeTimers();

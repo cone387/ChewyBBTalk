@@ -46,3 +46,7 @@ cp .env.example .env
 `VITE_PROXY_TARGET`、`VITE_DEV_PORT` 只控制开发服务器；`VITE_BASE_PATH` 控制构建资源路径，修改它需要重建前端并相应调整代理配置。它们也放在根 `.env`，但不属于浏览器运行时配置。
 
 Compose 的 `env_file` 和 `environment` 按 [Docker 官方优先级](https://docs.docker.com/compose/how-tos/environment-variables/envvars-precedence/) 生效。Compose 2.24+ 支持本项目使用的可选 `.env` 文件；不提供文件时仍可使用默认配置启动。
+
+## API 3.0 升级
+
+配置仍集中在根 `.env`。保持原数据库、数据卷和 `SECRET_KEY`，先备份并在副本执行迁移，再同步更新后端与三端。所有旧登录令牌和 Cookie 需重新登录，原账号密码与业务数据保留。Cookie 改为 `cb_session`、`cb_csrf`，CSRF 头为 `X-CSRF-Token`；自定义代理须转发 `/docs`、`/redoc`、`/openapi.json`。完整步骤见[已有实例升级](../backend/README.md#已有实例升级)与[接口契约](fastapi-contract.md)。

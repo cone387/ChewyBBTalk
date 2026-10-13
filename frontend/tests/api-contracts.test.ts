@@ -26,10 +26,10 @@ it('preserves explicit clearing and optimistic concurrency when editing', async 
   expect(apiClient.patch).toHaveBeenLastCalledWith('/api/v1/bbtalk/record', {}, undefined)
 })
 it('preserves pagination markers and filtering on public and private lists', async () => {
-  vi.mocked(apiClient.get).mockResolvedValue({ count: 3, next: 'next', previous: null, results: [wire] })
-  expect(await bbtalkApi.getBBTalks({ search: 'body', has_attachments: false })).toMatchObject({ count: 3, next: 'next', results: [{ id: 'record' }] })
+  vi.mocked(apiClient.get).mockResolvedValue({ total: 3, has_more: true, page: 1, page_size: 20, items: [wire] })
+  expect(await bbtalkApi.getBBTalks({ search: 'body', has_attachments: false })).toMatchObject({ total: 3, has_more: true, items: [{ id: 'record' }] })
   expect(apiClient.get).toHaveBeenCalledWith('/api/v1/bbtalk', { search: 'body', has_attachments: false })
-  expect((await bbtalkApi.getPublicBBTalks({ page: 2 })).results[0].id).toBe('record')
+  expect((await bbtalkApi.getPublicBBTalks({ page: 2 })).items[0].id).toBe('record')
 })
 it('loads public records without credentials and reports denied or missing records', async () => {
   const fetchMock = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => wire }).mockResolvedValueOnce({ ok: false })
@@ -40,8 +40,8 @@ it('loads public records without credentials and reports denied or missing recor
 })
 it('maps comments even when profile fields are absent, without losing rich profiles', async () => {
   const comment = { uid: 'comment', user: 1, content: 'reply', create_time: 'created' }
-  vi.mocked(apiClient.get).mockResolvedValue([comment, { ...comment, user_display_name: 'Alice', user_avatar: 'avatar', user_username: 'alice' }])
-  const comments = await bbtalkApi.getComments('record')
+  vi.mocked(apiClient.get).mockResolvedValue({ items: [comment, { ...comment, user_display_name: 'Alice', user_avatar: 'avatar', user_username: 'alice' }], total: 2, page: 1, page_size: 20, has_more: false, revision: 'r1' })
+  const comments = (await bbtalkApi.getCommentPage('record')).items
   expect(comments[0]).toMatchObject({ userDisplayName: '', userAvatar: '', userUsername: '' })
   expect(comments[1]).toMatchObject({ userDisplayName: 'Alice', userAvatar: 'avatar', userUsername: 'alice' })
   vi.mocked(apiClient.post).mockResolvedValue(comment)
@@ -50,17 +50,16 @@ it('maps comments even when profile fields are absent, without losing rich profi
   expect(apiClient.delete).toHaveBeenCalledWith('/api/v1/bbtalk/record/comments/comment')
 })
 it('uses the anonymous public comment endpoint without losing the UID path separator', async () => {
-  vi.mocked(apiClient.get).mockResolvedValue([])
-  await bbtalkApi.getComments('record', true)
-  expect(apiClient.get).toHaveBeenCalledWith('/api/v1/bbtalk/public/record/comments')
-  await bbtalkApi.getComments('record')
-  expect(apiClient.get).toHaveBeenLastCalledWith('/api/v1/bbtalk/record/comments')
+  vi.mocked(apiClient.get).mockResolvedValue({ items: [], total: 0, page: 1, page_size: 20, has_more: false, revision: 'r1' })
+  await bbtalkApi.getCommentPage('record', 1, true)
+  expect(apiClient.get).toHaveBeenCalledWith('/api/v1/bbtalk/public/record/comments', { page: 1, page_size: 20 })
+  await bbtalkApi.getCommentPage('record')
+  expect(apiClient.get).toHaveBeenLastCalledWith('/api/v1/bbtalk/record/comments', { page: 1, page_size: 20 })
 })
-it.each([[{ uid: 'tag', name: 'Work' }], { results: [{ uid: 'tag', name: 'Work' }] }, {}])('accepts compatible tag response shapes %j', async payload => {
-  vi.mocked(apiClient.get).mockResolvedValue(payload)
-  const tags = await tagApi.getTags()
-  expect(tags).toEqual('results' in payload || Array.isArray(payload) ? [expect.objectContaining({ id: 'tag' })] : [])
-})
+it('maps the complete tag array', async () => {
+  vi.mocked(apiClient.get).mockResolvedValue([{ uid: 'tag', name: 'Work' }]);
+  expect(await tagApi.getTags()).toEqual([expect.objectContaining({ id: 'tag', name: 'Work' })]);
+});
 it('preserves cleared tag fields and zero ordering without sending undefined fields', async () => {
   await tagApi.createTag({ name: 'Work', color: '#000000', sortOrder: 0 })
   expect(apiClient.post).toHaveBeenCalledWith('/api/v1/bbtalk/tags', { name: 'Work', color: '#000000', sort_order: 0 })

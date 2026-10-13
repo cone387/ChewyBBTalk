@@ -61,39 +61,39 @@ def test_demo_login_filters_pagination_and_real_media_permissions(app, client):
         assert len(scenarios()) == 230
     client.headers.pop('Authorization')
     for item in files:
-        response = client.get(f'/api/v1/attachments/files/{item.id}/preview/')
+        response = client.get(f'/api/v1/attachments/files/{item.id}/preview')
         assert response.status_code == (200 if item.is_public else 404)
         if item.is_public:
             assert len(response.content) == item.size > 0
     login = client.post(
-        '/api/v1/bbtalk/auth/token/', json={'username': 'demo', 'password': 'demo123'}
+        '/api/v1/bbtalk/auth/token', json={'username': 'demo', 'password': 'demo123'}
     )
     assert login.status_code == 200
     client.headers['Authorization'] = 'Bearer ' + login.json()['access']
-    listing = client.get('/api/v1/bbtalk/').json()
-    assert listing['count'] == 240 and listing['next']
-    first = {item['uid'] for item in listing['results']}
-    second = client.get(listing['next']).json()
-    assert not first.intersection(item['uid'] for item in second['results'])
+    listing = client.get('/api/v1/bbtalk').json()
+    assert listing['total'] == 240 and listing['has_more']
+    first = {item['uid'] for item in listing['items']}
+    second = client.get('/api/v1/bbtalk', params={'page': 2}).json()
+    assert not first.intersection(item['uid'] for item in second['items'])
     for params in (
         {'visibility': 'private'},
         {'has_attachments': 'true'},
         {'search': '咖啡'},
-        {'tags__name': 'Markdown'},
+        {'tags': 'Markdown'},
         {'search': '时间线'},
     ):
-        assert client.get('/api/v1/bbtalk/', params=params).json()['count'] > 0
-    assert client.get('/api/v1/bbtalk/', params={'tags__name': '暂未使用'}).json()['count'] == 0
+        assert client.get('/api/v1/bbtalk', params=params).json()['total'] > 0
+    assert client.get('/api/v1/bbtalk', params={'tags': '暂未使用'}).json()['total'] == 0
     for item in files:
-        response = client.get(f'/api/v1/attachments/files/{item.id}/content/')
+        response = client.get(f'/api/v1/attachments/files/{item.id}/content')
         assert response.status_code == 200 and len(response.content) == item.size
     image = next(item for item in files if item.mime_type == 'image/png')
-    assert client.get(f'/api/v1/attachments/files/{image.id}/preview/').content.startswith(
+    assert client.get(f'/api/v1/attachments/files/{image.id}/preview').content.startswith(
         b'\x89PNG'
     )
     video = next(item for item in files if item.mime_type == 'video/mp4')
     response = client.get(
-        f'/api/v1/attachments/files/{video.id}/preview/', headers={'Range': 'bytes=0-99'}
+        f'/api/v1/attachments/files/{video.id}/preview', headers={'Range': 'bytes=0-99'}
     )
     assert response.status_code == 206 and len(response.content) == 100
 

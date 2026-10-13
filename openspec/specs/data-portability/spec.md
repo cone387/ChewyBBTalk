@@ -9,14 +9,14 @@
 ## Requirements
 
 ### Requirement: 导出格式选择
-系统 SHALL 支持 `json` 与 `zip` 两种导出格式，通过查询参数 `export_format` 指定。
+系统 SHALL 支持 `json` 与 `zip` 两种导出格式，通过查询参数 `format` 指定。
 
 #### Scenario: 导出 JSON
-- **WHEN** 用户调用 `GET /api/v1/bbtalk/data/export/?export_format=json`
+- **WHEN** 用户调用 `GET /api/v1/bbtalk/data/export?format=json`
 - **THEN** 返回包含用户、Tag、BBTalk、Comment 元信息的 JSON 文件，附件仅以 URL 引用
 
 #### Scenario: 导出 ZIP
-- **WHEN** 用户调用 `GET /api/v1/bbtalk/data/export/?export_format=zip`
+- **WHEN** 用户调用 `GET /api/v1/bbtalk/data/export?format=zip`
 - **THEN** 返回 ZIP 包，内含 `data.json` 与 `attachments/` 目录（所有附件二进制）
 
 ### Requirement: 导出范围
@@ -64,7 +64,7 @@
 - **THEN** 系统拒绝导入并返回路径不安全错误，不写入文件
 
 ### Requirement: 导入预校验
-系统 SHALL 提供 `POST /api/v1/bbtalk/data/validate/` 接口，对上传文件做格式与版本校验，返回是否可导入。
+系统 SHALL 提供 `POST /api/v1/bbtalk/data/validate` 接口，对上传文件做格式与版本校验，返回是否可导入。
 
 #### Scenario: 校验通过
 - **WHEN** 文件结构合法、版本兼容

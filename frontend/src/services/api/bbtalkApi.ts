@@ -1,6 +1,7 @@
+import { normalizeAttachmentUrl } from '../attachmentUrl';
 import { getPublicSetting } from '../../config';
 import { apiClient } from './apiClient';
-import type { BBTalk, PaginatedResponse, Attachment, Comment, CommentPage } from '../../types';
+import type { BBTalk, BBTalkPage, Attachment, Comment, CommentPage } from '../../types';
 
 const API_BASE_URL = getPublicSetting('VITE_API_BASE_URL') || '';
 
@@ -24,7 +25,7 @@ function transformAttachment(data: any): Attachment {
   
   return {
     uid: data.uid || data.id || '',
-    url: url,
+    url: normalizeAttachmentUrl(url, API_BASE_URL),
     type: data.type || 'file',
     filename: data.filename,
     originalFilename: data.original_filename || data.filename,
@@ -110,14 +111,15 @@ export const bbtalkApi = {
     created_date_from?: string;
     created_date_to?: string;
     ordering?: string;
-  }): Promise<PaginatedResponse<BBTalk>> {
+  }): Promise<BBTalkPage> {
     const data = await apiClient.get<any>('/api/v1/bbtalk', params);
     return {
       totalCount: data.total_count,
-      count: data.count,
-      next: data.next,
-      previous: data.previous,
-      results: data.results.map(transformBBTalk),
+      total: data.total,
+      page: data.page,
+      page_size: data.page_size,
+      has_more: data.has_more,
+      items: data.items.map(transformBBTalk),
     };
   },
 
@@ -185,14 +187,15 @@ export const bbtalkApi = {
 
   async getPublicBBTalks(params?: {
     page?: number; search?: string; tags?: string[]; has_attachments?: boolean; created_date_from?: string; created_date_to?: string; ordering?: string;
-  }): Promise<PaginatedResponse<BBTalk>> {
+  }): Promise<BBTalkPage> {
     const data = await apiClient.get<any>('/api/v1/bbtalk/public', params);
     return {
       totalCount: data.total_count,
-      count: data.count,
-      next: data.next,
-      previous: data.previous,
-      results: data.results.map(transformBBTalk),
+      total: data.total,
+      page: data.page,
+      page_size: data.page_size,
+      has_more: data.has_more,
+      items: data.items.map(transformBBTalk),
     };
   },
 
@@ -213,25 +216,10 @@ export const bbtalkApi = {
     return transformBBTalk(data);
   },
 
-  async getComments(bbtalkUid: string, isPublic = false): Promise<Comment[]> {
-    const data = await apiClient.get<any[]>(`/api/v1/bbtalk/${isPublic ? 'public/' : ''}${bbtalkUid}/comments`);
-    return data.map((c: any) => ({
-      uid: c.uid,
-      user: c.user,
-      userDisplayName: c.user_display_name || '',
-      userAvatar: c.user_avatar || '',
-      userUsername: c.user_username || '',
-      content: c.content,
-      createdAt: c.create_time,
-      updatedAt: c.update_time,
-    }));
-  },
-
   async getCommentPage(bbtalkUid: string, page = 1, isPublic = false): Promise<CommentPage> {
     const data = await apiClient.get<any>(`/api/v1/bbtalk/${isPublic ? 'public/' : ''}${bbtalkUid}/comments`, { page, page_size: 20 });
-    // Older servers ignore pagination parameters and return the complete array.
-    if (Array.isArray(data)) return { count: data.length, next: null, previous: null, results: data.map(transformComment), revision: '' };
-    return { count: data.count, next: data.next, previous: data.previous, results: data.results.map(transformComment), revision: data.revision };
+    return { total: data.total, page: data.page, page_size: data.page_size,
+      has_more: data.has_more, items: data.items.map(transformComment), revision: data.revision };
   },
 
   async createComment(bbtalkUid: string, content: string): Promise<Comment> {
