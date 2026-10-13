@@ -61,6 +61,7 @@ it.each(['image/jpeg', 'video/mp4', 'audio/mp4', 'application/pdf'])('infers the
 });
 it.each([
   ['http://localhost:8000/preview/', 'http://localhost:8000/preview/'],
+  ['http://localhost:8000/api/v1/attachments/files/file/preview/?v=1', 'https://example.com/api/v1/attachments/files/file/preview?v=1'],
   ['/api/v1/attachments/files/file/preview/', 'https://example.com/api/v1/attachments/files/file/preview'],
   ['/preview/', 'https://example.com/preview/'], ['bare/storage/path', ''], ['', ''],
 ])('normalizes returned preview %s to the configured server', async (url, expected) => {

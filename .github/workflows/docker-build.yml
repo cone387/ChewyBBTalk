@@ -25,11 +25,19 @@ jobs:
       contents: read
     steps:
     - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+    - uses: astral-sh/setup-uv@v5
+      with:
+        version: '0.11.7'
+        enable-cache: true
+        cache-dependency-glob: backend/uv.lock
     - name: Validate deployment scripts
       run: |
         bash -n scripts/deploy-image.sh
         bash -n deploy.sh
-        python3 -m unittest discover -s scripts/tests -v
+        uv run --project backend --frozen python -m unittest discover -s scripts/tests -v
 
   build:
     needs: deployment-tests

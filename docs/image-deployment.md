@@ -86,7 +86,7 @@ bash scripts/deploy-image.sh ghcr.io/cone387/chewy-bbtalk@sha256:<完整64位摘
 ```bash
 bash -n scripts/deploy-image.sh
 bash -n deploy.sh
-python3 -m unittest discover -s scripts/tests -v
+uv run --project backend --frozen python -m unittest discover -s scripts/tests -v
 ```
 
 测试以假的容器 CLI 执行真实脚本，覆盖首次部署、旧名称迁移、拉取失败/重试、镜像预检失败、启动/健康失败、残留容器、锁冲突和配置错误。Windows 可将 `BASH_BIN` 指向 Git Bash；真实镜像与服务器验证以 Actions 结果为准。
