@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { writeDraft } from '../services/drafts';
 import { isCurrentSession, type Session } from '../services/session';
@@ -23,7 +23,7 @@ export function useDraftAutosave(key: string, value: unknown | null, ready: bool
       throw error;
     }
   }, [session]);
-  const serialized = JSON.stringify(value);
+  const serialized = useMemo(() => JSON.stringify(value), [value]);
   useEffect(() => {
     if (!ready || stopped.current) return;
     ++revision.current;

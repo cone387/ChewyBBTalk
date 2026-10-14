@@ -41,6 +41,18 @@ it('encodes tag arrays as repeated query parameters', async () => {
   expect(fetchMock.mock.calls[0][0]).toBe('https://example.com/items?tags=work&tags=home');
 });
 
+it('preserves date, month, pagination and tag filters with the actual Expo URLSearchParams implementation', async () => {
+  const nativeURLSearchParams = require('whatwg-url-without-unicode').URLSearchParams;
+  const original = global.URLSearchParams;
+  global.URLSearchParams = nativeURLSearchParams;
+  try {
+    await apiClient.get('/api/v1/bbtalk', { created_on: '2026-10-01', page: 2, tags: ['工作', 'home'], search: 'hello world' });
+    expect(fetchMock.mock.calls[0][0]).toBe('https://example.com/api/v1/bbtalk?created_on=2026-10-01&page=2&tags=%E5%B7%A5%E4%BD%9C&tags=home&search=hello+world');
+    await apiClient.get('/api/v1/bbtalk/date-counts', { year: 2026, month: 10 });
+    expect(fetchMock.mock.calls[1][0]).toBe('https://example.com/api/v1/bbtalk/date-counts?year=2026&month=10');
+  } finally { global.URLSearchParams = original; }
+});
+
 it('preserves an existing query when appending encoded filter parameters', async () => {
   expect(await apiClient.get('/items?visibility=private', { tags: ['work & home'], page: 2 })).toEqual({ id: 1 });
   expect(fetchMock.mock.calls[0][0]).toBe('https://example.com/items?visibility=private&tags=work+%26+home&page=2');

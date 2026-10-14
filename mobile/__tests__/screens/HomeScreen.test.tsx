@@ -609,12 +609,17 @@ describe('HomeScreen data lifecycle', () => {
     expect(mockOffline.value.syncToCache).toHaveBeenCalledWith([expect.objectContaining({ id: 'a' }), expect.objectContaining({ id: 'b' })]);
   });
 
-  it('reloads on focus through the throttled foreground refresh', async () => {
+  it('keeps a fresh feed on tab return and refreshes after it becomes stale', async () => {
+    const now = jest.spyOn(Date, 'now').mockReturnValue(10000);
     await mountHome();
     const initial = mockSlice.loadBBTalks.mock.calls.length;
     await act(async () => { mockNavListeners.focus!(); });
+    expect(mockSlice.loadBBTalks.mock.calls.length).toBe(initial);
+    now.mockReturnValue(41000);
+    await act(async () => { mockNavListeners.focus!(); });
     expect(mockSlice.loadBBTalks.mock.calls.length).toBe(initial + 1);
     expect(mockLoadTagsThunk).toHaveBeenCalled();
+    now.mockRestore();
   });
 
   it('loads the next page when the list end is reached', async () => {
@@ -656,6 +661,40 @@ describe('HomeScreen empty and loading states', () => {
 });
 
 describe('HomeScreen tag tabs and voice', () => {
+  it('keeps the selected tag in navigation without a second label or recording FAB', async () => {
+    await mountHome({ selectedTag: 't1' });
+    expect(tappable('选择标签 t1')).toBeDefined();
+    expect(tappable('清除标签筛选：工作')).toBeUndefined();
+    expect(tappable('语音记录')).toBeUndefined();
+  });
+
+  it('still exposes the active filter when tag navigation is hidden', async () => {
+    const onSelectTag = jest.fn();
+    mockShowTagTabs = 'false';
+    await mountHome({ selectedTag: 't1', onSelectTag });
+    expect(tappable('选择标签 t1')).toBeUndefined();
+    expect(tappable('清除标签筛选：工作')).toBeDefined();
+    await press('清除标签筛选：工作');
+    expect(onSelectTag).toHaveBeenCalledWith(null);
+  });
+
+  it('opens the comment editor without rendering the feed again', async () => {
+    await mountHome();
+    mockCard.mockClear();
+    await press('评论 a');
+    expect(modalVisible('评论框 a')).toBe(true);
+    expect(mockCard).not.toHaveBeenCalled();
+  });
+
+  it('updates the privacy countdown without rendering the feed again', async () => {
+    await mountHome({ selectedTag: null, selectedDate: null });
+    mockCard.mockClear();
+    mockPrivacy.value = { ...mockPrivacy.value, showCountdown: true, privacyEnabled: true, privacySeconds: 42 };
+    await act(async () => { tree.update(<HomeScreen selectedTag={null} selectedDate={null} />); });
+    expect(hasText('42s')).toBe(true);
+    expect(mockCard).not.toHaveBeenCalled();
+  });
+
   it('toggles the tag tab row and selects a tag', async () => {
     const onSelectTag = jest.fn();
     await mountHome({ onSelectTag });
@@ -719,7 +758,9 @@ describe('HomeScreen hook wiring', () => {
 });
 
 describe('HomeScreen refresh plumbing', () => {
-  it('animates the transition from skeletons to loaded records', async () => {
+  it('does not schedule a global layout animation when results arrive', async () => {
+    const { LayoutAnimation } = require('react-native');
+    LayoutAnimation.configureNext.mockClear();
     mockStoreState.value.bbtalk.isLoading = true;
     await act(async () => { tree = create(<HomeScreen selectedTag={null} selectedDate={null} />); });
     await settle();
@@ -727,8 +768,7 @@ describe('HomeScreen refresh plumbing', () => {
     // A fresh element is required: re-using the initial one lets React bail out of the re-render.
     await act(async () => { tree.update(<HomeScreen selectedTag={null} selectedDate={null} />); });
     await settle();
-    const { LayoutAnimation } = require('react-native');
-    expect(LayoutAnimation.create).toHaveBeenCalledWith(300, 'easeInEaseOut', 'opacity');
+    expect(LayoutAnimation.configureNext).not.toHaveBeenCalled();
   });
 
   it('refreshes privacy settings and the tag tab preference on focus', async () => {
@@ -752,7 +792,7 @@ describe('HomeScreen refresh plumbing', () => {
     RN.AppState.currentState = 'active';
     await act(async () => { mockNavListeners.focus!(); });
     await act(async () => { mockNavListeners.focus!(); }); // throttled within a second
-    expect(mockSlice.loadBBTalks.mock.calls.length).toBe(initial + 1);
+    expect(mockSlice.loadBBTalks.mock.calls.length).toBe(initial);
   });
 
   it('refreshes from the app-state change listener', async () => {
@@ -914,7 +954,9 @@ it('reloads a selected tag only when its resolved name changes', async () => {
 it('coalesces overlapping pull refreshes into one list and tag refresh', async () => {
   await mountHome();
   let finish!: () => void;
-  mockDispatch.mockImplementation((action: any) => action.type === 'bbtalk/load' ? new Promise<void>(resolve => { finish = resolve; }) : Promise.resolve(action));
+  mockDispatch.mockImplementation((action: any) => action.type === 'bbtalk/load'
+    ? new Promise(resolve => { finish = () => resolve({ type: 'bbtalk/load/fulfilled', meta: { requestStatus: 'fulfilled' } }); })
+    : Promise.resolve(action));
   mockSlice.loadBBTalks.mockClear(); mockLoadTagsThunk.mockClear();
   const refresh = tree.root.findByType('RefreshControl').props.onRefresh;
   let one: any; let two: any;

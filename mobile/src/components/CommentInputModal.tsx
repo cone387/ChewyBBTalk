@@ -66,10 +66,11 @@ export default function CommentInputModal({ visible, bbtalkId, onClose, onCommen
         Animated.timing(overlayAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
         Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, speed: 20, bounciness: 2 }),
       ]);
-      animation.start(result => {
-        if (cancelled || result?.finished === false) return;
-        focusTimer = setTimeout(() => inputRef.current?.focus(), 50);
-      });
+      animation.start();
+      // Bring up the keyboard alongside the panel, without waiting for the spring to settle.
+      focusTimer = setTimeout(() => {
+        if (!cancelled) inputRef.current?.focus();
+      }, 50);
     } else {
       animation = Animated.parallel([
         Animated.timing(overlayAnim, { toValue: 0, duration: 150, useNativeDriver: true }),

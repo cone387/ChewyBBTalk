@@ -1,7 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { isCurrentSession, type Session } from './session';
 
-function key(name: string, session: Session) { return `calendar:${session.scope}:${name}`; }
+// v1 may contain unfiltered responses from Expo's missing URLSearchParams.size.
+function key(name: string, session: Session) { return `calendar:${session.scope}:v2:${name}`; }
 export async function readCalendarCache<T>(name: string, session: Session): Promise<T | null> {
   if (!session.scope || !isCurrentSession(session)) return null;
   try {

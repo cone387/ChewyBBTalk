@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, Modal, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, TextInput, Modal, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
 import { bbtalkApi } from '../services/api/bbtalkApi';
 import { historyIsLocked, recordHistoryActivity } from '../services/historyPrivacy';
@@ -15,7 +15,6 @@ export default function CalendarScreen({ selectedDate: initialDate = null, onSel
 } = {}) {
   const { theme } = useTheme();
   const c = theme.colors;
-  const navigation = useNavigation<any>();
   const [selectedDate, setSelectedDate] = useState(initialDate);
   const [pickerVisible, setPickerVisible] = useState(false);
   const [pickerYear, setPickerYear] = useState(String(new Date().getFullYear()));
@@ -68,8 +67,8 @@ export default function CalendarScreen({ selectedDate: initialDate = null, onSel
   const moveMonth = (offset: number) => chooseMonth(new Date(year, monthIndex + offset, 1));
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: c.background }}
-      contentContainerStyle={styles.content} onTouchStart={recordHistoryActivity}>
+    <View style={{ flex: 1 }} onTouchStart={recordHistoryActivity}>
+    <CalendarDayRecords date={selectedDate} contentContainerStyle={styles.content} header={<>
       <Text style={[styles.subtitle, { color: c.textSecondary }]}>按日期回看，找回那一天的心情。</Text>
       <View style={[styles.calendar, { backgroundColor: c.surface }]}>
         <View style={styles.monthRow}>
@@ -128,7 +127,6 @@ export default function CalendarScreen({ selectedDate: initialDate = null, onSel
         <Text style={{ color: c.primary, fontWeight: '600' }}>回到本月</Text>
       </TouchableOpacity>
       <Text style={[styles.hint, { color: c.textSecondary }]}>点击有记录的日期，查看当天的碎碎念。</Text>
-      {selectedDate && <CalendarDayRecords key={selectedDate} date={selectedDate} />}
       <Modal visible={pickerVisible} transparent animationType="fade" onRequestClose={() => setPickerVisible(false)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 24 }}>
           <View accessibilityViewIsModal style={{ backgroundColor: c.surface, borderRadius: 20, padding: 20, maxWidth: 420, width: '100%', alignSelf: 'center' }}>
@@ -143,7 +141,8 @@ export default function CalendarScreen({ selectedDate: initialDate = null, onSel
           </View>
         </View>
       </Modal>
-    </ScrollView>
+    </>} />
+    </View>
   );
 }
 

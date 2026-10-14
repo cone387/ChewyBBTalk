@@ -1,9 +1,9 @@
 import { setHistoryLocked, setHistoryPrivacyReady, onHistoryActivity } from '../services/historyPrivacy';
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
   RefreshControl, ActivityIndicator, Modal, AppState,
-  Platform, Animated, LayoutAnimation, UIManager, Linking, BackHandler,
+  Platform, Animated, Linking, BackHandler,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -41,8 +41,6 @@ import { logError } from '../utils/errorHandler';
 import { xAlert, xConfirm } from '../utils/crossAlert';
 import { getSession, isCurrentSession } from '../services/session';
 
-if (Platform.OS === 'android') UIManager.setLayoutAnimationEnabledExperimental?.(true);
-
 interface Props { selectedTag: string | null; selectedDate: string | null; onLockChange?: (locked: boolean) => void; onSelectTag?: (tagId: string | null) => void; }
 
 export default function HomeScreen({ selectedTag, selectedDate, onLockChange, onSelectTag }: Props) {
@@ -75,7 +73,10 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
   const [showTagTabs, setShowTagTabs] = useState(true);
   const [commentTargetId, setCommentTargetId] = useState<string | null>(null);
   const [lastAddedComment, setLastAddedComment] = useState<{ bbtalkId: string; comment: Comment } | null>(null);
-  const wasLoadingRef = useRef(false);
+  const lastFeedReadAt = useRef(0);
+  const feedDirty = useRef(false);
+  const feedReadSequence = useRef(0);
+  const recordsRevision = useRef(0);
 
   // --- Hooks ---
 
@@ -101,7 +102,11 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
 
   const onNavigateCompose = useCallback((item?: BBTalk) => {
     navigation.navigate('Compose', item ? { editItem: item } : undefined);
-  }, [navigation, guardOfflineWrite]);
+  }, [navigation]);
+
+  const onNavigateDetail = useCallback((item: BBTalk) => {
+    navigation.navigate('RecordDetail', { item });
+  }, [navigation]);
 
   const actions = useBBTalkActions({ showError, onNavigateCompose });
 
@@ -189,14 +194,6 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
     return () => handler.remove();
   }, [batch.batchMode, batch.exitBatchMode]);
 
-  // 骨架屏 → 实际内容的平滑过渡
-  useEffect(() => {
-    if (wasLoadingRef.current && !isLoading && bbtalks.length > 0) {
-      LayoutAnimation.configureNext(LayoutAnimation.create(300, 'easeInEaseOut', 'opacity'));
-    }
-    wasLoadingRef.current = isLoading;
-  }, [isLoading, bbtalks.length]);
-
   useEffect(() => {
     AsyncStorage.getItem(searchHistoryKey).then(v => {
       if (!v || !isCurrentSession(session)) return;
@@ -243,11 +240,19 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
       syncToCache(bbtalks).catch(e => logError(e, 'HomeScreen syncToCache'));
     }
   }, [bbtalks, hasLoadedFromNetwork, isFiltered, isLoading, isOffline, syncToCache]);
-  useEffect(() => {
-    LayoutAnimation.configureNext(LayoutAnimation.create(200, 'easeInEaseOut', 'opacity'));
+  const loadFeed = useCallback(async () => {
+    const sequence = ++feedReadSequence.current;
+    const revision = recordsRevision.current;
+    feedDirty.current = true;
     const tagNames = selectedTagName ? [selectedTagName] : [];
-    dispatch(loadBBTalks({ search: activeSearch || undefined, tags: tagNames, date: selectedDate || undefined }));
-  }, [selectedTagName, selectedDate, activeSearch]);
+    const result = await dispatch(loadBBTalks({ search: activeSearch || undefined, tags: tagNames, date: selectedDate || undefined }));
+    if (sequence !== feedReadSequence.current) return false;
+    const succeeded = result.meta?.requestStatus !== 'rejected';
+    feedDirty.current = !succeeded || recordsRevision.current !== revision;
+    if (succeeded) lastFeedReadAt.current = Date.now();
+    return succeeded;
+  }, [dispatch, selectedTagName, selectedDate, activeSearch]);
+  useEffect(() => { void loadFeed(); }, [loadFeed]);
 
   const refreshRequest = useRef<{ key: string; promise: Promise<void> } | null>(null);
   const onRefresh = useCallback(async () => {
@@ -257,34 +262,45 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
     setRefreshing(true);
     let promise!: Promise<void>;
     promise = (async () => {
+      let refreshAgain = false;
       try {
-        await Promise.all([
-          dispatch(loadBBTalks({ search: activeSearch || undefined, tags: selectedTagName ? [selectedTagName] : [], date: selectedDate || undefined })),
+        const [succeeded] = await Promise.all([
+          loadFeed(),
           dispatch(loadTags()),
         ]);
+        refreshAgain = succeeded && feedDirty.current;
       } finally {
-        if (refreshRequest.current?.promise === promise) { refreshRequest.current = null; setRefreshing(false); }
+        if (refreshRequest.current?.promise === promise) {
+          refreshRequest.current = null; setRefreshing(false);
+          if (refreshAgain && navigation.isFocused() && AppState.currentState === 'active') void onRefreshRef.current();
+        }
       }
     })();
     refreshRequest.current = { key, promise };
     return promise;
-  }, [dispatch, selectedTagName, selectedDate, isOffline, activeSearch]);
+  }, [dispatch, selectedTagName, selectedDate, isOffline, activeSearch, loadFeed, navigation]);
   onRefreshRef.current = onRefresh;
-  useEffect(() => onRecordsChanged(() => { void onRefreshRef.current?.(); }), []);
+  useEffect(() => onRecordsChanged(() => {
+    recordsRevision.current++;
+    feedDirty.current = true;
+    if (navigation.isFocused() && AppState.currentState === 'active') void onRefreshRef.current?.();
+  }), [navigation]);
   const foregroundRefreshAt = useRef(0);
-  const foregroundRefresh = useCallback(() => {
-    if (!navigation.isFocused() || AppState.currentState !== 'active' || Date.now() - foregroundRefreshAt.current < 1000) return;
+  const foregroundRefresh = useCallback((force = false) => {
+    if (!navigation.isFocused() || AppState.currentState !== 'active') return;
+    if (!feedDirty.current && Date.now() - foregroundRefreshAt.current < 1000) return;
+    if (!force && !feedDirty.current && Date.now() - lastFeedReadAt.current < 30_000) return;
     foregroundRefreshAt.current = Date.now();
     void onRefreshRef.current?.();
   }, [navigation]);
   useEffect(() => {
-    const focus = navigation.addListener('focus', foregroundRefresh);
-    const active = AppState.addEventListener('change', state => { if (state === 'active') foregroundRefresh(); });
+    const focus = navigation.addListener('focus', () => foregroundRefresh());
+    const active = AppState.addEventListener('change', state => { if (state === 'active') foregroundRefresh(true); });
     return () => { focus(); active.remove(); };
   }, [navigation, foregroundRefresh]);
   const previousOffline = useRef(isOffline);
   useEffect(() => {
-    if (previousOffline.current && !isOffline) foregroundRefresh();
+    if (previousOffline.current && !isOffline) foregroundRefresh(true);
     previousOffline.current = isOffline;
   }, [isOffline, foregroundRefresh]);
 
@@ -329,6 +345,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
   }, [handleSelectTag]);
 
   const filteredBBTalks = bbtalks;
+  const showTagFilter = Boolean(selectedTagName && (!showTagTabs || searchVisible));
 
   const handleImagePreview = useCallback((images: string[], index: number) => {
     setPreviewImages(images);
@@ -339,8 +356,6 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
   const handleBatchSelectAll = useCallback(() => {
     batch.selectAll(filteredBBTalks.map(b => b.id));
   }, [batch.selectAll, filteredBBTalks]);
-
-  const filterLabel = selectedDate ? selectedDate : selectedTagName || null;
 
   const handleVoiceFinishAndClose = useCallback(async (result: { text: string; audioUri: string | null; audioDuration: number }) => {
     setVoiceRecording(false);
@@ -358,7 +373,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
       onDelete={handleDeleteGuarded}
       onTogglePin={onTogglePin}
       onMenu={actions.showMenu}
-      onEdit={item => navigation.navigate('RecordDetail', { item })}
+      onEdit={onNavigateDetail}
       onToggleVisibility={actions.toggleVisibility}
       onImagePreview={handleImagePreview}
       onLocationPress={showLocation}
@@ -371,7 +386,50 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
       openSwipeRef={openSwipeRef}
       theme={theme}
     />
-  ), [handleDeleteGuarded, onTogglePin, actions.showMenu, onNavigateCompose, actions.toggleVisibility, handleImagePreview, showLocation, handleComment, lastAddedComment, handleLongPress, batch.batchMode, batch.selectedIds, batch.toggleSelect, theme]);
+  ), [handleDeleteGuarded, onTogglePin, actions.showMenu, onNavigateDetail, actions.toggleVisibility, handleImagePreview, showLocation, handleComment, lastAddedComment, handleLongPress, batch.batchMode, batch.selectedIds, batch.toggleSelect, theme]);
+
+  // Keep modal input, search typing and the privacy clock outside list reconciliation.
+  const feed = useMemo(() => (
+      <Animated.View style={{ flex: 1, transform: [{ translateX: showTagTabs && tags.length > 0 ? tagSwipe.listSlideAnim : 0 }] }}
+        {...(showTagTabs && tags.length > 0 ? tagSwipe.panResponder.panHandlers : {})}>
+        <View style={styles.listViewport}>
+        <FlatList data={filteredBBTalks} keyExtractor={item => item.id}
+          renderItem={renderItem}
+          ListHeaderComponent={listHeaderComponent}
+          onScrollBeginDrag={privacy.resetPrivacyTimer}
+          ListEmptyComponent={bbtalks.length === 0 && isLoading ? (
+            <View>{[0, 1, 2, 3].map(i => <SkeletonCard key={i} />)}</View>
+          ) : !isLoading ? (
+            activeSearch || selectedTag || selectedDate ? (
+              <EmptyState
+                icon="search-outline"
+                iconColor={c.textTertiary}
+                title="没有找到匹配的碎碎念"
+                hint="试试其他关键词或筛选条件"
+                actionLabel="清除筛选" onAction={clearFilters}
+              />
+            ) : (
+              <EmptyState
+                icon="chatbubble-ellipses-outline"
+                title="写下你的第一条碎碎念"
+                hint={'一句心情、一张照片，都值得留下。\n记录默认仅自己可见。'}
+                actionLabel="写下第一条" onAction={() => navigation.navigate('Compose')}
+                secondaryActionLabel="录一段语音" onSecondaryAction={() => setVoiceRecording(true)}
+              />
+            )
+          ) : null}
+          ListFooterComponent={loadingMore ? <ActivityIndicator style={{ paddingVertical: 16 }} /> : !hasMore && filteredBBTalks.length > 0 ? <Text style={[styles.noMore, { color: c.textTertiary }]}>没有更多了</Text> : null}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} enabled={!isOffline} tintColor={c.primary} colors={[c.primary]} progressBackgroundColor={c.surface} />}
+          onEndReached={onEndReached} onEndReachedThreshold={0.3}
+          initialNumToRender={6} maxToRenderPerBatch={6} windowSize={7}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 80 }} />
+        </View>
+      </Animated.View>
+  ), [showTagTabs, tags.length, tagSwipe.listSlideAnim, tagSwipe.panResponder, filteredBBTalks,
+    renderItem, listHeaderComponent, privacy.resetPrivacyTimer, isLoading, activeSearch,
+    selectedTag, selectedDate, clearFilters, navigation, c, loadingMore, hasMore,
+    refreshing, onRefresh, isOffline, onEndReached, insets.bottom]);
 
   // --- Render ---
 
@@ -436,14 +494,14 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
       <DraftNotice />
       <OutboxNotice />
 
-      {(activeSearch || selectedTagName) && <View style={{ paddingHorizontal: 16, flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+      {(!!activeSearch || showTagFilter) && <View style={{ paddingHorizontal: 16, flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         {!!activeSearch && <TouchableOpacity accessibilityRole="button" accessibilityLabel={`清除关键词筛选：${activeSearch}`}
           style={{ minHeight: 44, justifyContent: 'center' }} onPress={() => changeSearchText('')}>
           <Text style={{ color: c.primary }}>关键词：{activeSearch} ×</Text>
         </TouchableOpacity>}
-        {!!selectedTagName && <TouchableOpacity accessibilityRole="button" accessibilityLabel={`清除标签筛选：${selectedTagName}`}
+        {showTagFilter && <TouchableOpacity accessibilityRole="button" accessibilityLabel={`清除标签筛选：${selectedTagName}`}
           style={{ minHeight: 44, justifyContent: 'center' }} onPress={() => handleSelectTag(null)}>
-          <Text style={{ color: c.primary }}>标签：{selectedTagName} ×</Text>
+          <Text style={{ color: c.primary }}>{selectedTagName} ×</Text>
         </TouchableOpacity>}
       </View>}
 
@@ -462,40 +520,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
           onSelectTag={handleSelectTag} onResetAnim={tagSwipe.resetSlideAnim} scrollRef={tagSwipe.tagScrollRef as any} theme={theme} />
       )}
 
-      <Animated.View style={{ flex: 1, transform: [{ translateX: showTagTabs && tags.length > 0 ? tagSwipe.listSlideAnim : 0 }] }}
-        {...(showTagTabs && tags.length > 0 ? tagSwipe.panResponder.panHandlers : {})}>
-        <View style={styles.listViewport}>
-        <FlatList data={filteredBBTalks} keyExtractor={item => item.id}
-          renderItem={renderItem}
-          ListHeaderComponent={listHeaderComponent}
-          onScrollBeginDrag={privacy.resetPrivacyTimer}
-          ListEmptyComponent={bbtalks.length === 0 && isLoading ? (
-            <View>{[0, 1, 2, 3].map(i => <SkeletonCard key={i} />)}</View>
-          ) : !isLoading ? (
-            activeSearch || selectedTag || selectedDate ? (
-              <EmptyState
-                icon="search-outline"
-                iconColor={c.textTertiary}
-                title="没有找到匹配的碎碎念"
-                hint="试试其他关键词或筛选条件"
-                actionLabel="清除筛选" onAction={clearFilters}
-              />
-            ) : (
-              <EmptyState
-                icon="chatbubble-ellipses-outline"
-                title="写下你的第一条碎碎念"
-                hint={'一句心情、一张照片，都值得留下。\n记录默认仅自己可见。'}
-                actionLabel="写下第一条" onAction={() => navigation.navigate('Compose')}
-                secondaryActionLabel="录一段语音" onSecondaryAction={() => setVoiceRecording(true)}
-              />
-            )
-          ) : null}
-          ListFooterComponent={loadingMore ? <ActivityIndicator style={{ paddingVertical: 16 }} /> : !hasMore && filteredBBTalks.length > 0 ? <Text style={[styles.noMore, { color: c.textTertiary }]}>没有更多了</Text> : null}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} enabled={!isOffline} tintColor={c.primary} colors={[c.primary]} progressBackgroundColor={c.surface} />}
-          onEndReached={onEndReached} onEndReachedThreshold={0.3}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 80 }} />
-        </View>
-      </Animated.View>
+      {feed}
 
       {privacy.showCountdown && privacy.privacyEnabled && privacy.privacySeconds !== null && privacy.privacySeconds > 0 && !privacy.locked && (
         <TouchableOpacity style={[styles.countdownBadge, { bottom: insets.bottom + 88, backgroundColor: c.primary }]}
@@ -508,13 +533,6 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
         </TouchableOpacity>
       )}
 
-      {!batch.batchMode && (
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel="语音记录" onPress={() => setVoiceRecording(true)}
-          style={[styles.fab, { right: 88, width: 88, flexDirection: 'row', gap: 4, bottom: insets.bottom + 24, backgroundColor: c.surface }]}>
-          <Ionicons name="mic-outline" size={22} color={c.primary} />
-          <Text style={{ color: c.primary, fontSize: 14 }}>录音</Text>
-        </TouchableOpacity>
-      )}
       {!batch.batchMode && (
         <View style={[styles.fab, { bottom: insets.bottom + 24, backgroundColor: c.primary, shadowColor: '#000', opacity: holdRecording.pressed ? 0.85 : 1 }]}
           {...holdRecording.handlers} accessibilityRole="button" accessibilityLabel="新建碎碎念">

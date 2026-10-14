@@ -122,7 +122,15 @@ const BBTalkCard = React.memo(function BBTalkCard({
   const images = item.attachments.filter(a => a.type === 'image');
   const files = item.attachments.filter(a => a.type !== 'image');
   const isLong = item.content.length > 280 || item.content.split('\n').length > 6;
-  const preview = item.content.slice(0, 400).replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/(^|\n)[#>]+\s*/g, '$1').replace(/[*_`]/g, '');
+  // Comment and footer updates must not reparse the unchanged Markdown body.
+  const contentBody = React.useMemo(() => {
+    if (isLong) {
+      const preview = item.content.slice(0, 400).replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/(^|\n)[#>]+\s*/g, '$1').replace(/[*_`]/g, '');
+      return <Text numberOfLines={6} style={{ color: c.text, fontSize: 16, lineHeight: 25, paddingRight: 28 }}>{preview}</Text>;
+    }
+    const markdownStyles = getMarkdownStyles(c);
+    return <Markdown style={{ ...markdownStyles, body: { ...markdownStyles.body, paddingRight: 28 } }}>{item.content}</Markdown>;
+  }, [item.content, isLong, c]);
 
   return (
     <View style={[styles.card, { backgroundColor: c.cardBg }]}>
@@ -140,9 +148,7 @@ const BBTalkCard = React.memo(function BBTalkCard({
       <TouchableOpacity activeOpacity={0.8} onPress={() => onEdit(item)} accessibilityRole="button" accessibilityLabel={`碎碎念：${item.content.slice(0, 50)}${item.content.length > 50 ? '…' : ''}`}>
 
 
-        {isLong ? <Text numberOfLines={6} style={{ color: c.text, fontSize: 16, lineHeight: 25, paddingRight: 28 }}>{preview}</Text> : <Markdown style={{ ...getMarkdownStyles(c), body: { ...getMarkdownStyles(c).body, paddingRight: 28 } }}>
-          {item.content}
-        </Markdown>}
+        {contentBody}
       </TouchableOpacity>
       {isLong && <TouchableOpacity accessibilityRole="button" accessibilityLabel="展开全文" onPress={() => onEdit(item)} style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' }}>
         <Text style={{ color: c.primary, fontSize: 14 }}>展开全文</Text>

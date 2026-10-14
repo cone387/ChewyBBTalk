@@ -70,6 +70,20 @@ beforeEach(() => {
 afterEach(() => { act(() => { tree?.unmount(); }); tree = undefined; });
 
 describe('BBTalkCard rendering', () => {
+  it('keeps unchanged markdown out of comment updates while still applying content and theme edits', async () => {
+    const item = talk({ content: '**original**', commentCount: 1 });
+    await mountCard(item);
+    const initialRenders = mockMarkdown.mock.calls.length;
+    await act(async () => tree.update(<BBTalkCard item={{ ...item, commentCount: 2 }} theme={THEMES[0]} {...cb} />));
+    expect(hasText('2')).toBe(true);
+    expect(mockMarkdown).toHaveBeenCalledTimes(initialRenders);
+    await act(async () => tree.update(<BBTalkCard item={{ ...item, content: '**edited**' }} theme={THEMES[0]} {...cb} />));
+    expect(mockMarkdown.mock.calls.at(-1)?.[0].children).toBe('**edited**');
+    const editedRenders = mockMarkdown.mock.calls.length;
+    await act(async () => tree.update(<BBTalkCard item={{ ...item, content: '**edited**' }} theme={THEMES[1]} {...cb} />));
+    expect(mockMarkdown.mock.calls.length).toBeGreaterThan(editedRenders);
+    expect(mockMarkdown.mock.calls.at(-1)?.[0].style.body.color).toBe(THEMES[1].colors.text);
+  });
   it('summarizes long content and opens the complete original record', async () => {
     const item = talk({ content: '这是一段长记录。'.repeat(100) });
     await mountCard(item);

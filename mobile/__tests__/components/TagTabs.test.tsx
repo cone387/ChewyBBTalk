@@ -58,7 +58,7 @@ describe('TagTabs', () => {
     expect(tab('全部').props.accessibilityState).toEqual({ selected: false });
   });
 
-  it('selects a tag and clears the selection when pressed again', async () => {
+  it('keeps the current navigation tab selected when pressed again', async () => {
     const p = baseProps();
     await mount(p);
     await act(async () => { void tab('工作').props.onPress(); });
@@ -70,7 +70,7 @@ describe('TagTabs', () => {
     expect(active.props.accessibilityState).toEqual({ selected: true });
     expect(active.props.style.some((s: any) => s?.backgroundColor === THEMES[0].colors.primary)).toBe(true);
     await act(async () => { void active.props.onPress(); });
-    expect(p.onSelectTag).toHaveBeenNthCalledWith(2, null);
+    expect(p.onSelectTag).toHaveBeenNthCalledWith(2, 't1');
   });
 
   it('resets to all from the all-tab', async () => {

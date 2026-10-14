@@ -209,7 +209,7 @@ function installWebWindow() {
     onerror: (() => void) | null = null;
     played = false;
     paused = false;
-    constructor(_url: string) { created.push(this); }
+    constructor(public url: string) { created.push(this); }
     play() { this.played = true; return Promise.resolve(); }
     pause() { this.paused = true; }
   }
@@ -262,6 +262,8 @@ beforeEach(() => {
   mockLocationSvc.requestForegroundPermissionsAsync = jest.fn(async () => ({ status: 'granted' }));
   mockLocationSvc.getCurrentPositionAsync = jest.fn(async () => ({ coords: { latitude: 39.9042, longitude: 116.4074 } }));
   mockUseAudioPlayer.mockReset().mockImplementation(() => mockAudioPlayer);
+  mockAudioPlayer.play.mockReset();
+  mockAudioPlayer.pause.mockReset();
   mockSetAudioModeAsync.mockReset().mockResolvedValue(undefined);
   mockBuildImageSource.mockReset().mockImplementation((url: any) => url);
   mockAsyncStorage.getItem = jest.fn(async () => null);
@@ -867,12 +869,35 @@ describe('ComposeScreen toolbar', () => {
   it('plays and pauses audio attachments through expo-audio', async () => {
     mockRoute.params = { editItem: makeEditItem({ attachments: [att('a1', 'audio')] }) };
     await mountCompose();
+    expect(mockUseAudioPlayer).not.toHaveBeenCalled();
     await press('录音');
     expect(mockSetAudioModeAsync).toHaveBeenCalledWith({ playsInSilentMode: true });
     expect(mockAudioPlayer.play).toHaveBeenCalledTimes(1);
     expect(tree.root.findAllByType('Icon').some((n: any) => n.props.name === 'pause')).toBe(true);
     await press('录音');
     expect(mockAudioPlayer.pause).toHaveBeenCalledTimes(1);
+  });
+
+  it('passes authenticated media sources to native audio only when tapped', async () => {
+    const audio = { ...att('private-audio', 'audio'), url: 'https://api.example/api/v1/attachments/files/a/preview' };
+    mockBuildImageSource.mockReturnValue({ uri: audio.url, headers: { Authorization: 'Bearer private-token' } });
+    mockRoute.params = { editItem: makeEditItem({ attachments: [audio] }) };
+    await mountCompose();
+    expect(mockUseAudioPlayer).not.toHaveBeenCalled();
+    await press('录音');
+    expect(mockUseAudioPlayer).toHaveBeenCalledWith({ uri: audio.url, headers: { Authorization: 'Bearer private-token' } });
+  });
+
+  it('does not start delayed native playback after the editor unmounts', async () => {
+    let resolveMode!: () => void;
+    mockSetAudioModeAsync.mockImplementationOnce(() => new Promise<void>(resolve => { resolveMode = resolve; }));
+    mockRoute.params = { editItem: makeEditItem({ attachments: [att('a1', 'audio')] }) };
+    await mountCompose();
+    await press('录音');
+    await act(async () => { tree.unmount(); tree = undefined; });
+    await act(async () => { resolveMode(); });
+    expect(mockAudioPlayer.play).not.toHaveBeenCalled();
+    expect(mockAudioPlayer.pause).toHaveBeenCalled();
   });
 
   it('opens video attachments externally and labels other file types', async () => {
@@ -1114,12 +1139,35 @@ describe('ComposeScreen keyboard and platform details', () => {
 });
 
 describe('ComposeScreen web playback', () => {
+  it('fetches private web audio with credentials on tap and releases its object URL', async () => {
+    const { created } = installWebWindow();
+    mockPlatform.OS = 'web';
+    const audio = { ...att('private-web', 'audio'), url: 'https://api.example/api/v1/attachments/files/a/preview' };
+    mockBuildImageSource.mockReturnValue({ uri: audio.url, headers: { Authorization: 'Bearer private-token' } });
+    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue({ ok: true, blob: async () => new Blob(['audio']) } as Response);
+    const createUrl = jest.spyOn(URL, 'createObjectURL').mockReturnValue('blob:private-audio');
+    const revokeUrl = jest.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    try {
+      mockRoute.params = { editItem: makeEditItem({ attachments: [audio] }) };
+      await mountCompose();
+      expect(fetchMock).not.toHaveBeenCalled();
+      await press('录音');
+      expect(fetchMock).toHaveBeenCalledWith(audio.url, { headers: { Authorization: 'Bearer private-token' } });
+      expect(created[0].url).toBe('blob:private-audio');
+      expect(mockUseAudioPlayer).not.toHaveBeenCalled();
+      await act(async () => { tree.unmount(); tree = undefined; });
+      expect(created[0].paused).toBe(true);
+      expect(revokeUrl).toHaveBeenCalledWith('blob:private-audio');
+    } finally { fetchMock.mockRestore(); createUrl.mockRestore(); revokeUrl.mockRestore(); }
+  });
+
   it('plays and pauses audio through a window Audio element on web', async () => {
     const { created } = installWebWindow();
     mockPlatform.OS = 'web';
     mockRoute.params = { editItem: makeEditItem({ attachments: [att('w1', 'audio')] }) };
     await mountCompose();
     await press('录音');
+    expect(mockUseAudioPlayer).not.toHaveBeenCalled();
     expect(created.length).toBe(1);
     expect(created[0].played).toBe(true);
     await press('录音');

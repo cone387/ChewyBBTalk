@@ -27,20 +27,20 @@ interface Props {
 export default function InlineComments({ bbtalkId, commentCount, commentPreview, commentsRevision, newComment, theme, collapsedLimit = MAX_COLLAPSED }: Props) {
   const c = theme.colors;
   const dispatch = useAppDispatch();
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [loaded, setLoaded] = useState(false);
+  // Virtualized rows already have a preview/cache entry; paint it on the first commit.
+  const [initialEntry] = useState(() => commentEntry(bbtalkId, commentPreview, commentsRevision));
+  const [comments, setComments] = useState<Comment[]>(initialEntry.comments);
+  const [loaded, setLoaded] = useState(initialEntry.loaded);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [sessionVersion, setSessionVersion] = useState(0);
-  const [initialEntry] = useState(() => commentEntry(bbtalkId, commentPreview, commentsRevision));
   const entry = useRef(initialEntry);
   const blockedPreview = useRef<{ value: Comment[] | undefined } | null>(null);
   const previewRef = useRef(commentPreview);
   previewRef.current = commentPreview;
   const identity = useRef({ id: bbtalkId, generation: getSession().generation, revision: commentsRevision });
-  const hydrated = useRef(false);
-  const [nextPage, setNextPage] = useState(false);
+  const [nextPage, setNextPage] = useState(initialEntry.hasMore);
   const operation = useRef(0);
   const alive = useRef(true);
   const fetching = useRef(false);
@@ -99,14 +99,13 @@ export default function InlineComments({ bbtalkId, commentCount, commentPreview,
   useEffect(() => {
     const previous = identity.current;
     const generation = getSession().generation;
-    if (hydrated.current && previous.id === bbtalkId && previous.generation === generation && previous.revision === commentsRevision && !blockedPreview.current) return;
+    if (previous.id === bbtalkId && previous.generation === generation && previous.revision === commentsRevision && !blockedPreview.current) return;
     const keepExpanded = previous.id === bbtalkId && previous.generation === generation && expanded;
     const revisionChanged = previous.revision !== commentsRevision;
     identity.current = { id: bbtalkId, generation, revision: commentsRevision };
     reset();
     if (commentPreview !== undefined && blockedPreview.current?.value === commentPreview) return;
     blockedPreview.current = null;
-    hydrated.current = true;
     entry.current = commentEntry(bbtalkId, commentPreview, commentsRevision);
     setComments(entry.current.comments);
     setLoaded(entry.current.loaded);

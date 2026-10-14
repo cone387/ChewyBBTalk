@@ -33,9 +33,11 @@ it('switches to all records on a quick right swipe from the first tag', () => {
   expect(select).toHaveBeenCalledWith(null);
 });
 it.each([null, 'two'])('does not switch beyond the %s boundary', selected => {
-  const { handlers, select } = swipe(selected);
+  const { handlers, select, result } = swipe(selected);
+  act(() => handlers.onPanResponderMove(null, { dx: selected ? -70 : 70 }));
   act(() => handlers.onPanResponderRelease(null, { dx: selected ? -70 : 70, vx: 0 }));
   expect(select).not.toHaveBeenCalled();
+  expect(Animated.spring).toHaveBeenCalledWith(result.current.listSlideAnim, expect.objectContaining({ toValue: 0 }));
 });
 it('dampens overscroll at an edge and restores short gestures', () => {
   const { handlers, result } = swipe();
@@ -61,6 +63,7 @@ it('uses updated selection and tab visibility in the retained responder', () => 
 });
 it('does not switch when there are no tags', () => {
   const { handlers, select } = swipe(null, true, []);
+  expect(handlers.onMoveShouldSetPanResponder(null, { dx: 50, dy: 0 })).toBe(false);
   act(() => handlers.onPanResponderRelease(null, { dx: -70, vx: 0 })); expect(select).not.toHaveBeenCalled();
 });
 it('marks the gesture as active when the responder is granted', () => {

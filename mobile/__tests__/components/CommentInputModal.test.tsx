@@ -5,7 +5,7 @@ jest.mock('react-native', () => {
     KeyboardAvoidingView: 'KeyboardAvoidingView', ActivityIndicator: 'ActivityIndicator',
     StyleSheet: { create: (value: unknown) => value, absoluteFill: {}, absoluteFillObject: {} },
     Platform: { OS: 'ios' }, Keyboard: {},
-    Animated: { Value: class {}, View: 'AnimatedView', parallel: animation, timing: animation, spring: animation },
+    Animated: { Value: class {}, View: 'AnimatedView', parallel: jest.fn(animation), timing: animation, spring: animation },
     BackHandler: { addEventListener: jest.fn(() => ({ remove: jest.fn() })) },
   };
 });
@@ -14,7 +14,7 @@ jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({
 jest.mock('../../src/services/api/bbtalkApi', () => ({ bbtalkApi: { createComment: jest.fn() } }));
 jest.mock('../../src/utils/crossAlert', () => ({ xAlert: jest.fn() }));
 import React from 'react';
-import { BackHandler } from 'react-native';
+import { Animated, BackHandler } from 'react-native';
 import CommentInputModal from '../../src/components/CommentInputModal';
 import { bbtalkApi } from '../../src/services/api/bbtalkApi';
 import { xAlert } from '../../src/utils/crossAlert';
@@ -84,6 +84,18 @@ it('focuses the input after opening and labels the send action for screen reader
   mount(); expect(focus).not.toHaveBeenCalled();
   act(() => jest.advanceTimersByTime(50)); expect(focus).toHaveBeenCalledTimes(1);
   expect(send().props).toMatchObject({ accessibilityRole: 'button', accessibilityLabel: '发送评论' });
+});
+it('starts keyboard focus while the opening animation is still running', () => {
+  (Animated.parallel as jest.Mock).mockImplementationOnce(() => ({ start: jest.fn(), stop: jest.fn() }));
+  mount();
+  act(() => jest.advanceTimersByTime(50));
+  expect(focus).toHaveBeenCalledTimes(1);
+});
+it('cancels keyboard focus when closed before the opening delay expires', () => {
+  const values = mount();
+  act(() => tree.update(<CommentInputModal {...values} visible={false} />));
+  act(() => jest.advanceTimersByTime(50));
+  expect(focus).not.toHaveBeenCalled();
 });
 it('closes through backdrop tap or hardware back without submitting', () => {
   const values = mount(); type('draft');

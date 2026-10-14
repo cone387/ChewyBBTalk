@@ -6,6 +6,7 @@ jest.mock('@react-native-voice/voice', () => {
     onSpeechResults: null,
     onSpeechPartialResults: null,
     onSpeechError: null,
+    isAvailable: jest.fn(() => Promise.resolve(1)),
     start: jest.fn(() => Promise.resolve()),
     stop: jest.fn(() => Promise.resolve()),
     destroy: jest.fn(() => Promise.resolve()),
@@ -89,21 +90,22 @@ beforeEach(() => {
   voice.onSpeechResults = null;
   voice.onSpeechPartialResults = null;
   voice.onSpeechError = null;
-  recorder.prepareToRecordAsync.mockImplementation(() => Promise.resolve());
+  recorder.prepareToRecordAsync.mockReset().mockImplementation(() => Promise.resolve());
   recorder.record.mockImplementation(() => {});
   recorder.stop.mockImplementation(() => Promise.resolve());
   recorder.getStatus.mockImplementation(() => ({ durationMillis: 0 }));
   recorder.uri = 'file://rec.m4a';
   recorderState.durationMillis = 0;
   recorderState.isRecording = false;
-  audio.AudioModule.requestRecordingPermissionsAsync.mockImplementation(() => Promise.resolve({ granted: true }));
+  audio.AudioModule.requestRecordingPermissionsAsync.mockReset().mockImplementation(() => Promise.resolve({ granted: true }));
   audio.setAudioModeAsync.mockImplementation(() => Promise.resolve());
   voice.start.mockImplementation(() => Promise.resolve());
+  voice.isAvailable.mockReset().mockResolvedValue(1);
   voice.stop.mockImplementation(() => Promise.resolve());
   voice.destroy.mockImplementation(() => Promise.resolve());
 });
 
-afterEach(() => { act(() => { tree?.unmount(); }); tree = undefined; });
+afterEach(async () => { act(() => { tree?.unmount(); }); tree = undefined; await settle(); });
 
 describe('VoiceRecordingOverlay startup and finish', () => {
   it('records, transcribes, and finishes with the saved audio', async () => {
@@ -275,11 +277,112 @@ describe('VoiceRecordingOverlay voice bridge events', () => {
 });
 
 describe('VoiceRecordingOverlay rendering', () => {
+  it('restores playback audio mode after the speech bridge restores its prior recording category', async () => {
+    let category = 'playback';
+    audio.setAudioModeAsync.mockImplementation(async (mode: any) => { category = mode.allowsRecording ? 'recording' : 'playback'; });
+    voice.destroy.mockImplementation(async () => { category = 'recording'; });
+    await mountOverlay();
+    await press('取消录音');
+    await settle();
+    expect(category).toBe('playback');
+  });
+
+  it('never starts speech after a closed recording receives late first-use authorization', async () => {
+    let authorize!: (value: number) => void;
+    voice.isAvailable.mockImplementationOnce(() => new Promise(resolve => { authorize = resolve; }));
+    const props = { onFinish: jest.fn(), onCancel: jest.fn() };
+    await mountOverlay(props);
+    expect(recorder.record).toHaveBeenCalledTimes(1);
+    expect(voice.start).not.toHaveBeenCalled();
+    await act(async () => tree.update(<VoiceRecordingOverlay {...props} visible={false} />));
+    await settle();
+    await act(async () => authorize(1));
+    await settle();
+    expect(voice.start).not.toHaveBeenCalled();
+    expect(props.onFinish).not.toHaveBeenCalled();
+  });
+
+  it('allows reopening while an old permission request is unresolved and ignores its late grant', async () => {
+    let grant!: (value: { granted: boolean }) => void;
+    audio.AudioModule.requestRecordingPermissionsAsync.mockImplementationOnce(() => new Promise(resolve => { grant = resolve; }));
+    const props = { onFinish: jest.fn(), onCancel: jest.fn() };
+    await mountOverlay(props);
+    await act(async () => tree.update(<VoiceRecordingOverlay {...props} visible={false} />));
+    await act(async () => tree.update(<VoiceRecordingOverlay {...props} visible />));
+    await settle();
+    expect(recorder.record).toHaveBeenCalledTimes(1);
+    await act(async () => grant({ granted: true }));
+    await settle();
+    expect(recorder.record).toHaveBeenCalledTimes(1);
+    expect(audio.setAudioModeAsync).toHaveBeenCalledTimes(1);
+    expect(props.onFinish).not.toHaveBeenCalled();
+    expect(props.onCancel).not.toHaveBeenCalled();
+  });
+
+  it.each(['speech teardown', 'audio mode reset'])('waits for previous %s before starting a reopened recorder', async resource => {
+    let release!: () => void;
+    const pending = new Promise<void>(resolve => { release = resolve; });
+    if (resource === 'speech teardown') voice.destroy.mockImplementationOnce(() => pending);
+    else audio.setAudioModeAsync.mockImplementation((mode: any) => mode.allowsRecording ? Promise.resolve() : pending);
+    const props = { onFinish: jest.fn(), onCancel: jest.fn() };
+    await mountOverlay(props);
+    await act(async () => tree.update(<VoiceRecordingOverlay {...props} visible={false} />));
+    await act(async () => tree.update(<VoiceRecordingOverlay {...props} visible />));
+    await settle();
+    expect(recorder.record).toHaveBeenCalledTimes(1);
+    await act(async () => release());
+    await settle();
+    expect(recorder.record).toHaveBeenCalledTimes(2);
+    expect(audio.setAudioModeAsync).toHaveBeenLastCalledWith({ allowsRecording: true, playsInSilentMode: true });
+    await act(async () => voice.onSpeechResults({ value: ['新的录音'] }));
+    expect(hasText('新的录音')).toBe(true);
+  });
+
   it('renders nothing while hidden and skips the startup pipeline', async () => {
     await act(async () => { tree = create(<VoiceRecordingOverlay visible={false} onFinish={jest.fn()} onCancel={jest.fn()} />); });
     await settle();
     expect(tree.root.findAllByType('Text')).toHaveLength(0);
     expect(audio.AudioModule.requestRecordingPermissionsAsync).not.toHaveBeenCalled();
+    expect(audio.useAudioRecorder).not.toHaveBeenCalled();
+    expect(audio.useAudioRecorderState).not.toHaveBeenCalled();
+    expect(voice.onSpeechResults).toBeNull();
+    act(() => tree.unmount());
+    await settle();
+    expect(voice.destroy).not.toHaveBeenCalled();
+    expect(voice.removeAllListeners).not.toHaveBeenCalled();
+  });
+
+  it('does not let a hidden sibling replace or destroy the active speech bridge', async () => {
+    await mountOverlay();
+    const activeHandler = voice.onSpeechResults;
+    let hidden: any;
+    await act(async () => { hidden = create(<VoiceRecordingOverlay visible={false} onFinish={jest.fn()} onCancel={jest.fn()} />); });
+    expect(voice.onSpeechResults).toBe(activeHandler);
+    act(() => hidden.unmount());
+    await settle();
+    expect(voice.destroy).not.toHaveBeenCalled();
+    await act(async () => activeHandler({ value: ['仍在录音'] }));
+    expect(hasText('仍在录音')).toBe(true);
+  });
+
+  it.each(['permission', 'preparation', 'recording'])('hiding during %s releases recording without publishing stale results', async stage => {
+    let resume!: () => void;
+    if (stage === 'permission') audio.AudioModule.requestRecordingPermissionsAsync.mockImplementationOnce(() =>
+      new Promise(resolve => { resume = () => resolve({ granted: true }); }));
+    if (stage === 'preparation') recorder.prepareToRecordAsync.mockImplementationOnce(() =>
+      new Promise<void>(resolve => { resume = resolve; }));
+    const onFinish = jest.fn(); const onCancel = jest.fn();
+    await mountOverlay({ onFinish, onCancel });
+    await act(async () => tree.update(<VoiceRecordingOverlay visible={false} onFinish={onFinish} onCancel={onCancel} />));
+    if (resume) await act(async () => resume());
+    await settle();
+    expect(tree.toJSON()).toBeNull();
+    expect(recorder.record).toHaveBeenCalledTimes(stage === 'recording' ? 1 : 0);
+    expect(recorder.stop).toHaveBeenCalledTimes(stage === 'permission' ? 0 : 1);
+    expect(onFinish).not.toHaveBeenCalled();
+    expect(onCancel).not.toHaveBeenCalled();
+    if (stage !== 'permission') expect(audio.setAudioModeAsync).toHaveBeenLastCalledWith({ allowsRecording: false, playsInSilentMode: true });
+    expect(voice.destroy).toHaveBeenCalledTimes(1);
   });
 
   it('formats the timer and shows tap-mode hints and buttons', async () => {

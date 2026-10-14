@@ -23,6 +23,10 @@ try {
   voiceAvailable = false;
 }
 
+// Audio mode and the speech bridge are process-wide. A new overlay waits for the
+// preceding owner to finish asynchronous teardown before taking either resource.
+let recordingReleased: Promise<void> = Promise.resolve();
+
 interface Props {
   visible: boolean;
   holdMode?: boolean;
@@ -32,7 +36,12 @@ interface Props {
   onCancel: () => void;
 }
 
-export default function VoiceRecordingOverlay({ visible, holdMode = false, cancelHint = false, stopAction, onFinish, onCancel }: Props) {
+export default function VoiceRecordingOverlay(props: Props) {
+  // Hidden screens must not allocate a recorder, poll native status, or own global speech handlers.
+  return props.visible ? <ActiveVoiceRecordingOverlay {...props} /> : null;
+}
+
+function ActiveVoiceRecordingOverlay({ visible, holdMode = false, cancelHint = false, stopAction, onFinish, onCancel }: Props) {
   const { theme } = useTheme();
   const c = theme.colors;
   const [transcript, setTranscript] = useState('');
@@ -48,8 +57,7 @@ export default function VoiceRecordingOverlay({ visible, holdMode = false, cance
   const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const recorderState = useAudioRecorderState(audioRecorder);
 
-  // Setup Voice event handlers
-  useEffect(() => {
+  const installSpeechHandlers = () => {
     if (!Voice) return;
     Voice.onSpeechResults = (e: any) => {
       if (!isRecordingRef.current) return;
@@ -68,8 +76,7 @@ export default function VoiceRecordingOverlay({ visible, holdMode = false, cance
         console.warn('Speech error:', e.error);
       }
     };
-    return () => { Voice.destroy().then(Voice.removeAllListeners).catch(() => {}); };
-  }, []);
+  };
 
   // Pulse animation
   useEffect(() => {
@@ -91,18 +98,28 @@ export default function VoiceRecordingOverlay({ visible, holdMode = false, cance
     let prepared = false;
     let started = false;
     let settling = false;
-    let modeChanged = false;
+    let ownsResources = false;
+    let modeSetup: Promise<void> | undefined;
+    const previousRelease = recordingReleased;
+    let release!: () => void;
+    recordingReleased = new Promise<void>(resolve => { release = resolve; });
+    let cancelStartup!: () => void;
+    const cancelledStartup = new Promise<void>(resolve => { cancelStartup = resolve; });
     setTranscript(''); setPartialResult(''); transcriptRef.current = '';
     const startup = (async () => {
       try {
+        await previousRelease;
+        if (disposed || requested) return;
+        ownsResources = true;
+        installSpeechHandlers();
         const status = await AudioModule.requestRecordingPermissionsAsync();
         if (disposed || requested) return;
         if (!status.granted) {
           xAlert('权限不足', '需要麦克风权限才能录音');
           requested = 'cancel'; return;
         }
-        await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
-        modeChanged = true;
+        modeSetup = setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+        await modeSetup;
         if (disposed || requested) return;
         await audioRecorder.prepareToRecordAsync();
         prepared = true;
@@ -110,9 +127,13 @@ export default function VoiceRecordingOverlay({ visible, holdMode = false, cance
         audioRecorder.record(); started = true; isRecordingRef.current = true;
         // Do not make release wait on the native speech bridge.
         if (Voice && sttAvailable) {
-          Voice.start('zh-CN').then(() => {
-            if (disposed || requested) Voice.stop().catch(() => {});
-          }).catch(() => { if (!disposed) setSttAvailable(false); });
+          // iOS start() resolves before first-use speech authorization. Resolve
+          // authorization separately so closing cannot start speech later.
+          void Voice.isAvailable().then((available: number) => {
+            if (disposed || requested || !ownsResources) return;
+            if (!available) { setSttAvailable(false); return; }
+            return Voice.start('zh-CN');
+          }).catch(() => { if (!disposed && !requested) setSttAvailable(false); });
         }
       } catch (e: any) {
         if (!disposed && !requested) xAlert('录音失败', e.message || '无法启动录音');
@@ -122,20 +143,33 @@ export default function VoiceRecordingOverlay({ visible, holdMode = false, cance
     const finish = async () => {
       if (settling) return;
       settling = true;
-      await startup;
+      // Unmount releases the native recorder itself. A pending permission dialog
+      // must not keep all later recordings waiting, but audio-mode setup must settle.
+      await Promise.race([startup, cancelledStartup]);
+      await modeSetup?.catch(() => {});
       let duration = 0;
       let audioUri: string | null = null;
       try {
         if (started) duration = audioRecorder.getStatus().durationMillis;
-        if (prepared) await audioRecorder.stop();
+        if (prepared || (disposed && modeSetup)) await audioRecorder.stop();
         if (started) audioUri = audioRecorder.uri;
       } catch {
         if (!disposed && requested === 'finish') xAlert('录音失败', '无法保存录音，请重试');
         requested = 'cancel';
       }
       isRecordingRef.current = false;
-      if (Voice && sttAvailable) Voice.stop().catch(() => {});
-      if (modeChanged) await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
+      const teardown = async () => {
+        if (ownsResources && Voice) {
+          await Voice.stop().catch(() => {});
+          await Voice.destroy().then(() => Voice.removeAllListeners()).catch(() => {});
+        }
+        // The iOS speech bridge restores its previous category when destroyed.
+        // Apply the final playback mode afterwards, before the next owner starts.
+        if (modeSetup) await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
+        ownsResources = false;
+      };
+      // Keep finish responsive while ensuring the next recorder cannot race teardown.
+      void teardown().finally(() => { void previousRelease.then(release); });
       if (disposed) return;
       if (requested === 'finish' && started && duration >= 500 && audioUri) {
         callbacks.current.onFinish({ text: transcriptRef.current, audioUri, audioDuration: Math.max(1, Math.round(duration / 1000)) });
@@ -151,7 +185,7 @@ export default function VoiceRecordingOverlay({ visible, holdMode = false, cance
     });
     const back = BackHandler.addEventListener('hardwareBackPress', () => { stopRef.current('cancel'); return true; });
     return () => {
-      disposed = true; requested = 'cancel'; void finish();
+      disposed = true; requested = 'cancel'; cancelStartup(); void finish();
       appState.remove(); back.remove();
     };
   }, [visible]);

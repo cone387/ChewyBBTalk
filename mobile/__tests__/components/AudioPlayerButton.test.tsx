@@ -92,6 +92,8 @@ describe('AudioPlayerButton download flow', () => {
     FS.getInfoAsync.mockImplementation(async () => ({ exists: true }));
     await mountButton(att({ originalFilename: 'voice_123.m4a' }));
     expect(FS.downloadAsync).not.toHaveBeenCalled();
+    expect(Audio.useAudioPlayer).not.toHaveBeenCalled();
+    await act(async () => { cardButton('播放音频').props.onPress(); });
     expect(Audio.useAudioPlayer).toHaveBeenCalledWith({ uri: expect.stringMatching(/audio_v2_[a-f0-9]+\.m4a$/) });
     expect(hasText('语音记录')).toBe(true);
   });
@@ -198,6 +200,8 @@ describe('AudioPlayerButton download flow', () => {
     await mountButton(att());
     expect(FS.getInfoAsync).not.toHaveBeenCalled();
     expect(FS.downloadAsync).not.toHaveBeenCalled();
+    expect(Audio.useAudioPlayer).not.toHaveBeenCalled();
+    await act(async () => { cardButton('播放音频').props.onPress(); });
     expect(Audio.useAudioPlayer).toHaveBeenCalledWith({ uri: 'https://a.example/x.m4a' });
   });
 });
@@ -207,6 +211,7 @@ describe('PlayerCard playback', () => {
     FS.getInfoAsync.mockImplementation(async () => ({ exists: true }));
     Object.assign(Audio.__status, { playing: true, duration: 200, currentTime: 50 });
     await mountButton(att({ originalFilename: 'voice_7.m4a' }));
+    await act(async () => { cardButton('播放音频').props.onPress(); });
 
     const pauseButton = cardButton('暂停音频');
     expect(pauseButton).toBeDefined();

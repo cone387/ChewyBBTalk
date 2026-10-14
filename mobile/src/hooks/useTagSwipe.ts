@@ -28,7 +28,11 @@ export function useTagSwipe({ tags, selectedTag, showTagTabs, onSelectTag }: Use
     const nextIdx = direction === 'left'
       ? Math.min(currentTagIdx + 1, allTagIds.length - 1)
       : Math.max(currentTagIdx - 1, 0);
-    if (nextIdx === currentTagIdx) return;
+    if (nextIdx === currentTagIdx) {
+      if (reducedMotion) listSlideAnim.setValue(0);
+      else Animated.spring(listSlideAnim, { toValue: 0, useNativeDriver: true, speed: 20, bounciness: 0 }).start();
+      return;
+    }
     const slideOut = direction === 'left' ? -1 : 1;
     if (reducedMotion) {
       onSelectTag(allTagIds[nextIdx]);
@@ -49,7 +53,7 @@ export function useTagSwipe({ tags, selectedTag, showTagTabs, onSelectTag }: Use
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, gesture) =>
-        showTagTabsRef.current && Math.abs(gesture.dx) > 20 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.5,
+        showTagTabsRef.current && allTagIdsRef.current.length > 1 && Math.abs(gesture.dx) > 20 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.5,
       onPanResponderGrant: () => { swipingRef.current = true; },
       onPanResponderMove: (_, gesture) => {
         const idx = currentTagIdxRef.current;

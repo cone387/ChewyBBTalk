@@ -119,7 +119,9 @@ class ApiClient {
           if (item !== undefined && item !== null && item !== '') query.append(key, String(item));
         }
       }
-      if (query.size > 0) url = `${endpoint}${endpoint.includes('?') ? '&' : '?'}${query}`;
+      // Expo's native URLSearchParams supports serialization but has no size getter.
+      const encoded = query.toString();
+      if (encoded) url = `${endpoint}${endpoint.includes('?') ? '&' : '?'}${encoded}`;
     }
     return this.request<T>(url, { method: 'GET', ...options });
   }

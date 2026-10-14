@@ -5,6 +5,9 @@ import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import MainTabs from '../src/navigation/MainTabs';
 import { setHistoryLocked, setHistoryPrivacyReady } from '../src/services/historyPrivacy';
 
+const mockCalendarMount = jest.fn();
+const mockSettingsMount = jest.fn();
+
 jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Icon' }));
 jest.mock('@react-native-async-storage/async-storage', () => require('@react-native-async-storage/async-storage/jest/async-storage-mock'));
 jest.mock('../src/services/session', () => ({ onSessionChange: () => () => {} }));
@@ -16,15 +19,32 @@ jest.mock('../src/screens/HomeScreen', () => () => {
   return <TouchableOpacity onPress={() => setText('记录位置已保留')}><Text>{text}</Text></TouchableOpacity>;
 });
 jest.mock('../src/screens/CalendarScreen', () => () => {
+  require('react').useEffect(() => { mockCalendarMount(); }, []);
   const { Text } = require('react-native');
   return <Text>日历内容</Text>;
 });
 jest.mock('../src/screens/SettingsScreen', () => () => {
+  require('react').useEffect(() => { mockSettingsMount(); }, []);
   const { Text } = require('react-native');
   return <Text>账号内容</Text>;
 });
 
-beforeEach(() => { setHistoryPrivacyReady(true); setHistoryLocked(false); });
+beforeEach(() => { mockCalendarMount.mockClear(); mockSettingsMount.mockClear(); setHistoryPrivacyReady(true); setHistoryLocked(false); });
+
+test('opening records does not mount offscreen destinations until they are visited', async () => {
+  const screen = render(
+    <SafeAreaProvider initialMetrics={{ frame: { x: 0, y: 0, width: 375, height: 812 }, insets: { top: 0, bottom: 0, left: 0, right: 0 } }}>
+      <NavigationContainer><MainTabs onLogout={jest.fn()} /></NavigationContainer>
+    </SafeAreaProvider>,
+  );
+  await screen.findByText('记录内容');
+  expect(mockCalendarMount).not.toHaveBeenCalled();
+  expect(mockSettingsMount).not.toHaveBeenCalled();
+  fireEvent.press(screen.getByLabelText('日历, tab, 2 of 3'));
+  await screen.findByText('日历内容');
+  expect(mockCalendarMount).toHaveBeenCalledTimes(1);
+  expect(mockSettingsMount).not.toHaveBeenCalled();
+});
 
 test('tabs preserve records state and a privacy lock closes every other destination', async () => {
   const screen = render(

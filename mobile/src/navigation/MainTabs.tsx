@@ -45,8 +45,9 @@ export default function MainTabs({ onLogout }: { onLogout: () => void }) {
         else recordHistoryActivity();
       } }}
       screenOptions={({ route }) => ({
-        // Keep the records screen mounted: it owns the privacy timer and unlock UI.
-        lazy: false,
+        // Records owns the privacy timer even when a deep link opens another tab.
+        // Other destinations do not need to mount during the feed's first paint.
+        lazy: route.name !== 'Records',
         freezeOnBlur: false,
         headerShown: !locked && route.name !== 'Records',
         headerStyle: { backgroundColor: c.background },

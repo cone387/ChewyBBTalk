@@ -9,6 +9,7 @@ import bbtalkReducer from '../src/store/slices/bbtalkSlice';
 import tagReducer from '../src/store/slices/tagSlice';
 import { apiClient } from '../src/services/api/apiClient';
 import { getSession, setSession } from '../src/services/session';
+import { notifyRecordsChanged } from '../src/services/recordChanges';
 
 const mockFocus = new Set<() => void>();
 const mockNavigation = { navigate: jest.fn(), isFocused: () => true, addListener: (_event: string, callback: () => void) => { mockFocus.add(callback); return () => mockFocus.delete(callback); } };
@@ -149,4 +150,32 @@ test('a late response for a previous search cannot replace the visible newer res
   await act(async () => { finishOld(result('迟到的旧结果')); });
   expect(screen.getByText('新查询结果')).toBeTruthy();
   expect(screen.queryByText('迟到的旧结果')).toBeNull();
+});
+
+test('a failed initial read is retried on the next tab focus', async () => {
+  (apiClient.get as jest.Mock).mockImplementation((url: string) => url.endsWith('/tags')
+    ? Promise.resolve([{ uid: 'tag-1', name: '工作' }]) : Promise.reject(new Error('offline')));
+  const screen = mount();
+  await act(async () => {});
+  (apiClient.get as jest.Mock).mockImplementation((url: string) => Promise.resolve(url.endsWith('/tags')
+    ? [{ uid: 'tag-1', name: '工作' }] : result('重试成功')));
+  await act(async () => { mockFocus.forEach(callback => callback()); });
+  await screen.findByText('重试成功');
+});
+
+test('a record change during refresh is followed by a fresh read', async () => {
+  const screen = mount();
+  await screen.findByText('初始记录');
+  let finish: (value: any) => void = () => {};
+  let reads = 0;
+  (apiClient.get as jest.Mock).mockImplementation((url: string) => {
+    if (url.endsWith('/tags')) return Promise.resolve([{ uid: 'tag-1', name: '工作' }]);
+    reads++;
+    return reads === 1 ? new Promise(resolve => { finish = resolve; }) : Promise.resolve(result('变更后最新记录'));
+  });
+  await act(async () => { notifyRecordsChanged(); });
+  await act(async () => { notifyRecordsChanged(); });
+  await act(async () => { finish(result('请求发出时的旧快照')); });
+  await screen.findByText('变更后最新记录');
+  expect(reads).toBe(2);
 });

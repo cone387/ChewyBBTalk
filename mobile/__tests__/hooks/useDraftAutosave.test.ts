@@ -23,6 +23,19 @@ function editor(value: unknown = { content: 'first' }, ready = true) {
 }
 async function advance(ms = 400) { await act(async () => { await jest.advanceTimersByTimeAsync(ms); }); }
 
+it('does not traverse unchanged draft data during unrelated editor and save-status renders', async () => {
+  let reads = 0;
+  const value = { get content() { reads++; return 'unchanged'; } };
+  const { rerender, key, result } = editor(value);
+  for (let i = 0; i < 10; i++) rerender({ value, ready: true });
+  expect(reads).toBe(1);
+  await advance();
+  expect(AsyncStorage.setItem).toHaveBeenCalledWith(key, '{"content":"unchanged"}');
+  expect(result.current.status).toBe('草稿已保存到本机');
+  // The actual persistence operation takes one fresh serialized snapshot.
+  expect(reads).toBe(2);
+});
+
 it('debounces rapid edits and persists only the latest value', async () => {
   const { result, rerender, key } = editor();
   await advance(300);

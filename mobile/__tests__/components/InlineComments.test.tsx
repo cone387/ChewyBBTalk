@@ -151,6 +151,18 @@ it('renders embedded previews without per-card requests and pages only on expans
   await act(async () => tree.root.findAllByType('TouchableOpacity').find((x: any) => x.props.accessibilityLabel === '加载更多评论').props.onPress());
   expect(rows()).toHaveLength(5); expect(page).toHaveBeenLastCalledWith('first', 2);
 });
+it('paints cached feed previews in the initial commit without a follow-up hydration render', async () => {
+  const onRender = jest.fn();
+  await act(async () => {
+    tree = create(<React.Profiler id="preview" onRender={onRender}>
+      <InlineComments {...props()} commentPreview={[comment('one')]} commentsRevision="r1" />
+    </React.Profiler>);
+  });
+  expect(rows()).toHaveLength(1);
+  expect(text()).toContain('body-one');
+  expect(api).not.toHaveBeenCalled();
+  expect(onRender).toHaveBeenCalledTimes(1);
+});
 it('reuses expanded comments after remount and invalidates a changed remote revision', async () => {
   const page = bbtalkApi.getCommentPage as jest.Mock;
   page.mockResolvedValue({ total: 4, has_more: false, page: 1, page_size: 20, items: ['one','two','three','four'].map(comment), revision: 'r1' });

@@ -63,7 +63,7 @@ function TagTabs({
                 styles.tagTab,
                 active && { backgroundColor: c.primary, borderRadius: 20 },
               ]}
-              onPress={() => { onSelectTag(active ? null : tag.id); onResetAnim(); }}
+              onPress={() => { onSelectTag(tag.id); onResetAnim(); }}
               accessibilityRole="tab"
               accessibilityLabel={tag.name}
               accessibilityState={{ selected: active }}

@@ -37,42 +37,80 @@ import { retainMedia, uploadRetainedMedia, pruneRetainedMedia, type PendingMedia
 import { confirmPublicVisibility } from '../utils/confirmPublicVisibility';
 import { COMPOSE_TOOLBAR_LABELS } from '../utils/composeToolbarLabels';
 
-// expo-audio hook — 在 native 端使用，web 端返回 null
 import { useAudioPlayer, setAudioModeAsync } from 'expo-audio';
-function useNativeAudioPlayer(url: string) {
-  // useAudioPlayer 在所有平台都可调用，但 web 上行为可能不一致
-  // 这里统一调用以满足 hooks 规则，web 端不使用返回值
-  return useAudioPlayer(url);
-}
 
 const SCREEN_H = Dimensions.get('window').height;
 
 /** 60×60 音频卡片，点击播放/暂停 */
 function CompactAudioCard({ attachment, colors: c }: { attachment: Attachment; colors: any }) {
+  return <CompactAudioEntry key={`${attachment.uid}:${attachment.url}`} attachment={attachment} colors={c} />;
+}
+
+function CompactAudioEntry({ attachment, colors }: { attachment: Attachment; colors: any }) {
+  const [requested, setRequested] = useState(false);
+  if (!requested) return <CompactAudioButton colors={colors} playing={false} onPress={() => setRequested(true)} />;
+  return Platform.OS === 'web'
+    ? <ActiveCompactAudioCard attachment={attachment} colors={colors} nativePlayer={null} />
+    : <NativeCompactAudioCard attachment={attachment} colors={colors} />;
+}
+
+function NativeCompactAudioCard({ attachment, colors }: { attachment: Attachment; colors: any }) {
+  const player = useAudioPlayer(buildImageSource(attachment.url));
+  return <ActiveCompactAudioCard attachment={attachment} colors={colors} nativePlayer={player} />;
+}
+
+function ActiveCompactAudioCard({ attachment, colors: c, nativePlayer }: {
+  attachment: Attachment; colors: any; nativePlayer: ReturnType<typeof useAudioPlayer> | null;
+}) {
   const [playing, setPlaying] = useState(false);
   const audioRef = useRef<any>(null); // Web fallback
-
-  // Native: 使用 expo-audio 的 useAudioPlayer
-  // Web: 用 HTML5 Audio（useAudioPlayer 在 web 上也可用但行为不一致）
-  const nativePlayer = useNativeAudioPlayer(attachment.url);
+  const objectUrl = useRef<string | null>(null);
+  const loadingAudio = useRef(false);
+  const alive = useRef(true);
+  const session = useRef(getSession()).current;
 
   useEffect(() => {
-    return () => { audioRef.current?.pause?.(); };
-  }, []);
+    alive.current = true;
+    void toggle();
+    return () => {
+      alive.current = false;
+      audioRef.current?.pause?.();
+      if (objectUrl.current) { URL.revokeObjectURL(objectUrl.current); objectUrl.current = null; }
+      try { nativePlayer?.pause(); } catch { /* The native hook releases on unmount. */ }
+    };
+  }, [nativePlayer]);
 
   const toggle = async () => {
+    if (!alive.current || !isCurrentSession(session)) return;
     if (Platform.OS === 'web') {
-      if (!audioRef.current) {
-        const audio = new window.Audio(attachment.url);
-        audio.onended = () => setPlaying(false);
-        audio.onerror = () => setPlaying(false);
-        audioRef.current = audio;
-      }
-      if (playing) { audioRef.current.pause(); setPlaying(false); }
-      else { audioRef.current.play().catch(() => setPlaying(false)); setPlaying(true); }
+      if (loadingAudio.current) return;
+      loadingAudio.current = true;
+      try {
+        if (!audioRef.current) {
+          const source = buildImageSource(attachment.url);
+          let url = attachment.url;
+          // HTMLAudioElement cannot attach Authorization headers itself.
+          if (typeof source !== 'string' && source.headers) {
+            const response = await fetch(source.uri, { headers: source.headers });
+            if (!response.ok) throw new Error('音频加载失败');
+            const blob = await response.blob();
+            if (!alive.current || !isCurrentSession(session)) return;
+            url = URL.createObjectURL(blob); objectUrl.current = url;
+          }
+          const audio = new window.Audio(url);
+          audio.onended = () => setPlaying(false);
+          audio.onerror = () => setPlaying(false);
+          audioRef.current = audio;
+        }
+        if (playing) { audioRef.current.pause(); setPlaying(false); }
+        else { await audioRef.current.play(); if (alive.current) setPlaying(true); }
+      } catch {
+        if (alive.current) { setPlaying(false); xAlert('无法播放音频', '请检查网络后重试'); }
+      } finally { loadingAudio.current = false; }
     } else if (nativePlayer) {
       try {
         await setAudioModeAsync({ playsInSilentMode: true }).catch(() => {});
+        if (!alive.current || !isCurrentSession(session)) return;
         if (playing) { nativePlayer.pause(); setPlaying(false); }
         else { nativePlayer.play(); setPlaying(true); }
       } catch (e) {
@@ -82,10 +120,14 @@ function CompactAudioCard({ attachment, colors: c }: { attachment: Attachment; c
     }
   };
 
+  return <CompactAudioButton colors={c} playing={playing} onPress={toggle} />;
+}
+
+function CompactAudioButton({ colors: c, playing, onPress }: { colors: any; playing: boolean; onPress: () => void }) {
   return (
     <TouchableOpacity
       style={[compactStyles.card, { backgroundColor: c.borderLight, borderColor: c.border }]}
-      activeOpacity={0.7} onPress={toggle}
+      activeOpacity={0.7} onPress={onPress} accessibilityRole="button" accessibilityLabel={playing ? '暂停录音' : '播放录音'}
     >
       <Ionicons name={playing ? 'pause' : 'play'} size={22} color={c.primary} />
       <Text style={[compactStyles.label, { color: c.textTertiary }]} numberOfLines={1}>录音</Text>

@@ -1,5 +1,5 @@
 jest.mock('@react-native-async-storage/async-storage', () => require('@react-native-async-storage/async-storage/jest/async-storage-mock'));
-jest.mock('../../src/components/CalendarDayRecords', () => 'CalendarDayRecords');
+jest.mock('../../src/components/CalendarDayRecords', () => (props: any) => require('react').createElement('CalendarDayRecords', props, props.header));
 jest.mock('react-native', () => ({
   View: 'View', Text: 'Text', TouchableOpacity: 'TouchableOpacity',
   Modal: 'Modal', TextInput: 'TextInput', ScrollView: 'ScrollView', ActivityIndicator: 'ActivityIndicator',
@@ -239,7 +239,7 @@ describe('CalendarScreen month navigation', () => {
 describe('CalendarScreen history activity', () => {
   it('records activity when the calendar is touched', async () => {
     await mount();
-    await act(async () => { void tree.root.findByType('ScrollView').props.onTouchStart(); });
+    await act(async () => { void tree.root.findAllByType('View').find((node: any) => node.props.onTouchStart).props.onTouchStart(); });
     expect(privacy.recordHistoryActivity).toHaveBeenCalledTimes(1);
   });
 });
