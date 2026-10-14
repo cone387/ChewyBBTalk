@@ -1,6 +1,6 @@
 jest.mock('react-native', () => ({
   __esModule: true,
-  View: 'View', Text: 'Text', TextInput: 'TextInput', TouchableOpacity: 'TouchableOpacity',
+  View: 'View', Text: 'Text', TextInput: 'TextInput', TouchableOpacity: 'TouchableOpacity', ScrollView: 'ScrollView',
   StyleSheet: { create: (value: unknown) => value },
 }));
 jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Icon' }));
@@ -50,6 +50,9 @@ describe('SearchBar history panel', () => {
     expect(hasText('最近搜索')).toBe(true);
     expect(hasText('工作')).toBe(true);
     expect(hasText('生活')).toBe(true);
+    const historyScroll = tree.root.findByType('ScrollView');
+    expect(historyScroll.props.style.maxHeight).toBeLessThanOrEqual(160);
+    expect(historyScroll.props.keyboardShouldPersistTaps).toBe('handled');
     const chip = tree.root.findAllByType('TouchableOpacity')
       .find((n: any) => n.findAllByType('Text').some((t: any) => childText(t.props.children) === '生活'))!;
     await act(async () => { void chip.props.onPress(); });
@@ -92,7 +95,7 @@ describe('SearchInput', () => {
     await act(async () => { tree = create(<SearchInput {...(p as any)} />); });
     const input = tree.root.findByType('TextInput');
     expect(input.props.value).toBe('关键词');
-    expect(input.props.autoFocus).toBe(true);
+    expect(input.props.autoFocus).toBeFalsy();
     await act(async () => { void input.props.onChangeText('新词'); });
     expect(p.onSearchTextChange).toHaveBeenCalledWith('新词');
     await act(async () => { void input.props.onSubmitEditing(); });

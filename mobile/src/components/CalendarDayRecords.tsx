@@ -8,6 +8,7 @@ import { readCalendarCache, writeCalendarCache } from '../services/calendarCache
 import { useTheme } from '../theme/ThemeContext';
 import type { BBTalk } from '../types';
 import { onRecordsChanged } from '../services/recordChanges';
+import CalendarRecordCard from './CalendarRecordCard';
 
 interface DayPage { items: BBTalk[]; page: number; has_more: boolean; }
 const emptyPage = (): DayPage => ({ items: [], page: 0, has_more: false });
@@ -74,12 +75,10 @@ export default function CalendarDayRecords({ date, header, contentContainerStyle
     return () => { active = false; controller?.abort(); unsubscribe(); };
   }, [date]);
 
-  const renderItem = useCallback(({ item }: { item: BBTalk }) => <TouchableOpacity accessibilityRole="button"
-    onPress={() => { if (canOpen.current()) navigation.navigate('RecordDetail', { item }); }}
-    style={{ padding: 16, marginBottom: 12, borderRadius: 16, backgroundColor: c.surface }}>
-    <Text numberOfLines={5} style={{ color: c.text, fontSize: 16, lineHeight: 25 }}>{item.content}</Text>
-    <Text style={{ color: c.textSecondary, marginTop: 8 }}>{item.attachments.length ? `${item.attachments.length} 个附件 · ` : ''}点击阅读全文</Text>
-  </TouchableOpacity>, [c, navigation]);
+  const openRecord = useCallback((item: BBTalk) => {
+    if (canOpen.current()) navigation.navigate('RecordDetail', { item });
+  }, [navigation]);
+  const renderItem = useCallback(({ item }: { item: BBTalk }) => <CalendarRecordCard item={item} onOpen={openRecord} />, [openRecord]);
 
   return <FlatList
     style={{ flex: 1, backgroundColor: c.background }} contentContainerStyle={contentContainerStyle}

@@ -40,6 +40,30 @@ test('failed writes remain retryable without poisoning the queue', async () => {
   expect(JSON.parse((await readDraft('draft'))!).content).toBe('keep me');
 });
 
+test('draft directory ignores legacy unchanged edit snapshots but retains every real edit', async () => {
+  const session = getSession();
+  const editItem = { id: 'r1', content: '原文', visibility: 'private', tags: [{ name: '工作' }], attachments: [{ uid: 'a1' }], context: { location: { latitude: 1, longitude: 2 } } };
+  const draft = { version: 1, content: '#工作 原文', visibility: 'private', attachments: [{ uid: 'a1' }], location: { latitude: 1, longitude: 2 }, pendingMedia: [], editItem };
+  const key = `compose_draft:${session.scope}:edit:r1`;
+  await writeDraft(key, draft, session);
+  expect(await listDrafts(session)).toEqual([]);
+  // Filtering must not mutate stored data: incomplete historical snapshots are
+  // left recoverable rather than being guessed to be identical.
+  expect(await readDraft(key)).not.toBeNull();
+  for (const changes of [
+    { content: '#工作 修改' }, { content: '#生活 原文' }, { visibility: 'public' },
+    { attachments: [] },
+    { attachments: [{ uid: 'a1', url: 'https://updated.example/attachment' }] },
+    { attachments: [{ uid: 'a1', type: 'audio' }] },
+    { attachments: [{ uid: 'a1', filename: 'renamed.jpg' }] },
+    { pendingMedia: [{ id: 'pending' }] }, { location: null },
+    { editItem: { id: 'r1', content: '原文' } },
+  ]) {
+    await writeDraft(key, { ...draft, ...changes }, session);
+    expect(await listDrafts(session)).toHaveLength(1);
+  }
+});
+
 test('a queued old-session write cannot run under another account', async () => {
   const pending = writeDraft('draft', { content: 'private' }, getSession());
   clearSession(); setSession('https://draft.example', 'another');

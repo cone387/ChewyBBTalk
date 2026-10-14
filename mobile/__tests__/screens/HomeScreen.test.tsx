@@ -49,7 +49,7 @@ jest.mock('react-native', () => ({
   View: 'View', Text: 'Text', TouchableOpacity: 'TouchableOpacity', ScrollView: 'ScrollView',
   ActivityIndicator: 'ActivityIndicator', StyleSheet: { create: (value: unknown) => value },
   Platform: { OS: 'ios', select: (options: any) => options.ios }, Modal: 'Modal',
-  RefreshControl: 'RefreshControl', Animated: { View: 'AnimatedView' },
+  RefreshControl: 'RefreshControl', Keyboard: { dismiss: jest.fn() }, Animated: { View: 'AnimatedView', get FlatList() { return mockFlatListComponent; } },
   LayoutAnimation: { configureNext: jest.fn(), create: jest.fn(() => ({})) },
   UIManager: {}, Linking: { openURL: (...args: any[]) => mockLinkingOpenURL(...args) },
   AppState: { currentState: 'active', addEventListener: jest.fn(() => ({ remove: jest.fn() })) },
@@ -106,6 +106,8 @@ jest.mock('../../src/hooks/useBatchMode', () => ({
 jest.mock('../../src/hooks/useTagSwipe', () => ({
   useTagSwipe: () => mockTagSwipe,
 }));
+const mockSticky = { scrollY: { setValue: jest.fn() }, onScroll: jest.fn(), translateY: 0, searchHeight: 60, navigationHeight: 48, onSearchLayout: jest.fn(), onNavigationLayout: jest.fn() };
+jest.mock('../../src/hooks/useStickySearchHeader', () => ({ useStickySearchHeader: () => mockSticky }));
 jest.mock('../../src/hooks/useHoldToRecord', () => ({
   useHoldToRecord: (...args: any[]) => {
     mockHoldArgs = args;
@@ -174,6 +176,8 @@ const CardStub = (props: any) => (
 const SearchInputStub = (props: any) => (
   <View>
     <SearchTextInput value={props.searchText} onChangeText={props.onSearchTextChange} />
+    <TouchableOpacity accessibilityLabel="聚焦搜索" onPress={props.onFocus} />
+    <TouchableOpacity accessibilityLabel="清除搜索" onPress={() => props.onSearchTextChange('')} />
     <TouchableOpacity accessibilityLabel="提交搜索" onPress={() => props.onSubmit(props.searchText)} />
   </View>
 );
@@ -190,6 +194,7 @@ const SearchBarStub = (props: any) => (
 
 const TagTabsStub = (props: any) => (
   <View>
+    <TouchableOpacity accessibilityLabel="管理标签" onPress={props.onManage} />
     {(props.tags || []).map((tag: any) => (
       <TouchableOpacity key={tag.id} accessibilityLabel={`选择标签 ${tag.id}`} onPress={() => props.onSelectTag(tag.id)} />
     ))}
@@ -569,26 +574,28 @@ describe('HomeScreen batch mode', () => {
 describe('HomeScreen search', () => {
   it('submits a search, reloads with it, and clears on close', async () => {
     await mountHome();
-    await press('搜索');
+    await press('聚焦搜索');
     await act(async () => {
       tree.root.findAllByType(SearchTextInput)[0].props.onChangeText('关键词');
     });
     await press('提交搜索');
     expect(mockAsyncStorage.setItem).toHaveBeenCalledWith('search_history:null', JSON.stringify(['关键词']));
     expect(mockSlice.loadBBTalks).toHaveBeenLastCalledWith({ search: '关键词', tags: [], date: undefined });
-    await press('关闭搜索');
+    await press('清除搜索');
     expect(mockSlice.loadBBTalks).toHaveBeenLastCalledWith({ search: undefined, tags: [], date: undefined });
-    expect(tappable('提交搜索')).toBeUndefined();
+    expect(tappable('提交搜索')).toBeDefined();
   });
 
   it('loads history from storage, reuses entries, and clears them', async () => {
     mockSearchHistoryJson = JSON.stringify(['旧词', '别的']);
     await mountHome();
-    await press('搜索');
+    await press('聚焦搜索');
     const barProps = mockSearchBar.mock.calls[mockSearchBar.mock.calls.length - 1][0];
     expect(barProps.searchHistory).toEqual(['旧词', '别的']);
     await press('历史词条 旧词');
     expect(tree.root.findAllByType(SearchTextInput)[0].props.value).toBe('旧词');
+    await press('清除搜索');
+    await press('聚焦搜索');
     await press('清空搜索历史');
     expect(mockAsyncStorage.removeItem).toHaveBeenCalledWith('search_history:null');
   });
@@ -668,14 +675,11 @@ describe('HomeScreen tag tabs and voice', () => {
     expect(tappable('语音记录')).toBeUndefined();
   });
 
-  it('still exposes the active filter when tag navigation is hidden', async () => {
-    const onSelectTag = jest.fn();
+  it('always shows tag navigation and management, ignoring the retired hide setting', async () => {
     mockShowTagTabs = 'false';
-    await mountHome({ selectedTag: 't1', onSelectTag });
-    expect(tappable('选择标签 t1')).toBeUndefined();
-    expect(tappable('清除标签筛选：工作')).toBeDefined();
-    await press('清除标签筛选：工作');
-    expect(onSelectTag).toHaveBeenCalledWith(null);
+    await mountHome({ selectedTag: 't1' });
+    expect(mockTagTabs).toHaveBeenCalled();
+    expect(mockTagTabs.mock.calls.at(-1)![0].onManage).toEqual(expect.any(Function));
   });
 
   it('opens the comment editor without rendering the feed again', async () => {
@@ -695,21 +699,14 @@ describe('HomeScreen tag tabs and voice', () => {
     expect(mockCard).not.toHaveBeenCalled();
   });
 
-  it('toggles the tag tab row and selects a tag', async () => {
+  it('shows persistent search, selects tags and opens tag management', async () => {
     const onSelectTag = jest.fn();
     await mountHome({ onSelectTag });
-    expect(tappable('选择标签 t2')).toBeDefined();
-    await press('标签筛选');
-    expect(tappable('选择标签 t2')).toBeUndefined();
-    await press('标签筛选');
-    await press('选择标签 t2');
+    expect(mockSearchInput).toHaveBeenCalled();
+    await act(async () => mockTagTabs.mock.calls.at(-1)![0].onSelectTag('t2'));
     expect(onSelectTag).toHaveBeenCalledWith('t2');
-  });
-
-  it('hides tag tabs via the persisted setting', async () => {
-    mockShowTagTabs = 'false';
-    await mountHome();
-    expect(tappable('选择标签 t1')).toBeUndefined();
+    await act(async () => mockTagTabs.mock.calls.at(-1)![0].onManage());
+    expect(mockNav.value.navigate).toHaveBeenCalledWith('TagManagement');
   });
 
   it('finishes a voice recording by navigating to compose with the result', async () => {
@@ -777,7 +774,7 @@ describe('HomeScreen refresh plumbing', () => {
     const privacyFocus = mockNav.value.addListener.mock.calls.filter((call: any[]) => call[0] === 'focus')[0]![1]!;
     await act(async () => { privacyFocus(); });
     expect(mockPrivacy.value.loadPrivacySettings).toHaveBeenCalled();
-    expect(mockAsyncStorage.getItem).toHaveBeenCalledWith('show_tag_tabs');
+    expect(mockAsyncStorage.getItem).not.toHaveBeenCalledWith('show_tag_tabs');
   });
 
   it('skips the foreground refresh when unfocused, backgrounded, or throttled', async () => {
@@ -838,24 +835,24 @@ describe('HomeScreen refresh plumbing', () => {
 describe('HomeScreen search and pickers', () => {
   it('closes the search through the panel close button', async () => {
     await mountHome();
-    await press('搜索');
+    await press('聚焦搜索');
     expect(tappable('提交搜索')).toBeDefined();
     await press('关闭搜索面板');
-    expect(tappable('提交搜索')).toBeUndefined();
+    expect(tappable('提交搜索')).toBeDefined();
   });
 
   it('does not save an unsubmitted term when closing search', async () => {
     await mountHome();
-    await press('搜索');
+    await press('聚焦搜索');
     await act(async () => { tree.root.findAllByType(SearchTextInput)[0].props.onChangeText('临时'); });
-    await press('关闭搜索');
+    await press('清除搜索');
     expect(mockAsyncStorage.setItem).not.toHaveBeenCalled();
-    expect(tappable('提交搜索')).toBeUndefined();
+    expect(tappable('提交搜索')).toBeDefined();
   });
 
   it('ignores blank search submissions', async () => {
     await mountHome();
-    await press('搜索');
+    await press('聚焦搜索');
     await act(async () => { tree.root.findAllByType(SearchTextInput)[0].props.onChangeText('   '); });
     await press('提交搜索');
     expect(mockAsyncStorage.setItem).not.toHaveBeenCalled();
@@ -895,6 +892,25 @@ describe('HomeScreen search and pickers', () => {
 });
 
 describe('HomeScreen ui details', () => {
+  it('resets the collapsed header when privacy locking unmounts the list', async () => {
+    await mountHome();
+    mockSticky.scrollY.setValue.mockClear();
+    mockPrivacy.value = { ...mockPrivacy.value, locked: true };
+    await act(async () => tree.update(<HomeScreen selectedTag={null} selectedDate={null} />));
+    expect(mockSticky.scrollY.setValue).toHaveBeenCalledWith(0);
+  });
+  it('reserves measured space for sticky navigation and leaves search typing outside list rendering', async () => {
+    await mountHome();
+    const list = tree.root.findByType(mockFlatListComponent);
+    expect(list.props.contentContainerStyle.paddingTop).toBe(118);
+    expect(list.props.refreshControl.props.progressViewOffset).toBe(118);
+    expect(list.props.onScroll).toBe(mockSticky.onScroll);
+    expect(tappable('标签筛选')).toBeUndefined();
+    expect(tappable('搜索')).toBeUndefined();
+    mockCard.mockClear();
+    await act(async () => tree.root.findByType(SearchTextInput).props.onChangeText('typing'));
+    expect(mockCard).not.toHaveBeenCalled();
+  });
   it('extracts stable keys from the flat list data', async () => {
     await mountHome();
     const list = tree.root.findAllByType(mockFlatListComponent)[0];

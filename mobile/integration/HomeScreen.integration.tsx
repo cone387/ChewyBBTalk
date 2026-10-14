@@ -67,7 +67,7 @@ test('history search applies immediately and clearing input restores unsearched 
     url.endsWith('/tags') ? [] : result(params?.search ? '雨天的记录' : '全部记录')));
   const screen = mount();
   await screen.findByText('全部记录');
-  fireEvent.press(screen.getByLabelText('搜索'));
+  fireEvent(screen.getByLabelText('搜索碎碎念'), 'focus');
   fireEvent.press(await screen.findByText('雨天'));
   await screen.findByText('雨天的记录');
   expect(screen.getByLabelText('清除关键词筛选：雨天')).toBeTruthy();
@@ -79,10 +79,10 @@ test('history search applies immediately and clearing input restores unsearched 
 test('closing an unsubmitted search does not add it to history', async () => {
   const screen = mount();
   await screen.findByText('初始记录');
-  fireEvent.press(screen.getByLabelText('搜索'));
+  fireEvent(screen.getByLabelText('搜索碎碎念'), 'focus');
   fireEvent.changeText(screen.getByLabelText('搜索碎碎念'), '尚未搜索');
-  fireEvent.press(screen.getByLabelText('关闭搜索'));
-  fireEvent.press(screen.getByLabelText('搜索'));
+  fireEvent.press(screen.getByLabelText('清除搜索'));
+  fireEvent(screen.getByLabelText('搜索碎碎念'), 'focus');
   expect(screen.queryByText('尚未搜索')).toBeNull();
   expect(await AsyncStorage.getItem(`search_history:${getSession().scope}`)).toBeNull();
 });
@@ -108,7 +108,7 @@ test('foreground and network recovery preserve applied filters and unsubmitted s
   (apiClient.get as jest.Mock).mockImplementation((url: string) => Promise.resolve(url.endsWith('/tags') ? [{ uid: 'tag-1', name: '工作' }] : result('初始记录')));
   const screen = mount();
   await screen.findByText('初始记录');
-  fireEvent.press(screen.getByLabelText('搜索'));
+  fireEvent(screen.getByLabelText('搜索碎碎念'), 'focus');
   const input = screen.getByPlaceholderText('搜索碎碎念...');
   fireEvent.changeText(input, '已提交关键词');
   fireEvent(input, 'submitEditing');
@@ -136,7 +136,7 @@ test('foreground and network recovery preserve applied filters and unsubmitted s
 test('a late response for a previous search cannot replace the visible newer result', async () => {
   const screen = mount();
   await screen.findByText('初始记录');
-  fireEvent.press(screen.getByLabelText('搜索'));
+  fireEvent(screen.getByLabelText('搜索碎碎念'), 'focus');
   let finishOld: (value: any) => void = () => {};
   (apiClient.get as jest.Mock).mockImplementation((url: string, params: any) => {
     if (url.endsWith('/tags')) return Promise.resolve([{ uid: 'tag-1', name: '工作' }]);

@@ -11,6 +11,7 @@ export interface TagTabsProps {
   selectedDate: string | null;
   onSelectTag: (tagId: string | null) => void;
   onResetAnim: () => void;
+  onManage?: () => void;
   scrollRef: any;
   theme: Theme;
 }
@@ -21,14 +22,16 @@ function TagTabs({
   selectedDate,
   onSelectTag,
   onResetAnim,
+  onManage,
   scrollRef,
   theme,
 }: TagTabsProps) {
   const c = theme.colors;
 
   return (
-    <View style={[styles.tagTabsWrap, { backgroundColor: c.background }]}>
+    <View style={[styles.tagTabsWrap, { backgroundColor: c.background, borderBottomColor: c.borderLight }]}>
       <ScrollView
+        style={styles.scroller}
         horizontal
         showsHorizontalScrollIndicator={false}
         ref={scrollRef as React.RefObject<ScrollView>}
@@ -37,7 +40,7 @@ function TagTabs({
         <TouchableOpacity
           style={[
             styles.tagTab,
-            !selectedTag && !selectedDate && { backgroundColor: c.primary, borderRadius: 20 },
+            !selectedTag && !selectedDate && { borderBottomColor: c.primary },
           ]}
           onPress={() => { onSelectTag(null); onResetAnim(); }}
           accessibilityRole="tab"
@@ -47,7 +50,7 @@ function TagTabs({
           <Text
             style={[
               styles.tagTabText,
-              { color: !selectedTag && !selectedDate ? '#fff' : c.textSecondary },
+              { color: !selectedTag && !selectedDate ? c.primary : c.textSecondary },
               !selectedTag && !selectedDate && styles.tagTabTextActive,
             ]}
           >
@@ -61,7 +64,7 @@ function TagTabs({
               key={tag.id}
               style={[
                 styles.tagTab,
-                active && { backgroundColor: c.primary, borderRadius: 20 },
+                active && { borderBottomColor: c.primary },
               ]}
               onPress={() => { onSelectTag(tag.id); onResetAnim(); }}
               accessibilityRole="tab"
@@ -71,7 +74,7 @@ function TagTabs({
               <Text
                 style={[
                   styles.tagTabText,
-                  { color: active ? '#fff' : c.textSecondary },
+                  { color: active ? c.primary : c.textSecondary },
                   active && styles.tagTabTextActive,
                 ]}
               >
@@ -81,6 +84,10 @@ function TagTabs({
           );
         })}
       </ScrollView>
+      {onManage && <TouchableOpacity accessibilityRole="button" accessibilityLabel="管理标签"
+        onPress={onManage} style={[styles.manage, { borderLeftColor: c.borderLight }]}>
+        <Text style={{ color: c.textSecondary, fontSize: 14 }}>管理</Text>
+      </TouchableOpacity>}
     </View>
   );
 }
@@ -88,12 +95,14 @@ function TagTabs({
 export default React.memo(TagTabs);
 
 const styles = StyleSheet.create({
-  tagTabsWrap: {},
-  tagTabsContent: { paddingHorizontal: 12, alignItems: 'center', gap: 4 },
+  tagTabsWrap: { flexDirection: 'row', alignItems: 'stretch', borderBottomWidth: 0.5 },
+  scroller: { flex: 1, minWidth: 0 },
+  manage: { minWidth: 60, minHeight: 48, paddingHorizontal: 12, justifyContent: 'center', alignItems: 'center', borderLeftWidth: 0.5 },
+  tagTabsContent: { paddingHorizontal: 8, alignItems: 'stretch', gap: 4 },
   tagTab: {
     alignItems: 'center', justifyContent: 'center',
-    paddingHorizontal: 16, paddingVertical: 8, marginHorizontal: 2,
-    minHeight: 44,
+    paddingHorizontal: 12, paddingVertical: 12, marginHorizontal: 2,
+    minHeight: 48, borderBottomWidth: 2, borderBottomColor: 'transparent',
   },
   tagTabText: { fontSize: 15 },
   tagTabTextActive: { fontWeight: '600' },

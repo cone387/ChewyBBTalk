@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { Theme } from '../theme/ThemeContext';
@@ -43,7 +43,7 @@ function SearchBar({
               <Text style={[styles.searchHistoryClear, { color: c.textTertiary }]}>清除</Text>
             </TouchableOpacity>
           </View>
-          <View style={styles.searchHistoryTags}>
+          <ScrollView style={{ maxHeight: 160 }} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.searchHistoryTags}>
             {searchHistory.map((term, i) => (
               <TouchableOpacity
                 key={i}
@@ -54,7 +54,7 @@ function SearchBar({
                 <Text style={[styles.searchHistoryChipText, { color: c.text }]}>{term}</Text>
               </TouchableOpacity>
             ))}
-          </View>
+          </ScrollView>
         </View>
       )}
     </>
@@ -66,11 +66,15 @@ export function SearchInput({
   searchText,
   onSearchTextChange,
   onSubmit,
+  onFocus,
+  onBlur,
   theme,
 }: {
   searchText: string;
   onSearchTextChange: (text: string) => void;
   onSubmit: (text: string) => void;
+  onFocus?: () => void;
+  onBlur?: () => void;
   theme: Theme;
 }) {
   const c = theme.colors;
@@ -83,7 +87,8 @@ export function SearchInput({
         placeholderTextColor={c.textTertiary}
         value={searchText}
         onChangeText={onSearchTextChange}
-        autoFocus
+        onFocus={onFocus}
+        onBlur={onBlur}
         onSubmitEditing={() => onSubmit(searchText)}
         returnKeyType="search"
         accessibilityLabel="搜索碎碎念"
@@ -102,7 +107,7 @@ export default React.memo(SearchBar);
 const styles = StyleSheet.create({
   searchBar: {
     flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8,
-    borderRadius: 10, paddingLeft: 10, marginHorizontal: 8, minHeight: 44,
+    borderRadius: 8, paddingLeft: 12, minHeight: 44,
   },
   searchInput: {
     flex: 1, fontSize: 16, paddingVertical: 0, paddingHorizontal: 0,

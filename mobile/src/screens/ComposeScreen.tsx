@@ -32,7 +32,7 @@ import VoiceRecordingOverlay from '../components/VoiceRecordingOverlay';
 import { useHoldToRecord } from '../hooks/useHoldToRecord';
 import { xAlert, xConfirm, xActionSheet } from '../utils/crossAlert';
 import { useDraftAutosave } from '../hooks/useDraftAutosave';
-import { isScopedDraftKey, readDraft, writeDraft } from '../services/drafts';
+import { isScopedDraftKey, isUnchangedEditDraft, readDraft, writeDraft } from '../services/drafts';
 import { retainMedia, uploadRetainedMedia, pruneRetainedMedia, type PendingMedia } from '../services/pendingMedia';
 import { confirmPublicVisibility } from '../utils/confirmPublicVisibility';
 import { COMPOSE_TOOLBAR_LABELS } from '../utils/composeToolbarLabels';
@@ -254,20 +254,19 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
     } finally { submittingRef.current = false; setSubmitting(false); }
   };
 
-  const draftValue = React.useMemo(() => isEditing || content.trim() || attachments.length || pendingMedia.length ? { version: 1, draftId: `${captureId}_${queueSequence}`, content, visibility, attachments, location, pendingMedia, baseUpdatedAt, editItem, outboxId: route.params?.outboxId } : null, [content, visibility, attachments, location, pendingMedia, baseUpdatedAt, isEditing, editItem, route.params?.outboxId, captureId, queueSequence]);
-  const latestDraft = useRef(draftValue); latestDraft.current = draftValue;
-  const autosave = useDraftAutosave(draftKey, draftValue, draftReady, session);
-
   // 判断是否有未保存修改
   const hasUnsavedChanges = useCallback(() => {
     if (isEditing && editItem) {
-      const originalContent = editItem.tags.map(t => `#${t.name} `).join('') + editItem.content;
-      return content !== originalContent ||
-             visibility !== editItem.visibility ||
-             JSON.stringify(attachments.map(a => a.uid)) !== JSON.stringify(editItem.attachments.map(a => a.uid)) || pendingMedia.length > 0 || JSON.stringify(location) !== JSON.stringify(editItem.context?.location || null);
+      return !isUnchangedEditDraft({ version: 1, content, visibility, attachments, pendingMedia, location, editItem });
     }
     return content.trim().length > 0 || attachments.length > 0 || pendingMedia.length > 0;
   }, [content, visibility, attachments, editItem, isEditing, pendingMedia, location]);
+
+  // Opening an existing record is not an edit. Reverting all changes also clears
+  // its local draft, using the same dirty check as the leave-editor prompt.
+  const draftValue = React.useMemo(() => hasUnsavedChanges() ? { version: 1, draftId: `${captureId}_${queueSequence}`, content, visibility, attachments, location, pendingMedia, baseUpdatedAt, editItem, outboxId: route.params?.outboxId } : null, [hasUnsavedChanges, content, visibility, attachments, location, pendingMedia, baseUpdatedAt, editItem, route.params?.outboxId, captureId, queueSequence]);
+  const latestDraft = useRef(draftValue); latestDraft.current = draftValue;
+  const autosave = useDraftAutosave(draftKey, draftValue, draftReady, session);
 
   useEffect(() => {
     if (!lockedCapture && existingTags.length === 0) dispatch(loadTags());

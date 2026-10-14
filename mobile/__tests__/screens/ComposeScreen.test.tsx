@@ -102,6 +102,7 @@ jest.mock('../../src/utils/crossAlert', () => ({
   xActionSheet: (...args: any[]) => mockActionSheet(...args),
 }));
 jest.mock('../../src/services/drafts', () => ({
+  ...jest.requireActual('../../src/services/drafts'),
   readDraft: (...args: any[]) => mockReadDraft(...args),
   writeDraft: (...args: any[]) => mockWriteDraft(...args),
 }));

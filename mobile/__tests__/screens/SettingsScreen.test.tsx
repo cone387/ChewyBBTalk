@@ -27,7 +27,7 @@ import React from 'react';
 import SettingsScreen from '../../src/screens/SettingsScreen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getCurrentUser, logout } from '../../src/services/auth';
-import { xConfirm, xAlert } from '../../src/utils/crossAlert';
+import { xConfirm } from '../../src/utils/crossAlert';
 
 const { create, act } = require('react-test-renderer');
 const { Linking } = require('react-native');
@@ -47,8 +47,6 @@ const childText = (children: any): string =>
 const hasText = (s: string) => tree.root.findAllByType('Text').some((t: any) => childText(t.props.children) === s);
 const buttonByText = (s: string) => tree.root.findAllByType('TouchableOpacity')
   .find((n: any) => n.findAllByType('Text').some((t: any) => childText(t.props.children) === s));
-const tagTabsSwitch = () => tree.root.findAllByType('Switch')
-  .find((n: any) => n.props.accessibilityLabel === '显示记录页标签栏');
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -106,47 +104,19 @@ describe('SettingsScreen user card', () => {
   });
 });
 
-describe('SettingsScreen tag-tabs switch', () => {
-  it('defaults to enabled and persists toggles', async () => {
+describe('SettingsScreen persistent tag navigation', () => {
+  it('keeps tag management without offering to hide the navigation', async () => {
     await mount();
-    expect(tagTabsSwitch()!.props.value).toBe(true);
-    await act(async () => { void tagTabsSwitch()!.props.onValueChange(false); });
-    await settle();
-    expect(AsyncStorage.setItem).toHaveBeenCalledWith('show_tag_tabs', 'false');
-    expect(tagTabsSwitch()!.props.value).toBe(false);
+    expect(hasText('标签管理')).toBe(true);
+    expect(hasText('记录页标签栏')).toBe(false);
+    expect(tree.root.findAllByType('Switch')).toHaveLength(0);
   });
 
-  it('restores a disabled switch from storage', async () => {
+  it('does not read or write the retired visibility preference', async () => {
     (AsyncStorage.getItem as jest.Mock).mockResolvedValue('false');
     await mount();
-    expect(tagTabsSwitch()!.props.value).toBe(false);
-  });
-
-  it('reports read and write failures', async () => {
-    (AsyncStorage.getItem as jest.Mock).mockRejectedValueOnce(new Error('locked'));
-    (AsyncStorage.setItem as jest.Mock).mockRejectedValueOnce(new Error('full'));
-    await mount();
-    expect(xAlert).toHaveBeenCalledWith('读取设置失败', '请稍后重试');
-
-    await act(async () => { void tagTabsSwitch()!.props.onValueChange(false); });
-    await settle();
-    expect(xAlert).toHaveBeenCalledWith('保存失败', '标签栏设置未生效，请重试');
-    expect(tagTabsSwitch()!.props.value).toBe(true);
-  });
-
-  it('ignores a second toggle while a save is in flight', async () => {
-    let resolveSave!: (value?: unknown) => void;
-    (AsyncStorage.setItem as jest.Mock).mockImplementationOnce(() => new Promise((resolve) => { resolveSave = resolve; }));
-    await mount();
-    await act(async () => { void tagTabsSwitch()!.props.onValueChange(false); });
-    expect(tagTabsSwitch()!.props.disabled).toBe(true);
-    await act(async () => { void tagTabsSwitch()!.props.onValueChange(true); });
-    expect(AsyncStorage.setItem).toHaveBeenCalledTimes(1);
-
-    await act(async () => { resolveSave(); });
-    await settle();
-    expect(tagTabsSwitch()!.props.value).toBe(false);
-    expect(tagTabsSwitch()!.props.disabled).toBe(false);
+    expect(AsyncStorage.getItem).not.toHaveBeenCalled();
+    expect(AsyncStorage.setItem).not.toHaveBeenCalled();
   });
 });
 

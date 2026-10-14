@@ -6,6 +6,19 @@ const queues = new Map<string, Promise<void>>();
 const listeners = new Set<() => void>();
 export function onDraftsChange(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; }
 export interface DraftEntry { key: string; preview: string; pendingCount: number; recordId?: string; }
+/** Only a complete edit snapshot can prove there are no changes to recover. */
+export function isUnchangedEditDraft(value: any): boolean {
+  const original = value?.editItem;
+  if (value?.version !== 1 || typeof value.content !== 'string' ||
+      !['public', 'private'].includes(value.visibility) || !Array.isArray(value.attachments) || !Array.isArray(value.pendingMedia) ||
+      !original || typeof original.content !== 'string' || !['public', 'private'].includes(original.visibility) ||
+      !Array.isArray(original.tags) || original.tags.some((tag: any) => typeof tag?.name !== 'string') ||
+      !Array.isArray(original.attachments) || [...value.attachments, ...original.attachments].some((attachment: any) => typeof attachment?.uid !== 'string')) return false;
+  return value.content === original.tags.map((tag: any) => `#${tag.name} `).join('') + original.content &&
+    value.visibility === original.visibility && value.pendingMedia.length === 0 &&
+    JSON.stringify(value.attachments) === JSON.stringify(original.attachments) &&
+    JSON.stringify(value.location || null) === JSON.stringify(original.context?.location || null);
+}
 export function isScopedDraftKey(key: string, session: Session) {
   const prefix = `compose_draft:${session.scope}`;
   return !!session.scope && (key === prefix || key.startsWith(`${prefix}:edit:`) || key.startsWith(`${prefix}:locked:`));
@@ -21,6 +34,7 @@ export async function listDrafts(session: Session): Promise<DraftEntry[]> {
     if (!raw) return [];
     let value: any;
     try { value = JSON.parse(raw); } catch { value = { content: raw }; }
+    if (isUnchangedEditDraft(value)) return [];
     const content = typeof value?.content === 'string' ? value.content.trim() : '';
     const pendingCount = Array.isArray(value?.pendingMedia) ? value.pendingMedia.length : 0;
     if (!content && !pendingCount && !value?.attachments?.length) return [];

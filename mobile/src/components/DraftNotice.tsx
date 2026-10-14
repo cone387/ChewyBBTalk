@@ -6,7 +6,7 @@ import { getSession, isCurrentSession } from '../services/session';
 import { useTheme } from '../theme/ThemeContext';
 
 export default function DraftNotice() {
-  const [count, setCount] = useState(0);
+  const [counts, setCounts] = useState({ newRecords: 0, edits: 0 });
   const [failed, setFailed] = useState(false);
   const navigation = useNavigation<any>();
   const { theme: { colors: c } } = useTheme();
@@ -14,16 +14,21 @@ export default function DraftNotice() {
     let active = true;
     const session = getSession();
     const refresh = () => { void listDrafts(session).then(entries => {
-      if (active && isCurrentSession(session)) { setCount(entries.length); setFailed(false); }
+      if (active && isCurrentSession(session)) {
+        const edits = entries.filter(entry => entry.recordId).length;
+        setCounts({ newRecords: entries.length - edits, edits });
+        setFailed(false);
+      }
     }).catch(() => { if (active) setFailed(true); }); };
     refresh();
     const unsubscribe = onDraftsChange(refresh);
     const unfocus = navigation.addListener('focus', refresh);
     return () => { active = false; unsubscribe(); unfocus(); };
   }, [navigation]);
-  if (!count && !failed) return null;
+  if (!counts.newRecords && !counts.edits && !failed) return null;
+  const summary = [counts.newRecords ? `${counts.newRecords} 条未完成记录` : '', counts.edits ? `${counts.edits} 条编辑草稿` : ''].filter(Boolean).join('、');
   return <TouchableOpacity accessibilityRole="button" onPress={() => navigation.navigate('Drafts')}
     style={{ minHeight: 48, justifyContent: 'center', paddingHorizontal: 16, paddingVertical: 10, backgroundColor: c.surface }}>
-    <Text style={{ color: c.primary, fontSize: 14 }}>{failed ? '未完成记录暂时无法读取 · 点击重试' : `有 ${count} 条未完成记录 · 继续编辑`}</Text>
+    <Text style={{ color: c.primary, fontSize: 14 }}>{failed ? '未完成记录暂时无法读取 · 点击重试' : `有 ${summary} · 继续编辑`}</Text>
   </TouchableOpacity>;
 }

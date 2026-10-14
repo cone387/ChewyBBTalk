@@ -48,8 +48,8 @@ describe('TagTabs', () => {
     await mount(baseProps());
     const all = tab('全部');
     expect(all.props.accessibilityState).toEqual({ selected: true });
-    expect(all.props.style.some((s: any) => s?.backgroundColor === THEMES[0].colors.primary)).toBe(true);
-    expect(all.findAllByType('Text')[0].props.style.some((s: any) => s?.color === '#fff')).toBe(true);
+    expect(all.props.style.some((s: any) => s?.borderBottomColor === THEMES[0].colors.primary)).toBe(true);
+    expect(all.findAllByType('Text')[0].props.style.some((s: any) => s?.color === THEMES[0].colors.primary)).toBe(true);
     expect(tab('工作').props.accessibilityState).toEqual({ selected: false });
   });
 
@@ -68,7 +68,7 @@ describe('TagTabs', () => {
     await mount(baseProps({ selectedTag: 't1', onSelectTag: p.onSelectTag }));
     const active = tab('工作');
     expect(active.props.accessibilityState).toEqual({ selected: true });
-    expect(active.props.style.some((s: any) => s?.backgroundColor === THEMES[0].colors.primary)).toBe(true);
+    expect(active.props.style.some((s: any) => s?.borderBottomColor === THEMES[0].colors.primary)).toBe(true);
     await act(async () => { void active.props.onPress(); });
     expect(p.onSelectTag).toHaveBeenNthCalledWith(2, 't1');
   });
@@ -86,5 +86,15 @@ describe('TagTabs', () => {
     await mount(p);
     expect(tree.root.findByType('ScrollView').props.ref).toBe(p.scrollRef);
     expect(tree.root.findByType('ScrollView').props.horizontal).toBe(true);
+  });
+
+  it('keeps management outside the scrolling tags, including an empty tag list', async () => {
+    const onManage = jest.fn();
+    await mount(baseProps({ tags: [], onManage }));
+    const manage = tab('管理');
+    expect(tree.root.findByType('ScrollView').findAllByProps({ accessibilityLabel: '管理标签' })).toHaveLength(0);
+    await act(async () => manage.props.onPress());
+    expect(onManage).toHaveBeenCalledTimes(1);
+    expect(tab('全部')).toBeDefined();
   });
 });

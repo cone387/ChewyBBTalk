@@ -1,7 +1,7 @@
 import { setHistoryLocked, setHistoryPrivacyReady, onHistoryActivity } from '../services/historyPrivacy';
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
-  View, Text, FlatList, TouchableOpacity, StyleSheet,
+  View, Text, TouchableOpacity, StyleSheet, Keyboard,
   RefreshControl, ActivityIndicator, Modal, AppState,
   Platform, Animated, Linking, BackHandler,
 } from 'react-native';
@@ -34,6 +34,7 @@ import OutboxNotice from '../components/OutboxNotice';
 import { onRecordsChanged } from '../services/recordChanges';
 import { usePrivacyMode } from '../hooks/usePrivacyMode';
 import { useTagSwipe } from '../hooks/useTagSwipe';
+import { useStickySearchHeader } from '../hooks/useStickySearchHeader';
 import { useBBTalkActions } from '../hooks/useBBTalkActions';
 import { useBatchMode } from '../hooks/useBatchMode';
 import { useOfflineCache } from '../hooks/useOfflineCache';
@@ -70,7 +71,8 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
   const [previewImages, setPreviewImages] = useState<string[]>([]);
   const [previewIndex, setPreviewIndex] = useState(0);
   const [voiceRecording, setVoiceRecording] = useState(false);
-  const [showTagTabs, setShowTagTabs] = useState(true);
+  const showTagTabs = true;
+  const sticky = useStickySearchHeader();
   const [commentTargetId, setCommentTargetId] = useState<string | null>(null);
   const [lastAddedComment, setLastAddedComment] = useState<{ bbtalkId: string; comment: Comment } | null>(null);
   const lastFeedReadAt = useRef(0);
@@ -81,6 +83,10 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
   // --- Hooks ---
 
   const privacy = usePrivacyMode({ onLockChange, showError });
+  useEffect(() => {
+    // Locking unmounts the list; its next mount starts at offset zero as well.
+    if (privacy.locked || !privacy.settingsReady) sticky.scrollY.setValue(0);
+  }, [privacy.locked, privacy.settingsReady, sticky.scrollY]);
   useEffect(() => {
     setHistoryLocked(!privacy.settingsReady || privacy.locked);
     setHistoryPrivacyReady(privacy.settingsReady);
@@ -124,6 +130,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
   }, [dispatch, guardOfflineWrite]);
 
   const handleSelectTag = useCallback((tagId: string | null) => { onSelectTag?.(tagId); }, [onSelectTag]);
+  const onManageTags = useCallback(() => navigation.navigate('TagManagement'), [navigation]);
 
   const handleComment = useCallback((item: BBTalk) => {
     if (guardOfflineWrite()) return;
@@ -200,13 +207,11 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
       try { const values = JSON.parse(v); if (Array.isArray(values)) setSearchHistory(values.filter(value => typeof value === 'string').slice(0, 10)); }
       catch (e) { logError(e, 'parse search history'); }
     }).catch(e => logError(e, 'read search history'));
-    AsyncStorage.getItem('show_tag_tabs').then(v => { setShowTagTabs(v !== 'false'); });
   }, []);
 
   useEffect(() => {
     const unsub = navigation.addListener('focus', () => {
       privacy.resetPrivacyTimer(); privacy.loadPrivacySettings();
-      AsyncStorage.getItem('show_tag_tabs').then(v => setShowTagTabs(v !== 'false'));
     });
     return unsub;
   }, [navigation, privacy.resetPrivacyTimer, privacy.loadPrivacySettings]);
@@ -326,6 +331,8 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
 
   const saveSearchHistory = useCallback((term: string) => {
     term = term.trim();
+    setSearchVisible(false);
+    Keyboard.dismiss();
     setSearchText(term);
     setActiveSearch(term);
     if (!term || !isCurrentSession(session)) return;
@@ -345,7 +352,6 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
   }, [handleSelectTag]);
 
   const filteredBBTalks = bbtalks;
-  const showTagFilter = Boolean(selectedTagName && (!showTagTabs || searchVisible));
 
   const handleImagePreview = useCallback((images: string[], index: number) => {
     setPreviewImages(images);
@@ -362,10 +368,33 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
     if (result.text || result.audioUri) navigation.navigate('Compose', { voiceResult: result });
   }, [navigation]);
 
-  // --- Offline Banner as ListHeaderComponent ---
-  const listHeaderComponent = useCallback(() => (
+  const onFeedDrag = useCallback(() => {
+    privacy.resetPrivacyTimer();
+    setSearchVisible(false);
+  }, [privacy.resetPrivacyTimer]);
+
+  // Notices and filter feedback scroll with the content, below the pinned navigation.
+  const listHeaderComponent = useCallback(() => <>
     <OfflineBanner isOffline={isOffline} lastSyncTime={lastSyncTime} theme={theme} />
-  ), [isOffline, lastSyncTime, theme]);
+      <DraftNotice />
+      <OutboxNotice />
+
+      {!!activeSearch && <TouchableOpacity accessibilityRole="button" accessibilityLabel={`清除关键词筛选：${activeSearch}`}
+        style={{ minHeight: 44, paddingHorizontal: 4, justifyContent: 'center' }} onPress={() => changeSearchText('')}>
+        <Text style={{ color: c.primary }}>关键词：{activeSearch} ×</Text>
+      </TouchableOpacity>}
+
+      {selectedDate && (
+        <TouchableOpacity onPress={() => handleSelectTag(null)} accessibilityRole="button"
+          accessibilityLabel={`清除日期筛选：${selectedDate}`}
+          style={{ minHeight: 44, marginHorizontal: 16, marginBottom: 8, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Ionicons name="calendar-outline" size={18} color={c.primary} />
+          <Text style={{ color: c.primary, flex: 1 }}>{selectedDate} 的记录</Text>
+          <Ionicons name="close-circle-outline" size={20} color={c.primary} />
+        </TouchableOpacity>
+      )}
+
+  </>, [isOffline, lastSyncTime, theme, activeSearch, c, changeSearchText, selectedDate, handleSelectTag]);
 
   const renderItem = useCallback(({ item }: { item: BBTalk }) => (
     <SwipeableBBTalkCard
@@ -393,10 +422,12 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
       <Animated.View style={{ flex: 1, transform: [{ translateX: showTagTabs && tags.length > 0 ? tagSwipe.listSlideAnim : 0 }] }}
         {...(showTagTabs && tags.length > 0 ? tagSwipe.panResponder.panHandlers : {})}>
         <View style={styles.listViewport}>
-        <FlatList data={filteredBBTalks} keyExtractor={item => item.id}
+        <Animated.FlatList data={filteredBBTalks} keyExtractor={item => item.id}
           renderItem={renderItem}
           ListHeaderComponent={listHeaderComponent}
-          onScrollBeginDrag={privacy.resetPrivacyTimer}
+          onScroll={sticky.onScroll} scrollEventThrottle={16}
+          keyboardDismissMode="on-drag"
+          onScrollBeginDrag={onFeedDrag}
           ListEmptyComponent={bbtalks.length === 0 && isLoading ? (
             <View>{[0, 1, 2, 3].map(i => <SkeletonCard key={i} />)}</View>
           ) : !isLoading ? (
@@ -419,17 +450,18 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
             )
           ) : null}
           ListFooterComponent={loadingMore ? <ActivityIndicator style={{ paddingVertical: 16 }} /> : !hasMore && filteredBBTalks.length > 0 ? <Text style={[styles.noMore, { color: c.textTertiary }]}>没有更多了</Text> : null}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} enabled={!isOffline} tintColor={c.primary} colors={[c.primary]} progressBackgroundColor={c.surface} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} enabled={!isOffline} tintColor={c.primary} colors={[c.primary]} progressBackgroundColor={c.surface}
+            progressViewOffset={batch.batchMode ? 0 : insets.top + sticky.searchHeight + sticky.navigationHeight} />}
           onEndReached={onEndReached} onEndReachedThreshold={0.3}
           initialNumToRender={6} maxToRenderPerBatch={6} windowSize={7}
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 80 }} />
+          contentContainerStyle={{ paddingHorizontal: 12, paddingTop: batch.batchMode ? 0 : insets.top + sticky.searchHeight + sticky.navigationHeight, paddingBottom: insets.bottom + 80 }} />
         </View>
       </Animated.View>
   ), [showTagTabs, tags.length, tagSwipe.listSlideAnim, tagSwipe.panResponder, filteredBBTalks,
-    renderItem, listHeaderComponent, privacy.resetPrivacyTimer, isLoading, activeSearch,
+    renderItem, listHeaderComponent, onFeedDrag, isLoading, activeSearch,
     selectedTag, selectedDate, clearFilters, navigation, c, loadingMore, hasMore,
-    refreshing, onRefresh, isOffline, onEndReached, insets.bottom]);
+    refreshing, onRefresh, isOffline, onEndReached, insets.bottom, insets.top, batch.batchMode, sticky.onScroll, sticky.searchHeight, sticky.navigationHeight]);
 
   // --- Render ---
 
@@ -464,63 +496,32 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
           onClose={batch.exitBatchMode}
           theme={theme}
         />
-      ) : (
-        <View style={[styles.header, { paddingTop: insets.top + 8, backgroundColor: c.background }]}>
-          <TouchableOpacity onPress={() => setShowTagTabs(value => !value)} style={styles.headerBtn} accessibilityRole="button" accessibilityLabel="标签筛选" accessibilityState={{ expanded: showTagTabs }}>
-            <Ionicons name="options-outline" size={24} color={selectedTag ? c.primary : c.text} />
-          </TouchableOpacity>
-          {searchVisible ? (
-            <SearchInput searchText={searchText} onSearchTextChange={changeSearchText} onSubmit={saveSearchHistory} theme={theme} />
-          ) : (
-            <View style={[styles.headerCenter, { alignItems: 'center' }]}><Text style={{ fontSize: 22, fontWeight: '700', color: c.text }}>记录</Text></View>
-          )}
-          <TouchableOpacity onPress={() => {
-            if (searchVisible) {
-              setSearchText('');
-              setActiveSearch('');
-              // Reload without search filter
-
-            }
-            setSearchVisible(!searchVisible);
-          }} style={styles.headerBtn} accessibilityRole="button" accessibilityLabel={searchVisible ? '关闭搜索' : '搜索'}>
-            <Ionicons name={searchVisible ? 'close' : 'search-outline'} size={22} color={c.text} />
-          </TouchableOpacity>
-        </View>
-      )}
-
-      <SearchBar visible={searchVisible} searchText={searchText} searchHistory={searchHistory}
-        onSearchTextChange={changeSearchText} onSubmit={saveSearchHistory} onClearHistory={clearSearchHistory}
-        onHistoryItemPress={saveSearchHistory} onClose={() => setSearchVisible(false)} theme={theme} />
-      <DraftNotice />
-      <OutboxNotice />
-
-      {(!!activeSearch || showTagFilter) && <View style={{ paddingHorizontal: 16, flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        {!!activeSearch && <TouchableOpacity accessibilityRole="button" accessibilityLabel={`清除关键词筛选：${activeSearch}`}
-          style={{ minHeight: 44, justifyContent: 'center' }} onPress={() => changeSearchText('')}>
-          <Text style={{ color: c.primary }}>关键词：{activeSearch} ×</Text>
-        </TouchableOpacity>}
-        {showTagFilter && <TouchableOpacity accessibilityRole="button" accessibilityLabel={`清除标签筛选：${selectedTagName}`}
-          style={{ minHeight: 44, justifyContent: 'center' }} onPress={() => handleSelectTag(null)}>
-          <Text style={{ color: c.primary }}>{selectedTagName} ×</Text>
-        </TouchableOpacity>}
-      </View>}
-
-      {selectedDate && (
-        <TouchableOpacity onPress={() => handleSelectTag(null)} accessibilityRole="button"
-          accessibilityLabel={`清除日期筛选：${selectedDate}`}
-          style={{ minHeight: 44, marginHorizontal: 16, marginBottom: 8, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Ionicons name="calendar-outline" size={18} color={c.primary} />
-          <Text style={{ color: c.primary, flex: 1 }}>{selectedDate} 的记录</Text>
-          <Ionicons name="close-circle-outline" size={20} color={c.primary} />
-        </TouchableOpacity>
-      )}
-
-      {showTagTabs && !searchVisible && tags.length > 0 && (
-        <TagTabs tags={tags} selectedTag={selectedTag} selectedDate={selectedDate}
-          onSelectTag={handleSelectTag} onResetAnim={tagSwipe.resetSlideAnim} scrollRef={tagSwipe.tagScrollRef as any} theme={theme} />
-      )}
+      ) : null}
 
       {feed}
+
+      {!batch.batchMode && <View pointerEvents="box-none" style={[styles.headerClip, { top: insets.top }]}>
+        <Animated.View pointerEvents="box-none" style={{ transform: [{ translateY: sticky.translateY }] }}>
+          <View onLayout={sticky.onSearchLayout} style={[styles.searchRow, { backgroundColor: c.background }]}>
+            <SearchInput searchText={searchText} onSearchTextChange={changeSearchText}
+              onSubmit={saveSearchHistory} onFocus={() => setSearchVisible(true)}
+              theme={theme} />
+          </View>
+          <View onLayout={sticky.onNavigationLayout}>
+            <TagTabs tags={tags} selectedTag={selectedTag} selectedDate={selectedDate}
+              onSelectTag={handleSelectTag} onResetAnim={tagSwipe.resetSlideAnim}
+              onManage={onManageTags}
+              scrollRef={tagSwipe.tagScrollRef as any} theme={theme} />
+          </View>
+          {searchVisible && !searchText && <View>
+            <SearchBar visible searchText={searchText} searchHistory={searchHistory}
+              onSearchTextChange={changeSearchText} onSubmit={saveSearchHistory} onClearHistory={clearSearchHistory}
+              onHistoryItemPress={saveSearchHistory} onClose={() => setSearchVisible(false)} theme={theme} />
+          </View>}
+        </Animated.View>
+      </View>}
+      {!batch.batchMode && <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: insets.top, backgroundColor: c.background, zIndex: 21 }} />}
+
 
       {privacy.showCountdown && privacy.privacyEnabled && privacy.privacySeconds !== null && privacy.privacySeconds > 0 && !privacy.locked && (
         <TouchableOpacity style={[styles.countdownBadge, { bottom: insets.bottom + 88, backgroundColor: c.primary }]}
@@ -594,15 +595,8 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
 const styles = StyleSheet.create({
   container: { flex: 1 },
   listViewport: { flex: 1, width: '100%', maxWidth: 960, alignSelf: 'center' },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingBottom: 12,
-  },
-  headerBtn: { padding: 4, width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  headerCenter: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 18, fontWeight: '700' },
-  filterBadge: { marginLeft: 8, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, maxWidth: 140 },
-  filterBadgeText: { fontSize: 12, fontWeight: '600' },
+  headerClip: { position: 'absolute', left: 0, right: 0, zIndex: 20, overflow: 'hidden' },
+  searchRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, minHeight: 60 },
   noMore: { textAlign: 'center', fontSize: 13, paddingVertical: 16 },
   fab: {
     position: 'absolute', right: 20, width: 56, height: 56, borderRadius: 28,

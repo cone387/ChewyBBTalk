@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Switch, Linking, Platform } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,14 +8,11 @@ import { buildImageSource } from '../utils/imageSource';
 import { getCurrentUser, logout } from '../services/auth';
 import { useTheme } from '../theme/ThemeContext';
 import { getApiBaseUrl } from '../config';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { xConfirm, xAlert } from '../utils/crossAlert';
+import { xConfirm } from '../utils/crossAlert';
 
 interface Props { onLogout: () => void; }
 
-type MenuItem =
-  | { key: string; title: string; subtitle: string; icon: keyof typeof Ionicons.glyphMap; bgColor: string; type?: 'nav' }
-  | { key: string; title: string; subtitle: string; icon: keyof typeof Ionicons.glyphMap; bgColor: string; type: 'switch' };
+type MenuItem = { key: string; title: string; subtitle: string; icon: keyof typeof Ionicons.glyphMap; bgColor: string };
 
 interface MenuSection {
   title: string;
@@ -34,7 +31,6 @@ const SECTIONS: MenuSection[] = [
     items: [
       { key: 'tags', title: '标签管理', subtitle: '整理标签、调整顺序与颜色', icon: 'pricetags-outline', bgColor: '#6366F1' },
       { key: 'theme', title: '外观', subtitle: '跟随系统、浅色与深色', icon: 'color-palette', bgColor: '#8B5CF6' },
-      { key: 'tagTabs', title: '记录页标签栏', subtitle: '在记录页顶部显示标签快捷切换', icon: 'pricetags', bgColor: '#6366F1', type: 'switch' },
     ],
   },
   {
@@ -76,25 +72,11 @@ export default function SettingsScreen({ onLogout }: Props) {
   const navigation = useNavigation<any>();
   const { theme } = useTheme();
   const c = theme.colors;
-  const [showTagTabs, setShowTagTabs] = useState(true);
-  const [savingTags, setSavingTags] = useState(true);
-  const savingTagsRef = useRef(false);
-  const saveTagTabs = async (value: boolean) => {
-    if (savingTagsRef.current) return;
-    savingTagsRef.current = true; setSavingTags(true);
-    try { await AsyncStorage.setItem('show_tag_tabs', String(value)); setShowTagTabs(value); }
-    catch { xAlert('保存失败', '标签栏设置未生效，请重试'); }
-    finally { savingTagsRef.current = false; setSavingTags(false); }
-  };
 
   // 页面获得焦点时刷新用户信息（从 ProfileEdit 返回后头像等即时更新）
   useFocusEffect(useCallback(() => {
     setCurrentUser(getCurrentUser());
   }, []));
-
-  useEffect(() => {
-    AsyncStorage.getItem('show_tag_tabs').then(v => setShowTagTabs(v !== 'false')).catch(() => xAlert('读取设置失败', '请稍后重试')).finally(() => setSavingTags(false));
-  }, []);
 
   const handleLogout = () => {
     xConfirm('确认退出', '确定要退出登录吗？', async () => {
@@ -112,8 +94,6 @@ export default function SettingsScreen({ onLogout }: Props) {
   };
 
   const renderItem = (item: MenuItem, isLast: boolean) => {
-    const isSwitch = item.type === 'switch';
-
     const content = (
       <View style={[styles.menuRow, !isLast && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border }]}>
         <View style={[styles.menuIcon, { backgroundColor: item.bgColor }]}>
@@ -123,24 +103,9 @@ export default function SettingsScreen({ onLogout }: Props) {
           <Text style={[styles.menuTitle, { color: c.text }]}>{item.title}</Text>
           <Text style={[styles.menuSubtitle, { color: c.textSecondary }]}>{item.subtitle}</Text>
         </View>
-        {isSwitch ? (
-          <Switch
-            value={showTagTabs}
-            onValueChange={saveTagTabs}
-            disabled={savingTags}
-            trackColor={{ false: c.border, true: c.primary }}
-            thumbColor="#fff"
-            accessibilityLabel="显示记录页标签栏"
-          />
-        ) : (
-          <Ionicons name="chevron-forward" size={18} color={c.textTertiary} />
-        )}
+        <Ionicons name="chevron-forward" size={18} color={c.textTertiary} />
       </View>
     );
-
-    if (isSwitch) {
-      return <View key={item.key}>{content}</View>;
-    }
 
     return (
       <TouchableOpacity key={item.key} activeOpacity={0.6} onPress={() => handleMenuPress(item.key)}>

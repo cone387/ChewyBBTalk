@@ -18,6 +18,7 @@ import { listOutbox, drainOutbox, retrySubmission } from '../src/services/outbox
 import { updateSyncConnectivity } from '../src/services/syncConnectivity';
 import { setHistoryLocked } from '../src/services/historyPrivacy';
 import { xConfirm, xActionSheet } from '../src/utils/crossAlert';
+import { listDrafts } from '../src/services/drafts';
 
 const mockNavigation = { goBack: jest.fn(), dispatch: jest.fn(), addListener: jest.fn(() => () => {}) };
 let mockParams: any = {};
@@ -57,6 +58,42 @@ beforeEach(async () => {
   (apiClient.patch as jest.Mock).mockReset();
 });
 afterEach(cleanup);
+
+const existingRecord = () => ({ id: 'record-1', content: '原始内容', visibility: 'private', tags: [], attachments: [], updatedAt: wire.update_time });
+
+test('opening and leaving an unchanged existing record does not create a draft', async () => {
+  mockParams = { editItem: existingRecord() };
+  const screen = mount(); await act(async () => {});
+  screen.unmount(); await act(async () => {});
+  expect(await AsyncStorage.getItem(`compose_draft:${getSession().scope}:edit:record-1`)).toBeNull();
+  expect(await listDrafts(getSession())).toEqual([]);
+});
+
+test('reverting an edit to its original content removes the saved edit draft', async () => {
+  mockParams = { editItem: existingRecord() };
+  const first = mount(); await act(async () => {});
+  fireEvent.changeText(first.getByLabelText('记录内容'), '未完成的修改');
+  first.unmount(); await act(async () => {});
+  expect(await listDrafts(getSession())).toEqual([expect.objectContaining({ recordId: 'record-1', preview: '未完成的修改' })]);
+  const second = mount(); await second.findByDisplayValue('未完成的修改');
+  fireEvent.changeText(second.getByLabelText('记录内容'), '原始内容');
+  second.unmount(); await act(async () => {});
+  expect(await listDrafts(getSession())).toEqual([]);
+});
+
+test('a saved update does not leave an edit draft after unmount and synchronization', async () => {
+  mockParams = { editItem: existingRecord() };
+  const screen = mount(); await act(async () => {});
+  fireEvent.changeText(screen.getByLabelText('记录内容'), '已更新的内容');
+  fireEvent.press(screen.getByText('更新')); await act(async () => {});
+  await waitFor(() => expect(mockNavigation.goBack).toHaveBeenCalled());
+  screen.unmount(); await act(async () => {});
+  (apiClient.patch as jest.Mock).mockResolvedValueOnce({ ...wire, content: '已更新的内容' });
+  await drainOutbox();
+  expect((await listOutbox())[0].state).toBe('synced');
+  expect(await AsyncStorage.getItem(`compose_draft:${getSession().scope}:edit:record-1`)).toBeNull();
+  expect(await listDrafts(getSession())).toEqual([]);
+});
 
 test('privacy lock hides an open draft, blocks stale save handlers and preserves input', async () => {
   const screen = mount(); await act(async () => {});
