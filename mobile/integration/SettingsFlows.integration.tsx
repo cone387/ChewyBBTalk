@@ -18,6 +18,7 @@ import { publicAuthRequest } from '../src/services/passwordRecovery';
 import { checkForUpdates } from '../src/utils/versionChecker';
 import { xAlert, xConfirm } from '../src/utils/crossAlert';
 import { clearSession, setSession } from '../src/services/session';
+import { setHistoryLocked, setHistoryPrivacyReady } from '../src/services/historyPrivacy';
 
 const mockGoBack = jest.fn();
 jest.mock('@react-navigation/native', () => ({
@@ -52,7 +53,7 @@ const tags = [
   { id: 'one', name: '生活', color: '#123456', bbtalkCount: 1 },
   { id: 'two', name: '工作', color: '#654321', bbtalkCount: 0 },
 ];
-beforeEach(async () => { jest.clearAllMocks(); clearSession(); setSession('https://preview.test', 1); await AsyncStorage.clear(); });
+beforeEach(async () => { jest.clearAllMocks(); clearSession(); setSession('https://preview.test', 1); setHistoryLocked(false); setHistoryPrivacyReady(true); await AsyncStorage.clear(); });
 
 test('profile clearing sends empty fields and a failed save retains the form', async () => {
   (userApi.updateProfile as jest.Mock).mockRejectedValueOnce(new Error('网络中断')).mockResolvedValueOnce({});
@@ -82,7 +83,7 @@ test('failed tag ordering rolls back rather than displaying an unsaved order', a
   (tagApi.reorder as jest.Mock).mockRejectedValue(new Error('未保存'));
   const screen = render(<TagManagementScreen />);
   fireEvent(await screen.findByLabelText('拖动排序 生活'), 'accessibilityAction', { nativeEvent: { actionName: 'increment' } });
-  await waitFor(() => expect(xAlert).toHaveBeenCalledWith('排序失败', '未保存'));
+  await screen.findByText('未保存');
   expect(screen.getByLabelText('拖动排序 生活').props.accessibilityValue.now).toBe(1);
   expect(screen.getByLabelText('拖动排序 工作').props.accessibilityValue.now).toBe(2);
 });
@@ -99,7 +100,9 @@ test('storage error never claims local storage is active; connection checks prev
   fireEvent.press(check); fireEvent.press(check);
   expect(apiClient.post).toHaveBeenCalledTimes(1);
   await act(async () => finish({ success: true, message: '连接正常' }));
-  expect(xAlert).toHaveBeenCalledWith('连接成功', '连接正常');
+  expect(screen.getByText('连接成功')).toBeTruthy();
+  expect(screen.getByText('连接正常')).toBeTruthy();
+  expect(xAlert).not.toHaveBeenCalled();
 });
 
 test('failed privacy writes preserve saved settings and report failure', async () => {
@@ -164,6 +167,6 @@ test('media cache cleanup preserves unpublished recordings and reports delete fa
   await act(async () => (xConfirm as jest.Mock).mock.calls[0][2]());
   expect(FileSystem.deleteAsync).toHaveBeenCalledTimes(1);
   expect(FileSystem.deleteAsync).toHaveBeenCalledWith('file:///cache/audio_1.m4a', { idempotent: true });
-  expect(xAlert).toHaveBeenCalledWith('清理失败', '文件占用');
+  expect(screen.getByText('清理失败：文件占用')).toBeTruthy();
   expect(xAlert).not.toHaveBeenCalledWith('完成', '缓存已清理');
 });

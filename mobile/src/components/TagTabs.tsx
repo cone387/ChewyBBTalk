@@ -58,7 +58,7 @@ function TagTabs({
             全部
           </Text>
         </TouchableOpacity>
-        {tags.map(tag => {
+        {tags.filter(tag => (tag.bbtalkCount ?? 0) > 0).map(tag => {
           const active = selectedTag === tag.id;
           return (
             <TouchableOpacity

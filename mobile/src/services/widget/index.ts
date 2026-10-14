@@ -7,9 +7,12 @@
  *   await clearWidget('logout');    // 登出 / 锁定时调用
  */
 import { store } from '../../store';
+import { getSession, isCurrentSession } from '../session';
+import { getHistoryPrivacyRevision, historyIsLocked, historyPrivacyIsReady } from '../historyPrivacy';
 import type { WidgetConfig, WidgetPayload } from './types';
 import {
   DEFAULT_THEME,
+  DEFAULT_CONFIG,
   MAX_CONTENT_CHARS,
   MAX_PAYLOAD_BYTES,
 } from './types';
@@ -32,6 +35,13 @@ type ClearReason = 'logout' | 'locked' | 'empty';
 /** 连续 reload 失败计数，超过阈值进入冷却期 */
 let consecutiveReloadFailures = 0;
 let reloadCooldownUntil = 0;
+let writeQueue: Promise<void> = Promise.resolve();
+let operationVersion = 0;
+function enqueueWrite(operation: () => Promise<void>): Promise<void> {
+  const pending = writeQueue.then(operation);
+  writeQueue = pending.catch(() => {});
+  return pending;
+}
 const MAX_RELOAD_FAILURES = 3;
 const RELOAD_COOLDOWN_MS = 5 * 60 * 1000;
 
@@ -43,7 +53,7 @@ function buildPayload(
 ): WidgetPayload {
   const state = store.getState();
   const bbtalks = state.bbtalk.bbtalks;
-  const items = selectWidgetItems(config, bbtalks);
+  const items = authenticated && !locked ? selectWidgetItems(config, bbtalks) : [];
 
   const base: WidgetPayload = {
     version: 1,
@@ -53,7 +63,7 @@ function buildPayload(
     authenticated,
     theme: DEFAULT_THEME,
     items,
-    placeholder: null,
+    placeholder: !authenticated ? '请登录' : locked ? '已锁定' : null,
   };
 
   return trimPayload(base);
@@ -104,7 +114,7 @@ function trimPayload(payload: WidgetPayload): WidgetPayload {
   return current;
 }
 
-async function writeAndReload(payload: WidgetPayload): Promise<void> {
+async function writeAndReload(payload: WidgetPayload, forceReload = false): Promise<void> {
   if (!isSupported()) return;
   try {
     await writeWidgetData(JSON.stringify(payload));
@@ -113,7 +123,7 @@ async function writeAndReload(payload: WidgetPayload): Promise<void> {
     return;
   }
 
-  if (Date.now() < reloadCooldownUntil) {
+  if (!forceReload && Date.now() < reloadCooldownUntil) {
     // 冷却期：只写不 reload，等待系统定时刷新兜底
     return;
   }
@@ -145,14 +155,21 @@ export async function syncWidget(options?: {
   locked?: boolean;
 }): Promise<void> {
   if (!isSupported()) return;
+  const version = ++operationVersion;
+  const session = getSession();
+  const revision = getHistoryPrivacyRevision();
+  const current = () => version === operationVersion && isCurrentSession(session)
+    && revision === getHistoryPrivacyRevision();
   try {
     const config = await loadWidgetConfig();
-    const payload = buildPayload(
-      config,
-      options?.authenticated ?? true,
-      options?.locked ?? false,
-    );
-    await writeAndReload(payload);
+    if (!current()) return;
+    await enqueueWrite(async () => {
+      if (!current()) return;
+      // Caller flags can restrict access, but cannot override the actual global lock/session.
+      const authenticated = !!getSession().scope && options?.authenticated !== false;
+      const locked = !historyPrivacyIsReady() || historyIsLocked() || options?.locked === true;
+      await writeAndReload(buildPayload(config, authenticated, locked), locked || !authenticated);
+    });
   } catch (e) {
     console.warn('[HomeWidget] syncWidget failed:', e);
   }
@@ -160,9 +177,9 @@ export async function syncWidget(options?: {
 
 /** 清空小组件内容（登出 / 锁定 / 空数据时调用） */
 export async function clearWidget(reason: ClearReason): Promise<void> {
+  operationVersion += 1; // Invalidate delayed config loads before the first asynchronous boundary.
   if (!isSupported()) return;
   try {
-    const config = await loadWidgetConfig();
     const placeholderMap: Record<ClearReason, string> = {
       logout: '请登录',
       locked: '已锁定',
@@ -171,14 +188,15 @@ export async function clearWidget(reason: ClearReason): Promise<void> {
     const payload: WidgetPayload = {
       version: 1,
       generatedAt: new Date().toISOString(),
-      configHash: computeConfigHash(config),
+      // Clearing must not wait for configuration storage (which can be slow or broken).
+      configHash: computeConfigHash(DEFAULT_CONFIG),
       locked: reason === 'locked',
       authenticated: reason !== 'logout',
       theme: DEFAULT_THEME,
       items: [],
       placeholder: placeholderMap[reason],
     };
-    await writeAndReload(payload);
+    await enqueueWrite(() => writeAndReload(payload, true));
   } catch (e) {
     console.warn('[HomeWidget] clearWidget failed:', e);
   }

@@ -18,14 +18,16 @@ function PrivacyTabBar(props: BottomTabBarProps) {
   useEffect(() => {
     if (ready && locked) props.navigation.navigate('Records');
   }, [ready, locked, props.navigation]);
-  return locked ? null : <BottomTabBar {...props} />;
+  return !ready || locked ? null : <BottomTabBar {...props} />;
 }
 
 export default function MainTabs({ onLogout }: { onLogout: () => void }) {
   const { theme } = useTheme();
   const c = theme.colors;
   const insets = useSafeAreaInsets();
-  const locked = useSyncExternalStore(subscribeHistoryPrivacy, historyIsLocked, historyIsLocked);
+  const privacyLocked = useSyncExternalStore(subscribeHistoryPrivacy, historyIsLocked, historyIsLocked);
+  const ready = useSyncExternalStore(subscribeHistoryPrivacy, historyPrivacyIsReady, historyPrivacyIsReady);
+  const locked = privacyLocked || !ready;
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const selectTag = useCallback((id: string | null) => {
@@ -41,12 +43,11 @@ export default function MainTabs({ onLogout }: { onLogout: () => void }) {
   return (
     <Tabs.Navigator initialRouteName="Records" tabBar={props => <PrivacyTabBar {...props} />}
       screenListeners={{ tabPress: event => {
-        if (historyIsLocked()) event.preventDefault();
+        if (!historyPrivacyIsReady() || historyIsLocked()) event.preventDefault();
         else recordHistoryActivity();
       } }}
       screenOptions={({ route }) => ({
-        // Records owns the privacy timer even when a deep link opens another tab.
-        // Other destinations do not need to mount during the feed's first paint.
+        // Privacy is owned above the navigator; eagerly mount Records for its feed state.
         lazy: route.name !== 'Records',
         freezeOnBlur: false,
         headerShown: !locked && route.name !== 'Records',

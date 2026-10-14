@@ -10,15 +10,27 @@
  *   - setBBTalksFromCache
  */
 import { store } from '../../store';
-import { syncWidget } from './index';
+import { syncWidget, clearWidget } from './index';
+import { getSession, onSessionChange } from '../session';
+import { historyIsLocked, historyPrivacyIsReady, subscribeHistoryPrivacy } from '../historyPrivacy';
 
 const DEBOUNCE_MS = 500;
 
 let unsubscribe: (() => void) | null = null;
+let unsubscribePrivacy: (() => void) | null = null;
+let unsubscribeSession: (() => void) | null = null;
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 let lastBBTalksRef: unknown = undefined;
-let authenticatedFlag = true;
-let lockedFlag = false;
+let authenticatedFlag = false;
+let lockedFlag = true;
+
+function syncPrivacyState(): void {
+  if (debounceTimer) { clearTimeout(debounceTimer); debounceTimer = null; }
+  // Privacy transitions bypass debounce so a stale native payload is removed immediately.
+  if (!getSession().scope || !authenticatedFlag) void clearWidget('logout');
+  else if (lockedFlag || historyIsLocked() || !historyPrivacyIsReady()) void clearWidget('locked');
+  else scheduleSync();
+}
 
 function scheduleSync(): void {
   if (debounceTimer) clearTimeout(debounceTimer);
@@ -34,11 +46,18 @@ function scheduleSync(): void {
 export function setWidgetAuthState(opts: { authenticated?: boolean; locked?: boolean }): void {
   if (opts.authenticated !== undefined) authenticatedFlag = opts.authenticated;
   if (opts.locked !== undefined) lockedFlag = opts.locked;
+  if (unsubscribe) syncPrivacyState();
 }
 
 /** 启动自动同步，重复调用是幂等的 */
 export function startWidgetAutoSync(): void {
   if (unsubscribe) return;
+  unsubscribePrivacy = subscribeHistoryPrivacy(syncPrivacyState);
+  unsubscribeSession = onSessionChange(() => {
+    authenticatedFlag = !!getSession().scope;
+    lockedFlag = historyIsLocked() || !historyPrivacyIsReady();
+    syncPrivacyState();
+  });
   unsubscribe = store.subscribe(() => {
     const current = store.getState().bbtalk.bbtalks;
     if (current !== lastBBTalksRef) {
@@ -47,7 +66,7 @@ export function startWidgetAutoSync(): void {
     }
   });
   // 初始化时也 sync 一次，填充 widget-data.json
-  scheduleSync();
+  syncPrivacyState();
 }
 
 /** 停止订阅（主要用于测试） */
@@ -56,6 +75,8 @@ export function stopWidgetAutoSync(): void {
     unsubscribe();
     unsubscribe = null;
   }
+  unsubscribePrivacy?.(); unsubscribePrivacy = null;
+  unsubscribeSession?.(); unsubscribeSession = null;
   if (debounceTimer) {
     clearTimeout(debounceTimer);
     debounceTimer = null;

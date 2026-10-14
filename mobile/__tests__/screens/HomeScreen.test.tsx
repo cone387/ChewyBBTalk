@@ -13,6 +13,7 @@ const mockOffline: any = {};
 const mockActions: any = {};
 const mockBatch: any = {};
 const mockTagSwipe: any = { resetSlideAnim: jest.fn(), tagScrollRef: { current: null }, listSlideAnim: 0, panResponder: { panHandlers: {} } };
+let mockSwipeTags: any[] = [];
 let mockHoldArgs: any[] = [];
 let mockPrivacyArgs: any[] = [];
 let mockActionsArgs: any[] = [];
@@ -90,6 +91,9 @@ jest.mock('../../src/services/historyPrivacy', () => ({
   setHistoryLocked: (...args: any[]) => mockSetHistoryLocked(...args),
   setHistoryPrivacyReady: (...args: any[]) => mockSetHistoryReady(...args),
   onHistoryActivity: (...args: any[]) => mockOnHistoryActivity(...args),
+  historyIsLocked: () => mockPrivacy.value.locked,
+  historyPrivacyIsReady: () => mockPrivacy.value.settingsReady,
+  getHistoryPrivacyRevision: () => 0,
 }));
 jest.mock('../../src/hooks/usePrivacyMode', () => ({
   usePrivacyMode: (...args: any[]) => { mockPrivacyArgs = args; return mockPrivacy.value; },
@@ -104,7 +108,7 @@ jest.mock('../../src/hooks/useBatchMode', () => ({
   useBatchMode: () => mockBatch.value,
 }));
 jest.mock('../../src/hooks/useTagSwipe', () => ({
-  useTagSwipe: () => mockTagSwipe,
+  useTagSwipe: (props: any) => { mockSwipeTags = props.tags; return mockTagSwipe; },
 }));
 const mockSticky = { scrollY: { setValue: jest.fn() }, onScroll: jest.fn(), translateY: 0, searchHeight: 60, navigationHeight: 48, onSearchLayout: jest.fn(), onNavigationLayout: jest.fn() };
 jest.mock('../../src/hooks/useStickySearchHeader', () => ({ useStickySearchHeader: () => mockSticky }));
@@ -324,6 +328,7 @@ const overlayProps = () => mockVoiceOverlay.mock.calls[mockVoiceOverlay.mock.cal
 const modalVisible = (label: string) => tree.root.findAllByType('Text').some((t: any) => childText(t.props.children).startsWith(label));
 
 beforeEach(() => {
+  mockVoiceOverlay.mockClear();
   installStubs();
   mockPrivacyArgs = [];
   mockActionsArgs = [];
@@ -383,6 +388,36 @@ beforeEach(() => {
 
 afterEach(() => { act(() => { tree?.unmount(); }); tree = undefined; });
 
+describe('HomeScreen nonempty tag navigation', () => {
+  it('uses the same nonempty tags for the strip and swipe navigation', async () => {
+    mockStoreState.value.tag.tags[0].bbtalkCount = 0;
+    await mountHome();
+    expect(tappable('选择标签 t1')).toBeUndefined();
+    expect(tappable('选择标签 t2')).toBeDefined();
+    expect(mockSwipeTags.map(tag => tag.id)).toEqual(['t2']);
+  });
+  it('returns to all when the selected tag becomes empty or is deleted', async () => {
+    const onSelectTag = jest.fn();
+    await mountHome({ selectedTag: 't1', onSelectTag });
+    mockStoreState.value.tag.tags = mockStoreState.value.tag.tags.map((tag: any) => ({ ...tag, bbtalkCount: tag.id === 't1' ? 0 : 1 }));
+    await act(async () => tree.update(<HomeScreen selectedTag="t1" selectedDate={null} onSelectTag={onSelectTag} />));
+    expect(onSelectTag).toHaveBeenCalledWith(null);
+    onSelectTag.mockClear();
+    mockStoreState.value.tag.tags = [];
+    await act(async () => tree.update(<HomeScreen selectedTag="t1" selectedDate={null} onSelectTag={onSelectTag} />));
+    expect(onSelectTag).toHaveBeenCalledWith(null);
+  });
+  it('does not reset a selected tag while its initial data is absent or loading', async () => {
+    const onSelectTag = jest.fn();
+    mockStoreState.value.tag.tags = [];
+    await mountHome({ selectedTag: 't1', onSelectTag });
+    expect(onSelectTag).not.toHaveBeenCalled();
+    mockStoreState.value.tag = { tags: [{ id: 't1', bbtalkCount: 0 }], isLoading: true };
+    await act(async () => tree.update(<HomeScreen selectedTag="t1" selectedDate={null} onSelectTag={onSelectTag} />));
+    expect(onSelectTag).not.toHaveBeenCalled();
+  });
+});
+
 describe('HomeScreen privacy gating', () => {
   it('renders nothing but the container until privacy settings are ready', async () => {
     mockPrivacy.value.settingsReady = false;
@@ -394,7 +429,7 @@ describe('HomeScreen privacy gating', () => {
   it('shows the lock overlay with its shortcuts when locked', async () => {
     mockPrivacy.value.locked = true;
     await mountHome();
-    expect(mockSetHistoryLocked).toHaveBeenCalledWith(true);
+    expect(mockSetHistoryLocked).not.toHaveBeenCalled();
     const lockProps = mockPrivacyLock.mock.calls[mockPrivacyLock.mock.calls.length - 1]![0];
     expect(lockProps).toMatchObject({ locked: true, biometricAvailable: false, allowComposeWhenLocked: false });
     await press('锁屏去记录');
@@ -405,11 +440,11 @@ describe('HomeScreen privacy gating', () => {
     expect(mockVoiceOverlay.mock.calls.length).toBe(0);
   });
 
-  it('publishes privacy readiness to the history service', async () => {
+  it('leaves global privacy ownership to the app provider', async () => {
     await mountHome();
-    expect(mockSetHistoryLocked).toHaveBeenCalledWith(false);
-    expect(mockSetHistoryReady).toHaveBeenCalledWith(true);
-    expect(mockOnHistoryActivity).toHaveBeenCalled();
+    expect(mockSetHistoryLocked).not.toHaveBeenCalled();
+    expect(mockSetHistoryReady).not.toHaveBeenCalled();
+    expect(mockOnHistoryActivity).not.toHaveBeenCalled();
   });
 });
 
@@ -506,7 +541,7 @@ describe('HomeScreen comments and media', () => {
   it('opens the map after confirming location info', async () => {
     await mountHome();
     await press('定位 a');
-    expect(mockXConfirm).toHaveBeenCalledWith('定位信息', expect.stringContaining('31.230400'), expect.any(Function), undefined, {
+    expect(mockXConfirm).toHaveBeenCalledWith('定位信息', '在地图应用中查看这条记录的位置？', expect.any(Function), undefined, {
       confirmText: '在地图中打开', cancelText: '关闭',
     });
     await act(async () => { mockXConfirm.mock.calls[0][2](); });

@@ -23,12 +23,14 @@ import { logError } from '../../src/utils/errorHandler';
 import { xActionSheet, xConfirm } from '../../src/utils/crossAlert';
 import { setSession, clearSession } from '../../src/services/session';
 import { useBBTalkActions } from '../../src/hooks/useBBTalkActions';
+import { setHistoryLocked, setHistoryPrivacyReady } from '../../src/services/historyPrivacy';
 import type { BBTalk } from '../../src/types';
 const first = { id: 'first', content: 'first content', visibility: 'private', isPinned: false } as BBTalk;
 const second = { ...first, id: 'second' };
 const dispatch = jest.fn(), unwrap = jest.fn(), showError = jest.fn(), navigate = jest.fn();
 beforeEach(() => {
   jest.useFakeTimers(); jest.clearAllMocks(); setSession('https://example.com', 'alice');
+  setHistoryLocked(false); setHistoryPrivacyReady(true);
   unwrap.mockReset().mockResolvedValue(undefined);
   dispatch.mockReset().mockReturnValue({ unwrap });
   (useAppDispatch as jest.Mock).mockReturnValue(dispatch);
@@ -39,6 +41,15 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); jest.clearAllTimers(); jest.useRealTimers(); });
 const actions = () => renderHook(() => useBBTalkActions({ showError, onNavigateCompose: navigate }));
+it('invalidates an already open action menu after a lock even if unlocked again', () => {
+  const { result } = actions();
+  act(() => result.current.showMenu(first));
+  const select = (xActionSheet as jest.Mock).mock.calls[0][2];
+  setHistoryLocked(true); setHistoryLocked(false);
+  act(() => { for (let index = 0; index < 6; index++) select(index); });
+  expect(navigate).not.toHaveBeenCalled(); expect(dispatch).not.toHaveBeenCalled();
+  expect(shareBBTalk).not.toHaveBeenCalled(); expect(Clipboard.setStringAsync).not.toHaveBeenCalled();
+});
 it('allows undo before deletion reaches the server', async () => {
   const { result } = actions();
   act(() => result.current.handleDelete(first));
@@ -54,7 +65,7 @@ it('rolls back deletion at the original position when the server rejects it', as
   const { result } = actions(); act(() => result.current.handleDelete(second));
   await act(async () => { await jest.advanceTimersByTimeAsync(3000); });
   expect(undoDelete).toHaveBeenCalledWith({ bbtalk: second, index: 1 });
-  expect(showError).toHaveBeenCalledWith('删除失败', 'offline');
+  expect(showError).toHaveBeenCalledWith('删除失败', '记录未删除，请稍后重试');
 });
 it('does not let an older delete completion dismiss a newer undo opportunity', async () => {
   const { result } = actions(); act(() => result.current.handleDelete(first));
@@ -115,7 +126,7 @@ it('surfaces rejected Redux voice submissions instead of silently reporting comp
   unwrap.mockRejectedValueOnce(new Error('save failed'));
   const { result } = actions();
   await act(async () => { await result.current.handleVoiceFinish({ text: 'voice transcript', audioUri: null, audioDuration: 0 }); });
-  expect(showError).toHaveBeenCalledWith('保存失败', 'save failed');
+  expect(showError).toHaveBeenCalledWith('保存失败', '录音未能保存，请稍后重试');
 });
 it('does not save an empty voice result or one completed after account switch', async () => {
   const { result } = actions();

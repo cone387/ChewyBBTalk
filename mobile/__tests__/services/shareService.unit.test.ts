@@ -55,6 +55,7 @@ import {
   shareBBTalk,
 } from '../../src/services/shareService';
 import type { BBTalk } from '../../src/types';
+import { setHistoryLocked, setHistoryPrivacyReady } from '../../src/services/historyPrivacy';
 
 // --- Helpers ---
 
@@ -96,9 +97,30 @@ function makeBBTalkWithMixedAttachments(): BBTalk {
 // --- Tests ---
 
 beforeEach(() => {
+  setHistoryLocked(false); setHistoryPrivacyReady(true);
   jest.clearAllMocks();
   // Reset Platform to iOS by default
   (Platform as any).OS = 'ios';
+});
+
+it('never opens a share or falls back to clipboard when locked during an image download', async () => {
+  let finish!: (result: any) => void;
+  (FileSystem.downloadAsync as jest.Mock).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  const work = shareBBTalk(makeBBTalkWithImages());
+  setHistoryLocked(true); setHistoryLocked(false);
+  finish({ status: 200, uri: '/tmp/private-share.jpg' });
+  await work;
+  expect(Sharing.shareAsync).not.toHaveBeenCalled();
+  expect(Share.share).not.toHaveBeenCalled();
+  expect(Clipboard.setStringAsync).not.toHaveBeenCalled();
+});
+
+it('refuses both sharing and copying while privacy settings are pending', async () => {
+  setHistoryPrivacyReady(false);
+  await shareBBTalk(makeBBTalk());
+  await copyToClipboard('secret');
+  expect(Share.share).not.toHaveBeenCalled();
+  expect(Clipboard.setStringAsync).not.toHaveBeenCalled();
 });
 
 describe('ShareService Unit Tests', () => {

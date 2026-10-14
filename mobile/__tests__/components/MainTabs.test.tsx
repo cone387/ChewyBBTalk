@@ -83,6 +83,18 @@ it('blocks tab presses while locked and records activity for unlocked navigation
   act(() => nav().props.screenListeners.tabPress({ preventDefault }));
   expect(preventDefault).toHaveBeenCalledTimes(1); expect(activity).toHaveBeenCalledTimes(1); unsubscribe();
 });
+it('hides secondary pages and prevents navigation until foreground privacy checks finish', () => {
+  mount(); tabBar();
+  act(() => setHistoryPrivacyReady(false));
+  expect(tree.root.findAllByType('CalendarScreen')).toHaveLength(0);
+  expect(tree.root.findAllByType('SettingsScreen')).toHaveLength(0);
+  expect(bar.toJSON()).toBeNull();
+  const preventDefault = jest.fn();
+  act(() => nav().props.screenListeners.tabPress({ preventDefault }));
+  expect(preventDefault).toHaveBeenCalledTimes(1);
+  act(() => setHistoryPrivacyReady(true));
+  expect(tree.root.findAllByType('CalendarScreen')).toHaveLength(1);
+});
 it('relocks on account change and waits for readiness before navigating to records', () => {
   mount(); const navigation = tabBar();
   act(() => setSession('https://server.example', 'bob'));

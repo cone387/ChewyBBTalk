@@ -209,7 +209,8 @@ function scheduleRefreshRetry(): void {
 
 export async function login(
   username: string,
-  password: string
+  password: string,
+  options?: { unlockPrivacy?: boolean },
 ): Promise<{ success: boolean; error?: string }> {
   const session = getSession();
   const controller = new AbortController();
@@ -226,7 +227,7 @@ export async function login(
       const data: LoginResponse = await response.json();
       if (!isCurrentSession(session)) return { success: false, error: '服务已切换，请重新登录' };
       await storeAuth(data);
-      await AsyncStorage.setItem('privacy_locked', 'false');
+      if (options?.unlockPrivacy !== false) await AsyncStorage.setItem('privacy_locked', 'false');
       return { success: true };
     }
 

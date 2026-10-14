@@ -5,6 +5,7 @@ import { xConfirm } from '../utils/crossAlert';
 import { useAppDispatch } from '../store/hooks';
 import { optimisticDelete } from '../store/slices/bbtalkSlice';
 import { logError } from '../utils/errorHandler';
+import { createPrivacyOperation } from '../services/privacyOperation';
 
 interface UseBatchModeOptions {
   showError: (title: string, msg: string) => void;
@@ -62,25 +63,26 @@ export function useBatchMode({ showError, onComplete }: UseBatchModeOptions): Us
   }, []);
 
   const batchDelete = useCallback(async (ids: string[]) => {
+    const operation = createPrivacyOperation();
+    if (!isCurrentSession(session) || !operation.isCurrent()) return;
     return new Promise<void>((resolve) => {
       xConfirm(
         '批量删除',
         `确定删除选中的 ${ids.length} 条碎碎念？此操作不可撤销。`,
         async () => {
+              if (!isCurrentSession(session) || !operation.isCurrent()) { resolve(); return; }
               setIsExecuting(true);
               setProgress({ done: 0, total: ids.length });
               let failed = 0;
-              const errors: string[] = [];
 
               for (let i = 0; i < ids.length; i++) {
-                if (!isCurrentSession(session)) break;
+                if (!isCurrentSession(session) || !operation.isCurrent()) break;
                 setProgress({ done: i + 1, total: ids.length });
                 try {
                   await bbtalkApi.deleteBBTalk(ids[i]);
                   isCurrentSession(session) && dispatch(optimisticDelete(ids[i]));
                 } catch (e: any) {
                   failed++;
-                  errors.push(e.message || '未知错误');
                   logError(e, `batchDelete ${ids[i]}`);
                 }
               }
@@ -88,8 +90,8 @@ export function useBatchMode({ showError, onComplete }: UseBatchModeOptions): Us
               setIsExecuting(false);
               setProgress(null);
 
-              if (failed > 0) {
-                showError('部分操作失败', `${ids.length} 条中有 ${failed} 条删除失败：${errors[0]}`);
+              if (failed > 0 && operation.isCurrent()) {
+                showError('部分操作失败', `${ids.length} 条中有 ${failed} 条删除失败，请重试。`);
               }
 
               exitBatchMode();
@@ -101,13 +103,14 @@ export function useBatchMode({ showError, onComplete }: UseBatchModeOptions): Us
   }, [dispatch, showError, onComplete, exitBatchMode]);
 
   const batchUpdateTags = useCallback(async (ids: string[], tagNames: string[]) => {
+    const operation = createPrivacyOperation();
+    if (!isCurrentSession(session) || !operation.isCurrent()) return;
     setIsExecuting(true);
     setProgress({ done: 0, total: ids.length });
     let failed = 0;
-    const errors: string[] = [];
 
     for (let i = 0; i < ids.length; i++) {
-      if (!isCurrentSession(session)) break;
+      if (!isCurrentSession(session) || !operation.isCurrent()) break;
       setProgress({ done: i + 1, total: ids.length });
       try {
         await bbtalkApi.updateBBTalk(ids[i], {
@@ -115,7 +118,6 @@ export function useBatchMode({ showError, onComplete }: UseBatchModeOptions): Us
         });
       } catch (e: any) {
         failed++;
-        errors.push(e.message || '未知错误');
         logError(e, `batchUpdateTags ${ids[i]}`);
       }
     }
@@ -123,8 +125,8 @@ export function useBatchMode({ showError, onComplete }: UseBatchModeOptions): Us
     setIsExecuting(false);
     setProgress(null);
 
-    if (failed > 0) {
-      showError('部分操作失败', `${ids.length} 条中有 ${failed} 条标签更新失败：${errors[0]}`);
+    if (failed > 0 && operation.isCurrent()) {
+      showError('部分操作失败', `${ids.length} 条中有 ${failed} 条标签更新失败，请重试。`);
     }
 
     exitBatchMode();
@@ -132,19 +134,19 @@ export function useBatchMode({ showError, onComplete }: UseBatchModeOptions): Us
   }, [showError, onComplete, exitBatchMode]);
 
   const batchUpdateVisibility = useCallback(async (ids: string[], visibility: 'public' | 'private' | 'friends') => {
+    const operation = createPrivacyOperation();
+    if (!isCurrentSession(session) || !operation.isCurrent()) return;
     setIsExecuting(true);
     setProgress({ done: 0, total: ids.length });
     let failed = 0;
-    const errors: string[] = [];
 
     for (let i = 0; i < ids.length; i++) {
-      if (!isCurrentSession(session)) break;
+      if (!isCurrentSession(session) || !operation.isCurrent()) break;
       setProgress({ done: i + 1, total: ids.length });
       try {
         await bbtalkApi.updateBBTalk(ids[i], { visibility });
       } catch (e: any) {
         failed++;
-        errors.push(e.message || '未知错误');
         logError(e, `batchUpdateVisibility ${ids[i]}`);
       }
     }
@@ -152,8 +154,8 @@ export function useBatchMode({ showError, onComplete }: UseBatchModeOptions): Us
     setIsExecuting(false);
     setProgress(null);
 
-    if (failed > 0) {
-      showError('部分操作失败', `${ids.length} 条中有 ${failed} 条可见性更新失败：${errors[0]}`);
+    if (failed > 0 && operation.isCurrent()) {
+      showError('部分操作失败', `${ids.length} 条中有 ${failed} 条可见性更新失败，请重试。`);
     }
 
     exitBatchMode();

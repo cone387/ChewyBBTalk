@@ -25,6 +25,7 @@ function PlayerCard({ uri, attachment, autoPlay = false }: { uri: string; attach
   const player = useAudioPlayer(buildImageSource(uri));
   const status = useAudioPlayerStatus(player);
   const started = useRef(false);
+  useEffect(() => () => { try { player.pause(); } catch {} }, [player]);
   useEffect(() => {
     if (!autoPlay || !status.isLoaded || started.current) return;
     started.current = true;

@@ -37,7 +37,7 @@ jest.mock('../../src/components/LoadingPlaceholder', () => ({ __esModule: true, 
 
 jest.mock('react-native', () => ({
   View: 'View', Text: 'Text', TouchableOpacity: 'TouchableOpacity', TextInput: 'TextInput',
-  ScrollView: 'ScrollView', LayoutAnimation: { configureNext: jest.fn() },
+  ScrollView: 'ScrollView', Modal: 'Modal', KeyboardAvoidingView: 'KeyboardAvoidingView', Keyboard: { dismiss: jest.fn() }, LayoutAnimation: { configureNext: jest.fn() },
   UIManager: {}, Platform: { OS: 'ios', select: (options: any) => options.ios },
   StyleSheet: { create: (value: unknown) => value },
 }));
@@ -48,6 +48,7 @@ jest.mock('../../src/theme/ThemeContext', () => ({ useTheme: () => ({ theme: req
 import React from 'react';
 import TagManagementScreen from '../../src/screens/TagManagementScreen';
 import type { Tag } from '../../src/types';
+import { setHistoryLocked } from '../../src/services/historyPrivacy';
 
 const { create, act } = require('react-test-renderer');
 
@@ -70,16 +71,14 @@ function tappable(label: string) {
 }
 async function press(label: string) { await act(async () => { void tappable(label)!.props.onPress(); }); }
 async function openDelete(name: string) {
-  await press(`标签 ${name} 的更多操作`);
-  const call = mockXActionSheet.mock.calls.at(-1)!;
-  await act(async () => { call[2](1); });
-  // Keep the deletion sheet assertions focused on its own options.
-  mockXActionSheet.mock.calls.shift();
+  await press(`编辑标签 ${name}`);
+  await press('删除标签');
 }
 const hasText = (s: string) => tree.root.findAllByType('Text').some((t: any) => childText(t.props.children) === s);
 const tagNames = () => tree.root.findAllByType('Text').map((t: any) => childText(t.props.children)).filter((s: string) => /^[a-c]$/.test(s));
 
 beforeEach(() => {
+  setHistoryLocked(false);
   jest.clearAllMocks();
   mockEmptyState.mockImplementation((_props: any) => null);
   mockLoadingPlaceholder.mockImplementation((_props: any) => null);
@@ -135,6 +134,16 @@ describe('TagManagementScreen loading', () => {
 });
 
 describe('TagManagementScreen editing', () => {
+  it('opens an edit modal directly without any more button and closes it on privacy lock', async () => {
+    await mountScreen();
+    expect(tappable('标签 a 的更多操作')).toBeUndefined();
+    await press('编辑标签 a');
+    expect(tree.root.findAllByType('Modal')).toHaveLength(1);
+    expect(tree.root.findByType('Modal').findAllByType('TextInput')).toHaveLength(1);
+    await act(async () => { setHistoryLocked(true); });
+    expect(tree.root.findAllByType('Modal')).toHaveLength(0);
+    expect(tappable('编辑标签 a')).toBeUndefined();
+  });
   it('saves a renamed tag with a picked preset color and refreshes the store', async () => {
     await mountScreen();
     await press('编辑标签 a');
@@ -163,13 +172,21 @@ describe('TagManagementScreen editing', () => {
     expect(tappable('编辑标签 a')).toBeDefined();
   });
 
+  it('closes the edit modal with the system back action without saving', async () => {
+    await mountScreen();
+    await press('编辑标签 a');
+    await act(async () => tree.root.findByType('Modal').props.onRequestClose());
+    expect(tree.root.findAllByType('Modal')).toHaveLength(0);
+    expect(mockTagApi.updateTag).not.toHaveBeenCalled();
+  });
+
   it('reports a failed save and keeps the editor open', async () => {
     mockTagApi.updateTag = jest.fn().mockImplementationOnce(() => Promise.reject(new Error('名称重复')));
     await mountScreen();
     await press('编辑标签 a');
     await press('保存');
     await settle();
-    expect(mockXAlert).toHaveBeenCalledWith('保存失败', '名称重复');
+    expect(hasText('名称重复')).toBe(true);
     expect(tappable('保存')).toBeDefined();
   });
 
@@ -189,14 +206,33 @@ describe('TagManagementScreen editing', () => {
 });
 
 describe('TagManagementScreen deletion', () => {
+  it('keeps empty tags editable, hides cascade deletion and allows cancelling', async () => {
+    await mountScreen();
+    await openDelete('a');
+    expect(tappable('同时删除碎碎念')).toBeUndefined();
+    await press('取消');
+    expect(tree.root.findAllByType('TextInput')).toHaveLength(1);
+    expect(mockTagApi.deleteTag).not.toHaveBeenCalled();
+  });
+
+  it('discards the deletion confirmation on lock and never restores it after unlocking', async () => {
+    await mountScreen();
+    await openDelete('b');
+    await press('同时删除碎碎念');
+    const confirm = tappable('确认删除').props.onPress;
+    await act(async () => { setHistoryLocked(true); });
+    await act(async () => { confirm(); });
+    expect(mockTagApi.deleteTag).not.toHaveBeenCalled();
+    await act(async () => { setHistoryLocked(false); });
+    expect(tree.root.findAllByType('Modal')).toHaveLength(0);
+  });
+
   it('offers keep-records and cascade options for a used tag', async () => {
     await mountScreen();
     await openDelete('b');
-    expect(mockXActionSheet).toHaveBeenCalledWith('删除「b」？（关联 2 条碎碎念）', [
-      expect.objectContaining({ text: '仅删除标签，保留记录' }),
-      expect.objectContaining({ text: '同时删除碎碎念', destructive: true }),
-    ], expect.any(Function));
-    await act(async () => { mockXActionSheet.mock.calls[0]![2](0); });
+    expect(hasText('删除「b」？（关联 2 条碎碎念）')).toBe(true);
+    expect(tappable('同时删除碎碎念')).toBeDefined();
+    await press('仅删除标签，保留记录');
     await settle();
     expect(mockTagApi.deleteTag).toHaveBeenCalledWith('b', false);
     expect(mockLoadTagsThunk).not.toHaveBeenCalled();
@@ -207,15 +243,10 @@ describe('TagManagementScreen deletion', () => {
   it('confirms before cascading to the linked records', async () => {
     await mountScreen();
     await openDelete('b');
-    await act(async () => { mockXActionSheet.mock.calls[0]![2](1); });
-    expect(mockXConfirm).toHaveBeenCalledWith(
-      '删除标签和记录',
-      '将永久删除「b」及其关联的 2 条记录，不可恢复！',
-      expect.any(Function), undefined,
-      { confirmText: '确认删除', destructive: true },
-    );
+    await press('同时删除碎碎念');
+    expect(hasText('将永久删除「b」及其关联的 2 条记录，不可恢复！')).toBe(true);
     expect(mockTagApi.deleteTag).not.toHaveBeenCalled();
-    await act(async () => { await mockXConfirm.mock.calls[0]![2](); });
+    await press('确认删除');
     await settle();
     expect(mockTagApi.deleteTag).toHaveBeenCalledWith('b', true);
   });
@@ -224,9 +255,9 @@ describe('TagManagementScreen deletion', () => {
     mockTagApi.deleteTag = jest.fn().mockImplementationOnce(() => Promise.reject(new Error('被引用')));
     await mountScreen();
     await openDelete('b');
-    await act(async () => { mockXActionSheet.mock.calls[0]![2](0); });
+    await press('仅删除标签，保留记录');
     await settle();
-    expect(mockXAlert).toHaveBeenCalledWith('删除失败', '被引用');
+    expect(hasText('被引用')).toBe(true);
   });
 });
 
@@ -270,7 +301,7 @@ describe('TagManagementScreen reordering', () => {
     await mountScreen();
     await drop(0, 2);
     expect(tagNames()).toEqual(['a', 'b', 'c']);
-    expect(mockXAlert).toHaveBeenCalledWith('排序失败', '冲突');
+    expect(hasText('冲突')).toBe(true);
   });
 
   it('does not save no-op drops and serializes pending saves', async () => {

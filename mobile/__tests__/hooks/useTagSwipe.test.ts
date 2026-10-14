@@ -8,9 +8,23 @@ import { Animated } from 'react-native';
 import { useReducedMotion } from '../../src/hooks/useReducedMotion';
 import { useTagSwipe } from '../../src/hooks/useTagSwipe';
 import type { Tag } from '../../src/types';
-const tags = [{ id: 'one' }, { id: 'two' }] as Tag[];
+const tags = [{ id: 'one', bbtalkCount: 2 }, { id: 'two', bbtalkCount: 1 }] as Tag[];
 beforeEach(() => { jest.clearAllMocks(); (useReducedMotion as jest.Mock).mockReturnValue(false); });
 afterEach(cleanup);
+it('skips empty tags in swipe navigation', () => {
+  const { handlers, select } = swipe(null, true, [{ id: 'empty', bbtalkCount: 0 } as Tag, ...tags]);
+  act(() => handlers.onPanResponderRelease(null, { dx: -70, vx: 0 }));
+  expect(select).toHaveBeenCalledWith('one');
+});
+it('does not select a tag removed while a swipe animation is finishing', () => {
+  let finish!: () => void;
+  (Animated.timing as jest.Mock).mockReturnValueOnce({ start: (callback: () => void) => { finish = callback; } });
+  const { handlers, select, rerender } = swipe();
+  act(() => handlers.onPanResponderRelease(null, { dx: -70, vx: 0 }));
+  rerender({ tags: [tags[1]], selectedTag: null, showTagTabs: true });
+  act(() => finish());
+  expect(select).toHaveBeenCalledWith(null);
+});
 function swipe(selectedTag: string | null = null, showTagTabs = true, activeTags = tags) {
   const select = jest.fn();
   const hook = renderHook((props: { tags: Tag[]; selectedTag: string | null; showTagTabs: boolean }) => useTagSwipe({ ...props, onSelectTag: select }), { initialProps: { tags: activeTags, selectedTag, showTagTabs } });

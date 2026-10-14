@@ -1,4 +1,4 @@
-import { setHistoryLocked, setHistoryPrivacyReady, onHistoryActivity } from '../services/historyPrivacy';
+import { createPrivacyOperation } from '../services/privacyOperation';
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Keyboard,
@@ -58,7 +58,17 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
   }, []);
 
   const { hasLoadedFromNetwork, isFiltered, bbtalks, isLoading, hasMore } = useAppSelector(s => s.bbtalk);
-  const { tags } = useAppSelector(s => s.tag);
+  const { tags, isLoading: tagsLoading } = useAppSelector(s => s.tag);
+  const visibleTags = useMemo(() => tags.filter(tag => (tag.bbtalkCount ?? 0) > 0), [tags]);
+  const knownSelectedTag = useRef<string | null>(null);
+  useEffect(() => {
+    if (!selectedTag) { knownSelectedTag.current = null; return; }
+    const current = tags.find(tag => tag.id === selectedTag);
+    if (current) knownSelectedTag.current = selectedTag;
+    // Initial fetches may still be empty. Only clear a verified empty/deleted tag.
+    if (!tagsLoading && ((current && current.bbtalkCount === 0)
+      || (!current && knownSelectedTag.current === selectedTag))) onSelectTag?.(null);
+  }, [tags, tagsLoading, selectedTag, onSelectTag]);
   const selectedTagName = selectedTag ? tags.find(t => t.id === selectedTag)?.name : null;
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -87,11 +97,6 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
     // Locking unmounts the list; its next mount starts at offset zero as well.
     if (privacy.locked || !privacy.settingsReady) sticky.scrollY.setValue(0);
   }, [privacy.locked, privacy.settingsReady, sticky.scrollY]);
-  useEffect(() => {
-    setHistoryLocked(!privacy.settingsReady || privacy.locked);
-    setHistoryPrivacyReady(privacy.settingsReady);
-  }, [privacy.settingsReady, privacy.locked]);
-  useEffect(() => onHistoryActivity(privacy.resetPrivacyTimer), [privacy.resetPrivacyTimer]);
 
   useEffect(() => { if (privacy.locked) setVoiceRecording(false); }, [privacy.locked]);
 
@@ -143,7 +148,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
       dispatch(incrementCommentCount({ id: commentTargetId, comment }));
     }
   }, [commentTargetId, dispatch]);
-  const tagSwipe = useTagSwipe({ tags, selectedTag, showTagTabs, onSelectTag });
+  const tagSwipe = useTagSwipe({ tags: visibleTags, selectedTag, showTagTabs, onSelectTag });
 
   // --- Batch Mode ---
 
@@ -321,7 +326,10 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
   }, [dispatch, hasMore, isLoading, selectedTagName, selectedDate, isOffline, activeSearch]);
 
   const showLocation = useCallback((loc: { latitude: number; longitude: number }) => {
-    xConfirm('定位信息', `纬度: ${loc.latitude.toFixed(6)}\n经度: ${loc.longitude.toFixed(6)}`, () => {
+    const operation = createPrivacyOperation();
+    if (!operation.isCurrent()) return;
+    xConfirm('定位信息', '在地图应用中查看这条记录的位置？', () => {
+      if (!operation.isCurrent()) return;
       const url = Platform.select({ ios: `maps:?q=${loc.latitude},${loc.longitude}`, default: `geo:${loc.latitude},${loc.longitude}` });
       Linking.openURL(url!).catch((e) => { logError(e, 'open map URL'); });
     }, undefined, { confirmText: '在地图中打开', cancelText: '关闭' });
@@ -419,8 +427,8 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
 
   // Keep modal input, search typing and the privacy clock outside list reconciliation.
   const feed = useMemo(() => (
-      <Animated.View style={{ flex: 1, transform: [{ translateX: showTagTabs && tags.length > 0 ? tagSwipe.listSlideAnim : 0 }] }}
-        {...(showTagTabs && tags.length > 0 ? tagSwipe.panResponder.panHandlers : {})}>
+      <Animated.View style={{ flex: 1, transform: [{ translateX: showTagTabs && visibleTags.length > 0 ? tagSwipe.listSlideAnim : 0 }] }}
+        {...(showTagTabs && visibleTags.length > 0 ? tagSwipe.panResponder.panHandlers : {})}>
         <View style={styles.listViewport}>
         <Animated.FlatList data={filteredBBTalks} keyExtractor={item => item.id}
           renderItem={renderItem}
@@ -458,7 +466,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
           contentContainerStyle={{ paddingHorizontal: 12, paddingTop: batch.batchMode ? 0 : insets.top + sticky.searchHeight + sticky.navigationHeight, paddingBottom: insets.bottom + 80 }} />
         </View>
       </Animated.View>
-  ), [showTagTabs, tags.length, tagSwipe.listSlideAnim, tagSwipe.panResponder, filteredBBTalks,
+  ), [showTagTabs, visibleTags.length, tagSwipe.listSlideAnim, tagSwipe.panResponder, filteredBBTalks,
     renderItem, listHeaderComponent, onFeedDrag, isLoading, activeSearch,
     selectedTag, selectedDate, clearFilters, navigation, c, loadingMore, hasMore,
     refreshing, onRefresh, isOffline, onEndReached, insets.bottom, insets.top, batch.batchMode, sticky.onScroll, sticky.searchHeight, sticky.navigationHeight]);
@@ -508,7 +516,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
               theme={theme} />
           </View>
           <View onLayout={sticky.onNavigationLayout}>
-            <TagTabs tags={tags} selectedTag={selectedTag} selectedDate={selectedDate}
+            <TagTabs tags={visibleTags} selectedTag={selectedTag} selectedDate={selectedDate}
               onSelectTag={handleSelectTag} onResetAnim={tagSwipe.resetSlideAnim}
               onManage={onManageTags}
               scrollRef={tagSwipe.tagScrollRef as any} theme={theme} />

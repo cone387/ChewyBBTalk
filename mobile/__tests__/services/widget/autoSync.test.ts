@@ -1,4 +1,5 @@
 const mockSyncWidget = jest.fn((..._args: any[]) => Promise.resolve());
+const mockClearWidget = jest.fn((..._args: any[]) => Promise.resolve());
 
 jest.mock('../../../src/store', () => {
   const listeners: Array<() => void> = [];
@@ -22,6 +23,7 @@ jest.mock('../../../src/store', () => {
 jest.mock('../../../src/services/widget/index', () => ({
   __esModule: true,
   syncWidget: (...args: any[]) => mockSyncWidget(...args),
+  clearWidget: (...args: any[]) => mockClearWidget(...args),
 }));
 
 import {
@@ -29,6 +31,8 @@ import {
   stopWidgetAutoSync,
   setWidgetAuthState,
 } from '../../../src/services/widget/autoSync';
+import { setSession, clearSession } from '../../../src/services/session';
+import { setHistoryLocked, setHistoryPrivacyReady } from '../../../src/services/historyPrivacy';
 
 const Store: any = require('../../../src/store');
 const notify = () => { Store.__listeners.slice().forEach((l: () => void) => l()); };
@@ -41,6 +45,9 @@ beforeEach(() => {
   Store.__state.bbtalk.bbtalks = [];
   Store.__listeners.length = 0;
   mockSyncWidget.mockImplementation((..._args: any[]) => Promise.resolve());
+  setSession('https://test.example', 'widget-user');
+  setHistoryPrivacyReady(true);
+  setHistoryLocked(false);
   setWidgetAuthState({ authenticated: true, locked: false });
   warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
 });
@@ -70,11 +77,37 @@ describe('startWidgetAutoSync', () => {
     expect(mockSyncWidget).toHaveBeenCalledTimes(1);
   });
 
-  it('passes the current auth flags into each sync', async () => {
+  it('immediately clears for unauthenticated callers instead of scheduling content', async () => {
     setWidgetAuthState({ authenticated: false, locked: true });
     startWidgetAutoSync();
     await jest.advanceTimersByTimeAsync(500);
-    expect(mockSyncWidget).toHaveBeenCalledWith({ authenticated: false, locked: true });
+    expect(mockClearWidget).toHaveBeenCalledWith('logout');
+    expect(mockSyncWidget).not.toHaveBeenCalled();
+  });
+
+  it('clears synchronously on a global lock and cancels the pending debounce', async () => {
+    startWidgetAutoSync();
+    setHistoryLocked(true);
+    expect(mockClearWidget).toHaveBeenCalledWith('locked');
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(mockSyncWidget).not.toHaveBeenCalled();
+  });
+
+  it('cannot use caller flags to bypass a global not-ready state', () => {
+    setHistoryPrivacyReady(false);
+    setWidgetAuthState({ authenticated: true, locked: false });
+    startWidgetAutoSync();
+    expect(mockClearWidget).toHaveBeenCalledWith('locked');
+  });
+
+  it('clears and cancels old scheduled work after logout or account changes', async () => {
+    startWidgetAutoSync();
+    clearSession();
+    expect(mockClearWidget).toHaveBeenCalledWith('logout');
+    setSession('https://test.example', 'other-user');
+    expect(mockClearWidget).toHaveBeenCalledWith('locked');
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(mockSyncWidget).not.toHaveBeenCalled();
   });
 });
 

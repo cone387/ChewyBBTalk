@@ -3,17 +3,17 @@ import { Platform } from 'react-native';
 import { allowScreenCaptureAsync, preventScreenCaptureAsync } from 'expo-screen-capture';
 
 /**
- * Prevent Android screenshots and recent-app thumbnails from exposing private content.
- * iOS uses AppBackgroundBlur for task switcher privacy; Web intentionally does nothing.
+ * Apply Expo's native screenshot/recording protection on both mobile platforms.
+ * AppBackgroundBlur separately covers iOS task switching; Web has no equivalent API.
  */
 export default function ScreenCaptureProtection() {
   useEffect(() => {
-    if (Platform.OS !== 'android') return;
+    if (Platform.OS !== 'android' && Platform.OS !== 'ios') return;
 
-    void preventScreenCaptureAsync().catch(() => {});
+    void preventScreenCaptureAsync('app-privacy').catch(() => {});
 
     return () => {
-      void allowScreenCaptureAsync().catch(() => {});
+      void allowScreenCaptureAsync('app-privacy').catch(() => {});
     };
   }, []);
 

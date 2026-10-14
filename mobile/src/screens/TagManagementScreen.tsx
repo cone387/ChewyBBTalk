@@ -1,12 +1,11 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useSyncExternalStore } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, TextInput,
+  View, Text, TouchableOpacity, StyleSheet, TextInput, Modal, KeyboardAvoidingView, Platform, ScrollView, Keyboard,
 } from 'react-native';
 import DragList from 'react-native-draglist';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
-import { xAlert, xConfirm, xActionSheet } from '../utils/crossAlert';
 import { tagApi } from '../services/api/tagApi';
 import { useAppDispatch } from '../store/hooks';
 import { setTags as setStoreTags } from '../store/slices/tagSlice';
@@ -14,6 +13,7 @@ import EmptyState from '../components/EmptyState';
 import LoadingPlaceholder from '../components/LoadingPlaceholder';
 import type { Tag } from '../types';
 import { getSession, isCurrentSession } from '../services/session';
+import { historyIsLocked, subscribeHistoryPrivacy, recordHistoryActivity } from '../services/historyPrivacy';
 
 const PRESET_COLORS = [
   '#3B82F6', '#8B5CF6', '#EC4899', '#EF4444', '#F59E0B',
@@ -30,6 +30,9 @@ export default function TagManagementScreen() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editColor, setEditColor] = useState('');
+  const [editError, setEditError] = useState('');
+  const [deleteStage, setDeleteStage] = useState<'choose' | 'confirm' | null>(null);
+  const locked = useSyncExternalStore(subscribeHistoryPrivacy, historyIsLocked, historyIsLocked);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
@@ -46,11 +49,16 @@ export default function TagManagementScreen() {
   }, []);
 
   useEffect(() => { load(); }, []);
+  useEffect(() => {
+    if (locked) { setEditingId(null); setEditName(''); setEditColor(''); setDeleteStage(null); Keyboard.dismiss(); }
+  }, [locked]);
 
-  const startEdit = (tag: Tag) => { if (busyRef.current) return; setEditingId(tag.id); setEditName(tag.name); setEditColor(tag.color); };
-  const cancelEdit = () => { setEditingId(null); };
+  const startEdit = (tag: Tag) => { if (busyRef.current || dragging || historyIsLocked()) return; recordHistoryActivity(); setEditError(''); setDeleteStage(null); setEditingId(tag.id); setEditName(tag.name); setEditColor(tag.color); };
+  const cancelEdit = () => { setEditingId(null); setDeleteStage(null); Keyboard.dismiss(); };
   const mutate = async (action: () => Promise<void>) => {
-    if (busyRef.current || !isCurrentSession(session)) return;
+    if (busyRef.current || historyIsLocked() || !isCurrentSession(session)) return;
+    recordHistoryActivity();
+    setEditError('');
     busyRef.current = true; setBusy(true);
     try { await action(); }
     finally { busyRef.current = false; setBusy(false); }
@@ -62,28 +70,18 @@ export default function TagManagementScreen() {
       await tagApi.updateTag(editingId, { name: editName.trim(), color: editColor });
       if (!isCurrentSession(session)) return;
       cancelEdit(); await load(true);
-    } catch (e: any) { if (isCurrentSession(session)) xAlert('保存失败', e.message); }
+    } catch (e: any) { if (isCurrentSession(session) && !historyIsLocked()) setEditError(e.message || '保存失败，请重试'); }
   });
 
-  const deleteTag = (tag: Tag) => {
-    const options: { text: string; action: () => void; destructive?: boolean }[] = [
-      { text: '仅删除标签，保留记录', action: () => mutate(async () => {
-        try { await tagApi.deleteTag(tag.id, false); if (isCurrentSession(session)) await load(true); }
-        catch (e: any) { if (isCurrentSession(session)) xAlert('删除失败', e.message); }
-      })},
-    ];
-    if (tag.bbtalkCount && tag.bbtalkCount > 0) {
-      options.push({ text: '同时删除碎碎念', destructive: true, action: () => {
-        xConfirm('删除标签和记录', `将永久删除「${tag.name}」及其关联的 ${tag.bbtalkCount} 条记录，不可恢复！`, () => mutate(async () => {
-          try { await tagApi.deleteTag(tag.id, true); if (isCurrentSession(session)) await load(true); }
-          catch (e: any) { if (isCurrentSession(session)) xAlert('删除失败', e.message); }
-        }), undefined, { confirmText: '确认删除', destructive: true });
-      }});
-    }
-    xActionSheet(`删除「${tag.name}」？（关联 ${tag.bbtalkCount || 0} 条碎碎念）`, options, (index) => {
-      options[index].action();
-    });
-  };
+  const editingTag = tags.find(tag => tag.id === editingId);
+  const deleteTag = (cascade: boolean) => mutate(async () => {
+    if (!editingId) return;
+    try {
+      await tagApi.deleteTag(editingId, cascade);
+      if (!isCurrentSession(session)) return;
+      cancelEdit(); await load(true);
+    } catch (e: any) { if (isCurrentSession(session) && !historyIsLocked()) setEditError(e.message || '删除失败，请重试'); }
+  });
 
   const reorder = (from: number, to: number) => {
     const target = Math.min(to, tags.length - 1);
@@ -101,27 +99,19 @@ export default function TagManagementScreen() {
       } catch (e: any) {
         if (!isCurrentSession(session)) return;
         setTags(previous); dispatch(setStoreTags(previous)); setOrderStatus('未能保存，已恢复原顺序');
-        xAlert('排序失败', e.message || '顺序没有保存，请重试');
+        if (!historyIsLocked()) setError(e.message || '顺序没有保存，请重试');
       }
     });
   };
 
-  const showActions = (tag: Tag) => {
-    if (busyRef.current || dragging) return;
-    xActionSheet(`「${tag.name}」`, [
-      { text: '编辑名称与颜色' }, { text: '删除标签', destructive: true },
-    ], index => {
-      if (busyRef.current) return;
-      if (index === 0) startEdit(tag);
-      if (index === 1) deleteTag(tag);
-    });
-  };
+  if (locked) return <View style={[styles.container, { backgroundColor: c.surfaceSecondary }]} />;
 
   if (loading) {
     return <View style={[styles.container, { backgroundColor: c.surfaceSecondary }]}><LoadingPlaceholder /></View>;
   }
 
   return (
+    <View style={[styles.container, { backgroundColor: c.surfaceSecondary }]} onTouchStart={recordHistoryActivity}>
     <DragList
       containerStyle={[styles.container, { backgroundColor: c.surfaceSecondary }]}
       contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 24 }}
@@ -151,12 +141,51 @@ export default function TagManagementScreen() {
       ) : null}
       renderItem={({ item: tag, index, isActive, onDragStart, onDragEnd }) => (
         <View style={[styles.tagCard, { backgroundColor: c.cardBg, borderColor: isActive ? c.primary : c.borderLight }, isActive && styles.activeCard]}>
-          {editingId === tag.id ? (
+
+            <View style={styles.tagRow}>
+              <View style={[styles.colorDot, { backgroundColor: tag.color || '#3B82F6' }]} />
+              <TouchableOpacity disabled={busy || dragging || !!editingId} accessibilityRole="button" accessibilityLabel={`编辑标签 ${tag.name}`} onPress={() => startEdit(tag)} style={styles.tagContent}>
+                <Text numberOfLines={2} style={[styles.tagName, { color: c.text }]}>{tag.name}</Text>
+                <Text style={[styles.tagCount, { color: c.textSecondary }]}>{tag.bbtalkCount || 0} 条记录</Text>
+              </TouchableOpacity>
+              <TouchableOpacity disabled={busy || !!editingId || tags.length < 2}
+                accessibilityRole="adjustable" accessibilityLabel={`拖动排序 ${tag.name}`}
+                accessibilityHint="长按并上下拖动；也可通过调整操作改变顺序"
+                accessibilityValue={{ min: 1, max: tags.length, now: index + 1 }}
+                accessibilityState={{ disabled: busy || !!editingId || tags.length < 2 }}
+                accessibilityActions={[{ name: 'decrement', label: '向前移动' }, { name: 'increment', label: '向后移动' }]}
+                onAccessibilityAction={event => {
+                  if (event.nativeEvent.actionName === 'decrement') reorder(index, index - 1);
+                  if (event.nativeEvent.actionName === 'increment') reorder(index, index + 1);
+                }}
+                delayLongPress={220} onLongPress={onDragStart} onPressOut={onDragEnd}
+                style={[styles.tagAction, { opacity: busy || !!editingId || tags.length < 2 ? 0.35 : 1 }]}>
+                <Ionicons name="reorder-three-outline" size={24} color={isActive ? c.primary : c.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+        </View>
+      )}
+    />
+
+    {!!editingTag && <Modal transparent animationType="fade" visible onRequestClose={() => { if (!busyRef.current) cancelEdit(); }}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[styles.modalBackdrop, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]} onTouchStart={recordHistoryActivity}>
+        <View style={[styles.modalCard, { backgroundColor: c.cardBg }]} accessibilityViewIsModal>
+          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.modalContent}>
+            <View style={styles.modalHeading}>
+              <Text style={[styles.introTitle, { color: c.text }]}>{deleteStage ? '删除标签' : '编辑标签'}</Text>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="关闭标签编辑" disabled={busy} onPress={cancelEdit} style={styles.tagAction}>
+                <Ionicons name="close" size={22} color={c.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            {!!editError && <Text accessibilityRole="alert" style={{ color: c.danger, marginBottom: 12 }}>{editError}</Text>}
+            {!deleteStage ? <>
+
             <View>
               <View style={styles.editRow}>
                 <View style={[styles.colorDot, { backgroundColor: editColor }]} />
                 <TextInput style={[styles.editInput, { borderColor: c.border, color: c.text }]}
-                  value={editName} onChangeText={setEditName} autoFocus accessibilityLabel="标签名称" editable={!busy} />
+                  value={editName} onChangeText={value => { recordHistoryActivity(); setEditName(value); }} autoFocus accessibilityLabel="标签名称" editable={!busy} />
               </View>
               <View style={styles.colorPicker}>
                 {PRESET_COLORS.map(color => (
@@ -175,40 +204,36 @@ export default function TagManagementScreen() {
                 </TouchableOpacity>
               </View>
             </View>
-          ) : (
-            <View style={styles.tagRow}>
-              <View style={[styles.colorDot, { backgroundColor: tag.color || '#3B82F6' }]} />
-              <TouchableOpacity disabled={busy || dragging || !!editingId} accessibilityRole="button" accessibilityLabel={`编辑标签 ${tag.name}`} onPress={() => startEdit(tag)} style={styles.tagContent}>
-                <Text numberOfLines={2} style={[styles.tagName, { color: c.text }]}>{tag.name}</Text>
-                <Text style={[styles.tagCount, { color: c.textSecondary }]}>{tag.bbtalkCount || 0} 条记录</Text>
+
+              <TouchableOpacity accessibilityRole="button" disabled={busy} onPress={() => { Keyboard.dismiss(); setDeleteStage('choose'); }} style={styles.deleteButton}>
+                <Text style={{ color: c.danger }}>删除标签</Text>
               </TouchableOpacity>
-              <TouchableOpacity disabled={busy || dragging || !!editingId} accessibilityRole="button" accessibilityLabel={`标签 ${tag.name} 的更多操作`} onPress={() => showActions(tag)} style={[styles.tagAction, { opacity: busy ? 0.4 : 1 }]}>
-                <Ionicons name="ellipsis-horizontal" size={20} color={c.textSecondary} />
-              </TouchableOpacity>
-              <TouchableOpacity disabled={busy || !!editingId || tags.length < 2}
-                accessibilityRole="adjustable" accessibilityLabel={`拖动排序 ${tag.name}`}
-                accessibilityHint="长按并上下拖动；也可通过调整操作改变顺序"
-                accessibilityValue={{ min: 1, max: tags.length, now: index + 1 }}
-                accessibilityState={{ disabled: busy || !!editingId || tags.length < 2 }}
-                accessibilityActions={[{ name: 'decrement', label: '向前移动' }, { name: 'increment', label: '向后移动' }]}
-                onAccessibilityAction={event => {
-                  if (event.nativeEvent.actionName === 'decrement') reorder(index, index - 1);
-                  if (event.nativeEvent.actionName === 'increment') reorder(index, index + 1);
-                }}
-                delayLongPress={220} onLongPress={onDragStart} onPressOut={onDragEnd}
-                style={[styles.tagAction, { opacity: busy || !!editingId || tags.length < 2 ? 0.35 : 1 }]}>
-                <Ionicons name="reorder-three-outline" size={24} color={isActive ? c.primary : c.textSecondary} />
-              </TouchableOpacity>
-            </View>
-          )}
+            </> : <View>
+              <Text style={[styles.deleteMessage, { color: c.text }]}>{deleteStage === 'confirm'
+                ? `将永久删除「${editingTag.name}」及其关联的 ${editingTag.bbtalkCount} 条记录，不可恢复！`
+                : `删除「${editingTag.name}」？（关联 ${editingTag.bbtalkCount || 0} 条碎碎念）`}</Text>
+              {deleteStage === 'choose' ? <>
+                <TouchableOpacity accessibilityRole="button" disabled={busy} onPress={() => deleteTag(false)} style={styles.deleteButton}><Text style={{ color: c.danger }}>仅删除标签，保留记录</Text></TouchableOpacity>
+                {(editingTag.bbtalkCount ?? 0) > 0 && <TouchableOpacity accessibilityRole="button" disabled={busy} onPress={() => setDeleteStage('confirm')} style={styles.deleteButton}><Text style={{ color: c.danger }}>同时删除碎碎念</Text></TouchableOpacity>}
+              </> : <TouchableOpacity accessibilityRole="button" disabled={busy} onPress={() => deleteTag(true)} style={styles.deleteButton}><Text style={{ color: c.danger }}>确认删除</Text></TouchableOpacity>}
+              <TouchableOpacity accessibilityRole="button" disabled={busy} onPress={() => setDeleteStage(null)} style={styles.deleteButton}><Text style={{ color: c.textSecondary }}>取消</Text></TouchableOpacity>
+            </View>}
+          </ScrollView>
         </View>
-      )}
-    />
+      </KeyboardAvoidingView>
+    </Modal>}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  modalBackdrop: { flex: 1, justifyContent: 'center', paddingHorizontal: 20, backgroundColor: 'rgba(0,0,0,0.45)' },
+  modalCard: { width: '100%', maxWidth: 480, maxHeight: '100%', alignSelf: 'center', borderRadius: 16, overflow: 'hidden' },
+  modalContent: { padding: 20 },
+  modalHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  deleteButton: { minHeight: 48, justifyContent: 'center', alignItems: 'center', marginTop: 8 },
+  deleteMessage: { fontSize: 15, lineHeight: 24 },
   intro: { paddingTop: 20, paddingBottom: 16 },
   introTitle: { fontSize: 18, fontWeight: '600' },
   introHint: { fontSize: 13, lineHeight: 20, marginTop: 6 },

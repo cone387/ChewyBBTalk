@@ -39,6 +39,7 @@ import { renderHook, act } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 import { useBatchMode } from '../../src/hooks/useBatchMode';
 import { bbtalkApi } from '../../src/services/api/bbtalkApi';
+import { setHistoryLocked, setHistoryPrivacyReady } from '../../src/services/historyPrivacy';
 
 const mockShowError = jest.fn();
 const mockOnComplete = jest.fn();
@@ -51,6 +52,55 @@ function renderUseBatchMode() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  setHistoryPrivacyReady(true);
+  setHistoryLocked(false);
+});
+
+describe('batch privacy authorization', () => {
+  it('rejects an old delete confirmation even after unlocking again', async () => {
+    (Alert.alert as jest.Mock).mockImplementation(() => {});
+    const { result } = renderUseBatchMode();
+    let pending!: Promise<void>;
+    act(() => { pending = result.current.batchDelete(['private-id']); });
+    const confirm = (Alert.alert as jest.Mock).mock.calls.at(-1)[2].find((button: any) => button.text === '删除').onPress;
+    act(() => { setHistoryLocked(true); setHistoryLocked(false); });
+    await act(async () => { await confirm(); await pending; });
+    expect(bbtalkApi.deleteBBTalk).not.toHaveBeenCalled();
+    expect(mockOnComplete).not.toHaveBeenCalled();
+  });
+
+  it('does not start any batch action while locked', async () => {
+    const { result } = renderUseBatchMode();
+    act(() => setHistoryLocked(true));
+    await act(async () => {
+      void result.current.batchDelete(['one']);
+      await result.current.batchUpdateTags(['one'], ['secret']);
+      await result.current.batchUpdateVisibility(['one'], 'public');
+    });
+    expect(Alert.alert).not.toHaveBeenCalled();
+    expect(bbtalkApi.deleteBBTalk).not.toHaveBeenCalled();
+    expect(bbtalkApi.updateBBTalk).not.toHaveBeenCalled();
+  });
+
+  it.each(['delete', 'tags', 'visibility'] as const)('stops remaining %s requests after locking and suppresses a sensitive error', async kind => {
+    const method = kind === 'delete' ? bbtalkApi.deleteBBTalk : bbtalkApi.updateBBTalk;
+    let reject!: (error: Error) => void;
+    (method as jest.Mock).mockReset().mockImplementationOnce(() => new Promise((_resolve, fail) => { reject = fail; }));
+    (Alert.alert as jest.Mock).mockImplementation((_title, _message, buttons) => buttons.find((button: any) => button.text === '删除').onPress());
+    const { result } = renderUseBatchMode();
+    let pending!: Promise<void>;
+    act(() => {
+      pending = kind === 'delete' ? result.current.batchDelete(['one', 'two'])
+        : kind === 'tags' ? result.current.batchUpdateTags(['one', 'two'], ['secret'])
+          : result.current.batchUpdateVisibility(['one', 'two'], 'public');
+    });
+    expect(method).toHaveBeenCalledTimes(1);
+    await act(async () => { setHistoryLocked(true); setHistoryLocked(false); reject(new Error('private record body')); await pending; });
+    expect(method).toHaveBeenCalledTimes(1);
+    expect(mockShowError).not.toHaveBeenCalled();
+    expect(mockOnComplete).toHaveBeenCalledTimes(1);
+    expect(result.current.isExecuting).toBe(false);
+  });
 });
 
 describe('useBatchMode', () => {

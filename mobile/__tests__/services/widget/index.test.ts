@@ -36,6 +36,8 @@ import {
 } from '../../../src/services/widget';
 import { DEFAULT_THEME, MAX_PAYLOAD_BYTES } from '../../../src/services/widget/types';
 import type { WidgetConfig, WidgetItem } from '../../../src/services/widget/types';
+import { setSession, clearSession } from '../../../src/services/session';
+import { setHistoryLocked, setHistoryPrivacyReady } from '../../../src/services/historyPrivacy';
 
 const Store: any = require('../../../src/store');
 
@@ -58,6 +60,9 @@ beforeEach(() => {
   jest.clearAllMocks();
   Store.__state.bbtalk.bbtalks = [];
   _resetReloadState();
+  setSession('https://test.example', 'widget-user');
+  setHistoryPrivacyReady(true);
+  setHistoryLocked(false);
   mockConfig.loadWidgetConfig = jest.fn(async () => ({ ...baseConfig }));
   mockConfig.computeConfigHash = jest.fn(() => 'abc123');
   mockDatasource.selectWidgetItems = jest.fn(() => [] as WidgetItem[]);
@@ -70,6 +75,64 @@ beforeEach(() => {
 afterEach(() => { warnSpy.mockRestore(); });
 
 describe('syncWidget', () => {
+  it.each(['locked', 'not-ready', 'logged-out', 'options-locked', 'options-unauthenticated'])('strips content when %s, regardless of optimistic caller flags', async (reason) => {
+    mockDatasource.selectWidgetItems = jest.fn(() => [item('secret', 'private body')]);
+    if (reason === 'locked') setHistoryLocked(true);
+    if (reason === 'not-ready') setHistoryPrivacyReady(false);
+    if (reason === 'logged-out') clearSession();
+    await syncWidget({ authenticated: reason !== 'options-unauthenticated', locked: reason === 'options-locked' });
+    expect(lastWritten().items).toEqual([]);
+    expect(mockDatasource.selectWidgetItems).not.toHaveBeenCalled();
+  });
+
+  it('does not let a slow config load restore content after clear completed', async () => {
+    let resolveConfig!: (value: WidgetConfig) => void;
+    mockConfig.loadWidgetConfig.mockImplementationOnce(() => new Promise(resolve => { resolveConfig = resolve; }));
+    mockDatasource.selectWidgetItems = jest.fn(() => [item('old', 'old content')]);
+    const syncing = syncWidget();
+    await clearWidget('locked');
+    resolveConfig(baseConfig);
+    await syncing;
+    expect(writtenPayloads()).toHaveLength(1);
+    expect(lastWritten()).toMatchObject({ locked: true, items: [] });
+  });
+
+  it('drops a pending sync from the previous session even after the new session is unlocked', async () => {
+    let resolveConfig!: (value: WidgetConfig) => void;
+    mockConfig.loadWidgetConfig.mockImplementationOnce(() => new Promise(resolve => { resolveConfig = resolve; }));
+    const syncing = syncWidget();
+    setSession('https://test.example', 'other-user');
+    setHistoryPrivacyReady(true);
+    setHistoryLocked(false);
+    resolveConfig(baseConfig);
+    await syncing;
+    expect(mockBridge.writeWidgetData).not.toHaveBeenCalled();
+  });
+
+  it('invalidates pre-lock work even when the user unlocks before it resumes', async () => {
+    let resolveConfig!: (value: WidgetConfig) => void;
+    mockConfig.loadWidgetConfig.mockImplementationOnce(() => new Promise(resolve => { resolveConfig = resolve; }));
+    const syncing = syncWidget();
+    setHistoryLocked(true);
+    setHistoryLocked(false);
+    resolveConfig(baseConfig);
+    await syncing;
+    expect(mockBridge.writeWidgetData).not.toHaveBeenCalled();
+  });
+
+  it('serializes an in-flight native write before the privacy clear', async () => {
+    let finishWrite!: () => void;
+    mockBridge.writeWidgetData.mockImplementationOnce(() => new Promise<void>(resolve => { finishWrite = resolve; }));
+    mockDatasource.selectWidgetItems = jest.fn(() => [item('old', 'old content')]);
+    const syncing = syncWidget();
+    for (let i = 0; i < 6; i += 1) await Promise.resolve();
+    const clearing = clearWidget('locked');
+    await Promise.resolve();
+    expect(mockBridge.writeWidgetData).toHaveBeenCalledTimes(1);
+    finishWrite();
+    await Promise.all([syncing, clearing]);
+    expect(lastWritten()).toMatchObject({ locked: true, items: [] });
+  });
   it('writes a payload built from the store and reloads the widget', async () => {
     Store.__state.bbtalk.bbtalks = [{ id: 'b1' }];
     mockDatasource.selectWidgetItems = jest.fn(() => [item('a', 'hello', 'https://img.example/a.png')]);
@@ -218,6 +281,16 @@ describe('writeAndReload failure handling', () => {
 });
 
 describe('clearWidget', () => {
+  it('still requests a privacy refresh during the normal reload cooldown', async () => {
+    mockBridge.reloadWidget = jest.fn(() => Promise.reject(new Error('system busy')));
+    await syncWidget();
+    await syncWidget();
+    await syncWidget();
+    expect(mockBridge.reloadWidget).toHaveBeenCalledTimes(3);
+    await clearWidget('locked');
+    expect(mockBridge.reloadWidget).toHaveBeenCalledTimes(4);
+    expect(lastWritten()).toMatchObject({ locked: true, items: [] });
+  });
   it.each([
     ['logout', '请登录', { authenticated: false, locked: false }],
     ['locked', '已锁定', { authenticated: true, locked: true }],
@@ -237,10 +310,10 @@ describe('clearWidget', () => {
     expect(mockBridge.reloadWidget).toHaveBeenCalledTimes(1);
   });
 
-  it('warns and swallows config-load failures', async () => {
+  it('clears without reading configuration, even when its storage is broken', async () => {
     mockConfig.loadWidgetConfig = jest.fn(() => Promise.reject(new Error('读取失败')));
     await clearWidget('empty');
-    expect(mockBridge.writeWidgetData).not.toHaveBeenCalled();
-    expect(warnSpy).toHaveBeenCalledWith('[HomeWidget] clearWidget failed:', expect.any(Error));
+    expect(mockConfig.loadWidgetConfig).not.toHaveBeenCalled();
+    expect(lastWritten().items).toEqual([]);
   });
 });

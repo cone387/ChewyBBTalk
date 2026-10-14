@@ -106,6 +106,14 @@ describe('auth flows', () => {
     expect(await h.auth.isAuthenticated()).toBe(false);
   });
 
+  it('leaves the privacy lock to the controller when only verifying an unlock password', async () => {
+    const h = setupAuth();
+    h.fetchMock.mockImplementation(async () => okLogin());
+    expect(await h.auth.login('alice', 'pw', { unlockPrivacy: false })).toEqual({ success: true });
+    expect(h.auth.getCurrentUser()?.username).toBe('alice');
+    expect(h.asyncStorage.setItem).not.toHaveBeenCalledWith('privacy_locked', 'false');
+  });
+
   it.each([
     ['err-json', async () => new Response(JSON.stringify({ error: '用户名或密码错误' }), { status: 400 }), '用户名或密码错误'],
     ['broken-json', async () => new Response('not-json', { status: 400 }), '登录失败'],

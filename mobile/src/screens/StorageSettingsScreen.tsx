@@ -6,7 +6,8 @@ import { apiClient } from '../services/api/apiClient';
 import type { StorageSettings } from '../types';
 import { useTheme } from '../theme/ThemeContext';
 import LoadingPlaceholder from '../components/LoadingPlaceholder';
-import { xAlert, xConfirm } from '../utils/crossAlert';
+import { xConfirm } from '../utils/crossAlert';
+import { createPrivacyOperation } from '../services/privacyOperation';
 
 export default function StorageSettingsScreen() {
   const insets = useSafeAreaInsets();
@@ -16,61 +17,73 @@ export default function StorageSettingsScreen() {
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState<{ title: string; message: string } | null>(null);
+  const mounted = useRef(true);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const [form, setForm] = useState({ name: '', s3_access_key_id: '', s3_secret_access_key: '', s3_bucket_name: '', s3_region_name: 'us-east-1', s3_endpoint_url: '' });
 
-  const load = async () => {
+  const load = async (operation = createPrivacyOperation()) => {
+    if (!mounted.current || !operation.isCurrent()) return;
     setError('');
     try {
       const data = await apiClient.get<StorageSettings[]>('/api/v1/bbtalk/settings/storage');
+      if (!mounted.current || !operation.isCurrent()) return;
       setConfigs(data);
-    } catch (e: any) { setError(e.message || '存储配置加载失败，请重试'); } finally { setLoading(false); }
+    } catch (e: any) { if (mounted.current && operation.isCurrent()) setError(e.message || '存储配置加载失败，请重试'); }
+    finally { if (mounted.current) setLoading(false); }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { mounted.current = true; void load(); return () => { mounted.current = false; }; }, []);
 
-  const run = async (action: () => Promise<void>) => {
-    if (busyRef.current || error) return;
-    busyRef.current = true; setBusy(true);
-    try { await action(); }
-    finally { busyRef.current = false; setBusy(false); }
+  const run = async (action: (operation: ReturnType<typeof createPrivacyOperation>) => Promise<void>, operation = createPrivacyOperation()) => {
+    if (busyRef.current || error || !mounted.current || !operation.isCurrent()) return;
+    busyRef.current = true; setBusy(true); setNotice(null);
+    try { await action(operation); }
+    finally { busyRef.current = false; if (mounted.current) setBusy(false); }
   };
-  const activate = (id: number) => run(async () => {
+  const report = (operation: ReturnType<typeof createPrivacyOperation>, title: string, message: string) => {
+    if (mounted.current && operation.isCurrent()) setNotice({ title, message });
+  };
+  const activate = (id: number) => run(async operation => {
     try {
       await apiClient.post(`/api/v1/bbtalk/settings/storage/${id}/activate`);
-      xAlert('成功', '新上传的附件将使用此配置，已有附件保持原存储位置'); await load();
-    } catch (e: any) { xAlert('失败', e.message); }
+      report(operation, '成功', '新上传的附件将使用此配置，已有附件保持原存储位置'); await load(operation);
+    } catch (e: any) { report(operation, '失败', e.message || '操作失败，请重试'); }
   });
 
-  const deactivateAll = () => run(async () => {
+  const deactivateAll = () => run(async operation => {
     try {
       await apiClient.post('/api/v1/bbtalk/settings/storage/deactivate-all');
-      xAlert('成功', '新上传的附件将使用服务器存储，已有附件保持原存储位置'); await load();
-    } catch (e: any) { xAlert('失败', e.message); }
+      report(operation, '成功', '新上传的附件将使用服务器存储，已有附件保持原存储位置'); await load(operation);
+    } catch (e: any) { report(operation, '失败', e.message || '操作失败，请重试'); }
   });
 
-  const testConnection = (id: number) => run(async () => {
+  const testConnection = (id: number) => run(async operation => {
     try {
       const res = await apiClient.post<{ success: boolean; message: string }>(`/api/v1/bbtalk/settings/storage/${id}/test`);
-      xAlert(res.success ? '连接成功' : '连接失败', res.message);
-    } catch (e: any) { xAlert('测试失败', e.message); }
+      report(operation, res.success ? '连接成功' : '连接失败', res.message);
+    } catch (e: any) { report(operation, '测试失败', e.message || '连接测试失败，请重试'); }
   });
 
   const deleteConfig = (id: number) => {
+    const operation = createPrivacyOperation();
+    if (!mounted.current || !operation.isCurrent()) return;
     xConfirm('确认删除', '确定删除此存储配置？', () => run(async () => {
-      try { await apiClient.delete(`/api/v1/bbtalk/settings/storage/${id}`); await load(); } catch (e: any) { xAlert('失败', e.message); }
-    }), undefined, { confirmText: '删除', destructive: true });
+      try { await apiClient.delete(`/api/v1/bbtalk/settings/storage/${id}`); await load(operation); }
+      catch (e: any) { report(operation, '失败', e.message || '删除失败，请重试'); }
+    }, operation), undefined, { confirmText: '删除', destructive: true });
   };
 
-  const createConfig = () => run(async () => {
+  const createConfig = () => run(async operation => {
     if (![form.name, form.s3_bucket_name, form.s3_access_key_id, form.s3_secret_access_key].every(v => v.trim())) {
-      xAlert('请补全配置', '配置名称、存储桶、Access Key ID 和 Secret Access Key 都不能为空'); return;
+      report(operation, '请补全配置', '配置名称、存储桶、Access Key ID 和 Secret Access Key 都不能为空'); return;
     }
     try {
       await apiClient.post('/api/v1/bbtalk/settings/storage', { ...form, storage_type: 's3' });
-      xAlert('成功', '配置已创建，测试连接成功后可激活使用'); setShowAdd(false); setForm({ name: '', s3_access_key_id: '', s3_secret_access_key: '', s3_bucket_name: '', s3_region_name: 'us-east-1', s3_endpoint_url: '' }); await load();
-    } catch (e: any) { xAlert('失败', e.message); }
+      if (!mounted.current || !operation.isCurrent()) return;
+      report(operation, '成功', '配置已创建，测试连接成功后可激活使用'); setShowAdd(false); setForm({ name: '', s3_access_key_id: '', s3_secret_access_key: '', s3_bucket_name: '', s3_region_name: 'us-east-1', s3_endpoint_url: '' }); await load(operation);
+    } catch (e: any) { report(operation, '失败', e.message || '创建失败，请重试'); }
   });
 
   if (loading) return <View style={[styles.container, { backgroundColor: c.surfaceSecondary }]}><LoadingPlaceholder /></View>;
@@ -78,6 +91,10 @@ export default function StorageSettingsScreen() {
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
     <ScrollView keyboardShouldPersistTaps="handled" style={[styles.container, { backgroundColor: c.surfaceSecondary }]} contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 20, width: '100%', maxWidth: 760, alignSelf: 'center' }}>
+      {notice && <View accessibilityRole="alert" style={{ marginBottom: 16 }}>
+        <Text style={{ color: c.text, fontWeight: '600' }}>{notice.title}</Text>
+        <Text style={{ color: c.textSecondary, marginTop: 4 }}>{notice.message}</Text>
+      </View>}
       {!!error && <View style={{ marginBottom: 16 }}>
         <Text accessibilityRole="alert" style={{ color: c.danger }}>{error}</Text>
         <TouchableOpacity accessibilityRole="button" onPress={() => { setLoading(true); void load(); }} style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: c.primary }}>重新加载</Text></TouchableOpacity>

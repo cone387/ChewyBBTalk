@@ -46,6 +46,7 @@ import { Alert } from 'react-native';
 import { useBatchMode } from '../../src/hooks/useBatchMode';
 import { bbtalkApi } from '../../src/services/api/bbtalkApi';
 import type { BBTalk } from '../../src/types';
+import { setHistoryLocked, setHistoryPrivacyReady } from '../../src/services/historyPrivacy';
 
 // --- Helpers ---
 
@@ -73,6 +74,8 @@ function makeBBTalk(overrides: Partial<BBTalk> = {}): BBTalk {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  setHistoryLocked(false);
+  setHistoryPrivacyReady(true);
 });
 
 // ==========================================================================

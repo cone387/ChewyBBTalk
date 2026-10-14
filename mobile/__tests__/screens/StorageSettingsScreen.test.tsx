@@ -28,6 +28,7 @@ jest.mock('../../src/theme/ThemeContext', () => ({ useTheme: () => ({ theme: req
 import React from 'react';
 import StorageSettingsScreen from '../../src/screens/StorageSettingsScreen';
 import type { StorageSettings } from '../../src/types';
+import { setHistoryLocked, setHistoryPrivacyReady } from '../../src/services/historyPrivacy';
 
 const { create, act } = require('react-test-renderer');
 
@@ -64,6 +65,7 @@ const configs = () => [makeConfig(1, '阿里云OSS', true, { s3_endpoint_url: 'h
 
 beforeEach(() => {
   jest.clearAllMocks();
+  setHistoryLocked(false); setHistoryPrivacyReady(true);
   mockLoadingPlaceholder.mockImplementation((_props: any) => null);
   mockApi.get = jest.fn(async () => configs());
   mockApi.post = jest.fn(async () => ({}) as any);
@@ -129,12 +131,31 @@ describe('StorageSettingsScreen loading and status', () => {
 });
 
 describe('StorageSettingsScreen actions', () => {
+  it('does not run a delete confirmation after locking and unlocking', async () => {
+    await mountScreen();
+    await press('删除配置 MinIO');
+    setHistoryLocked(true); setHistoryLocked(false);
+    await act(async () => { await mockXConfirm.mock.calls[0][2](); });
+    expect(mockApi.delete).not.toHaveBeenCalled();
+  });
+
+  it('discards a sensitive connection result returned after locking', async () => {
+    let finish!: (value: any) => void;
+    mockApi.post = jest.fn(() => new Promise(resolve => { finish = resolve; }));
+    await mountScreen();
+    await press('测试配置 MinIO');
+    setHistoryLocked(true);
+    await act(async () => { finish({ success: false, message: 'secret endpoint' }); });
+    expect(mockXAlert).not.toHaveBeenCalled();
+    expect(hasText('secret endpoint')).toBe(false);
+  });
   it('activates a config and explains the effect', async () => {
     await mountScreen();
     await press('激活配置 MinIO');
     await settle();
     expect(mockApi.post).toHaveBeenCalledWith('/api/v1/bbtalk/settings/storage/2/activate');
-    expect(mockXAlert).toHaveBeenCalledWith('成功', '新上传的附件将使用此配置，已有附件保持原存储位置');
+    expect(hasText('新上传的附件将使用此配置，已有附件保持原存储位置')).toBe(true);
+    expect(mockXAlert).not.toHaveBeenCalled();
     expect(mockApi.get).toHaveBeenCalledTimes(2);
   });
 
@@ -143,7 +164,7 @@ describe('StorageSettingsScreen actions', () => {
     await press('使用服务器本地存储');
     await settle();
     expect(mockApi.post).toHaveBeenCalledWith('/api/v1/bbtalk/settings/storage/deactivate-all');
-    expect(mockXAlert).toHaveBeenCalledWith('成功', '新上传的附件将使用服务器存储，已有附件保持原存储位置');
+    expect(hasText('新上传的附件将使用服务器存储，已有附件保持原存储位置')).toBe(true);
   });
 
   it('reports activation failures', async () => {
@@ -151,7 +172,7 @@ describe('StorageSettingsScreen actions', () => {
     await mountScreen();
     await press('激活配置 MinIO');
     await settle();
-    expect(mockXAlert).toHaveBeenCalledWith('失败', '无权限');
+    expect(hasText('无权限')).toBe(true);
   });
 
   it('surfaces test connection outcomes', async () => {
@@ -162,13 +183,14 @@ describe('StorageSettingsScreen actions', () => {
     await mountScreen();
     await press('测试配置 阿里云OSS');
     await settle();
-    expect(mockXAlert).toHaveBeenCalledWith('连接成功', '可访问');
+    expect(hasText('连接成功')).toBe(true); expect(hasText('可访问')).toBe(true);
     await press('测试配置 阿里云OSS');
     await settle();
-    expect(mockXAlert).toHaveBeenCalledWith('连接失败', '凭证无效');
+    expect(hasText('连接失败')).toBe(true); expect(hasText('凭证无效')).toBe(true);
     await press('测试配置 阿里云OSS');
     await settle();
-    expect(mockXAlert).toHaveBeenCalledWith('测试失败', '超时');
+    expect(hasText('测试失败')).toBe(true); expect(hasText('超时')).toBe(true);
+    expect(mockXAlert).not.toHaveBeenCalled();
   });
 
   it('deletes a config after confirmation', async () => {
@@ -195,7 +217,7 @@ describe('StorageSettingsScreen creation', () => {
     await type('配置名称', '新OSS');
     await press('创建');
     await settle();
-    expect(mockXAlert).toHaveBeenCalledWith('请补全配置', '配置名称、存储桶、Access Key ID 和 Secret Access Key 都不能为空');
+    expect(hasText('配置名称、存储桶、Access Key ID 和 Secret Access Key 都不能为空')).toBe(true);
     expect(mockApi.post).not.toHaveBeenCalled();
   });
 
@@ -214,7 +236,7 @@ describe('StorageSettingsScreen creation', () => {
       s3_bucket_name: 'bucket-new', s3_region_name: 'us-east-1', s3_endpoint_url: 'https://minio.local',
       storage_type: 's3',
     });
-    expect(mockXAlert).toHaveBeenCalledWith('成功', '配置已创建，测试连接成功后可激活使用');
+    expect(hasText('配置已创建，测试连接成功后可激活使用')).toBe(true);
     expect(tappable('添加 S3 存储配置')).toBeDefined();
     expect(inputByLabel('配置名称')).toBeUndefined();
   });
@@ -235,7 +257,7 @@ describe('StorageSettingsScreen creation', () => {
     mockApi.post = jest.fn().mockImplementationOnce(() => Promise.reject(new Error('桶不存在')));
     await press('创建');
     await settle();
-    expect(mockXAlert).toHaveBeenCalledWith('失败', '桶不存在');
+    expect(hasText('桶不存在')).toBe(true);
     expect(inputByLabel('配置名称')).toBeDefined();
   });
 

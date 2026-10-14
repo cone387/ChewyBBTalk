@@ -29,7 +29,10 @@ jest.mock('../../src/services/auth', () => ({ login: jest.fn(), getCurrentUser: 
 import { act, cleanup, renderHook } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
-import { usePrivacyMode } from '../../src/hooks/usePrivacyMode';
+import React from 'react';
+import { usePrivacyMode, PrivacyProvider, usePrivacyController } from '../../src/hooks/usePrivacyMode';
+import { historyIsLocked, historyPrivacyIsReady, recordHistoryActivity } from '../../src/services/historyPrivacy';
+import { setSession, clearSession } from '../../src/services/session';
 
 const RN: any = require('react-native');
 const authSvc: any = require('../../src/services/auth');
@@ -42,12 +45,219 @@ const showError = jest.fn();
 beforeEach(() => {
   jest.useFakeTimers();
   jest.clearAllMocks();
+  clearSession();
   settings = { privacy_timeout_minutes: '1' };
   onLockChange = jest.fn();
   RN.__state.os = 'ios';
   RN.__kbListeners.length = 0;
   RN.__appStateListeners.length = 0;
   (AsyncStorage.getItem as jest.Mock).mockReset().mockImplementation(async (key: string) => settings[key] ?? null);
+});
+
+describe('privacy lifecycle safety', () => {
+  it('enforces the deadline even when a settings poll never resolves', async () => {
+    const { result } = await renderReady();
+    (AsyncStorage.getItem as jest.Mock).mockImplementationOnce(() => new Promise(() => {}));
+    await act(async () => { await jest.advanceTimersByTimeAsync(61000); });
+    expect(result.current.locked).toBe(true);
+  });
+
+  it('falls back to a bounded timeout when a stored timeout is malformed', async () => {
+    settings.privacy_timeout_minutes = 'not-a-number';
+    const { result } = await renderReady();
+    await act(async () => { await jest.advanceTimersByTimeAsync(301000); });
+    expect(result.current.locked).toBe(true);
+  });
+
+  it.each(['NaN', '999999999999999'])('locks instead of trusting an invalid saved activity time: %s', async (value) => {
+    settings.privacy_last_active = value;
+    const { result } = await renderReady();
+    expect(result.current.locked).toBe(true);
+  });
+
+  it('fails closed when an unlock cannot be persisted', async () => {
+    settings.privacy_locked = 'true';
+    const { result } = await renderReady();
+    (AsyncStorage.setItem as jest.Mock).mockRejectedValueOnce(new Error('disk unavailable'));
+    await act(async () => { result.current.setLocked(false); });
+    expect(result.current.locked).toBe(true);
+  });
+
+  it('ignores successful authentication after the app really enters the background', async () => {
+    settings.privacy_locked = 'true';
+    const { result } = await renderReady();
+    let resolveAuth!: (value: { success: boolean }) => void;
+    (LocalAuthentication.authenticateAsync as jest.Mock).mockImplementationOnce(() => new Promise(resolve => { resolveAuth = resolve; }));
+    let pending!: Promise<unknown>;
+    act(() => { pending = result.current.handleBiometricUnlock(); });
+    await act(async () => { for (const cb of RN.__appStateListeners) cb('background'); });
+    await act(async () => { resolveAuth({ success: true }); await pending; });
+    expect(result.current.locked).toBe(true);
+    expect(result.current.settingsReady).toBe(false);
+  });
+
+  it('owns the deadline without Home and shares one controller with every consumer', async () => {
+    const wrapper = ({ children }: { children: React.ReactNode }) => React.createElement(PrivacyProvider, { showError }, children);
+    const { result } = renderHook(() => ({
+      controller: usePrivacyController(),
+      first: usePrivacyMode({ showError }),
+      second: usePrivacyMode({ showError }),
+    }), { wrapper });
+    await act(async () => {});
+    expect(result.current.first).toBe(result.current.controller);
+    expect(result.current.second).toBe(result.current.controller);
+    expect(RN.__appStateListeners).toHaveLength(1);
+    expect(historyPrivacyIsReady()).toBe(true);
+    expect(historyIsLocked()).toBe(false);
+    await act(async () => { await jest.advanceTimersByTimeAsync(30000); });
+    act(recordHistoryActivity);
+    await act(async () => { await jest.advanceTimersByTimeAsync(59000); });
+    expect(historyIsLocked()).toBe(false);
+    await act(async () => { await jest.advanceTimersByTimeAsync(1000); });
+    expect(historyIsLocked()).toBe(true);
+  });
+
+  it('cannot let an older disabled-settings read override a newer enabled lock', async () => {
+    const { result } = await renderReady();
+    let resolveRead!: (value: string) => void;
+    (AsyncStorage.getItem as jest.Mock).mockImplementationOnce(() => new Promise(resolve => { resolveRead = resolve; }));
+    settings.privacy_enabled = 'false';
+    let first!: Promise<void>;
+    act(() => { first = result.current.loadPrivacySettings(); });
+    settings.privacy_enabled = 'true';
+    settings.privacy_locked = 'true';
+    await act(async () => { await result.current.loadPrivacySettings(); });
+    await act(async () => { resolveRead('1'); await first; });
+    expect(result.current.locked).toBe(true);
+    expect(result.current.privacyEnabled).toBe(true);
+  });
+
+  it('does not accept a delayed password result after a newer lock', async () => {
+    settings.privacy_locked = 'true';
+    const { result } = await renderReady();
+    authSvc.getCurrentUser.mockReturnValueOnce({ id: 1, username: 'alice' });
+    let resolveLogin!: (value: { success: boolean }) => void;
+    authSvc.login.mockImplementationOnce(() => new Promise((resolve: any) => { resolveLogin = resolve; }));
+    act(() => result.current.setUnlockPassword('pw'));
+    let pending!: Promise<void>;
+    await act(async () => { pending = result.current.handleUnlock(); });
+    act(() => result.current.setLocked(true));
+    await act(async () => { resolveLogin({ success: true }); await pending; });
+    expect(result.current.locked).toBe(true);
+    expect(result.current.unlockPassword).toBe('');
+  });
+
+  it('keeps a fresh manual lock if a reload sees a stale persisted unlock', async () => {
+    const { result } = await renderReady();
+    act(() => result.current.setLocked(true));
+    await act(async () => { await result.current.loadPrivacySettings(); });
+    expect(result.current.locked).toBe(true);
+  });
+
+  it('waits for a successful unlock write before a focus reload reads the saved lock', async () => {
+    settings.privacy_locked = 'true';
+    const { result } = await renderReady();
+    let finishWrite!: () => void;
+    (AsyncStorage.setItem as jest.Mock).mockImplementationOnce((key: string, value: string) => new Promise<void>(resolve => {
+      finishWrite = () => { settings[key] = value; resolve(); };
+    }));
+    await act(async () => { result.current.setLocked(false); });
+    let reloading!: Promise<void>;
+    await act(async () => { reloading = result.current.loadPrivacySettings(); });
+    expect(result.current.settingsReady).toBe(false);
+    await act(async () => { finishWrite(); await reloading; });
+    expect(result.current.settingsReady).toBe(true);
+    expect(result.current.locked).toBe(false);
+  });
+
+  it('blocks history while inactive and restores an already locked screen on active', async () => {
+    settings.privacy_locked = 'true';
+    const wrapper = ({ children }: { children: React.ReactNode }) => React.createElement(PrivacyProvider, { showError }, children);
+    const { result } = renderHook(usePrivacyController, { wrapper });
+    await act(async () => {});
+    act(() => { for (const cb of RN.__appStateListeners) cb('inactive'); });
+    expect(result.current!.settingsReady).toBe(false);
+    expect(historyPrivacyIsReady()).toBe(false);
+    await act(async () => { for (const cb of RN.__appStateListeners) cb('active'); });
+    expect(result.current!.settingsReady).toBe(true);
+    expect(result.current!.locked).toBe(true);
+  });
+
+  it('allows Face ID through its inactive transition without revealing history before active', async () => {
+    settings.privacy_locked = 'true';
+    const { result } = await renderReady();
+    let resolveAuth!: (value: { success: boolean }) => void;
+    (LocalAuthentication.authenticateAsync as jest.Mock).mockImplementationOnce(() => new Promise(resolve => { resolveAuth = resolve; }));
+    let pending!: Promise<unknown>;
+    act(() => { pending = result.current.handleBiometricUnlock(); });
+    act(() => { for (const cb of RN.__appStateListeners) cb('inactive'); });
+    await act(async () => { resolveAuth({ success: true }); await pending; });
+    expect(result.current.settingsReady).toBe(false);
+    expect(result.current.locked).toBe(false);
+    settings.privacy_locked = 'false';
+    await act(async () => { for (const cb of RN.__appStateListeners) cb('active'); });
+    expect(result.current.settingsReady).toBe(true);
+    expect(result.current.locked).toBe(false);
+  });
+
+  it('locks safely when settings cannot be read', async () => {
+    (AsyncStorage.getItem as jest.Mock).mockRejectedValueOnce(new Error('storage unavailable'));
+    const { result } = await renderReady();
+    expect(result.current.locked).toBe(true);
+    expect(result.current.privacyEnabled).toBe(true);
+  });
+
+  it('does not extend the inactivity deadline just by backgrounding', async () => {
+    const started = Date.now();
+    await renderReady();
+    await act(async () => { await jest.advanceTimersByTimeAsync(30000); });
+    await act(async () => { for (const cb of RN.__appStateListeners) await cb('background'); });
+    expect(AsyncStorage.setItem).toHaveBeenLastCalledWith('privacy_last_active', String(started));
+  });
+
+  it('blocks content synchronously while foreground settings are being checked', async () => {
+    const { result } = await renderReady();
+    let resolveRead!: (value: string) => void;
+    (AsyncStorage.getItem as jest.Mock).mockImplementationOnce(() => new Promise(resolve => { resolveRead = resolve; }));
+    act(() => { for (const cb of RN.__appStateListeners) void cb('active'); });
+    expect(result.current.settingsReady).toBe(false);
+    await act(async () => {});
+    await act(async () => { resolveRead('1'); });
+    expect(result.current.settingsReady).toBe(true);
+  });
+
+  it('does not let activity revive an expired deadline before the next tick', async () => {
+    const { result } = await renderReady();
+    jest.setSystemTime(Date.now() + 61000);
+    act(() => result.current.resetPrivacyTimer());
+    expect(result.current.locked).toBe(true);
+  });
+
+  it('ignores a biometric result after the account changes', async () => {
+    setSession('https://one.example', 'alice');
+    settings.privacy_locked = 'true';
+    let resolveAuth!: (value: { success: boolean }) => void;
+    (LocalAuthentication.authenticateAsync as jest.Mock).mockImplementationOnce(() => new Promise(resolve => { resolveAuth = resolve; }));
+    const { result } = await renderReady();
+    let pending!: Promise<unknown>;
+    act(() => { pending = result.current.handleBiometricUnlock(); });
+    await act(async () => { setSession('https://one.example', 'bob'); });
+    await act(async () => { resolveAuth({ success: true }); await pending; });
+    expect(result.current.locked).toBe(true);
+    expect(AsyncStorage.setItem).not.toHaveBeenCalledWith('privacy_locked', 'false');
+  });
+
+  it('ignores a biometric result after a newer manual lock', async () => {
+    settings.privacy_locked = 'true';
+    let resolveAuth!: (value: { success: boolean }) => void;
+    (LocalAuthentication.authenticateAsync as jest.Mock).mockImplementationOnce(() => new Promise(resolve => { resolveAuth = resolve; }));
+    const { result } = await renderReady();
+    let pending!: Promise<unknown>;
+    act(() => { pending = result.current.handleBiometricUnlock(); });
+    act(() => result.current.setLocked(true));
+    await act(async () => { resolveAuth({ success: true }); await pending; });
+    expect(result.current.locked).toBe(true);
+  });
 });
 
 afterEach(() => {
@@ -351,7 +561,7 @@ describe('password unlock', () => {
     authSvc.login.mockResolvedValueOnce({ success: true });
     act(() => result.current.setUnlockPassword('pw'));
     await act(async () => { await result.current.handleUnlock(); });
-    expect(authSvc.login).toHaveBeenCalledWith('alice', 'pw');
+    expect(authSvc.login).toHaveBeenCalledWith('alice', 'pw', { unlockPrivacy: false });
     expect(result.current.locked).toBe(false);
     expect(result.current.unlockPassword).toBe('');
     expect(result.current.unlocking).toBe(false);

@@ -44,7 +44,7 @@ describe('VideoPlayerButton', () => {
     expect(view.props.player).toBe(player);
     expect(player.play).toHaveBeenCalledTimes(1);
     expect(view.props.nativeControls).toBe(true);
-    expect(view.props.allowsPictureInPicture).toBe(true);
+    expect(view.props.allowsPictureInPicture).toBe(false);
     expect(view.props.contentFit).toBe('contain');
     expect(view.props.accessibilityLabel).toBe('播放视频 clip.mp4');
   });

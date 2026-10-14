@@ -1,27 +1,34 @@
 /**
- * iOS 后台任务切换模糊遮罩
- * 当 App 进入后台（inactive/background）时，覆盖一层模糊遮罩保护隐私内容
- * 仅在 iOS 原生端生效
+ * iOS 原生窗口遮罩与 JS 后备遮罩。
+ * 原生层在失去焦点时即时覆盖，包括原生 Modal；JS 层初始化时也检查当前状态。
  */
 import React, { useState, useEffect } from 'react';
 import { AppState, Platform, StyleSheet, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
+import { enableAppSwitcherProtectionAsync, disableAppSwitcherProtectionAsync } from 'expo-screen-capture';
 
 export default function AppBackgroundBlur() {
-  const [isBackground, setIsBackground] = useState(false);
+  const [isBackground, setIsBackground] = useState(() => AppState.currentState !== 'active');
 
   useEffect(() => {
     // 仅 iOS 需要此功能（Android 系统自带 FLAG_SECURE 或 recent apps 模糊）
     if (Platform.OS !== 'ios') return;
 
+    // Native lifecycle coverage also sits above native Modals and does not wait for JS.
+    // The config plugin replaces Expo's fading root-view blur with a window curtain.
+    void enableAppSwitcherProtectionAsync(1).catch(() => {});
+
     const subscription = AppState.addEventListener('change', (nextState) => {
       // inactive = 进入多任务切换器 / 下拉通知中心
       // background = 完全进入后台
-      setIsBackground(nextState === 'inactive' || nextState === 'background');
+      setIsBackground(nextState !== 'active');
     });
 
-    return () => subscription.remove();
+    return () => {
+      subscription.remove();
+      void disableAppSwitcherProtectionAsync().catch(() => {});
+    };
   }, []);
 
   if (!isBackground || Platform.OS !== 'ios') return null;
@@ -40,6 +47,7 @@ const styles = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 9999,
+    backgroundColor: '#111827',
   },
   iconWrap: {
     ...StyleSheet.absoluteFillObject,

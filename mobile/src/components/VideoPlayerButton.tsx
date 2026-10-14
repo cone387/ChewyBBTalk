@@ -55,7 +55,7 @@ function ActiveVideo({ attachment, onError }: Props & { onError: () => void }) {
       <VideoView
         player={player}
         style={styles.videoView}
-        allowsPictureInPicture
+        allowsPictureInPicture={false}
         contentFit="contain"
         nativeControls
         accessibilityLabel={`播放视频 ${attachment.originalFilename || attachment.filename || ''}`}

@@ -223,6 +223,7 @@ beforeAll(() => { setSession('https://api.example', '1'); });
 
 beforeEach(() => {
   require('../../src/services/historyPrivacy').setHistoryLocked(false);
+  require('../../src/services/historyPrivacy').setHistoryPrivacyReady(true);
   mockPlatform.OS = 'ios';
   mockHoldPressed = false;
   mockNavHolder.value = { goBack: jest.fn(), dispatch: jest.fn(), setParams: jest.fn() };
@@ -494,7 +495,8 @@ describe('ComposeScreen pending submission recovery', () => {
   it('shows the pending banner and the original payload', async () => {
     await mountWithPending();
     await press('查看原提交内容');
-    expect(mockXAlert).toHaveBeenCalledWith('原提交内容', '上次的内容');
+    expect(tree.root.findAllByType('Text').some((node: any) => node.props.children === '上次的内容')).toBe(true);
+    expect(mockXAlert).not.toHaveBeenCalledWith('原提交内容', expect.anything());
   });
 
   it('verifies the server state and confirms the intent', async () => {

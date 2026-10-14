@@ -34,6 +34,7 @@ jest.mock('../../src/theme/ThemeContext', () => ({ useTheme: () => ({ theme: req
 
 import React from 'react';
 import CacheManagementScreen from '../../src/screens/CacheManagementScreen';
+import { setHistoryLocked, setHistoryPrivacyReady } from '../../src/services/historyPrivacy';
 
 const { create, act } = require('react-test-renderer');
 
@@ -79,6 +80,7 @@ const media = (): FakeFile[] => [
 
 beforeEach(() => {
   jest.clearAllMocks();
+  setHistoryLocked(false); setHistoryPrivacyReady(true);
   FS.__state.cacheDirectory = 'file:///cache/';
   FS.readDirectoryAsync.mockImplementation(async () => [] as string[]);
   FS.getInfoAsync.mockImplementation(async () => ({ exists: false, isDirectory: false, size: 0 }));
@@ -155,6 +157,28 @@ describe('CacheManagementScreen scan', () => {
 });
 
 describe('CacheManagementScreen clearing', () => {
+  it('invalidates a cleanup confirmation across a lock', async () => {
+    setFiles(media());
+    await mountScreen();
+    await press('清理全部缓存');
+    setHistoryLocked(true); setHistoryLocked(false);
+    await act(async () => { await mockXConfirm.mock.calls[0][2](); });
+    expect(FS.deleteAsync).not.toHaveBeenCalled();
+  });
+
+  it('stops deleting remaining files when privacy locks during cleanup', async () => {
+    setFiles(media());
+    let finish!: () => void;
+    FS.deleteAsync.mockImplementationOnce(() => new Promise<void>(resolve => { finish = resolve; }));
+    await mountScreen();
+    await press('清理全部缓存');
+    let pending!: Promise<void>;
+    await act(async () => { pending = mockXConfirm.mock.calls[0][2](); });
+    setHistoryLocked(true);
+    await act(async () => { finish(); await pending; });
+    expect(FS.deleteAsync).toHaveBeenCalledTimes(1);
+    expect(mockXAlert).not.toHaveBeenCalled();
+  });
   it('deletes only owned files after confirmation and rescans', async () => {
     setFiles(media());
     await mountScreen();
@@ -175,7 +199,8 @@ describe('CacheManagementScreen clearing', () => {
     expect(FS.deleteAsync).toHaveBeenCalledWith('file:///cache/video_c.mkv', { idempotent: true });
     expect(FS.deleteAsync).toHaveBeenCalledWith('file:///cache/audio_folder', { idempotent: true });
     expect(FS.deleteAsync).not.toHaveBeenCalledWith('file:///cache/expo_system.png', expect.anything());
-    expect(mockXAlert).toHaveBeenCalledWith('完成', '缓存已清理');
+    expect(hasText('缓存已清理')).toBe(true);
+    expect(mockXAlert).not.toHaveBeenCalled();
   });
 
   it('reports clear failures and reloads afterwards', async () => {
@@ -185,7 +210,8 @@ describe('CacheManagementScreen clearing', () => {
     await press('清理全部缓存');
     await act(async () => { await mockXConfirm.mock.calls[0]![2](); });
     await settle();
-    expect(mockXAlert).toHaveBeenCalledWith('清理失败', '文件被占用');
+    expect(hasText('清理失败：文件被占用')).toBe(true);
+    expect(mockXAlert).not.toHaveBeenCalled();
     expect(FS.readDirectoryAsync).toHaveBeenCalledTimes(3);
   });
 
@@ -202,10 +228,10 @@ describe('CacheManagementScreen clearing', () => {
       .find((node: any) => node.findAllByType('ActivityIndicator').length > 0);
     expect(clearButton!.props.disabled).toBe(true);
     // Deletes run one file at a time; release them until the flow completes.
-    for (let round = 0; round < 10 && mockXAlert.mock.calls.length === 0; round += 1) {
+    for (let round = 0; round < 10 && !hasText('缓存已清理'); round += 1) {
       await act(async () => { pendingDeletes.splice(0).forEach((resolve) => { resolve(undefined); }); });
       await settle(1);
     }
-    expect(mockXAlert).toHaveBeenCalledWith('完成', '缓存已清理');
+    expect(hasText('缓存已清理')).toBe(true);
   });
 });

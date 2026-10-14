@@ -50,4 +50,12 @@ describe('ScreenCaptureProtection', () => {
     expect(preventScreenCaptureAsync).not.toHaveBeenCalled();
     expect(allowScreenCaptureAsync).not.toHaveBeenCalled();
   });
+
+  it('also protects iOS screenshots and recordings', () => {
+    mockPlatformOS = 'ios';
+    const view = render(<ScreenCaptureProtection />);
+    expect(preventScreenCaptureAsync).toHaveBeenCalledTimes(1);
+    view.unmount();
+    expect(allowScreenCaptureAsync).toHaveBeenCalledTimes(1);
+  });
 });

@@ -56,4 +56,17 @@ describe('history privacy session isolation', () => {
     privacy.recordHistoryActivity();
     expect(listener).toHaveBeenCalledTimes(1);
   });
+
+  it('invalidates a previously captured operation revision even after unlocking again', () => {
+    privacy.setHistoryPrivacyReady(true);
+    privacy.setHistoryLocked(false);
+    const captured = privacy.getHistoryPrivacyRevision();
+    privacy.setHistoryLocked(true);
+    privacy.setHistoryLocked(false);
+    expect(privacy.getHistoryPrivacyRevision()).toBeGreaterThan(captured);
+    const afterUnlock = privacy.getHistoryPrivacyRevision();
+    privacy.setHistoryPrivacyReady(false);
+    privacy.setHistoryPrivacyReady(true);
+    expect(privacy.getHistoryPrivacyRevision()).toBeGreaterThan(afterUnlock);
+  });
 });

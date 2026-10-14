@@ -85,7 +85,8 @@ function AudioPlayerUI({ uri, name }: { uri: string; name: string }) {
 
   useEffect(() => {
     setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false });
-  }, []);
+    return () => { try { player.pause(); } catch {} };
+  }, [player]);
 
   const toggle = () => {
     if (status.playing) {

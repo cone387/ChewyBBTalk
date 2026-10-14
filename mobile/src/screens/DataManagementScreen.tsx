@@ -11,6 +11,7 @@ import { createFileRequest } from '../services/fileRequest';
 import { useTheme } from '../theme/ThemeContext';
 import { clearCache } from '../services/offlineCacheService';
 import { xAlert, xConfirm } from '../utils/crossAlert';
+import { createPrivacyOperation } from '../services/privacyOperation';
 
 // blob -> base64
 function blobToBase64(blob: Blob): Promise<string> {
@@ -82,35 +83,42 @@ export default function DataManagementScreen() {
   const [exporting, setExporting] = useState<'json' | 'zip' | null>(null);
   const [importing, setImporting] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const [error, setError] = useState('');
   const busyRef = useRef(false);
   const busy = !!exporting || importing || clearing;
 
   const handleExport = async (format: 'json' | 'zip') => {
     if (busyRef.current) return;
-    busyRef.current = true; setExporting(format);
+    const privacy = createPrivacyOperation();
+    if (!privacy.isCurrent()) return;
+    busyRef.current = true; setExporting(format); setError('');
     const operation = createFileRequest();
+    const assertCurrent = () => { operation.assertCurrent(); privacy.assertCurrent(); };
     try {
       const blob = await operation.request(`/api/v1/bbtalk/data/export?format=${format}`, {}, res => res.blob(), 120_000, '导出失败');
-      operation.assertCurrent();
+      assertCurrent();
       const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
       const ext = format === 'zip' ? 'zip' : 'json';
       const mime = format === 'zip' ? 'application/zip' : 'application/json';
-      const message = await saveAndShare(blob, `bbtalk_export_${ts}.${ext}`, mime, operation.assertCurrent);
-      operation.assertCurrent();
+      const message = await saveAndShare(blob, `bbtalk_export_${ts}.${ext}`, mime, assertCurrent);
+      assertCurrent();
       xAlert('导出文件已生成', message);
-    } catch (e: any) { if (operation.isCurrent()) xAlert('导出失败', e.message); }
+    } catch (e: any) { if (operation.isCurrent() && privacy.isCurrent()) setError(e.message || '导出失败，请重试'); }
     finally { busyRef.current = false; setExporting(null); }
   };
 
   const handleImport = async () => {
     if (busyRef.current) return;
-    busyRef.current = true; setImporting(true);
+    const privacy = createPrivacyOperation();
+    if (!privacy.isCurrent()) return;
+    busyRef.current = true; setImporting(true); setError('');
     const operation = createFileRequest();
+    const assertCurrent = () => { operation.assertCurrent(); privacy.assertCurrent(); };
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: ['application/json', 'application/zip', 'application/octet-stream', '*/*'],
       });
-      operation.assertCurrent();
+      assertCurrent();
       if (result.canceled || !result.assets?.length) return;
       const picked = result.assets[0];
       if (!/\.(json|zip)$/i.test(picked.name)) { xAlert('文件格式不支持', '请选择本应用导出的 JSON 或 ZIP 文件'); return; }
@@ -123,7 +131,7 @@ export default function DataManagementScreen() {
       if (Platform.OS === 'web') {
         // Web: fetch URI -> blob -> File 对象
         const blob = await (await fetch(picked.uri)).blob();
-        operation.assertCurrent();
+        assertCurrent();
         formData.append('file', new File([blob], picked.name, { type: mimeType }));
       } else {
         // Native: 用 fetch + FormData，RN fetch 原生支持 file:// URI
@@ -131,7 +139,7 @@ export default function DataManagementScreen() {
       }
       const data = await operation.request('/api/v1/bbtalk/data/import', { method: 'POST', body: formData },
         res => res.json(), 120_000, '导入失败');
-      operation.assertCurrent();
+      assertCurrent();
       if (data.success) {
         const s = data.stats;
         const partial = data.partial || s.errors?.length || s.attachments_skipped || s.comments_skipped;
@@ -141,25 +149,27 @@ export default function DataManagementScreen() {
           `附件: 新增 ${s.attachments_created ?? 0}，跳过 ${s.attachments_skipped ?? 0}`,
           `评论: 新增 ${s.comments_created ?? 0}，跳过 ${s.comments_skipped ?? 0}`,
           `存储配置: 新增 ${s.storage_settings_created ?? 0}`,
-          s.errors?.length ? `错误: ${s.errors.length} 条\n${s.errors.join('\n')}` : '',
+          s.errors?.length ? `错误: ${s.errors.length} 条，部分内容未导入` : '',
         ].filter(Boolean).join('\n'));
       } else {
-        xAlert('导入失败', apiErrorMessage(data, '未知错误'));
+        setError(apiErrorMessage(data, '导入失败，请重试'));
       }
-    } catch (e: any) { if (operation.isCurrent()) xAlert('导入失败', e.message); }
+    } catch (e: any) { if (operation.isCurrent() && privacy.isCurrent()) setError(e.message || '导入失败，请重试'); }
     finally { busyRef.current = false; setImporting(false); }
   };
 
   const handleClearCache = () => {
+    const privacy = createPrivacyOperation();
+    if (!privacy.isCurrent()) return;
     xConfirm('清除离线缓存', '确定要清除所有离线缓存数据吗？', async () => {
-          if (busyRef.current) return;
+          if (busyRef.current || !privacy.isCurrent()) return;
           busyRef.current = true;
           setClearing(true);
           try {
             await clearCache();
-            xAlert('清除成功', '离线缓存已清除');
+            if (privacy.isCurrent()) xAlert('清除成功', '离线缓存已清除');
           } catch (e: any) {
-            xAlert('清除失败', e.message);
+            if (privacy.isCurrent()) xAlert('清除失败', '暂时无法清除离线缓存，请重试');
           } finally {
             busyRef.current = false;
             setClearing(false);
@@ -169,6 +179,7 @@ export default function DataManagementScreen() {
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: c.surfaceSecondary }]} contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 20, width: '100%', maxWidth: 760, alignSelf: 'center' }}>
+      {!!error && <Text accessibilityRole="alert" style={{ color: c.danger, marginBottom: 16 }}>{error}</Text>}
       <View style={[styles.card, { backgroundColor: c.cardBg }]}>
         <View style={[styles.cardHeader, { backgroundColor: c.borderLight }]}>
           <View style={[styles.headerIcon, { backgroundColor: c.primary }]}><Ionicons name="cloud-download-outline" size={20} color="#fff" /></View>

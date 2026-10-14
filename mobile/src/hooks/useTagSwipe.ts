@@ -18,13 +18,13 @@ export function useTagSwipe({ tags, selectedTag, showTagTabs, onSelectTag }: Use
   const tagScrollRef = useRef<ScrollView>(null);
   const swipingRef = useRef(false);
 
-  const allTagIds = useMemo(() => [null, ...tags.map(t => t.id)], [tags]);
-  const currentTagIdx = selectedTag ? allTagIds.indexOf(selectedTag) : 0;
+  const allTagIds = useMemo(() => [null, ...tags.filter(t => (t.bbtalkCount ?? 0) > 0).map(t => t.id)], [tags]);
+  const currentTagIdx = selectedTag ? Math.max(0, allTagIds.indexOf(selectedTag)) : 0;
   const currentTagIdxRef = useRef(currentTagIdx); currentTagIdxRef.current = currentTagIdx;
   const allTagIdsRef = useRef(allTagIds); allTagIdsRef.current = allTagIds;
 
   const switchTag = useCallback((direction: 'left' | 'right') => {
-    if (!showTagTabs || !onSelectTag || tags.length === 0) return;
+    if (!showTagTabs || !onSelectTag || allTagIds.length === 1) return;
     const nextIdx = direction === 'left'
       ? Math.min(currentTagIdx + 1, allTagIds.length - 1)
       : Math.max(currentTagIdx - 1, 0);
@@ -40,7 +40,8 @@ export function useTagSwipe({ tags, selectedTag, showTagTabs, onSelectTag }: Use
       return;
     }
     Animated.timing(listSlideAnim, { toValue: slideOut * 300, duration: 120, useNativeDriver: true }).start(() => {
-      onSelectTag(allTagIds[nextIdx]);
+      const nextTag = allTagIds[nextIdx];
+      onSelectTag(allTagIdsRef.current.includes(nextTag) ? nextTag : null);
       listSlideAnim.setValue(-slideOut * 300);
       Animated.spring(listSlideAnim, { toValue: 0, useNativeDriver: true, speed: 20, bounciness: 4 }).start();
     });

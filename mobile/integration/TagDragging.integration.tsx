@@ -1,9 +1,10 @@
 import React from 'react';
-import { Animated, FlatList, PanResponder, View } from 'react-native';
+import { Animated, FlatList, PanResponder, View, Modal } from 'react-native';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import TagManagementScreen from '../src/screens/TagManagementScreen';
 import { tagApi } from '../src/services/api/tagApi';
 import { setSession } from '../src/services/session';
+import { setHistoryLocked } from '../src/services/historyPrivacy';
 import { xAlert } from '../src/utils/crossAlert';
 
 const mockDispatch = jest.fn();
@@ -11,7 +12,7 @@ jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Icon' }));
 jest.mock('@react-native-async-storage/async-storage', () => require('@react-native-async-storage/async-storage/jest/async-storage-mock'));
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 24 }) }));
 jest.mock('../src/store/hooks', () => ({ useAppDispatch: () => mockDispatch }));
-jest.mock('../src/services/api/tagApi', () => ({ tagApi: { getTags: jest.fn(), reorder: jest.fn() } }));
+jest.mock('../src/services/api/tagApi', () => ({ tagApi: { getTags: jest.fn(), reorder: jest.fn(), updateTag: jest.fn(), deleteTag: jest.fn() } }));
 jest.mock('../src/utils/crossAlert', () => ({ xAlert: jest.fn(), xActionSheet: jest.fn(), xConfirm: jest.fn() }));
 
 const tags = ['生活', '工作', '阅读'].map((name, index) => ({ id: `${index}`, name, color: '#345678', sortOrder: index, bbtalkCount: index }));
@@ -19,6 +20,7 @@ let responder: Parameters<typeof PanResponder.create>[0];
 beforeEach(() => {
   jest.clearAllMocks();
   setSession('https://tags.test', 'owner');
+  setHistoryLocked(false);
   (tagApi.getTags as jest.Mock).mockResolvedValue(tags);
   (tagApi.reorder as jest.Mock).mockResolvedValue(undefined);
   const create = PanResponder.create;
@@ -26,6 +28,34 @@ beforeEach(() => {
   jest.spyOn(View.prototype, 'measure').mockImplementation(callback => callback(0, 0, 375, 600, 0, 0));
 });
 afterEach(() => { jest.restoreAllMocks(); jest.useRealTimers(); });
+
+test('opens a real edit modal directly, saves changes and retains empty tags in management', async () => {
+  (tagApi.updateTag as jest.Mock).mockResolvedValue(undefined);
+  const screen = await mount();
+  expect(screen.getByText('0 条记录')).toBeTruthy();
+  expect(screen.queryByLabelText('标签 生活 的更多操作')).toBeNull();
+  fireEvent.press(screen.getByLabelText('编辑标签 生活'));
+  expect(screen.UNSAFE_getByType(Modal).props.visible).toBe(true);
+  fireEvent.changeText(screen.getByLabelText('标签名称'), '随想');
+  fireEvent.press(screen.getByLabelText('标签颜色 #8B5CF6'));
+  fireEvent.press(screen.getByText('保存'));
+  await waitFor(() => expect(tagApi.updateTag).toHaveBeenCalledWith('0', { name: '随想', color: '#8B5CF6' }));
+  await waitFor(() => expect(screen.UNSAFE_queryByType(Modal)).toBeNull());
+});
+
+test('privacy locking removes edit and deletion confirmation contents and blocks retained callbacks', async () => {
+  const screen = await mount();
+  fireEvent.press(screen.getByLabelText('编辑标签 工作'));
+  fireEvent.press(screen.getByText('删除标签'));
+  fireEvent.press(screen.getByText('同时删除碎碎念'));
+  const confirm = screen.getByText('确认删除');
+  expect(screen.getByText('将永久删除「工作」及其关联的 1 条记录，不可恢复！')).toBeTruthy();
+  await act(async () => setHistoryLocked(true));
+  expect(screen.UNSAFE_queryByType(Modal)).toBeNull();
+  expect(screen.queryByText('工作')).toBeNull();
+  fireEvent.press(confirm);
+  expect(tagApi.deleteTag).not.toHaveBeenCalled();
+});
 
 async function mount() {
   const screen = render(<TagManagementScreen />);

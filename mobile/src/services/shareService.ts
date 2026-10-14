@@ -12,6 +12,8 @@ import * as Sharing from 'expo-sharing';
 import type { BBTalk } from '../types';
 import { logError } from '../utils/errorHandler';
 import { xAlert, xConfirm } from '../utils/crossAlert';
+import { createPrivacyOperation } from './privacyOperation';
+type PrivacyOperation = ReturnType<typeof createPrivacyOperation>;
 
 /**
  * 组装 BBTalk 的分享文本
@@ -30,13 +32,18 @@ export function buildShareText(item: BBTalk): string {
  * 下载远程图片到本地临时目录
  * 返回成功下载的本地 URI 列表（失败的跳过）
  */
-export async function downloadImages(urls: string[]): Promise<string[]> {
+export async function downloadImages(urls: string[], operation?: PrivacyOperation): Promise<string[]> {
   const localUris: string[] = [];
   for (const url of urls) {
+    if (operation && !operation.isCurrent()) break;
     try {
       const filename = url.split('/').pop() || `share_${Date.now()}.jpg`;
       const localUri = `${FileSystem.cacheDirectory}share_${filename}`;
       const result = await FileSystem.downloadAsync(url, localUri);
+      if (operation && !operation.isCurrent()) {
+        try { await FileSystem.deleteAsync(result.uri || localUri, { idempotent: true }); } catch {}
+        break;
+      }
       if (result.status === 200) {
         localUris.push(result.uri);
       }
@@ -50,9 +57,10 @@ export async function downloadImages(urls: string[]): Promise<string[]> {
 /**
  * 复制文本到剪贴板并显示提示
  */
-export async function copyToClipboard(text: string): Promise<void> {
+export async function copyToClipboard(text: string, operation = createPrivacyOperation()): Promise<void> {
+  if (!operation.isCurrent()) return;
   await Clipboard.setStringAsync(text);
-  xAlert('已复制', '内容已复制到剪贴板');
+  if (operation.isCurrent()) xAlert('已复制', '内容已复制到剪贴板');
 }
 
 /**
@@ -63,6 +71,8 @@ export async function copyToClipboard(text: string): Promise<void> {
  * iOS/Android：使用 expo-sharing 分享本地文件（文本+首张图片），失败/取消时降级为剪贴板
  */
 export async function shareBBTalk(item: BBTalk): Promise<void> {
+  const operation = createPrivacyOperation();
+  if (!operation.isCurrent()) return;
   const text = buildShareText(item);
 
   // 筛选图片附件
@@ -70,14 +80,14 @@ export async function shareBBTalk(item: BBTalk): Promise<void> {
 
   try {
     if (Platform.OS === 'web') {
-      await shareOnWeb(text);
+      await shareOnWeb(text, operation);
     } else {
-      await shareOnNative(text, imageAttachments.map(a => a.url));
+      await shareOnNative(text, imageAttachments.map(a => a.url), operation);
     }
   } catch (e) {
     logError(e, 'shareBBTalk');
     // 最终降级：复制到剪贴板
-    await copyToClipboard(text);
+    await copyToClipboard(text, operation);
   }
 }
 
@@ -85,7 +95,8 @@ export async function shareBBTalk(item: BBTalk): Promise<void> {
  * Web 平台分享
  * 优先使用 Web Share API，不可用时直接复制到剪贴板
  */
-async function shareOnWeb(text: string): Promise<void> {
+async function shareOnWeb(text: string, operation: PrivacyOperation): Promise<void> {
+  if (!operation.isCurrent()) return;
   if (typeof navigator !== 'undefined' && navigator.share) {
     try {
       await navigator.share({ text });
@@ -99,7 +110,7 @@ async function shareOnWeb(text: string): Promise<void> {
     }
   }
   // Web Share API 不可用或调用失败，降级为剪贴板
-  await copyToClipboard(text);
+  await copyToClipboard(text, operation);
 }
 
 /**
@@ -108,43 +119,52 @@ async function shareOnWeb(text: string): Promise<void> {
  * 无图片或下载失败时：使用 RN Share 分享纯文本
  * 分享失败/取消时：降级为剪贴板复制
  */
-async function shareOnNative(text: string, imageUrls: string[]): Promise<void> {
+async function shareOnNative(text: string, imageUrls: string[], operation: PrivacyOperation): Promise<void> {
   // 尝试下载图片
   let localImageUris: string[] = [];
   if (imageUrls.length > 0) {
     try {
-      localImageUris = await downloadImages(imageUrls);
+      localImageUris = await downloadImages(imageUrls, operation);
     } catch (e) {
       logError(e, 'download images for share');
     }
   }
 
-  // 有本地图片时，使用 expo-sharing 分享首张图片
-  if (localImageUris.length > 0) {
+  try {
+    if (!operation.isCurrent()) return;
+    // 有本地图片时，使用 expo-sharing 分享首张图片
+    if (localImageUris.length > 0) {
+      try {
+        const isAvailable = await Sharing.isAvailableAsync();
+        if (!operation.isCurrent()) return;
+        if (isAvailable) {
+          await Sharing.shareAsync(localImageUris[0], {
+            dialogTitle: text,
+            mimeType: 'image/*',
+          });
+          return;
+        }
+      } catch (e) {
+        logError(e, 'expo-sharing');
+      }
+    }
+
+    // 无图片或 expo-sharing 失败，使用 RN Share 分享纯文本
     try {
-      const isAvailable = await Sharing.isAvailableAsync();
-      if (isAvailable) {
-        await Sharing.shareAsync(localImageUris[0], {
-          dialogTitle: text,
-          mimeType: 'image/*',
-        });
-        return;
+      if (!operation.isCurrent()) return;
+      const result = await Share.share({ message: text });
+      if (operation.isCurrent() && result.action === Share.dismissedAction) {
+        // 用户取消分享，提供复制选项
+        xConfirm('分享', '已取消分享，是否复制到剪贴板？', () => copyToClipboard(text, operation), undefined, { confirmText: '复制' });
       }
     } catch (e) {
-      logError(e, 'expo-sharing');
+      logError(e, 'RN Share');
+      // 降级为剪贴板
+      await copyToClipboard(text, operation);
     }
-  }
-
-  // 无图片或 expo-sharing 失败，使用 RN Share 分享纯文本
-  try {
-    const result = await Share.share({ message: text });
-    if (result.action === Share.dismissedAction) {
-      // 用户取消分享，提供复制选项
-      xConfirm('分享', '已取消分享，是否复制到剪贴板？', () => copyToClipboard(text), undefined, { confirmText: '复制' });
+  } finally {
+    for (const uri of localImageUris) {
+      try { await FileSystem.deleteAsync(uri, { idempotent: true }); } catch {}
     }
-  } catch (e) {
-    logError(e, 'RN Share');
-    // 降级为剪贴板
-    await copyToClipboard(text);
   }
 }

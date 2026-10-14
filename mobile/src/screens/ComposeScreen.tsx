@@ -2,7 +2,7 @@ import DraftStatus from '../components/DraftStatus';
 import { readSubmission, confirmSubmission, type SubmissionIntent } from '../services/submissions';
 import { enqueueSubmission, reviseFailedSubmission } from '../services/outbox';
 import { isSyncOnline } from '../services/syncConnectivity';
-import { historyIsLocked, subscribeHistoryPrivacy, recordHistoryActivity } from '../services/historyPrivacy';
+import { historyIsLocked, historyPrivacyIsReady, subscribeHistoryPrivacy, recordHistoryActivity } from '../services/historyPrivacy';
 import { bbtalkApi } from '../services/api/bbtalkApi';
 import { getSession, isCurrentSession } from '../services/session';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -166,7 +166,8 @@ const compactStyles = StyleSheet.create({
 
 export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }: { lockedCapture?: boolean; onRequestUnlock?: () => void } = {}) {
   const historyLocked = React.useSyncExternalStore(subscribeHistoryPrivacy, historyIsLocked, historyIsLocked);
-  useEffect(() => { if (historyLocked && !lockedCapture) { Keyboard.dismiss(); setVoiceRecording(false); } }, [historyLocked, lockedCapture]);
+  const historyReady = React.useSyncExternalStore(subscribeHistoryPrivacy, historyPrivacyIsReady, historyPrivacyIsReady);
+  useEffect(() => { if ((!historyReady || historyLocked) && !lockedCapture) { Keyboard.dismiss(); setVoiceRecording(false); } }, [historyReady, historyLocked, lockedCapture]);
   const session = useRef(getSession()).current;
   const regularDraftKey = `compose_draft:${session.scope ?? 'signed-out'}`;
   const captureId = useRef(`${Date.now()}_${Math.random().toString(36).slice(2)}`).current;
@@ -212,6 +213,7 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
   const publishedRef = useRef(false);
   const submittingRef = useRef(false);
   const [submission, setSubmission] = useState<SubmissionIntent>();
+  const [showSubmissionContent, setShowSubmissionContent] = useState(false);
   const [submissionReady, setSubmissionReady] = useState(isEditing || lockedCapture);
   const [draftReady, setDraftReady] = useState(lockedCapture);
   const [submissionMessage, setSubmissionMessage] = useState('');
@@ -492,7 +494,7 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
   const toolbarHeight = 44 + (showQuickTags ? 40 : 0) + (location ? 28 : 0) + 36; // main + tags + location + md
   const bottomPad = keyboardH > 0 ? 0 : (insets.bottom || 12);
 
-  if (!lockedCapture && historyLocked) return <View style={[styles.container, { padding: 24, paddingTop: insets.top + 24, backgroundColor: c.background }]}>
+  if (!lockedCapture && (!historyReady || historyLocked)) return <View style={[styles.container, { padding: 24, paddingTop: insets.top + 24, backgroundColor: c.background }]}>
     <Text style={{ color: c.text }}>编辑内容已锁定</Text>
     <TouchableOpacity accessibilityRole="button" onPress={() => navigation.popToTop()} style={{ minHeight: 48, justifyContent: 'center' }}><Text style={{ color: c.primary }}>返回首页解锁</Text></TouchableOpacity>
   </View>;
@@ -533,9 +535,10 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
 
       {(submission || submissionMessage) && <View style={{ padding: 12, backgroundColor: c.surface, borderBottomWidth: 1, borderBottomColor: c.border }}>
         <Text accessibilityLiveRegion="polite" style={{ color: c.text, fontSize: 14 }}>{submissionMessage || (submission?.state === 'pending' ? '有一份发布结果待核对' : '原提交已确认，当前输入仍保留')}</Text>
-        {submission && <TouchableOpacity accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center' }} onPress={() => xAlert('原提交内容', submission.payload.content)}>
-          <Text style={{ color: c.primary }}>查看原提交内容</Text>
+        {submission && <TouchableOpacity accessibilityRole="button" accessibilityState={{ expanded: showSubmissionContent }} style={{ minHeight: 44, justifyContent: 'center' }} onPress={() => setShowSubmissionContent(value => !value)}>
+          <Text style={{ color: c.primary }}>{showSubmissionContent ? '收起原提交内容' : '查看原提交内容'}</Text>
         </TouchableOpacity>}
+        {submission && showSubmissionContent && <Text style={{ color: c.text, lineHeight: 24 }}>{submission.payload.content}</Text>}
         {submission?.state === 'pending' && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
           <TouchableOpacity accessibilityRole="button" disabled={submitting} style={{ minHeight: 44, justifyContent: 'center' }} onPress={() => { void recoverSubmission(false); }}>
             <Text style={{ color: c.primary }}>核对发布结果</Text>

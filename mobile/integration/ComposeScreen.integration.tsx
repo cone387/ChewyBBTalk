@@ -16,7 +16,7 @@ import { getSession, setSession, clearSession } from '../src/services/session';
 import { beginSubmission, readSubmission } from '../src/services/submissions';
 import { listOutbox, drainOutbox, retrySubmission } from '../src/services/outbox';
 import { updateSyncConnectivity } from '../src/services/syncConnectivity';
-import { setHistoryLocked } from '../src/services/historyPrivacy';
+import { setHistoryLocked, setHistoryPrivacyReady } from '../src/services/historyPrivacy';
 import { xConfirm, xActionSheet } from '../src/utils/crossAlert';
 import { listDrafts } from '../src/services/drafts';
 
@@ -51,6 +51,7 @@ beforeEach(async () => {
   await AsyncStorage.clear();
   clearSession(); setSession('https://integration.example', 'owner');
   setHistoryLocked(false);
+  setHistoryPrivacyReady(true);
   mockParams = {};
   updateSyncConnectivity(true);
   (apiClient.get as jest.Mock).mockResolvedValue([]);

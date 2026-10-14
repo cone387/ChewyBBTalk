@@ -6,6 +6,7 @@ jest.mock('react-native', () => {
     View: 'View',
     StyleSheet: { create: (value: unknown) => value, absoluteFill: { __fill: true }, absoluteFillObject: {} },
     AppState: {
+      currentState: 'active',
       addEventListener: jest.fn((_event: string, cb: (state: string) => void) => {
         listeners.push(cb);
         return { remove: jest.fn() };
@@ -18,12 +19,17 @@ jest.mock('react-native', () => {
 });
 jest.mock('expo-blur', () => ({ BlurView: 'BlurView' }));
 jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Icon' }));
+jest.mock('expo-screen-capture', () => ({
+  enableAppSwitcherProtectionAsync: jest.fn(() => Promise.resolve()),
+  disableAppSwitcherProtectionAsync: jest.fn(() => Promise.resolve()),
+}));
 
 import React from 'react';
 import AppBackgroundBlur from '../../src/components/AppBackgroundBlur';
 
 const { create, act } = require('react-test-renderer');
 const RN: any = require('react-native');
+const capture = require('expo-screen-capture');
 
 let tree: any;
 const fire = (state: string) => act(async () => {
@@ -37,11 +43,26 @@ async function mount() {
 beforeEach(() => {
   jest.clearAllMocks();
   RN.__state.os = 'ios';
+  RN.AppState.currentState = 'active';
   RN.__listeners.length = 0;
 });
 afterEach(() => { act(() => { tree?.unmount(); }); tree = undefined; });
 
 describe('AppBackgroundBlur', () => {
+  it('enables native window protection and removes it on unmount', async () => {
+    await mount();
+    expect(capture.enableAppSwitcherProtectionAsync).toHaveBeenCalledWith(1);
+    await act(async () => { tree.unmount(); });
+    tree = undefined;
+    expect(capture.disableAppSwitcherProtectionAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['inactive', 'background', null])('starts covered when current state is %s', async (state) => {
+    RN.AppState.currentState = state;
+    await mount();
+    expect(tree.root.findByType('Icon').props.name).toBe('lock-closed');
+    expect(tree.root.findAllByType('View')[0].props.style.backgroundColor).toBe('#111827');
+  });
   it('stays hidden while the app is active on ios', async () => {
     await mount();
     expect(RN.AppState.addEventListener).toHaveBeenCalledWith('change', expect.any(Function));

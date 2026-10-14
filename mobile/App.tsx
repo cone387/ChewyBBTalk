@@ -5,7 +5,7 @@ import OutboxSync from './src/components/OutboxSync';
 import OutboxScreen from './src/screens/OutboxScreen';
 import PasswordRecoveryScreen from './src/screens/PasswordRecoveryScreen';
 import { getSession, onSessionChange } from './src/services/session';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useSyncExternalStore } from 'react';
 import { ActivityIndicator, View, Platform, AppState } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -49,6 +49,24 @@ import {
 import ErrorBoundary from './src/components/ErrorBoundary';
 import AppBackgroundBlur from './src/components/AppBackgroundBlur';
 import ScreenCaptureProtection from './src/components/ScreenCaptureProtection';
+import PrivacyBoundary, { protectScreen } from './src/components/PrivacyBoundary';
+import { PrivacyProvider } from './src/hooks/usePrivacyMode';
+import { historyIsLocked, historyPrivacyIsReady, subscribeHistoryPrivacy } from './src/services/historyPrivacy';
+import { xAlert } from './src/utils/crossAlert';
+
+const PrivateRecordDetail = protectScreen(RecordDetailScreen);
+const PrivateDrafts = protectScreen(DraftsScreen);
+const PrivateOutbox = protectScreen(OutboxScreen);
+const PrivateCompose = protectScreen(ComposeScreen, true);
+const PrivateProfile = protectScreen(ProfileEditScreen);
+const PrivateTheme = protectScreen(ThemeSettingsScreen);
+const PrivatePrivacySettings = protectScreen(PrivacySettingsScreen);
+const PrivateAdvanced = protectScreen(AdvancedSettingsScreen);
+const PrivateStorage = protectScreen(StorageSettingsScreen);
+const PrivateData = protectScreen(DataManagementScreen);
+const PrivateAudio = protectScreen(AudioPlayScreen);
+const PrivateCache = protectScreen(CacheManagementScreen);
+const PrivateTags = protectScreen(TagManagementScreen);
 
 const Stack = createNativeStackNavigator();
 function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
@@ -110,33 +128,33 @@ function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
           <Stack.Screen name="Home" options={{ headerShown: false }}>
             {() => <MainTabs onLogout={onLogout} />}
           </Stack.Screen>
-          <Stack.Screen name="RecordDetail" component={RecordDetailScreen} options={{ title: '记录', ...headerOptions }} />
-          <Stack.Screen name="Drafts" component={DraftsScreen} options={{ title: '未完成记录', ...headerOptions }} />
-          <Stack.Screen name="Outbox" component={OutboxScreen} options={{ title: '同步记录', ...headerOptions }} />
-          <Stack.Screen name="Compose" component={ComposeScreen}
+          <Stack.Screen name="RecordDetail" component={PrivateRecordDetail} options={{ title: '记录', ...headerOptions }} />
+          <Stack.Screen name="Drafts" component={PrivateDrafts} options={{ title: '未完成记录', ...headerOptions }} />
+          <Stack.Screen name="Outbox" component={PrivateOutbox} options={{ title: '同步记录', ...headerOptions }} />
+          <Stack.Screen name="Compose" component={PrivateCompose}
             options={{ headerShown: false, presentation: 'modal', animation: 'slide_from_bottom', gestureEnabled: true }} />
           <Stack.Screen name="Settings" options={{ title: '设置', ...headerOptions }}>
-            {() => <SettingsScreen onLogout={onLogout} />}
+            {() => <PrivacyBoundary><SettingsScreen onLogout={onLogout} /></PrivacyBoundary>}
           </Stack.Screen>
           <Stack.Screen name="AccountSecurity" options={{ title: '账号与安全', ...headerOptions }}>
-            {() => <AccountSecurityScreen onLogout={onLogout} />}
+            {() => <PrivacyBoundary><AccountSecurityScreen onLogout={onLogout} /></PrivacyBoundary>}
           </Stack.Screen>
-          <Stack.Screen name="ProfileEdit" component={ProfileEditScreen}
+          <Stack.Screen name="ProfileEdit" component={PrivateProfile}
             options={{ title: '编辑个人信息', ...headerOptions }} />
-          <Stack.Screen name="ThemeSettings" component={ThemeSettingsScreen}
+          <Stack.Screen name="ThemeSettings" component={PrivateTheme}
             options={{ title: '主题设置', ...headerOptions }} />
-          <Stack.Screen name="PrivacySettings" component={PrivacySettingsScreen}
+          <Stack.Screen name="PrivacySettings" component={PrivatePrivacySettings}
             options={{ title: '防窥设置', ...headerOptions }} />
-          <Stack.Screen name="AdvancedSettings" component={AdvancedSettingsScreen} options={{ title: '高级设置', ...headerOptions }} />
-          <Stack.Screen name="StorageSettings" component={StorageSettingsScreen}
+          <Stack.Screen name="AdvancedSettings" component={PrivateAdvanced} options={{ title: '高级设置', ...headerOptions }} />
+          <Stack.Screen name="StorageSettings" component={PrivateStorage}
             options={{ title: '存储设置', ...headerOptions }} />
-          <Stack.Screen name="DataManagement" component={DataManagementScreen}
+          <Stack.Screen name="DataManagement" component={PrivateData}
             options={{ title: '数据管理', ...headerOptions }} />
-          <Stack.Screen name="AudioPlay" component={AudioPlayScreen}
+          <Stack.Screen name="AudioPlay" component={PrivateAudio}
             options={{ title: '播放音频', ...headerOptions }} />
-          <Stack.Screen name="CacheManagement" component={CacheManagementScreen}
+          <Stack.Screen name="CacheManagement" component={PrivateCache}
             options={{ title: '缓存管理', ...headerOptions }} />
-          <Stack.Screen name="TagManagement" component={TagManagementScreen}
+          <Stack.Screen name="TagManagement" component={PrivateTags}
             options={{ title: '标签管理', ...headerOptions }} />
           <Stack.Screen name="About" component={AboutScreen}
             options={{ title: '关于', ...headerOptions }} />
@@ -164,18 +182,28 @@ export default function App() {
   }), []);
   const [isReady, setIsReady] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const activeSession = useSyncExternalStore(onSessionChange, getSession, getSession);
+  const privacyLocked = useSyncExternalStore(subscribeHistoryPrivacy, historyIsLocked, historyIsLocked);
+  const privacyReady = useSyncExternalStore(subscribeHistoryPrivacy, historyPrivacyIsReady, historyPrivacyIsReady);
   useEffect(() => { (async () => { await loadApiBaseUrl(); setIsAuthenticated(await initAuth()); setIsReady(true); })(); }, []);
 
   // 小组件自动同步：登录态变化时启停
   useEffect(() => {
     if (isAuthenticated) {
-      setWidgetAuthState({ authenticated: true, locked: false });
+      setWidgetAuthState({ authenticated: true, locked: historyIsLocked() || !historyPrivacyIsReady() });
       startWidgetAutoSync();
     } else {
       stopWidgetAutoSync();
     }
     return () => stopWidgetAutoSync();
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    const locked = privacyLocked || !privacyReady;
+    setWidgetAuthState({ authenticated: isAuthenticated, locked });
+    if (!isAuthenticated) void clearWidget('logout');
+    else if (locked) void clearWidget('locked');
+  }, [isAuthenticated, privacyLocked, privacyReady]);
 
   // 从后台恢复时主动刷新 token，保持登录态
   useEffect(() => {
@@ -201,7 +229,9 @@ export default function App() {
       <SafeAreaProvider>
         <Provider store={store}>
           <ThemeProvider>
-            <ThemedNavigator isAuthenticated={isAuthenticated} onLoginSuccess={handleLoginSuccess} onLogout={handleLogout} />
+            {isAuthenticated ? <PrivacyProvider key={activeSession.generation} showError={xAlert}>
+              <ThemedNavigator isAuthenticated onLoginSuccess={handleLoginSuccess} onLogout={handleLogout} />
+            </PrivacyProvider> : <ThemedNavigator isAuthenticated={false} onLoginSuccess={handleLoginSuccess} onLogout={handleLogout} />}
             <AppBackgroundBlur />
             <ScreenCaptureProtection />
           </ThemeProvider>

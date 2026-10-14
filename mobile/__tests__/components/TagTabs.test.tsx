@@ -20,8 +20,8 @@ const tab = (label: string) => tree.root.findAllByType('TouchableOpacity')
   .filter((n: any) => n.findAllByType('Text').some((t: any) => childText(t.props.children) === label)).pop()!;
 
 const TAGS = [
-  { id: 't1', name: '工作' },
-  { id: 't2', name: '生活' },
+  { id: 't1', name: '工作', bbtalkCount: 2 },
+  { id: 't2', name: '生活', bbtalkCount: 1 },
 ];
 
 function baseProps(over: Record<string, unknown> = {}) {
@@ -45,6 +45,12 @@ beforeEach(() => jest.clearAllMocks());
 afterEach(() => { act(() => { tree?.unmount(); }); tree = undefined; });
 
 describe('TagTabs', () => {
+  it('hides empty and unknown-count tags while retaining used tags', async () => {
+    await mount(baseProps({ tags: [...TAGS, { id: 'empty', name: '空标签', bbtalkCount: 0 }, { id: 'unknown', name: '未知' }] }));
+    expect(tab('空标签')).toBeUndefined();
+    expect(tab('未知')).toBeUndefined();
+    expect(tab('工作')).toBeDefined();
+  });
   it('marks the all-tab active with no tag or date filter', async () => {
     await mount(baseProps());
     const all = tab('全部');

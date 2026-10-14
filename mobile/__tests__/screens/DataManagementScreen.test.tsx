@@ -56,6 +56,7 @@ jest.mock('../../src/theme/ThemeContext', () => ({ useTheme: () => ({ theme: req
 import React from 'react';
 import DataManagementScreen from '../../src/screens/DataManagementScreen';
 import { setSession, clearSession } from '../../src/services/session';
+import { setHistoryLocked, setHistoryPrivacyReady } from '../../src/services/historyPrivacy';
 
 const { create, act } = require('react-test-renderer');
 
@@ -101,6 +102,7 @@ const exportResponse = (blob: any) => ({ ok: true, blob: async () => blob });
 
 beforeEach(() => {
   setSession('https://api.test', 'alice');
+  setHistoryLocked(false); setHistoryPrivacyReady(true);
   jest.clearAllMocks();
   FSNext.__instances.length = 0;
   RN.__platform.OS = 'ios';
@@ -117,6 +119,17 @@ beforeEach(() => {
 afterEach(() => { act(() => { tree?.unmount(); }); tree = undefined; });
 
 describe('DataManagementScreen export', () => {
+  it('does not write or share a pending export after a lock and unlock', async () => {
+    let finish!: (value: any) => void;
+    mockFetch.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    await mountScreen(); await press('导出 JSON（不含附件文件）'); await settle();
+    setHistoryLocked(true); setHistoryLocked(false);
+    await act(async () => finish(exportResponse({ __text: 'private records' })));
+    await settle();
+    expect(FSNext.__instances).toHaveLength(0);
+    expect(Sharing.shareAsync).not.toHaveBeenCalled();
+    expect(mockXAlert).not.toHaveBeenCalled();
+  });
   it('refreshes an expired export token once before reading the download', async () => {
     mockFetch.mockResolvedValueOnce({ status: 401, ok: false }).mockResolvedValueOnce(exportResponse({ __text: '[]' }));
     mockGetAccessToken.mockResolvedValueOnce('old').mockResolvedValueOnce('fresh');
@@ -189,11 +202,11 @@ describe('DataManagementScreen export', () => {
     await mountScreen();
     await press('导出 JSON（不含附件文件）');
     await settle();
-    expect(mockXAlert).toHaveBeenCalledWith('导出失败', '导出失败 (500)');
+    expect(tree.root.findAllByType('Text').some((node: any) => node.props.children === '导出失败 (500)')).toBe(true);
     mockFetch.mockImplementationOnce(() => Promise.reject(new Error('网络中断')));
     await press('导出 JSON（不含附件文件）');
     await settle();
-    expect(mockXAlert).toHaveBeenCalledWith('导出失败', '网络中断');
+    expect(tree.root.findAllByType('Text').some((node: any) => node.props.children === '网络中断')).toBe(true);
   });
 
   it('disables sibling actions and shows progress while an export is running', async () => {
@@ -228,7 +241,7 @@ describe('DataManagementScreen import', () => {
     expect(mockXAlert).toHaveBeenCalledWith('导入完成', expect.stringContaining('BBTalk: 新增 1'));
   });
 
-  it('reports partial attachment/comment recovery and the actual row errors', async () => {
+  it('reports partial recovery without putting private row details in a native alert', async () => {
     DocumentPicker.getDocumentAsync.mockResolvedValueOnce(pickResult('backup.zip'));
     mockFetch.mockResolvedValueOnce(importResponse({ success: true, partial: true,
       stats: { tags_created: 1, tags_skipped: 0, bbtalks_created: 2, bbtalks_skipped: 0,
@@ -238,14 +251,15 @@ describe('DataManagementScreen import', () => {
     expect(mockXAlert).toHaveBeenCalledWith('导入部分完成', expect.stringContaining('附件: 新增 3，跳过 1'));
     expect(mockXAlert.mock.calls[0][1]).toContain('评论: 新增 4，跳过 2');
     expect(mockXAlert.mock.calls[0][1]).toContain('存储配置: 新增 1');
-    expect(mockXAlert.mock.calls[0][1]).toContain('附件 missing.jpg 未恢复');
+    expect(mockXAlert.mock.calls[0][1]).toContain('错误: 1 条');
+    expect(mockXAlert.mock.calls[0][1]).not.toContain('missing.jpg');
   });
 
   it('shows FastAPI validation details on an HTTP failure', async () => {
     DocumentPicker.getDocumentAsync.mockResolvedValueOnce(pickResult('backup.zip'));
     mockFetch.mockResolvedValueOnce({ ok: false, status: 422, json: async () => ({ detail: [{ loc: ['body', 'file'], msg: '文件无效', input: 'private' }] }) });
     await mountScreen(); await press('选择文件导入'); await settle();
-    expect(mockXAlert).toHaveBeenCalledWith('导入失败', 'file: 文件无效');
+    expect(tree.root.findAllByType('Text').some((node: any) => node.props.children === 'file: 文件无效')).toBe(true);
   });
 
   it('does not import a picker result after switching accounts', async () => {
@@ -254,6 +268,15 @@ describe('DataManagementScreen import', () => {
     await mountScreen(); await press('选择文件导入');
     await act(async () => { clearSession(); finish(pickResult('backup.zip')); }); await settle();
     expect(mockFetch).not.toHaveBeenCalled(); expect(mockXAlert).not.toHaveBeenCalled();
+  });
+  it('rejects an old picker result even after the history has been unlocked again', async () => {
+    let finish!: (value: any) => void;
+    DocumentPicker.getDocumentAsync.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    await mountScreen(); await press('选择文件导入');
+    await act(async () => { setHistoryLocked(true); setHistoryLocked(false); finish(pickResult('backup.zip')); });
+    await settle();
+    expect(mockFetch).not.toHaveBeenCalled();
+    expect(mockXAlert).not.toHaveBeenCalled();
   });
 
   it('uploads a picked json natively and summarizes the result', async () => {
@@ -283,7 +306,8 @@ describe('DataManagementScreen import', () => {
     await mountScreen();
     await press('选择文件导入');
     await settle();
-    expect(mockXAlert).toHaveBeenCalledWith('导入部分完成', expect.stringContaining('错误: 1 条\nbad row'));
+    expect(mockXAlert).toHaveBeenCalledWith('导入部分完成', expect.stringContaining('错误: 1 条'));
+    expect(mockXAlert.mock.calls[0][1]).not.toContain('bad row');
     expect(appendSpy).toHaveBeenCalledWith('file', {
       uri: 'file:///pick/backup.zip', name: 'backup.zip', type: 'application/zip',
     });
@@ -322,15 +346,15 @@ describe('DataManagementScreen import', () => {
     await mountScreen();
     await press('选择文件导入');
     await settle();
-    expect(mockXAlert).toHaveBeenCalledWith('导入失败', '导入失败 (400)');
+    expect(tree.root.findAllByType('Text').some((node: any) => node.props.children === '导入失败 (400)')).toBe(true);
     mockFetch.mockImplementationOnce(() => Promise.resolve(importResponse({ success: false, error: '格式错误' })));
     await press('选择文件导入');
     await settle();
-    expect(mockXAlert).toHaveBeenCalledWith('导入失败', '格式错误');
+    expect(tree.root.findAllByType('Text').some((node: any) => node.props.children === '格式错误')).toBe(true);
     mockFetch.mockImplementationOnce(() => Promise.reject(new Error('连接重置')));
     await press('选择文件导入');
     await settle();
-    expect(mockXAlert).toHaveBeenCalledWith('导入失败', '连接重置');
+    expect(tree.root.findAllByType('Text').some((node: any) => node.props.children === '连接重置')).toBe(true);
   });
 });
 
@@ -353,6 +377,6 @@ describe('DataManagementScreen cache clearing', () => {
     await press('清除离线缓存');
     await act(async () => { await mockXConfirm.mock.calls[0]![2](); });
     await settle();
-    expect(mockXAlert).toHaveBeenCalledWith('清除失败', '文件被占用');
+    expect(mockXAlert).toHaveBeenCalledWith('清除失败', '暂时无法清除离线缓存，请重试');
   });
 });

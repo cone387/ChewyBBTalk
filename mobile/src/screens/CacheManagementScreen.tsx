@@ -1,11 +1,12 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
-import { xAlert, xConfirm } from '../utils/crossAlert';
+import { xConfirm } from '../utils/crossAlert';
+import { createPrivacyOperation } from '../services/privacyOperation';
 
 interface CacheInfo {
   total: number;
@@ -23,13 +24,14 @@ function formatSize(bytes: number): string {
   return `${(bytes / 1073741824).toFixed(2)} GB`;
 }
 
-async function scanCacheDir(): Promise<CacheInfo> {
+async function scanCacheDir(isCurrent: () => boolean): Promise<CacheInfo> {
   const info: CacheInfo = { total: 0, audio: 0, video: 0, image: 0, other: 0, fileCount: 0 };
   const cacheDir = FileSystem.cacheDirectory;
   if (!cacheDir) return info;
 
   const files = await FileSystem.readDirectoryAsync(cacheDir);
   for (const file of files) {
+    if (!isCurrent()) return info;
     // Only count our own cached files
     if (!file.startsWith('audio_') && !file.startsWith('video_')) continue;
     const fInfo = await FileSystem.getInfoAsync(cacheDir + file);
@@ -57,14 +59,20 @@ export default function CacheManagementScreen() {
   const [loading, setLoading] = useState(true);
   const [clearing, setClearing] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const clearingRef = useRef(false);
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
 
   const loadCache = useCallback(async () => {
+    const operation = createPrivacyOperation();
+    const isCurrent = () => mounted.current && operation.isCurrent();
+    if (!isCurrent()) return;
     setLoading(true);
     setError('');
-    try { setCacheInfo(await scanCacheDir()); }
-    catch (e: any) { setError(e.message || '无法读取缓存大小，请重试'); }
-    finally { setLoading(false); }
+    try { const info = await scanCacheDir(isCurrent); if (isCurrent()) setCacheInfo(info); }
+    catch (e: any) { if (isCurrent()) setError(e.message || '无法读取缓存大小，请重试'); }
+    finally { if (mounted.current) setLoading(false); }
   }, []);
 
   useFocusEffect(useCallback(() => { loadCache(); }, []));
@@ -75,28 +83,34 @@ export default function CacheManagementScreen() {
   };
 
   const clearCache = () => {
+    const operation = createPrivacyOperation();
+    const isCurrent = () => mounted.current && operation.isCurrent();
+    if (!isCurrent()) return;
     xConfirm('清理缓存', '将删除所有已下载的音频、视频缓存，不会影响服务器上的数据。', async () => {
-        if (clearingRef.current) return;
+        if (clearingRef.current || !isCurrent()) return;
         clearingRef.current = true;
-        setClearing(true);
+        setClearing(true); setNotice('');
         try {
           const cacheDir = FileSystem.cacheDirectory;
           if (cacheDir) {
             const files = await FileSystem.readDirectoryAsync(cacheDir);
             for (const file of files) {
+              if (!isCurrent()) return;
               if (isOurCacheFile(file)) {
                 await FileSystem.deleteAsync(cacheDir + file, { idempotent: true });
               }
             }
           }
+          if (!isCurrent()) return;
           await loadCache();
-          xAlert('完成', '缓存已清理');
+          if (isCurrent()) setNotice('缓存已清理');
         } catch (e: any) {
-          xAlert('清理失败', e.message);
+          if (!isCurrent()) return;
+          setNotice(`清理失败：${e.message || '请重试'}`);
           await loadCache();
         } finally {
           clearingRef.current = false;
-          setClearing(false);
+          if (mounted.current) setClearing(false);
         }
     }, undefined, { confirmText: '清理', destructive: true });
   };
@@ -110,6 +124,7 @@ export default function CacheManagementScreen() {
   return (
     <ScrollView style={[styles.container, { backgroundColor: c.surfaceSecondary }]}
       contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 20 }}>
+      {!!notice && <Text accessibilityRole="alert" style={{ color: c.text, marginBottom: 12 }}>{notice}</Text>}
 
       {/* Total */}
       <View style={[styles.totalCard, { backgroundColor: c.cardBg }]}>

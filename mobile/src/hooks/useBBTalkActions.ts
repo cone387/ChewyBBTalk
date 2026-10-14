@@ -11,6 +11,7 @@ import { attachmentApi } from '../services/api/mediaApi';
 import { logError } from '../utils/errorHandler';
 import { shareBBTalk as shareService } from '../services/shareService';
 import { xActionSheet, xConfirm } from '../utils/crossAlert';
+import { createPrivacyOperation } from '../services/privacyOperation';
 
 interface UseBBTalkActionsOptions {
   showError: (title: string, msg: string) => void;
@@ -26,7 +27,7 @@ export function useBBTalkActions({ showError, onNavigateCompose }: UseBBTalkActi
   const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const shareBBTalk = useCallback(async (item: BBTalk) => {
-    if (isSharing) return;
+    if (isSharing || !createPrivacyOperation().isCurrent()) return;
     setIsSharing(true);
     try {
       await shareService(item);
@@ -38,7 +39,8 @@ export function useBBTalkActions({ showError, onNavigateCompose }: UseBBTalkActi
   }, [isSharing]);
 
   const handleDelete = useCallback((item: BBTalk) => {
-    if (!isCurrentSession(session)) return;
+    const privacy = createPrivacyOperation();
+    if (!isCurrentSession(session) || !privacy.isCurrent()) return;
     const index = bbtalks.findIndex(b => b.id === item.id);
     if (index === -1) return;
     setPendingDelete({ bbtalk: item, index });
@@ -46,7 +48,7 @@ export function useBBTalkActions({ showError, onNavigateCompose }: UseBBTalkActi
     deleteTimerRef.current = setTimeout(async () => {
       if (!isCurrentSession(session)) return;
       try { await bbtalkApi.deleteBBTalk(item.id); }
-      catch (error: any) { if (!isCurrentSession(session)) return; dispatch(undoDelete({ bbtalk: item, index })); showError('删除失败', error.message || '请稍后重试'); }
+      catch { if (!isCurrentSession(session)) return; dispatch(undoDelete({ bbtalk: item, index })); if (privacy.isCurrent()) showError('删除失败', '记录未删除，请稍后重试'); }
       setPendingDelete(current => current?.bbtalk.id === item.id ? null : current);
     }, 3000);
   }, [bbtalks, dispatch, showError]);
@@ -60,16 +62,20 @@ export function useBBTalkActions({ showError, onNavigateCompose }: UseBBTalkActi
   const handleDismiss = useCallback(() => { setPendingDelete(null); }, []);
 
   const toggleVisibility = useCallback((item: BBTalk) => {
+    const operation = createPrivacyOperation();
+    if (!operation.isCurrent()) return;
     const newVis = item.visibility === 'public' ? 'private' : 'public';
     const apply = () => {
-      if (!isCurrentSession(session)) return;
-      dispatch(updateBBTalkAsync({ id: item.id, data: { visibility: newVis } as any })).unwrap().catch(() => showError('修改失败', '可见性未更新，请重试'));
+      if (!isCurrentSession(session) || !operation.isCurrent()) return;
+      dispatch(updateBBTalkAsync({ id: item.id, data: { visibility: newVis } as any })).unwrap().catch(() => { if (operation.isCurrent()) showError('修改失败', '可见性未更新，请重试'); });
     };
     if (newVis === 'public') confirmPublicVisibility(apply);
     else xConfirm('设为仅自己可见？', '更改后，公开页面将无法继续查看这条记录。', apply);
   }, [dispatch]);
 
   const showMenu = useCallback((item: BBTalk) => {
+    const operation = createPrivacyOperation();
+    if (!operation.isCurrent()) return;
     xActionSheet('操作', [
       { text: '编辑' },
       { text: item.isPinned ? '取消置顶' : '置顶' },
@@ -78,7 +84,7 @@ export function useBBTalkActions({ showError, onNavigateCompose }: UseBBTalkActi
       { text: '删除', destructive: true },
       { text: item.visibility === 'public' ? '设为仅自己可见' : '设为公开可见' },
     ], idx => {
-      if (!isCurrentSession(session)) return;
+      if (!isCurrentSession(session) || !operation.isCurrent()) return;
       if (idx === 0) onNavigateCompose(item);
       if (idx === 1) dispatch(togglePinAsync(item.id));
       if (idx === 2) shareBBTalk(item);
@@ -112,7 +118,7 @@ export function useBBTalkActions({ showError, onNavigateCompose }: UseBBTalkActi
         visibility: 'private',
         context: { source: { client: 'ChewyBBTalk Mobile', version: '1.0', platform: 'mobile', input: 'voice' } },
       })).unwrap();
-    } catch (e: any) { if (isCurrentSession(session)) showError('保存失败', e.message || '请稍后重试'); }
+    } catch { if (isCurrentSession(session)) showError('保存失败', '录音未能保存，请稍后重试'); }
   }, [dispatch, showError]);
 
   return {
