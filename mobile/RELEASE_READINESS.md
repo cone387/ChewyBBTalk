@@ -10,6 +10,8 @@
 
 验证：日历、MainTabs、ThemeContext 共 35 项定向测试，13 套 / 97 项界面集成，TypeScript 与 iOS/Android/Web 导出通过，产物在 `mobile/dist/calendar-theme/`。独立代码审查无重要问题；本次未重跑无关全量单测或重新计算覆盖率。未连接 iPhone，实际状态栏颜色、主题切换和视觉衔接仍需设备复验。
 
+发布确认：源码 `fec5d5da92c651d907a87dc501c242525c3b4d11` 已推送 master。EAS [构建 df27dc3e](https://expo.dev/accounts/cone387/projects/mobile/builds/df27dc3e-9169-47ae-b5de-76acd7f20f18) 与[提交 5423f754](https://expo.dev/accounts/cone387/projects/mobile/submissions/5423f754-c4d2-4967-9cbf-168922a569e9) 均 FINISHED，原生编译于北京时间 18:16:04 完成。Apple build `d257c6f4-f0ce-4bb5-93bd-8749a62bc18b` 为 `VALID / IN_BETA_TESTING`，内部组 `bbtalk` 已包含构建 25。实际 IPA 核对 bundle `com.chewy.bbtalk`、版本 `1.3.13`、构建 `25`、runtime `1.3.13`、外观 `Automatic`、`UIViewControllerBasedStatusBarAppearance=true`；对照旧版 1.3.12（24）的该配置为 false。远端 Jest 步骤通过，仍在既有覆盖率门槛失败，集成与类型步骤跳过，本地对应检查已通过。
+
 ## 精简入口与原生返回导航（2026-10-14，1.3.12）
 
 - 移除首页、导航、编辑器、批量操作、评论、标签编辑和图片查看中的独立锁按钮及组件；首页倒计时点击锁定、长按进入防窥设置保持不变。
