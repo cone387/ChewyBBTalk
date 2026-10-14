@@ -14,6 +14,8 @@
 
 完整默认行为、平台限制和设备复验项见 [1.3.11 防窥策略](../docs/mobile-privacy-policy-2026-10-14.md)。本环境没有连接手机，原生后台预览、锁屏、截图录屏等仍需 TestFlight 真机复验。
 
+发布确认：源码 `430ab9fabd4b3a82e1f6636a0f95fcb9c274ee0b` 已推送 master。首次上传遇到 TLS 连接中断，构建号 22 未进入构建；重试产出 1.3.11（23）。EAS [构建 e5b7644f](https://expo.dev/accounts/cone387/projects/mobile/builds/e5b7644f-7e8e-4d8b-820a-eddce472a3a0) 与[提交 ebef4ed8](https://expo.dev/accounts/cone387/projects/mobile/submissions/ebef4ed8-a70f-4865-b311-ca4a8b974c44) 均 FINISHED，原生编译于北京时间 17:07:33 完成。Apple build `7969b1b9-d907-41e7-a60d-1b2fb3466911` 已为 `VALID / IN_BETA_TESTING`，内部组 `bbtalk` 已包含构建 23。实际 IPA 核对 bundle `com.chewy.bbtalk`、版本 `1.3.11`、构建 `23`、更新 runtime `1.3.11`、外观 `Automatic`。远端 CI 的 Jest 步骤通过，既有覆盖率门槛失败，后续集成和类型步骤跳过；本地对应检查已通过。
+
 ## 空标签、弹窗编辑与防窥审计（2026-10-14，1.3.10）
 
 - 首页标签导航及滑动跳转仅保留有记录标签；管理页保留全部标签。点击直接弹窗编辑，移除更多按钮，保留拖动排序与删除二次确认。
