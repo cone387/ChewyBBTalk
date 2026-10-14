@@ -13,6 +13,8 @@
 
 完整场景、已修缺口、外部分享/剪贴板/备份的边界及设备复验清单见 [防窥审计](../docs/mobile-privacy-audit-2026-10-14.md)。本环境没有连接 iPhone，截图、录屏、后台瞬间与原生弹窗的真实效果仍待 TestFlight 真机复验。
 
+发布确认：源码 `0a9aeba5a293abfecd8e5ab46b2f50bb03eafd4d` 已推送 master。EAS [构建 c2ebe9c3](https://expo.dev/accounts/cone387/projects/mobile/builds/c2ebe9c3-94a9-4347-9a3f-90f6ff9340f1) 与[提交 e78552a2](https://expo.dev/accounts/cone387/projects/mobile/submissions/e78552a2-3d26-4412-ba32-cf5696698d46) 均 FINISHED；原生编译于北京时间 15:12:33 完成。Apple build `518bfad5-3673-4d21-855c-4d3faaaf2457` 为 `VALID / IN_BETA_TESTING`，已确认内部组 `bbtalk` 包含构建 21。实际 IPA 的 bundle 为 `com.chewy.bbtalk`、版本 `1.3.10`、构建 `21`、更新 runtime `1.3.10`、外观 `Automatic`。远端 CI 的 Jest 步骤通过，覆盖率步骤失败；集成与类型步骤因此跳过，本地两项已通过。
+
 ## 标签管理与拖动排序（2026-10-14，1.3.9）
 
 - 首页标签栏右侧改用 `options-outline` 图标，固定 48pt 点击区域，保留“管理标签”无障碍名称。
