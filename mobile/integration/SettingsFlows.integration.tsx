@@ -74,17 +74,17 @@ test('tag loading failure is distinct from empty data and can be retried', async
   await screen.findByText('连接失败');
   expect(screen.queryByText('暂无标签')).toBeNull();
   fireEvent.press(screen.getByText('重新加载'));
-  await screen.findByLabelText('下移标签 生活');
+  await screen.findByLabelText('拖动排序 生活');
 });
 
 test('failed tag ordering rolls back rather than displaying an unsaved order', async () => {
   (tagApi.getTags as jest.Mock).mockResolvedValue(tags);
   (tagApi.reorder as jest.Mock).mockRejectedValue(new Error('未保存'));
   const screen = render(<TagManagementScreen />);
-  fireEvent.press(await screen.findByLabelText('下移标签 生活'));
+  fireEvent(await screen.findByLabelText('拖动排序 生活'), 'accessibilityAction', { nativeEvent: { actionName: 'increment' } });
   await waitFor(() => expect(xAlert).toHaveBeenCalledWith('排序失败', '未保存'));
-  expect(screen.getByLabelText('上移标签 生活')).toBeDisabled();
-  expect(screen.getByLabelText('下移标签 工作')).toBeDisabled();
+  expect(screen.getByLabelText('拖动排序 生活').props.accessibilityValue.now).toBe(1);
+  expect(screen.getByLabelText('拖动排序 工作').props.accessibilityValue.now).toBe(2);
 });
 
 test('storage error never claims local storage is active; connection checks prevent duplicates', async () => {

@@ -3,6 +3,7 @@ jest.mock('react-native', () => ({
   View: 'View', Text: 'Text', TouchableOpacity: 'TouchableOpacity', ScrollView: 'ScrollView',
   StyleSheet: { create: (value: unknown) => value },
 }));
+jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Icon' }));
 
 import React from 'react';
 import TagTabs from '../../src/components/TagTabs';
@@ -91,7 +92,9 @@ describe('TagTabs', () => {
   it('keeps management outside the scrolling tags, including an empty tag list', async () => {
     const onManage = jest.fn();
     await mount(baseProps({ tags: [], onManage }));
-    const manage = tab('管理');
+    const manage = tree.root.findAllByType('TouchableOpacity').find((node: any) => node.props.accessibilityLabel === '管理标签');
+    expect(manage.findAllByType('Text')).toHaveLength(0);
+    expect(manage.findAllByType('Icon')).toHaveLength(1);
     expect(tree.root.findByType('ScrollView').findAllByProps({ accessibilityLabel: '管理标签' })).toHaveLength(0);
     await act(async () => manage.props.onPress());
     expect(onManage).toHaveBeenCalledTimes(1);

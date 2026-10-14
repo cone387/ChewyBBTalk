@@ -2,6 +2,7 @@ import React from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import type { Tag } from '../types';
 import type { Theme } from '../theme/ThemeContext';
 
@@ -86,7 +87,7 @@ function TagTabs({
       </ScrollView>
       {onManage && <TouchableOpacity accessibilityRole="button" accessibilityLabel="管理标签"
         onPress={onManage} style={[styles.manage, { borderLeftColor: c.borderLight }]}>
-        <Text style={{ color: c.textSecondary, fontSize: 14 }}>管理</Text>
+        <Ionicons name="options-outline" size={22} color={c.textSecondary} />
       </TouchableOpacity>}
     </View>
   );
@@ -97,7 +98,7 @@ export default React.memo(TagTabs);
 const styles = StyleSheet.create({
   tagTabsWrap: { flexDirection: 'row', alignItems: 'stretch', borderBottomWidth: 0.5 },
   scroller: { flex: 1, minWidth: 0 },
-  manage: { minWidth: 60, minHeight: 48, paddingHorizontal: 12, justifyContent: 'center', alignItems: 'center', borderLeftWidth: 0.5 },
+  manage: { width: 48, minHeight: 48, justifyContent: 'center', alignItems: 'center', borderLeftWidth: 0.5 },
   tagTabsContent: { paddingHorizontal: 8, alignItems: 'stretch', gap: 4 },
   tagTab: {
     alignItems: 'center', justifyContent: 'center',

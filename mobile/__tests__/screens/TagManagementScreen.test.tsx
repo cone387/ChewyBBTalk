@@ -6,6 +6,16 @@ const mockXConfirm = jest.fn();
 const mockXActionSheet = jest.fn();
 const mockEmptyState = jest.fn((_props: any) => null as any);
 const mockLoadingPlaceholder = jest.fn((_props: any) => null as any);
+const mockDragStart = jest.fn();
+const mockDragEnd = jest.fn();
+jest.mock('react-native-draglist', () => ({
+  __esModule: true,
+  default: (props: any) => {
+    const React = require('react');
+    return React.createElement('DragList', props, props.ListHeaderComponent,
+      props.data.length ? props.data.map((item: any, index: number) => React.createElement(React.Fragment, { key: item.id }, props.renderItem({ item, index, isActive: false, onDragStart: mockDragStart, onDragEnd: mockDragEnd }))) : props.ListEmptyComponent);
+  },
+}), { virtual: true });
 
 jest.mock('../../src/services/api/tagApi', () => ({
   tagApi: {
@@ -59,6 +69,13 @@ function tappable(label: string) {
   return matches.find((node: any) => !matches.some((other: any) => other !== node && node.findAllByType('TouchableOpacity').includes(other)));
 }
 async function press(label: string) { await act(async () => { void tappable(label)!.props.onPress(); }); }
+async function openDelete(name: string) {
+  await press(`标签 ${name} 的更多操作`);
+  const call = mockXActionSheet.mock.calls.at(-1)!;
+  await act(async () => { call[2](1); });
+  // Keep the deletion sheet assertions focused on its own options.
+  mockXActionSheet.mock.calls.shift();
+}
 const hasText = (s: string) => tree.root.findAllByType('Text').some((t: any) => childText(t.props.children) === s);
 const tagNames = () => tree.root.findAllByType('Text').map((t: any) => childText(t.props.children)).filter((s: string) => /^[a-c]$/.test(s));
 
@@ -174,7 +191,7 @@ describe('TagManagementScreen editing', () => {
 describe('TagManagementScreen deletion', () => {
   it('offers keep-records and cascade options for a used tag', async () => {
     await mountScreen();
-    await press('删除标签 b');
+    await openDelete('b');
     expect(mockXActionSheet).toHaveBeenCalledWith('删除「b」？（关联 2 条碎碎念）', [
       expect.objectContaining({ text: '仅删除标签，保留记录' }),
       expect.objectContaining({ text: '同时删除碎碎念', destructive: true }),
@@ -189,7 +206,7 @@ describe('TagManagementScreen deletion', () => {
 
   it('confirms before cascading to the linked records', async () => {
     await mountScreen();
-    await press('删除标签 b');
+    await openDelete('b');
     await act(async () => { mockXActionSheet.mock.calls[0]![2](1); });
     expect(mockXConfirm).toHaveBeenCalledWith(
       '删除标签和记录',
@@ -206,7 +223,7 @@ describe('TagManagementScreen deletion', () => {
   it('reports delete failures from either option', async () => {
     mockTagApi.deleteTag = jest.fn().mockImplementationOnce(() => Promise.reject(new Error('被引用')));
     await mountScreen();
-    await press('删除标签 b');
+    await openDelete('b');
     await act(async () => { mockXActionSheet.mock.calls[0]![2](0); });
     await settle();
     expect(mockXAlert).toHaveBeenCalledWith('删除失败', '被引用');
@@ -214,32 +231,66 @@ describe('TagManagementScreen deletion', () => {
 });
 
 describe('TagManagementScreen reordering', () => {
-  it('moves a tag down and persists the new order', async () => {
-    await mountScreen();
-    expect(tappable('上移标签 a')!.props.disabled).toBe(true);
-    await press('下移标签 a');
+  const drop = async (from: number, to: number) => {
+    await act(async () => { tree.root.findByType('DragList').props.onReordered(from, to); });
     await settle();
-    expect(mockTagApi.reorder).toHaveBeenCalledWith([
-      { uid: 'b', sort_order: 0 }, { uid: 'a', sort_order: 1 }, { uid: 'c', sort_order: 2 },
-    ]);
-    expect(mockLoadTagsThunk).toHaveBeenCalled();
+  };
+
+  it('starts from the drag handle and removes the arrow buttons', async () => {
+    await mountScreen();
+    expect(tappable('上移标签 a')).toBeUndefined();
+    expect(tappable('下移标签 a')).toBeUndefined();
+    const handle = tappable('拖动排序 a');
+    await act(async () => { handle.props.onLongPress(); handle.props.onPressOut(); });
+    expect(mockDragStart).toHaveBeenCalledTimes(1);
+    expect(mockDragEnd).toHaveBeenCalledTimes(1);
   });
 
-  it('moves a tag up from the middle', async () => {
+  it('moves a tag down and immediately updates the home navigation order', async () => {
     await mountScreen();
-    await press('上移标签 b');
-    await settle();
+    await drop(0, 1);
     expect(mockTagApi.reorder).toHaveBeenCalledWith([
       { uid: 'b', sort_order: 0 }, { uid: 'a', sort_order: 1 }, { uid: 'c', sort_order: 2 },
     ]);
+    expect(tagNames()).toEqual(['b', 'a', 'c']);
+    expect(mockDispatch).toHaveBeenLastCalledWith({ type: 'tag/setTags', payload: expect.arrayContaining([expect.objectContaining({ id: 'b', sortOrder: 0 })]) });
+  });
+
+  it('moves a tag to the end and allows an accessible move without dragging', async () => {
+    await mountScreen();
+    await drop(0, 3);
+    expect(tagNames()).toEqual(['b', 'c', 'a']);
+    await act(async () => { tappable('拖动排序 a').props.onAccessibilityAction({ nativeEvent: { actionName: 'decrement' } }); });
+    await settle();
+    expect(tagNames()).toEqual(['b', 'a', 'c']);
   });
 
   it('reverts the visual order when saving fails', async () => {
     mockTagApi.reorder = jest.fn().mockImplementationOnce(() => Promise.reject(new Error('冲突')));
     await mountScreen();
-    await press('下移标签 a');
-    await settle();
+    await drop(0, 2);
     expect(tagNames()).toEqual(['a', 'b', 'c']);
     expect(mockXAlert).toHaveBeenCalledWith('排序失败', '冲突');
+  });
+
+  it('does not save no-op drops and serializes pending saves', async () => {
+    let finish!: () => void;
+    mockTagApi.reorder = jest.fn(() => new Promise<void>(resolve => { finish = resolve; }));
+    await mountScreen();
+    await drop(0, 0);
+    expect(mockTagApi.reorder).not.toHaveBeenCalled();
+    await drop(0, 2);
+    expect(tappable('拖动排序 b').props.disabled).toBe(true);
+    await drop(0, 1);
+    expect(mockTagApi.reorder).toHaveBeenCalledTimes(1);
+    await act(async () => { finish(); });
+    await settle();
+    expect(tappable('拖动排序 b').props.disabled).toBe(false);
+  });
+
+  it('disables drag while editing to preserve the active input', async () => {
+    await mountScreen();
+    await press('编辑标签 a');
+    expect(tappable('拖动排序 b').props.disabled).toBe(true);
   });
 });
