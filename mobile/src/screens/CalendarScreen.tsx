@@ -71,7 +71,7 @@ export default function CalendarScreen({ selectedDate: initialDate = null, onSel
   return (
     <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: c.background }} onTouchStart={recordHistoryActivity}>
     <CalendarDayRecords date={selectedDate} contentContainerStyle={styles.content} header={<>
-      <View style={[styles.calendar, { backgroundColor: c.surface }]}>
+      <View>
         <View style={styles.monthRow}>
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="上个月" style={styles.monthButton} onPress={() => moveMonth(-1)}>
             <Ionicons name="chevron-back" size={22} color={c.text} />
@@ -148,8 +148,7 @@ export default function CalendarScreen({ selectedDate: initialDate = null, onSel
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 16, paddingBottom: 32, width: '100%', maxWidth: 600, alignSelf: 'center' },
-  calendar: { borderRadius: 20, padding: 8 },
+  content: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 32, width: '100%', maxWidth: 600, alignSelf: 'center' },
   monthRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   monthTitle: { fontSize: 18, fontWeight: '700' },
   monthButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },

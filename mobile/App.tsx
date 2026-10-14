@@ -87,6 +87,10 @@ function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
   }, [theme]);
   // UIKit owns back-button geometry, typography, gestures and transitions.
   const headerOptions = { headerBackButtonDisplayMode: 'minimal' as const };
+  const screenOptions = {
+    statusBarStyle: theme.key === 'dark' ? 'light' as const : 'dark' as const,
+    contentStyle: { backgroundColor: c.background },
+  };
 
   // Web 端启用 URL 路由：/ → Landing（公开），/login → Login，/app → Home
   const linking = Platform.OS === 'web' ? {
@@ -122,7 +126,7 @@ function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
     <NavigationContainer linking={linking} theme={navigationTheme}>
       {isAuthenticated && <OutboxSync />}
       {isAuthenticated ? (
-        <Stack.Navigator>
+        <Stack.Navigator screenOptions={screenOptions}>
           <Stack.Screen name="Home" options={{ headerShown: false }}>
             {() => <MainTabs onLogout={onLogout} />}
           </Stack.Screen>
@@ -158,7 +162,7 @@ function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
             options={{ title: '关于', ...headerOptions }} />
         </Stack.Navigator>
       ) : (
-        <Stack.Navigator initialRouteName={Platform.OS === 'web' ? 'Landing' : 'Login'}>
+        <Stack.Navigator screenOptions={screenOptions} initialRouteName={Platform.OS === 'web' ? 'Landing' : 'Login'}>
           {Platform.OS === 'web' && (
             <Stack.Screen name="Landing" options={{ headerShown: false, title: 'BBTalk · 你的私人碎碎念空间' }}>
               {(props) => <LandingScreen {...props} />}
