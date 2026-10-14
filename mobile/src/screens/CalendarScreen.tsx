@@ -2,6 +2,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TextInput, Modal, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
 import { bbtalkApi } from '../services/api/bbtalkApi';
 import { historyIsLocked, recordHistoryActivity } from '../services/historyPrivacy';
@@ -14,6 +15,7 @@ export default function CalendarScreen({ selectedDate: initialDate = null, onSel
   selectedDate?: string | null; onSelectDate?: (date: string) => void;
 } = {}) {
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
   const c = theme.colors;
   const [selectedDate, setSelectedDate] = useState(initialDate);
   const [pickerVisible, setPickerVisible] = useState(false);
@@ -67,9 +69,8 @@ export default function CalendarScreen({ selectedDate: initialDate = null, onSel
   const moveMonth = (offset: number) => chooseMonth(new Date(year, monthIndex + offset, 1));
 
   return (
-    <View style={{ flex: 1 }} onTouchStart={recordHistoryActivity}>
+    <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: c.background }} onTouchStart={recordHistoryActivity}>
     <CalendarDayRecords date={selectedDate} contentContainerStyle={styles.content} header={<>
-      <Text style={[styles.subtitle, { color: c.textSecondary }]}>按日期回看，找回那一天的心情。</Text>
       <View style={[styles.calendar, { backgroundColor: c.surface }]}>
         <View style={styles.monthRow}>
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="上个月" style={styles.monthButton} onPress={() => moveMonth(-1)}>
@@ -148,7 +149,6 @@ export default function CalendarScreen({ selectedDate: initialDate = null, onSel
 
 const styles = StyleSheet.create({
   content: { padding: 16, paddingBottom: 32, width: '100%', maxWidth: 600, alignSelf: 'center' },
-  subtitle: { fontSize: 14, lineHeight: 22, marginBottom: 20 },
   calendar: { borderRadius: 20, padding: 8 },
   monthRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   monthTitle: { fontSize: 18, fontWeight: '700' },

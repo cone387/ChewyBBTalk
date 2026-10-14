@@ -1,5 +1,4 @@
 import DraftStatus from '../components/DraftStatus';
-import PrivacyQuickLock from '../components/PrivacyQuickLock';
 import { capturePrivacyPlaybackGuard, usePauseOnPrivacySuspension } from '../hooks/usePauseOnPrivacySuspension';
 import { readSubmission, confirmSubmission, type SubmissionIntent } from '../services/submissions';
 import { enqueueSubmission, reviseFailedSubmission } from '../services/outbox';
@@ -520,10 +519,9 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
         <TouchableOpacity accessibilityRole="button" accessibilityLabel={lockedCapture ? '解锁查看历史' : '取消'}
           disabled={lockedCapture && uploading} style={{ minHeight: 44, justifyContent: 'center' }}
           onPress={lockedCapture ? requestUnlock : () => navigation.goBack()}>
-          <Text style={[styles.cancelText, { color: c.textSecondary }]}>{lockedCapture ? '解锁查看历史' : '取消'}</Text>
+          <Text style={[styles.cancelText, { color: c.primary }]}>{lockedCapture ? '解锁查看历史' : '取消'}</Text>
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          {!lockedCapture && <PrivacyQuickLock />}
           <Text style={[styles.headerTitle, { color: c.text }]}>{lockedCapture ? '快速记录' : isEditing ? '编辑记录' : '写一条'}</Text>
           <TouchableOpacity
             style={styles.modeToggleBtn}
@@ -720,7 +718,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 0.5,
   },
-  cancelText: { fontSize: 16 },
+  cancelText: { fontSize: 17 },
   headerTitle: { fontSize: 17, fontWeight: '600' },
   headerCenter: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   modeToggleBtn: { padding: 4, minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },

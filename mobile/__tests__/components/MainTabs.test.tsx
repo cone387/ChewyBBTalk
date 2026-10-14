@@ -52,7 +52,7 @@ it.each([['Records', 'chatbubble-ellipses'], ['Calendar', 'calendar'], ['Mine', 
   mount(); const options = nav().props.screenOptions({ route: { name: route } });
   expect(options.tabBarIcon({ focused: true, color: 'blue', size: 22 }).props).toMatchObject({ name: icon, color: 'blue', size: 22 });
   expect(options.tabBarIcon({ focused: false, color: 'gray', size: 20 }).props.name).toBe(`${icon}-outline`);
-  expect(options.headerShown).toBe(route !== 'Records');
+  expect(options.headerShown).toBe(route === 'Mine');
 });
 it('keeps record filters independent from in-place calendar reading', () => {
   mount();

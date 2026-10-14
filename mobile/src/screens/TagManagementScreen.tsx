@@ -11,7 +11,6 @@ import { useAppDispatch } from '../store/hooks';
 import { setTags as setStoreTags } from '../store/slices/tagSlice';
 import EmptyState from '../components/EmptyState';
 import LoadingPlaceholder from '../components/LoadingPlaceholder';
-import PrivacyQuickLock from '../components/PrivacyQuickLock';
 import type { Tag } from '../types';
 import { getSession, isCurrentSession } from '../services/session';
 import { historyIsLocked, subscribeHistoryPrivacy, recordHistoryActivity } from '../services/historyPrivacy';
@@ -174,7 +173,7 @@ export default function TagManagementScreen() {
         <View style={[styles.modalCard, { backgroundColor: c.cardBg }]} accessibilityViewIsModal>
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.modalContent}>
             <View style={styles.modalHeading}>
-              <PrivacyQuickLock />
+
               <Text style={[styles.introTitle, { color: c.text }]}>{deleteStage ? '删除标签' : '编辑标签'}</Text>
               <TouchableOpacity accessibilityRole="button" accessibilityLabel="关闭标签编辑" disabled={busy} onPress={cancelEdit} style={styles.tagAction}>
                 <Ionicons name="close" size={22} color={c.textSecondary} />

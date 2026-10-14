@@ -7,7 +7,6 @@ import HomeScreen from '../screens/HomeScreen';
 import CalendarScreen from '../screens/CalendarScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import { useTheme } from '../theme/ThemeContext';
-import PrivacyQuickLock from '../components/PrivacyQuickLock';
 import { historyIsLocked, historyPrivacyIsReady, subscribeHistoryPrivacy, recordHistoryActivity } from '../services/historyPrivacy';
 import { setWidgetAuthState, clearWidget, syncWidget } from '../services/widget';
 
@@ -51,11 +50,11 @@ export default function MainTabs({ onLogout }: { onLogout: () => void }) {
         // Privacy is owned above the navigator; eagerly mount Records for its feed state.
         lazy: route.name !== 'Records',
         freezeOnBlur: false,
-        headerShown: !locked && route.name !== 'Records',
+        headerShown: !locked && route.name === 'Mine',
         headerStyle: { backgroundColor: c.background },
         headerTintColor: c.text,
         headerShadowVisible: false,
-        headerRight: () => <PrivacyQuickLock />,
+
         headerTitleStyle: { fontSize: 22, fontWeight: '700' },
         tabBarActiveTintColor: c.primary,
         tabBarInactiveTintColor: c.textSecondary,

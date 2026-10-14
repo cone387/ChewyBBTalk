@@ -6,6 +6,7 @@ jest.mock('react-native', () => ({
   StyleSheet: { create: (value: unknown) => value },
 }));
 jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Icon' }));
+jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 44, bottom: 34, left: 0, right: 0 }) }));
 // The focus mock mirrors navigation semantics: the effect auto-runs when its
 // callback identity changes (month/retry dep updates) and cleans up the old one.
 jest.mock('@react-navigation/native', () => {

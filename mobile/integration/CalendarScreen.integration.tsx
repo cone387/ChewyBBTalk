@@ -1,5 +1,6 @@
 import React from 'react';
-import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
+import { render as renderTree, fireEvent, waitFor, act } from '@testing-library/react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import CalendarScreen from '../src/screens/CalendarScreen';
 import { bbtalkApi } from '../src/services/api/bbtalkApi';
 import { setHistoryLocked } from '../src/services/historyPrivacy';
@@ -9,6 +10,11 @@ import CalendarDayRecords from '../src/components/CalendarDayRecords';
 import { notifyRecordsChanged } from '../src/services/recordChanges';
 
 const mockNavigate = jest.fn();
+const render = (ui: React.ReactElement) => renderTree(ui, { wrapper: ({ children }) => (
+  <SafeAreaProvider initialMetrics={{ frame: { x: 0, y: 0, width: 375, height: 812 }, insets: { top: 44, bottom: 34, left: 0, right: 0 } }}>
+    {children}
+  </SafeAreaProvider>
+) });
 let mockFocused = true;
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ navigate: mockNavigate }),

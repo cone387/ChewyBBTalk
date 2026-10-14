@@ -7,7 +7,7 @@ import PasswordRecoveryScreen from './src/screens/PasswordRecoveryScreen';
 import { getSession, onSessionChange } from './src/services/session';
 import React, { useState, useEffect, useCallback, useSyncExternalStore } from 'react';
 import { ActivityIndicator, View, Platform, AppState } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Provider } from 'react-redux';
@@ -50,7 +50,6 @@ import ErrorBoundary from './src/components/ErrorBoundary';
 import AppBackgroundBlur from './src/components/AppBackgroundBlur';
 import ScreenCaptureProtection from './src/components/ScreenCaptureProtection';
 import PrivacyBoundary, { protectScreen } from './src/components/PrivacyBoundary';
-import PrivacyQuickLock from './src/components/PrivacyQuickLock';
 import { PrivacyProvider } from './src/hooks/usePrivacyMode';
 import { historyIsLocked, historyPrivacyIsReady, subscribeHistoryPrivacy } from './src/services/historyPrivacy';
 import { xAlert } from './src/utils/crossAlert';
@@ -81,14 +80,13 @@ function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
     }
   }, [isAuthenticated]);
 
-  const headerOptions = {
-    headerStyle: { backgroundColor: c.surfaceSecondary },
-    headerShadowVisible: false,
-    headerTintColor: c.text,
-    headerTitleStyle: { fontSize: 18, fontWeight: '600' as const },
-    headerBackTitle: '返回',
-    headerRight: () => <PrivacyQuickLock />,
-  };
+  const navigationTheme = React.useMemo(() => {
+    const base = theme.key === 'dark' ? DarkTheme : DefaultTheme;
+    return { ...base, colors: { ...base.colors, primary: c.primary, background: c.background,
+      card: c.surface, text: c.text, border: c.border } };
+  }, [theme]);
+  // UIKit owns back-button geometry, typography, gestures and transitions.
+  const headerOptions = { headerBackButtonDisplayMode: 'minimal' as const };
 
   // Web 端启用 URL 路由：/ → Landing（公开），/login → Login，/app → Home
   const linking = Platform.OS === 'web' ? {
@@ -121,7 +119,7 @@ function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
   } as any : undefined;
 
   return (
-    <NavigationContainer linking={linking}>
+    <NavigationContainer linking={linking} theme={navigationTheme}>
       {isAuthenticated && <OutboxSync />}
       {isAuthenticated ? (
         <Stack.Navigator>
