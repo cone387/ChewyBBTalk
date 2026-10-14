@@ -10,6 +10,8 @@
 
 验证：105 套 / 1416 项单测、13 套 / 97 项界面集成、TypeScript、iOS/Android/Web 导出通过，产物位于 `mobile/dist/navigation-polish/`。独立代码审查无重要问题。覆盖率行 93.53%、分支 84.90%、函数 86.15%，仍低于既有门槛，未降低门槛。没有连接 iPhone，原生导航视觉及返回手势仍需设备复验。
 
+发布确认：源码 `027faa222c0a585d1b939bb46d6e9612aa56f13c` 已推送 master。EAS [构建 30261bdd](https://expo.dev/accounts/cone387/projects/mobile/builds/30261bdd-135d-45a9-ad92-0f6b2fb51637) 与[提交 2083c496](https://expo.dev/accounts/cone387/projects/mobile/submissions/2083c496-0091-4349-9df3-ef6374abf2be) 均 FINISHED，原生编译于北京时间 17:28:26 完成。Apple build `e21c1198-a60e-451e-a85c-e49b6767fb89` 为 `VALID / IN_BETA_TESTING`，内部组 `bbtalk` 已包含构建 24。实际 IPA 核对 bundle `com.chewy.bbtalk`、版本 `1.3.12`、构建 `24`、更新 runtime `1.3.12`、外观 `Automatic`。
+
 ## 防窥分层与后台恢复（2026-10-14，1.3.11）
 
 - 将后台预览、自动锁定、截图录屏限制拆为独立设置。iOS 不透明黑色遮罩改为原生模糊遮挡；默认不限制截图录屏，保留用户主动开启的选择。
