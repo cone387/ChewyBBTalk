@@ -2,14 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { Modal, Text, TextInput, View } from 'react-native';
 import { act, fireEvent, render } from '@testing-library/react-native';
 import PrivacyBoundary from '../src/components/PrivacyBoundary';
-import { setHistoryLocked, setHistoryPrivacyReady } from '../src/services/historyPrivacy';
+import { setHistoryLocked, setHistoryPrivacyReady, setHistoryPrivacySuspended } from '../src/services/historyPrivacy';
 
 jest.mock('@react-native-async-storage/async-storage', () => require('@react-native-async-storage/async-storage/jest/async-storage-mock'));
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ bottom: 0 }) }));
 jest.mock('../src/hooks/usePrivacyMode', () => ({ usePrivacyController: () => ({}) }));
 jest.mock('../src/components/PrivacyLockOverlay', () => () => require('react').createElement(require('react-native').Text, null, '统一解锁入口'));
 
-beforeEach(() => { setHistoryLocked(false); setHistoryPrivacyReady(true); });
+beforeEach(() => { setHistoryLocked(false); setHistoryPrivacyReady(true); setHistoryPrivacySuspended(false); });
 test('a cold protected deep link does not mount content before the privacy check', () => {
   setHistoryPrivacyReady(false);
   const mount = jest.fn();
@@ -33,11 +33,23 @@ test('locking unmounts native modals and releases active media instead of hiding
   expect(screen.getByText('统一解锁入口')).toBeTruthy();
 });
 
-test('suspension hides content before any async resume check', () => {
+test('initial readiness check shows a useful loading state instead of a blank screen', () => {
   const screen = render(<PrivacyBoundary><Text>私密存储配置</Text></PrivacyBoundary>);
   act(() => setHistoryPrivacyReady(false));
   expect(screen.queryByText('私密存储配置')).toBeNull();
   expect(screen.queryByText('统一解锁入口')).toBeNull();
+  expect(screen.getByText('正在准备私人空间…')).toBeTruthy();
+});
+
+test('a brief background transition preserves form and native modal state behind the preview curtain', () => {
+  const unmount = jest.fn();
+  function Form() { const [value, setValue] = useState(''); useEffect(() => () => unmount(), []); return <Modal visible><TextInput accessibilityLabel="未保存配置" value={value} onChangeText={setValue} /></Modal>; }
+  const screen = render(<PrivacyBoundary><Form /></PrivacyBoundary>);
+  fireEvent.changeText(screen.getByLabelText('未保存配置'), '正在编辑');
+  act(() => setHistoryPrivacySuspended(true));
+  act(() => setHistoryPrivacySuspended(false));
+  expect(screen.getByLabelText('未保存配置').props.value).toBe('正在编辑');
+  expect(unmount).not.toHaveBeenCalled();
 });
 
 test('the editor retains unsaved state while its privacy-aware content is hidden', () => {

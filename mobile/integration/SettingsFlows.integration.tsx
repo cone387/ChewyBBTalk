@@ -109,11 +109,11 @@ test('failed privacy writes preserve saved settings and report failure', async (
   const screen = render(<PrivacySettingsScreen />);
   await screen.findByText('修改后自动保存');
   (AsyncStorage.setItem as jest.Mock).mockRejectedValueOnce(new Error('disk full'));
-  fireEvent(screen.getByLabelText('启用防窥模式'), 'valueChange', false);
+  fireEvent(screen.getByLabelText('启用自动锁定'), 'valueChange', false);
   await screen.findByText('保存失败，修改未生效，请重试');
-  expect(screen.getByLabelText('启用防窥模式').props.value).toBe(true);
-  fireEvent(screen.getByLabelText('启用防窥模式'), 'valueChange', false);
-  await waitFor(() => expect(screen.getByLabelText('启用防窥模式').props.value).toBe(false));
+  expect(screen.getByLabelText('启用自动锁定').props.value).toBe(true);
+  fireEvent(screen.getByLabelText('启用自动锁定'), 'valueChange', false);
+  await waitFor(() => expect(screen.getByLabelText('启用自动锁定').props.value).toBe(false));
   expect(screen.getByLabelText('锁定时允许新建')).toBeDisabled();
 });
 

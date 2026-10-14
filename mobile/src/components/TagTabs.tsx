@@ -5,6 +5,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import type { Tag } from '../types';
 import type { Theme } from '../theme/ThemeContext';
+import PrivacyQuickLock from './PrivacyQuickLock';
 
 export interface TagTabsProps {
   tags: Tag[];
@@ -85,6 +86,7 @@ function TagTabs({
           );
         })}
       </ScrollView>
+      <PrivacyQuickLock />
       {onManage && <TouchableOpacity accessibilityRole="button" accessibilityLabel="管理标签"
         onPress={onManage} style={[styles.manage, { borderLeftColor: c.borderLight }]}>
         <Ionicons name="options-outline" size={22} color={c.textSecondary} />

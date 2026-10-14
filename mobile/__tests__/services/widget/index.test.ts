@@ -37,7 +37,7 @@ import {
 import { DEFAULT_THEME, MAX_PAYLOAD_BYTES } from '../../../src/services/widget/types';
 import type { WidgetConfig, WidgetItem } from '../../../src/services/widget/types';
 import { setSession, clearSession } from '../../../src/services/session';
-import { setHistoryLocked, setHistoryPrivacyReady } from '../../../src/services/historyPrivacy';
+import { setHistoryLocked, setHistoryPrivacyReady, setHistoryPrivacySuspended } from '../../../src/services/historyPrivacy';
 
 const Store: any = require('../../../src/store');
 
@@ -62,6 +62,7 @@ beforeEach(() => {
   _resetReloadState();
   setSession('https://test.example', 'widget-user');
   setHistoryPrivacyReady(true);
+  setHistoryPrivacySuspended(false);
   setHistoryLocked(false);
   mockConfig.loadWidgetConfig = jest.fn(async () => ({ ...baseConfig }));
   mockConfig.computeConfigHash = jest.fn(() => 'abc123');
@@ -75,10 +76,11 @@ beforeEach(() => {
 afterEach(() => { warnSpy.mockRestore(); });
 
 describe('syncWidget', () => {
-  it.each(['locked', 'not-ready', 'logged-out', 'options-locked', 'options-unauthenticated'])('strips content when %s, regardless of optimistic caller flags', async (reason) => {
+  it.each(['locked', 'not-ready', 'background', 'logged-out', 'options-locked', 'options-unauthenticated'])('strips content when %s, regardless of optimistic caller flags', async (reason) => {
     mockDatasource.selectWidgetItems = jest.fn(() => [item('secret', 'private body')]);
     if (reason === 'locked') setHistoryLocked(true);
     if (reason === 'not-ready') setHistoryPrivacyReady(false);
+    if (reason === 'background') setHistoryPrivacySuspended(true);
     if (reason === 'logged-out') clearSession();
     await syncWidget({ authenticated: reason !== 'options-unauthenticated', locked: reason === 'options-locked' });
     expect(lastWritten().items).toEqual([]);

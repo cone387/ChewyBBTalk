@@ -8,7 +8,7 @@
  */
 import { store } from '../../store';
 import { getSession, isCurrentSession } from '../session';
-import { getHistoryPrivacyRevision, historyIsLocked, historyPrivacyIsReady } from '../historyPrivacy';
+import { getHistoryPrivacyRevision, historyIsLocked, historyPrivacyIsReady, historyPrivacyIsSuspended } from '../historyPrivacy';
 import type { WidgetConfig, WidgetPayload } from './types';
 import {
   DEFAULT_THEME,
@@ -167,7 +167,7 @@ export async function syncWidget(options?: {
       if (!current()) return;
       // Caller flags can restrict access, but cannot override the actual global lock/session.
       const authenticated = !!getSession().scope && options?.authenticated !== false;
-      const locked = !historyPrivacyIsReady() || historyIsLocked() || options?.locked === true;
+      const locked = !historyPrivacyIsReady() || historyIsLocked() || historyPrivacyIsSuspended() || options?.locked === true;
       await writeAndReload(buildPayload(config, authenticated, locked), locked || !authenticated);
     });
   } catch (e) {

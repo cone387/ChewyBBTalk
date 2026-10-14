@@ -5,6 +5,7 @@ import { usePrivacyController } from '../hooks/usePrivacyMode';
 import { historyIsLocked, historyPrivacyIsReady, subscribeHistoryPrivacy, recordHistoryActivity } from '../services/historyPrivacy';
 import { useTheme } from '../theme/ThemeContext';
 import PrivacyLockOverlay from './PrivacyLockOverlay';
+import PrivacyLoading from './PrivacyLoading';
 
 /** All authenticated stack destinations share the same in-place unlock gate. */
 export default function PrivacyBoundary({ children, preserveState = false }: React.PropsWithChildren<{ preserveState?: boolean }>) {
@@ -22,7 +23,7 @@ export default function PrivacyBoundary({ children, preserveState = false }: Rea
       accessibilityElementsHidden={!allowed} importantForAccessibility={allowed ? 'auto' : 'no-hide-descendants'}>
       {children}
     </View>}
-    {!allowed && ready && privacy && <PrivacyLockOverlay
+    {privacy?.settingsError ? <PrivacyLoading onRetry={() => { void privacy.loadPrivacySettings(); }} /> : !ready ? <PrivacyLoading /> : !allowed && privacy && <PrivacyLockOverlay
       locked biometricAvailable={privacy.biometricAvailable} allowComposeWhenLocked={false}
       unlockPassword={privacy.unlockPassword} unlocking={privacy.unlocking} lockKeyboardH={privacy.lockKeyboardH}
       onUnlockPasswordChange={privacy.setUnlockPassword} onUnlock={privacy.handleUnlock}

@@ -50,6 +50,7 @@ import ErrorBoundary from './src/components/ErrorBoundary';
 import AppBackgroundBlur from './src/components/AppBackgroundBlur';
 import ScreenCaptureProtection from './src/components/ScreenCaptureProtection';
 import PrivacyBoundary, { protectScreen } from './src/components/PrivacyBoundary';
+import PrivacyQuickLock from './src/components/PrivacyQuickLock';
 import { PrivacyProvider } from './src/hooks/usePrivacyMode';
 import { historyIsLocked, historyPrivacyIsReady, subscribeHistoryPrivacy } from './src/services/historyPrivacy';
 import { xAlert } from './src/utils/crossAlert';
@@ -59,9 +60,7 @@ const PrivateDrafts = protectScreen(DraftsScreen);
 const PrivateOutbox = protectScreen(OutboxScreen);
 const PrivateCompose = protectScreen(ComposeScreen, true);
 const PrivateProfile = protectScreen(ProfileEditScreen);
-const PrivateTheme = protectScreen(ThemeSettingsScreen);
 const PrivatePrivacySettings = protectScreen(PrivacySettingsScreen);
-const PrivateAdvanced = protectScreen(AdvancedSettingsScreen);
 const PrivateStorage = protectScreen(StorageSettingsScreen);
 const PrivateData = protectScreen(DataManagementScreen);
 const PrivateAudio = protectScreen(AudioPlayScreen);
@@ -88,6 +87,7 @@ function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
     headerTintColor: c.text,
     headerTitleStyle: { fontSize: 18, fontWeight: '600' as const },
     headerBackTitle: '返回',
+    headerRight: () => <PrivacyQuickLock />,
   };
 
   // Web 端启用 URL 路由：/ → Landing（公开），/login → Login，/app → Home
@@ -141,11 +141,11 @@ function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
           </Stack.Screen>
           <Stack.Screen name="ProfileEdit" component={PrivateProfile}
             options={{ title: '编辑个人信息', ...headerOptions }} />
-          <Stack.Screen name="ThemeSettings" component={PrivateTheme}
+          <Stack.Screen name="ThemeSettings" component={ThemeSettingsScreen}
             options={{ title: '主题设置', ...headerOptions }} />
           <Stack.Screen name="PrivacySettings" component={PrivatePrivacySettings}
             options={{ title: '防窥设置', ...headerOptions }} />
-          <Stack.Screen name="AdvancedSettings" component={PrivateAdvanced} options={{ title: '高级设置', ...headerOptions }} />
+          <Stack.Screen name="AdvancedSettings" component={AdvancedSettingsScreen} options={{ title: '高级设置', ...headerOptions }} />
           <Stack.Screen name="StorageSettings" component={PrivateStorage}
             options={{ title: '存储设置', ...headerOptions }} />
           <Stack.Screen name="DataManagement" component={PrivateData}
@@ -178,10 +178,11 @@ function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
 
 export default function App() {
   useEffect(() => onSessionChange(() => {
-    if (!getSession().scope) { setIsAuthenticated(false); void clearWidget('logout'); }
+    if (!getSession().scope) { setIsAuthenticated(false); setFreshAuthentication(false); void clearWidget('logout'); }
   }), []);
   const [isReady, setIsReady] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [freshAuthentication, setFreshAuthentication] = useState(false);
   const activeSession = useSyncExternalStore(onSessionChange, getSession, getSession);
   const privacyLocked = useSyncExternalStore(subscribeHistoryPrivacy, historyIsLocked, historyIsLocked);
   const privacyReady = useSyncExternalStore(subscribeHistoryPrivacy, historyPrivacyIsReady, historyPrivacyIsReady);
@@ -216,8 +217,9 @@ export default function App() {
     return () => subscription.remove();
   }, [isAuthenticated]);
 
-  const handleLoginSuccess = useCallback(() => setIsAuthenticated(true), []);
+  const handleLoginSuccess = useCallback(() => { setFreshAuthentication(true); setIsAuthenticated(true); }, []);
   const handleLogout = useCallback(() => {
+    setFreshAuthentication(false);
     setIsAuthenticated(false);
     void clearWidget('logout');
   }, []);
@@ -229,7 +231,7 @@ export default function App() {
       <SafeAreaProvider>
         <Provider store={store}>
           <ThemeProvider>
-            {isAuthenticated ? <PrivacyProvider key={activeSession.generation} showError={xAlert}>
+            {isAuthenticated ? <PrivacyProvider key={activeSession.generation} showError={xAlert} authenticatedThisLaunch={freshAuthentication}>
               <ThemedNavigator isAuthenticated onLoginSuccess={handleLoginSuccess} onLogout={handleLogout} />
             </PrivacyProvider> : <ThemedNavigator isAuthenticated={false} onLoginSuccess={handleLoginSuccess} onLogout={handleLogout} />}
             <AppBackgroundBlur />

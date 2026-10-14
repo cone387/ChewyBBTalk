@@ -1,4 +1,6 @@
 import DraftStatus from '../components/DraftStatus';
+import PrivacyQuickLock from '../components/PrivacyQuickLock';
+import { capturePrivacyPlaybackGuard, usePauseOnPrivacySuspension } from '../hooks/usePauseOnPrivacySuspension';
 import { readSubmission, confirmSubmission, type SubmissionIntent } from '../services/submissions';
 import { enqueueSubmission, reviseFailedSubmission } from '../services/outbox';
 import { isSyncOnline } from '../services/syncConnectivity';
@@ -68,6 +70,12 @@ function ActiveCompactAudioCard({ attachment, colors: c, nativePlayer }: {
   const loadingAudio = useRef(false);
   const alive = useRef(true);
   const session = useRef(getSession()).current;
+  const privacyPlayback = React.useMemo(() => ({ pause() {
+    audioRef.current?.pause?.();
+    try { nativePlayer?.pause(); } catch { /* The native player may already be released. */ }
+    setPlaying(false);
+  } }), [nativePlayer]);
+  usePauseOnPrivacySuspension(privacyPlayback);
 
   useEffect(() => {
     alive.current = true;
@@ -81,7 +89,8 @@ function ActiveCompactAudioCard({ attachment, colors: c, nativePlayer }: {
   }, [nativePlayer]);
 
   const toggle = async () => {
-    if (!alive.current || !isCurrentSession(session)) return;
+    const canPlay = capturePrivacyPlaybackGuard();
+    if (!alive.current || !isCurrentSession(session) || !canPlay()) return;
     if (Platform.OS === 'web') {
       if (loadingAudio.current) return;
       loadingAudio.current = true;
@@ -94,7 +103,7 @@ function ActiveCompactAudioCard({ attachment, colors: c, nativePlayer }: {
             const response = await fetch(source.uri, { headers: source.headers });
             if (!response.ok) throw new Error('音频加载失败');
             const blob = await response.blob();
-            if (!alive.current || !isCurrentSession(session)) return;
+            if (!alive.current || !isCurrentSession(session) || !canPlay()) return;
             url = URL.createObjectURL(blob); objectUrl.current = url;
           }
           const audio = new window.Audio(url);
@@ -103,14 +112,19 @@ function ActiveCompactAudioCard({ attachment, colors: c, nativePlayer }: {
           audioRef.current = audio;
         }
         if (playing) { audioRef.current.pause(); setPlaying(false); }
-        else { await audioRef.current.play(); if (alive.current) setPlaying(true); }
+        else {
+          if (!canPlay()) return;
+          await audioRef.current.play();
+          if (alive.current && canPlay()) setPlaying(true);
+          else audioRef.current?.pause?.();
+        }
       } catch {
         if (alive.current) { setPlaying(false); xAlert('无法播放音频', '请检查网络后重试'); }
       } finally { loadingAudio.current = false; }
     } else if (nativePlayer) {
       try {
         await setAudioModeAsync({ playsInSilentMode: true }).catch(() => {});
-        if (!alive.current || !isCurrentSession(session)) return;
+        if (!alive.current || !isCurrentSession(session) || !canPlay()) return;
         if (playing) { nativePlayer.pause(); setPlaying(false); }
         else { nativePlayer.play(); setPlaying(true); }
       } catch (e) {
@@ -509,6 +523,7 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
           <Text style={[styles.cancelText, { color: c.textSecondary }]}>{lockedCapture ? '解锁查看历史' : '取消'}</Text>
         </TouchableOpacity>
         <View style={styles.headerCenter}>
+          {!lockedCapture && <PrivacyQuickLock />}
           <Text style={[styles.headerTitle, { color: c.text }]}>{lockedCapture ? '快速记录' : isEditing ? '编辑记录' : '写一条'}</Text>
           <TouchableOpacity
             style={styles.modeToggleBtn}

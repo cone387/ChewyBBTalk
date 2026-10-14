@@ -32,7 +32,7 @@ import {
   setWidgetAuthState,
 } from '../../../src/services/widget/autoSync';
 import { setSession, clearSession } from '../../../src/services/session';
-import { setHistoryLocked, setHistoryPrivacyReady } from '../../../src/services/historyPrivacy';
+import { setHistoryLocked, setHistoryPrivacyReady, setHistoryPrivacySuspended } from '../../../src/services/historyPrivacy';
 
 const Store: any = require('../../../src/store');
 const notify = () => { Store.__listeners.slice().forEach((l: () => void) => l()); };
@@ -47,6 +47,7 @@ beforeEach(() => {
   mockSyncWidget.mockImplementation((..._args: any[]) => Promise.resolve());
   setSession('https://test.example', 'widget-user');
   setHistoryPrivacyReady(true);
+  setHistoryPrivacySuspended(false);
   setHistoryLocked(false);
   setWidgetAuthState({ authenticated: true, locked: false });
   warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
@@ -91,6 +92,17 @@ describe('startWidgetAutoSync', () => {
     expect(mockClearWidget).toHaveBeenCalledWith('locked');
     await jest.advanceTimersByTimeAsync(1000);
     expect(mockSyncWidget).not.toHaveBeenCalled();
+  });
+
+  it('clears on background and resumes normal synchronization on return', async () => {
+    startWidgetAutoSync();
+    setHistoryPrivacySuspended(true);
+    expect(mockClearWidget).toHaveBeenCalledWith('locked');
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(mockSyncWidget).not.toHaveBeenCalled();
+    setHistoryPrivacySuspended(false);
+    await jest.advanceTimersByTimeAsync(500);
+    expect(mockSyncWidget).toHaveBeenCalledTimes(1);
   });
 
   it('cannot use caller flags to bypass a global not-ready state', () => {

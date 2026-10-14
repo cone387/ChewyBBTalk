@@ -8,6 +8,7 @@ import { useRoute } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
 import { buildImageSource } from '../utils/imageSource';
 import { getSession, isCurrentSession } from '../services/session';
+import { capturePrivacyPlaybackGuard, usePauseOnPrivacySuspension } from '../hooks/usePauseOnPrivacySuspension';
 
 export default function AudioPlayScreen() {
   const route = useRoute<any>();
@@ -82,16 +83,23 @@ function AudioPlayerUI({ uri, name }: { uri: string; name: string }) {
 
   const player = useAudioPlayer(buildImageSource(uri));
   const status = useAudioPlayerStatus(player);
+  usePauseOnPrivacySuspension(player);
+  const alive = React.useRef(true);
 
   useEffect(() => {
-    setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false });
-    return () => { try { player.pause(); } catch {} };
+    alive.current = true;
+    void setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false }).catch(() => {});
+    return () => { alive.current = false; try { player.pause(); } catch {} };
   }, [player]);
 
-  const toggle = () => {
+  const toggle = async () => {
     if (status.playing) {
       player.pause();
     } else {
+      const canPlay = capturePrivacyPlaybackGuard();
+      if (!canPlay()) return;
+      await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false }).catch(() => {});
+      if (!alive.current || !canPlay()) return;
       if (status.didJustFinish) player.seekTo(0);
       player.play();
     }

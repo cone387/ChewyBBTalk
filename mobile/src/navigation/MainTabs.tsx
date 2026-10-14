@@ -7,6 +7,7 @@ import HomeScreen from '../screens/HomeScreen';
 import CalendarScreen from '../screens/CalendarScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import { useTheme } from '../theme/ThemeContext';
+import PrivacyQuickLock from '../components/PrivacyQuickLock';
 import { historyIsLocked, historyPrivacyIsReady, subscribeHistoryPrivacy, recordHistoryActivity } from '../services/historyPrivacy';
 import { setWidgetAuthState, clearWidget, syncWidget } from '../services/widget';
 
@@ -54,6 +55,7 @@ export default function MainTabs({ onLogout }: { onLogout: () => void }) {
         headerStyle: { backgroundColor: c.background },
         headerTintColor: c.text,
         headerShadowVisible: false,
+        headerRight: () => <PrivacyQuickLock />,
         headerTitleStyle: { fontSize: 22, fontWeight: '700' },
         tabBarActiveTintColor: c.primary,
         tabBarInactiveTintColor: c.textSecondary,

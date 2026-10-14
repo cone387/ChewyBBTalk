@@ -1,8 +1,20 @@
 import { createPrivacyOperation } from '../../src/services/privacyOperation';
 import { setSession } from '../../src/services/session';
-import { setHistoryLocked, setHistoryPrivacyReady } from '../../src/services/historyPrivacy';
+import { setHistoryLocked, setHistoryPrivacyReady, setHistoryPrivacySuspended, historyPrivacyIsReady, historyIsLocked } from '../../src/services/historyPrivacy';
 
-beforeEach(() => { setSession('https://privacy.test', 'one'); setHistoryPrivacyReady(true); setHistoryLocked(false); });
+beforeEach(() => { setSession('https://privacy.test', 'one'); setHistoryPrivacySuspended(false); setHistoryPrivacyReady(true); setHistoryLocked(false); });
+
+test('background suspension invalidates external delivery without hiding an unlocked page', () => {
+  const operation = createPrivacyOperation();
+  setHistoryPrivacySuspended(true);
+  expect(historyPrivacyIsReady()).toBe(true);
+  expect(historyIsLocked()).toBe(false);
+  expect(operation.isCurrent()).toBe(false);
+  expect(createPrivacyOperation().isCurrent()).toBe(false);
+  setHistoryPrivacySuspended(false);
+  expect(operation.isCurrent()).toBe(false);
+  expect(createPrivacyOperation().isCurrent()).toBe(true);
+});
 test('lock followed by unlock invalidates a pending share permanently', () => {
   const operation = createPrivacyOperation();
   expect(operation.isCurrent()).toBe(true);

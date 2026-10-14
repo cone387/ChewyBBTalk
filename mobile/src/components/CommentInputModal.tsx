@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { bbtalkApi } from '../services/api/bbtalkApi';
 import { getSession, isCurrentSession, onSessionChange } from '../services/session';
 import { xAlert } from '../utils/crossAlert';
+import PrivacyQuickLock from './PrivacyQuickLock';
 import type { Comment } from '../types';
 import type { Theme } from '../theme/ThemeContext';
 
@@ -141,6 +142,7 @@ export default function CommentInputModal({ visible, bbtalkId, onClose, onCommen
     >
       <View style={styles.handle} />
       <View style={styles.inputRow}>
+        <PrivacyQuickLock />
         <TextInput
           ref={inputRef}
           style={[styles.input, { backgroundColor: c.surfaceSecondary, color: c.text }]}

@@ -41,6 +41,7 @@ import React from 'react';
 import AudioPlayerButton from '../../src/components/AudioPlayerButton';
 import type { Attachment } from '../../src/types';
 import { setSession } from '../../src/services/session';
+import { setHistoryPrivacySuspended } from '../../src/services/historyPrivacy';
 
 const { create, act } = require('react-test-renderer');
 const RN: any = require('react-native');
@@ -65,12 +66,14 @@ const hasText = (s: string) => tree.root.findAllByType('Text').some((t: any) => 
 
 beforeEach(() => {
   setSession('https://api.test', 'alice');
+  setHistoryPrivacySuspended(false);
   jest.clearAllMocks();
   RN.__state.os = 'ios';
-  Object.assign(Audio.__status, { playing: false, didJustFinish: false, duration: 0, currentTime: 0 });
+  Object.assign(Audio.__status, { playing: false, didJustFinish: false, duration: 0, currentTime: 0, isLoaded: true });
   Audio.__player.pause.mockClear();
   Audio.__player.play.mockClear();
   Audio.__player.seekTo.mockClear();
+  Audio.setAudioModeAsync.mockReset().mockResolvedValue(undefined);
   FS.getInfoAsync.mockImplementation(async () => ({ exists: false }));
   FS.downloadAsync.mockImplementation(async () => ({ uri: 'file:///dl.m4a', status: 200 }));
 });
@@ -78,6 +81,7 @@ beforeEach(() => {
 afterEach(() => { act(() => { tree?.unmount(); }); tree = undefined; });
 
 async function mountButton(attachment: Attachment) {
+  if (tree) act(() => { tree.unmount(); });
   await act(async () => { tree = create(<AudioPlayerButton attachment={attachment} />); });
   await settle();
 }
@@ -88,6 +92,45 @@ function cardButton(labelPart: string) {
 }
 
 describe('AudioPlayerButton download flow', () => {
+  it.each([false, true])('does not autoplay a late download after background (already returned: %s)', async (returned) => {
+    let finish!: (value: any) => void;
+    FS.downloadAsync.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    await mountButton(att());
+    await act(async () => { cardButton('播放音频').props.onPress(); });
+    act(() => setHistoryPrivacySuspended(true));
+    if (returned) act(() => setHistoryPrivacySuspended(false));
+    await act(async () => { finish({ uri: 'file:///dl.m4a', status: 200 }); });
+    await settle();
+    expect(Audio.__player.play).not.toHaveBeenCalled();
+    act(() => setHistoryPrivacySuspended(false));
+    await settle();
+    expect(Audio.__player.play).not.toHaveBeenCalled();
+    await act(async () => { cardButton('播放音频').props.onPress(); });
+    expect(Audio.__player.play).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancels delayed audio-mode playback even after returning from background', async () => {
+    FS.getInfoAsync.mockResolvedValue({ exists: true });
+    let finishMode!: () => void;
+    Audio.setAudioModeAsync.mockImplementationOnce(() => new Promise<void>(resolve => { finishMode = resolve; }));
+    await mountButton(att());
+    await act(async () => { cardButton('播放音频').props.onPress(); });
+    act(() => { setHistoryPrivacySuspended(true); setHistoryPrivacySuspended(false); });
+    await act(async () => { finishMode(); });
+    expect(Audio.__player.play).not.toHaveBeenCalled();
+  });
+
+  it('does not autoplay when native loading finishes after a background cycle', async () => {
+    FS.getInfoAsync.mockResolvedValue({ exists: true });
+    Audio.__status.isLoaded = false;
+    await mountButton(att());
+    await act(async () => { cardButton('播放音频').props.onPress(); });
+    act(() => { setHistoryPrivacySuspended(true); setHistoryPrivacySuspended(false); });
+    Audio.__status.isLoaded = true;
+    await act(async () => { tree.update(<AudioPlayerButton attachment={att()} />); });
+    expect(Audio.__player.play).not.toHaveBeenCalled();
+  });
+
   it('plays from the cached file without downloading', async () => {
     FS.getInfoAsync.mockImplementation(async () => ({ exists: true }));
     await mountButton(att({ originalFilename: 'voice_123.m4a' }));
@@ -207,6 +250,18 @@ describe('AudioPlayerButton download flow', () => {
 });
 
 describe('PlayerCard playback', () => {
+  it('pauses on background without unmounting or automatically resuming', async () => {
+    FS.getInfoAsync.mockResolvedValue({ exists: true });
+    await mountButton(att());
+    await act(async () => { cardButton('播放音频').props.onPress(); });
+    expect(Audio.__player.play).toHaveBeenCalledTimes(1);
+    act(() => setHistoryPrivacySuspended(true));
+    expect(Audio.__player.pause).toHaveBeenCalledTimes(1);
+    act(() => setHistoryPrivacySuspended(false));
+    expect(cardButton('播放音频')).toBeDefined();
+    expect(Audio.__player.play).toHaveBeenCalledTimes(1);
+  });
+
   it('pauses a playing track and shows progress with elapsed time', async () => {
     FS.getInfoAsync.mockImplementation(async () => ({ exists: true }));
     Object.assign(Audio.__status, { playing: true, duration: 200, currentTime: 50 });

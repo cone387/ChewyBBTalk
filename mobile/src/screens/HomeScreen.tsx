@@ -22,6 +22,8 @@ import ImageViewer from '../components/ImageViewer';
 import SwipeableBBTalkCard from '../components/SwipeableBBTalkCard';
 import EmptyState from '../components/EmptyState';
 import PrivacyLockOverlay from '../components/PrivacyLockOverlay';
+import PrivacyLoading from '../components/PrivacyLoading';
+import PrivacyQuickLock from '../components/PrivacyQuickLock';
 import SearchBar, { SearchInput } from '../components/SearchBar';
 import TagTabs from '../components/TagTabs';
 import BatchToolbar from '../components/BatchToolbar';
@@ -477,7 +479,8 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
     setVoiceRecording(true);
   }, voiceRecording, () => navigation.navigate('Compose'));
 
-  if (!privacy.settingsReady) return <View style={[styles.container, { backgroundColor: c.background }]} />;
+  if (privacy.settingsError) return <PrivacyLoading onRetry={() => { void privacy.loadPrivacySettings(); }} />;
+  if (!privacy.settingsReady) return <PrivacyLoading />;
 
   if (privacy.locked) return (
     <View style={[styles.container, { backgroundColor: c.background }]}>
@@ -551,6 +554,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
 
       <Modal visible={!!previewImage} transparent animationType="fade" onRequestClose={() => setPreviewImage(null)}>
         <View style={styles.previewOverlay}>
+          <View style={{ position: 'absolute', top: insets.top + 12, left: 16, zIndex: 10 }}><PrivacyQuickLock color="#fff" /></View>
           <TouchableOpacity style={styles.previewClose} onPress={() => setPreviewImage(null)} accessibilityRole="button" accessibilityLabel="关闭图片预览">
             <Ionicons name="close" size={28} color="#fff" />
           </TouchableOpacity>

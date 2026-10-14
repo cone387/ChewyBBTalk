@@ -1,57 +1,66 @@
-/**
- * iOS 原生窗口遮罩与 JS 后备遮罩。
- * 原生层在失去焦点时即时覆盖，包括原生 Modal；JS 层初始化时也检查当前状态。
- */
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { AppState, Platform, StyleSheet, View } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { Ionicons } from '@expo/vector-icons';
-import { enableAppSwitcherProtectionAsync, disableAppSwitcherProtectionAsync } from 'expo-screen-capture';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { setAppPreviewProtection, getPrivacyPreviewRevision, resumePrivacyPreview } from '../services/nativePrivacy';
+import { historyPrivacyIsSuspended, historyPrivacyResumePending, subscribeHistoryPrivacy } from '../services/historyPrivacy';
+import { getPrivacyPreferencesRevision, subscribePrivacyPreferences } from '../services/privacyPreferences';
 
-export default function AppBackgroundBlur() {
-  const [isBackground, setIsBackground] = useState(() => AppState.currentState !== 'active');
-
-  useEffect(() => {
-    // 仅 iOS 需要此功能（Android 系统自带 FLAG_SECURE 或 recent apps 模糊）
-    if (Platform.OS !== 'ios') return;
-
-    // Native lifecycle coverage also sits above native Modals and does not wait for JS.
-    // The config plugin replaces Expo's fading root-view blur with a window curtain.
-    void enableAppSwitcherProtectionAsync(1).catch(() => {});
-
-    const subscription = AppState.addEventListener('change', (nextState) => {
-      // inactive = 进入多任务切换器 / 下拉通知中心
-      // background = 完全进入后台
-      setIsBackground(nextState !== 'active');
-    });
-
-    return () => {
-      subscription.remove();
-      void disableAppSwitcherProtectionAsync().catch(() => {});
-    };
-  }, []);
-
-  if (!isBackground || Platform.OS !== 'ios') return null;
-
-  return (
-    <View style={styles.container} pointerEvents="none">
-      <BlurView intensity={80} tint="systemMaterial" style={StyleSheet.absoluteFill} />
-      <View style={styles.iconWrap}>
-        <Ionicons name="lock-closed" size={40} color="rgba(255,255,255,0.8)" />
-      </View>
-    </View>
-  );
+let nativeQueue = Promise.resolve();
+function enqueue(action: () => Promise<void>) {
+  nativeQueue = nativeQueue.then(action).catch(() => { /* JS blur remains as a fallback. */ });
 }
 
-const styles = StyleSheet.create({
-  container: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 9999,
-    backgroundColor: '#111827',
-  },
-  iconWrap: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-});
+/** Preview privacy is independent from capture restrictions and authentication. */
+export default function AppBackgroundBlur() {
+  const [state, setState] = useState(AppState.currentState);
+  const [foregroundEpoch, setForegroundEpoch] = useState(0);
+  const [enabled, setEnabled] = useState(true);
+  const transition = useRef(0);
+  const suspended = useSyncExternalStore(subscribeHistoryPrivacy, historyPrivacyIsSuspended, historyPrivacyIsSuspended);
+  const resumePending = useSyncExternalStore(subscribeHistoryPrivacy, historyPrivacyResumePending, historyPrivacyResumePending);
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    let alive = true;
+    let readVersion = 0;
+    const load = async () => {
+      const version = ++readVersion;
+      const revision = getPrivacyPreferencesRevision();
+      let value = true;
+      try { value = await AsyncStorage.getItem('privacy_hide_app_preview') !== 'false'; } catch {}
+      if (!alive || version !== readVersion || revision !== getPrivacyPreferencesRevision()) return;
+      setEnabled(value);
+      enqueue(() => setAppPreviewProtection(value));
+    };
+    void load();
+    const stop = subscribePrivacyPreferences(() => { void load(); });
+    const subscription = AppState.addEventListener('change', next => {
+      transition.current += 1;
+      setState(next);
+      if (next === 'active') setForegroundEpoch(epoch => epoch + 1);
+    });
+    return () => { alive = false; stop(); subscription.remove(); enqueue(() => setAppPreviewProtection(false)); };
+  }, []);
+  useEffect(() => {
+    if (Platform.OS === 'web' || state !== 'active' || suspended || resumePending) return;
+    let alive = true;
+    let frame: number | undefined;
+    const version = transition.current;
+    const current = () => alive && version === transition.current && AppState.currentState === 'active'
+      && !historyPrivacyIsSuspended() && !historyPrivacyResumePending();
+    // Release the native window overlay after the foreground lock decision has rendered.
+    void getPrivacyPreviewRevision().then(revision => {
+      if (!current()) return;
+      frame = requestAnimationFrame(() => enqueue(async () => {
+        // Recheck when queued work actually runs; native also rejects an old token.
+        if (current()) await resumePrivacyPreview(revision);
+      }));
+    }).catch(() => { /* A later activation retries the native handshake. */ });
+    return () => { alive = false; if (frame !== undefined) cancelAnimationFrame(frame); };
+  }, [state, suspended, resumePending, enabled, foregroundEpoch]);
+  if (Platform.OS === 'web' || !enabled || (state === 'active' && !suspended && !resumePending)) return null;
+  return <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
+    style={{ ...StyleSheet.absoluteFillObject, zIndex: 9999 }}>
+    <BlurView intensity={100} tint="systemMaterial" style={StyleSheet.absoluteFillObject} />
+  </View>;
+}

@@ -15,6 +15,7 @@ import { xAlert } from '../utils/crossAlert';
 import AudioPlayerButton from '../components/AudioPlayerButton';
 import VideoPlayerButton from '../components/VideoPlayerButton';
 import ImageViewer from '../components/ImageViewer';
+import PrivacyQuickLock from '../components/PrivacyQuickLock';
 import type { BBTalk } from '../types';
 
 export default function RecordDetailScreen() {
@@ -43,6 +44,6 @@ export default function RecordDetailScreen() {
         <Image source={buildImageSource(att.url)} style={{ width: '100%', height: 260, borderRadius: 12 }} contentFit="contain" />
       </TouchableOpacity> : att.type === 'audio' ? <AudioPlayerButton key={att.uid} attachment={att} /> : att.type === 'video' ? <VideoPlayerButton key={att.uid} attachment={att} /> : <TouchableOpacity key={att.uid} accessibilityRole="button" onPress={() => Linking.openURL(att.url).catch(() => xAlert('无法打开附件', '请稍后重试'))} style={{ padding: 16, borderRadius: 12, backgroundColor: c.surface }}><Text style={{ color: c.primary }}>{att.originalFilename || att.filename || '打开附件'}</Text></TouchableOpacity>)}</View>
     </ScrollView>
-    <Modal visible={imageIndex !== null} onRequestClose={() => setImageIndex(null)}>{imageIndex !== null && <View style={{ flex: 1, backgroundColor: '#000' }}><ImageViewer imageUrl={images[imageIndex].url} onClose={() => setImageIndex(null)} /><TouchableOpacity accessibilityRole="button" accessibilityLabel="关闭照片" onPress={() => setImageIndex(null)} style={{ position: 'absolute', top: insets.top + 12, right: 16, padding: 12 }}><Ionicons name="close" size={26} color="#fff" /></TouchableOpacity></View>}</Modal>
+    <Modal visible={imageIndex !== null} onRequestClose={() => setImageIndex(null)}>{imageIndex !== null && <View style={{ flex: 1, backgroundColor: '#000' }}><ImageViewer imageUrl={images[imageIndex].url} onClose={() => setImageIndex(null)} /><View style={{ position: 'absolute', top: insets.top + 12, left: 16 }}><PrivacyQuickLock color="#fff" /></View><TouchableOpacity accessibilityRole="button" accessibilityLabel="关闭照片" onPress={() => setImageIndex(null)} style={{ position: 'absolute', top: insets.top + 12, right: 16, padding: 12 }}><Ionicons name="close" size={26} color="#fff" /></TouchableOpacity></View>}</Modal>
   </View>;
 }

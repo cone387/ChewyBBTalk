@@ -12,7 +12,7 @@
 import { store } from '../../store';
 import { syncWidget, clearWidget } from './index';
 import { getSession, onSessionChange } from '../session';
-import { historyIsLocked, historyPrivacyIsReady, subscribeHistoryPrivacy } from '../historyPrivacy';
+import { historyIsLocked, historyPrivacyIsReady, historyPrivacyIsSuspended, subscribeHistoryPrivacy } from '../historyPrivacy';
 
 const DEBOUNCE_MS = 500;
 
@@ -28,7 +28,7 @@ function syncPrivacyState(): void {
   if (debounceTimer) { clearTimeout(debounceTimer); debounceTimer = null; }
   // Privacy transitions bypass debounce so a stale native payload is removed immediately.
   if (!getSession().scope || !authenticatedFlag) void clearWidget('logout');
-  else if (lockedFlag || historyIsLocked() || !historyPrivacyIsReady()) void clearWidget('locked');
+  else if (lockedFlag || historyIsLocked() || !historyPrivacyIsReady() || historyPrivacyIsSuspended()) void clearWidget('locked');
   else scheduleSync();
 }
 

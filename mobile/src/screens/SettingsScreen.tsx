@@ -36,7 +36,7 @@ const SECTIONS: MenuSection[] = [
   {
     title: '隐私与安全',
     items: [
-      { key: 'privacy', title: '防窥设置', subtitle: '超时时长、倒计时显示', icon: 'lock-closed', bgColor: '#7C3AED' },
+      { key: 'privacy', title: '防窥设置', subtitle: '自动锁定、后台预览与截图录屏', icon: 'lock-closed', bgColor: '#7C3AED' },
     ],
   },
   {

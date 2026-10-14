@@ -8,6 +8,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { buildImageSource } from '../utils/imageSource';
 import { getSession, isCurrentSession, onSessionChange } from '../services/session';
 import { audioCachePath, audioStagingPath } from '../services/audioCache';
+import { capturePrivacyPlaybackGuard, usePauseOnPrivacySuspension } from '../hooks/usePauseOnPrivacySuspension';
 
 function downloadHeaders(url: string) {
   const source = buildImageSource(url);
@@ -24,20 +25,33 @@ function PlayerCard({ uri, attachment, autoPlay = false }: { uri: string; attach
   const c = theme.colors;
   const player = useAudioPlayer(buildImageSource(uri));
   const status = useAudioPlayerStatus(player);
+  usePauseOnPrivacySuspension(player);
   const started = useRef(false);
-  useEffect(() => () => { try { player.pause(); } catch {} }, [player]);
+  const alive = useRef(true);
+  const autoPlayGuard = useRef(capturePrivacyPlaybackGuard()).current;
+  useEffect(() => {
+    alive.current = true;
+    return () => { alive.current = false; try { player.pause(); } catch {} };
+  }, [player]);
   useEffect(() => {
     if (!autoPlay || !status.isLoaded || started.current) return;
     started.current = true;
-    setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false }).catch(() => {});
-    player.play();
-  }, [autoPlay, status.isLoaded, player]);
+    if (!autoPlayGuard()) return;
+    let cancelled = false;
+    void setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false }).catch(() => {}).then(() => {
+      if (!cancelled && alive.current && autoPlayGuard()) player.play();
+    });
+    return () => { cancelled = true; };
+  }, [autoPlay, status.isLoaded, player, autoPlayGuard]);
 
-  const toggle = () => {
-    setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false }).catch(() => {});
+  const toggle = async () => {
     if (status.playing) {
       player.pause();
     } else {
+      const canPlay = capturePrivacyPlaybackGuard();
+      if (!canPlay()) return;
+      await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false }).catch(() => {});
+      if (!alive.current || !canPlay()) return;
       if (status.didJustFinish) player.seekTo(0);
       player.play();
     }
@@ -102,7 +116,8 @@ function AudioCard({ attachment }: Props) {
   }, []);
 
   const load = async () => {
-    if (busy.current || !current()) return;
+    const canPlay = capturePrivacyPlaybackGuard();
+    if (busy.current || !current() || !canPlay()) return;
     if (localUri) { setAutoPlay(true); setRequested(true); return; }
     busy.current = true; setDownloading(true); setError('');
     const staging = audioStagingPath(dest);
@@ -115,7 +130,7 @@ function AudioCard({ attachment }: Props) {
         // Another card may have completed the same audio while this one downloaded.
         if (!(await FileSystem.getInfoAsync(dest)).exists) throw error;
       }
-      if (current()) { setAutoPlay(true); setLocalUri(dest); setRequested(true); }
+      if (current()) { setAutoPlay(canPlay()); setLocalUri(dest); setRequested(true); }
     } catch (e: any) {
       if (current()) setError(`${e.message || '音频下载失败'}，点击重试`);
     } finally {

@@ -37,6 +37,24 @@ describe('history privacy session isolation', () => {
     unsubscribe();
   });
 
+  it('notifies resume-pending changes without invalidating operation revisions', () => {
+    const revision = privacy.getHistoryPrivacyRevision();
+    const snapshots: boolean[] = [];
+    const unsubscribe = privacy.subscribeHistoryPrivacy(() => { snapshots.push(privacy.historyPrivacyResumePending()); });
+    privacy.setHistoryPrivacyResumePending(true);
+    privacy.setHistoryPrivacyResumePending(true);
+    privacy.setHistoryPrivacyResumePending(false);
+    expect(snapshots).toEqual([true, false]);
+    expect(privacy.getHistoryPrivacyRevision()).toBe(revision);
+    unsubscribe();
+  });
+
+  it('clears an old resume check when the session changes', () => {
+    privacy.setHistoryPrivacyResumePending(true);
+    session.clearSession();
+    expect(privacy.historyPrivacyResumePending()).toBe(false);
+  });
+
   it('stops notifying a destination after it unsubscribes', () => {
     const listener = jest.fn();
     const unsubscribe = privacy.subscribeHistoryPrivacy(listener);

@@ -39,6 +39,7 @@ jest.mock('../../src/utils/imageSource', () => ({ buildImageSource: (url: string
 
 import React from 'react';
 import AudioPlayScreen from '../../src/screens/AudioPlayScreen';
+import { setHistoryPrivacySuspended } from '../../src/services/historyPrivacy';
 
 const { create, act } = require('react-test-renderer');
 const RN: any = require('react-native');
@@ -63,15 +64,18 @@ const buttonByText = (s: string) => tree.root.findAllByType('TouchableOpacity')
   .find((n: any) => n.findAllByType('Text').some((t: any) => childText(t.props.children).includes(s)));
 
 beforeEach(() => {
+  setHistoryPrivacySuspended(false);
   jest.clearAllMocks();
   RN.__state.os = 'ios';
   Object.assign(Audio.__status, { playing: false, didJustFinish: false, duration: 0, currentTime: 0, isLoaded: true });
   FS.downloadAsync.mockReset().mockImplementation(async () => ({ uri: 'file:///cache/dl.m4a', status: 200 }));
+  Audio.setAudioModeAsync.mockReset().mockResolvedValue(undefined);
 });
 
 afterEach(() => { act(() => { tree?.unmount(); }); tree = undefined; });
 
 async function mount(params: any) {
+  if (tree) act(() => { tree.unmount(); });
   RouteState.params = params;
   await act(async () => { tree = create(<AudioPlayScreen />); });
   await settle();
@@ -194,6 +198,27 @@ describe('AudioPlayScreen download flow', () => {
 });
 
 describe('AudioPlayScreen player UI', () => {
+  it('cancels a pending play gesture if audio-mode setup crosses a background cycle', async () => {
+    await mount({ url: 'https://a.example/v.m4a', name: 'v.m4a' });
+    let finish!: () => void;
+    Audio.setAudioModeAsync.mockImplementationOnce(() => new Promise<void>(resolve => { finish = resolve; }));
+    await act(async () => { playButton().props.onPress(); });
+    act(() => { setHistoryPrivacySuspended(true); setHistoryPrivacySuspended(false); });
+    await act(async () => { finish(); });
+    expect(Audio.__player.play).not.toHaveBeenCalled();
+  });
+
+  it('pauses background playback and keeps the screen paused on return', async () => {
+    await mount({ url: 'https://a.example/v.m4a', name: 'v.m4a' });
+    await act(async () => { playButton().props.onPress(); });
+    expect(Audio.__player.play).toHaveBeenCalledTimes(1);
+    act(() => setHistoryPrivacySuspended(true));
+    expect(Audio.__player.pause).toHaveBeenCalledTimes(1);
+    act(() => setHistoryPrivacySuspended(false));
+    expect(hasText('v.m4a')).toBe(true);
+    expect(Audio.__player.play).toHaveBeenCalledTimes(1);
+  });
+
   it('pauses a playing track and shows progress and times', async () => {
     Object.assign(Audio.__status, { playing: true, duration: 200, currentTime: 50 });
     await mount({ url: 'https://a.example/v.m4a', name: 'v.m4a' });

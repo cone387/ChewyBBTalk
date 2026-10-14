@@ -93,6 +93,7 @@ jest.mock('../../src/services/historyPrivacy', () => ({
   onHistoryActivity: (...args: any[]) => mockOnHistoryActivity(...args),
   historyIsLocked: () => mockPrivacy.value.locked,
   historyPrivacyIsReady: () => mockPrivacy.value.settingsReady,
+  historyPrivacyIsSuspended: () => false,
   getHistoryPrivacyRevision: () => 0,
 }));
 jest.mock('../../src/hooks/usePrivacyMode', () => ({

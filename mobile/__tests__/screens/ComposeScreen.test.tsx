@@ -224,6 +224,7 @@ beforeAll(() => { setSession('https://api.example', '1'); });
 beforeEach(() => {
   require('../../src/services/historyPrivacy').setHistoryLocked(false);
   require('../../src/services/historyPrivacy').setHistoryPrivacyReady(true);
+  require('../../src/services/historyPrivacy').setHistoryPrivacySuspended(false);
   mockPlatform.OS = 'ios';
   mockHoldPressed = false;
   mockNavHolder.value = { goBack: jest.fn(), dispatch: jest.fn(), setParams: jest.fn() };
@@ -879,6 +880,33 @@ describe('ComposeScreen toolbar', () => {
     expect(tree.root.findAllByType('Icon').some((n: any) => n.props.name === 'pause')).toBe(true);
     await press('录音');
     expect(mockAudioPlayer.pause).toHaveBeenCalledTimes(1);
+  });
+
+  it('pauses preview audio in background without discarding the editor or resuming playback', async () => {
+    mockRoute.params = { editItem: makeEditItem({ attachments: [att('a1', 'audio')] }) };
+    await mountCompose();
+    await press('录音');
+    const privacy = require('../../src/services/historyPrivacy');
+    act(() => privacy.setHistoryPrivacySuspended(true));
+    expect(mockAudioPlayer.pause).toHaveBeenCalledTimes(1);
+    act(() => privacy.setHistoryPrivacySuspended(false));
+    expect(mockAudioPlayer.play).toHaveBeenCalledTimes(1);
+    expect(tree.root.findAllByType('Icon').some((n: any) => n.props.name === 'pause')).toBe(false);
+    await press('录音');
+    expect(mockAudioPlayer.play).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not start pending preview audio after a background and return cycle', async () => {
+    let resolveMode!: () => void;
+    mockSetAudioModeAsync.mockImplementationOnce(() => new Promise<void>(resolve => { resolveMode = resolve; }));
+    mockRoute.params = { editItem: makeEditItem({ attachments: [att('a1', 'audio')] }) };
+    await mountCompose();
+    await press('录音');
+    const privacy = require('../../src/services/historyPrivacy');
+    act(() => privacy.setHistoryPrivacySuspended(true));
+    act(() => privacy.setHistoryPrivacySuspended(false));
+    await act(async () => { resolveMode(); });
+    expect(mockAudioPlayer.play).not.toHaveBeenCalled();
   });
 
   it('passes authenticated media sources to native audio only when tapped', async () => {

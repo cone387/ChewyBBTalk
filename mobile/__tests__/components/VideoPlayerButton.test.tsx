@@ -12,6 +12,7 @@ jest.mock('../../src/utils/imageSource', () => ({ buildImageSource: jest.fn((url
 
 import React from 'react';
 import VideoPlayerButton from '../../src/components/VideoPlayerButton';
+import { setHistoryPrivacySuspended } from '../../src/services/historyPrivacy';
 
 const { create, act } = require('react-test-renderer');
 const { useVideoPlayer } = require('expo-video');
@@ -25,7 +26,7 @@ const att = (over: Record<string, unknown> = {}) => ({
   filename: 'clip.mp4', originalFilename: '', ...over,
 });
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => { setHistoryPrivacySuspended(false); jest.clearAllMocks(); });
 afterEach(() => { act(() => { tree?.unmount(); }); tree = undefined; });
 
 async function mount(attachment: ReturnType<typeof att>) {
@@ -33,6 +34,18 @@ async function mount(attachment: ReturnType<typeof att>) {
 }
 
 describe('VideoPlayerButton', () => {
+  it('pauses on background and preserves the video without automatically resuming', async () => {
+    await mount(att());
+    await act(async () => { tree.root.findByType('TouchableOpacity').props.onPress(); });
+    expect(player.play).toHaveBeenCalledTimes(1);
+    act(() => setHistoryPrivacySuspended(true));
+    expect(player.pause).toHaveBeenCalledTimes(1);
+    expect(tree.root.findAllByType('VideoView')).toHaveLength(1);
+    act(() => setHistoryPrivacySuspended(false));
+    expect(player.play).toHaveBeenCalledTimes(1);
+    expect(tree.root.findAllByType('VideoView')).toHaveLength(1);
+  });
+
   it('plays the remote source with native controls', async () => {
     await mount(att());
     expect(useVideoPlayer).not.toHaveBeenCalled();

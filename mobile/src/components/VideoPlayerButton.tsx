@@ -4,6 +4,7 @@ import { useVideoPlayer, VideoView } from 'expo-video';
 import type { Attachment } from '../types';
 import { buildImageSource } from '../utils/imageSource';
 import { getSession, isCurrentSession, onSessionChange } from '../services/session';
+import { capturePrivacyPlaybackGuard, usePauseOnPrivacySuspension } from '../hooks/usePauseOnPrivacySuspension';
 
 interface Props {
   attachment: Attachment;
@@ -26,7 +27,8 @@ function VideoCard({ attachment }: Props) {
   const label = `播放视频 ${attachment.originalFilename || attachment.filename || ''}`;
   if (!requested) return <TouchableOpacity accessibilityRole="button" accessibilityLabel={label}
     style={[styles.videoView, styles.placeholder]} onPress={() => {
-      if (!isCurrentSession(session)) return;
+      const canPlay = capturePrivacyPlaybackGuard();
+      if (!isCurrentSession(session) || !canPlay()) return;
       setError(false); setRequested(true);
     }}>
     <Text style={styles.playIcon}>▶</Text>
@@ -41,9 +43,11 @@ function VideoCard({ attachment }: Props) {
 
 function ActiveVideo({ attachment, onError }: Props & { onError: () => void }) {
   const player = useVideoPlayer(buildImageSource(attachment.url));
+  usePauseOnPrivacySuspension(player);
   useEffect(() => {
     const subscription = player.addListener('statusChange', ({ status }) => { if (status === 'error') onError(); });
-    try { player.play(); } catch { onError(); }
+    const canPlay = capturePrivacyPlaybackGuard();
+    try { if (canPlay()) player.play(); } catch { onError(); }
     return () => {
       subscription.remove();
       try { player.pause(); } catch { /* useVideoPlayer also releases on unmount. */ }

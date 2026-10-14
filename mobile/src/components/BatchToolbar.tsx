@@ -9,6 +9,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Theme } from '../theme/ThemeContext';
+import PrivacyQuickLock from './PrivacyQuickLock';
 
 export interface BatchToolbarProps {
   selectedCount: number;
@@ -74,7 +75,7 @@ function BatchToolbar({
         </View>
 
         {/* Spacer to balance the close button */}
-        <View style={styles.closeBtn} />
+        <PrivacyQuickLock />
       </View>
 
       {/* Action buttons row */}

@@ -10,10 +10,12 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
   setItem: jest.fn(),
 }));
 jest.mock('../../src/theme/ThemeContext', () => ({ useTheme: () => ({ theme: require('../../src/theme/themes').THEMES[0] }) }));
+jest.mock('../../src/services/privacyPreferences', () => ({ notifyPrivacyPreferencesChanged: jest.fn() }), { virtual: true });
 
 import React from 'react';
 import PrivacySettingsScreen from '../../src/screens/PrivacySettingsScreen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { notifyPrivacyPreferencesChanged } from '../../src/services/privacyPreferences';
 
 const { create, act } = require('react-test-renderer');
 
@@ -54,10 +56,15 @@ describe('PrivacySettingsScreen loading', () => {
     await mount();
     expect(AsyncStorage.multiGet).toHaveBeenCalledWith([
       'privacy_enabled', 'privacy_timeout_minutes', 'show_privacy_countdown', 'privacy_allow_compose',
+      'privacy_lock_on_launch', 'privacy_lock_on_device_lock', 'privacy_hide_app_preview', 'privacy_block_capture',
     ]);
-    expect(switchBy('启用防窥模式')!.props.value).toBe(true);
+    expect(switchBy('启用自动锁定')!.props.value).toBe(true);
     expect(switchBy('显示防窥倒计时')!.props.value).toBe(true);
     expect(switchBy('锁定时允许新建')!.props.value).toBe(true);
+    expect(switchBy('启动时锁定')!.props.value).toBe(true);
+    expect(switchBy('设备锁屏后锁定')!.props.value).toBe(true);
+    expect(switchBy('隐藏后台预览')!.props.value).toBe(true);
+    expect(switchBy('阻止截图与录屏')!.props.value).toBe(false);
     expect(hasText('5 分钟')).toBe(true);
     expect(hasText('修改后自动保存')).toBe(true);
   });
@@ -66,7 +73,7 @@ describe('PrivacySettingsScreen loading', () => {
     stored([['privacy_enabled', 'false'], ['privacy_timeout_minutes', '120'],
       ['show_privacy_countdown', 'false'], ['privacy_allow_compose', 'false']]);
     await mount();
-    expect(switchBy('启用防窥模式')!.props.value).toBe(false);
+    expect(switchBy('启用自动锁定')!.props.value).toBe(false);
     expect(hasText('60 分钟')).toBe(true);
     expect(switchBy('显示防窥倒计时')!.props.value).toBe(false);
     expect(switchBy('锁定时允许新建')!.props.value).toBe(false);
@@ -88,15 +95,15 @@ describe('PrivacySettingsScreen loading', () => {
     await act(async () => { tree = create(<PrivacySettingsScreen />); });
     await settle();
     expect(hasText('正在读取设置…')).toBe(true);
-    expect(switchBy('启用防窥模式')!.props.disabled).toBe(true);
-    act(() => { void switchBy('启用防窥模式')!.props.onValueChange(false); });
+    expect(switchBy('启用自动锁定')!.props.disabled).toBe(true);
+    act(() => { void switchBy('启用自动锁定')!.props.onValueChange(false); });
     await settle();
     expect(AsyncStorage.setItem).not.toHaveBeenCalled();
 
     await act(async () => { resolveRead([]); });
     await settle();
     expect(hasText('修改后自动保存')).toBe(true);
-    expect(switchBy('启用防窥模式')!.props.disabled).toBe(false);
+    expect(switchBy('启用自动锁定')!.props.disabled).toBe(false);
   });
 
   it('reports a read failure and recovers through the reload button', async () => {
@@ -113,15 +120,64 @@ describe('PrivacySettingsScreen loading', () => {
     expect(hasText('10 分钟')).toBe(true);
     expect(hasText('修改后自动保存')).toBe(true);
   });
+
+  it('discards an old reload when a newer reload has already completed', async () => {
+    (AsyncStorage.multiGet as jest.Mock).mockRejectedValueOnce(new Error('storage locked'));
+    await mount();
+    let resolveOld!: (values: Array<[string, string]>) => void;
+    let resolveNew!: (values: Array<[string, string]>) => void;
+    (AsyncStorage.multiGet as jest.Mock)
+      .mockImplementationOnce(() => new Promise(resolve => { resolveOld = resolve; }))
+      .mockImplementationOnce(() => new Promise(resolve => { resolveNew = resolve; }));
+    const reload = buttonByText('重新加载')!.props.onPress;
+    act(() => { void reload(); void reload(); });
+    await act(async () => { resolveNew([['privacy_block_capture', 'false']]); });
+    await act(async () => { resolveOld([['privacy_block_capture', 'true']]); });
+    expect(switchBy('阻止截图与录屏')!.props.value).toBe(false);
+  });
 });
 
 describe('PrivacySettingsScreen persistence', () => {
+  it.each([
+    ['启动时锁定', 'privacy_lock_on_launch', false],
+    ['设备锁屏后锁定', 'privacy_lock_on_device_lock', false],
+    ['隐藏后台预览', 'privacy_hide_app_preview', false],
+    ['阻止截图与录屏', 'privacy_block_capture', true],
+  ])('saves %s and notifies active privacy consumers', async (label, key, value) => {
+    await mount();
+    await act(async () => { await switchBy(label as string)!.props.onValueChange(value); });
+    expect(AsyncStorage.setItem).toHaveBeenCalledWith(key, String(value));
+    expect(switchBy(label as string)!.props.value).toBe(value);
+    expect(notifyPrivacyPreferencesChanged).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps preview and capture independently adjustable with automatic privacy locking disabled', async () => {
+    stored([['privacy_enabled', 'false'], ['privacy_block_capture', 'true']]);
+    await mount();
+    expect(switchBy('启动时锁定')!.props.disabled).toBe(true);
+    expect(switchBy('设备锁屏后锁定')!.props.disabled).toBe(true);
+    expect(switchBy('隐藏后台预览')!.props.disabled).toBe(false);
+    expect(switchBy('阻止截图与录屏')!.props.disabled).toBe(false);
+    expect(switchBy('阻止截图与录屏')!.props.value).toBe(true);
+    await act(async () => { await switchBy('阻止截图与录屏')!.props.onValueChange(false); });
+    expect(AsyncStorage.setItem).toHaveBeenCalledWith('privacy_block_capture', 'false');
+  });
+
+  it('retains opt-out and does not notify when saving capture opt-in fails', async () => {
+    await mount();
+    (AsyncStorage.setItem as jest.Mock).mockRejectedValueOnce(new Error('disk full'));
+    await act(async () => { await switchBy('阻止截图与录屏')!.props.onValueChange(true); });
+    expect(switchBy('阻止截图与录屏')!.props.value).toBe(false);
+    expect(notifyPrivacyPreferencesChanged).not.toHaveBeenCalled();
+    expect(hasText('保存失败，修改未生效，请重试')).toBe(true);
+  });
+
   it('saves toggle changes immediately', async () => {
     await mount();
-    await act(async () => { void switchBy('启用防窥模式')!.props.onValueChange(false); });
+    await act(async () => { void switchBy('启用自动锁定')!.props.onValueChange(false); });
     await settle();
     expect(AsyncStorage.setItem).toHaveBeenCalledWith('privacy_enabled', 'false');
-    expect(switchBy('启用防窥模式')!.props.value).toBe(false);
+    expect(switchBy('启用自动锁定')!.props.value).toBe(false);
     expect(hasText('修改后自动保存')).toBe(true);
 
     await act(async () => { void switchBy('显示防窥倒计时')!.props.onValueChange(false); });
@@ -160,7 +216,7 @@ describe('PrivacySettingsScreen persistence', () => {
     let resolveSave!: (value?: unknown) => void;
     (AsyncStorage.setItem as jest.Mock).mockImplementationOnce(() => new Promise((resolve) => { resolveSave = resolve; }));
     await mount();
-    await act(async () => { void switchBy('启用防窥模式')!.props.onValueChange(false); });
+    await act(async () => { void switchBy('启用自动锁定')!.props.onValueChange(false); });
     expect(hasText('正在保存…')).toBe(true);
     expect(switchBy('显示防窥倒计时')!.props.disabled).toBe(true);
 
@@ -169,7 +225,7 @@ describe('PrivacySettingsScreen persistence', () => {
 
     await act(async () => { resolveSave(); });
     await settle();
-    expect(switchBy('启用防窥模式')!.props.value).toBe(false);
+    expect(switchBy('启用自动锁定')!.props.value).toBe(false);
     expect(switchBy('显示防窥倒计时')!.props.value).toBe(true);
     expect(hasText('修改后自动保存')).toBe(true);
   });
