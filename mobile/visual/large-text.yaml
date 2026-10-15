@@ -5,6 +5,12 @@ appId: com.chewy.bbtalk
     visible: "新建碎碎念"
     timeout: 60000
 - takeScreenshot: home-large-text
+- tapOn: "新建碎碎念"
+- extendedWaitUntil:
+    visible: "记录内容"
+    timeout: 10000
+- takeScreenshot: compose-large-text-keyboard
+- tapOn: "取消"
 - tapOn:
     id: tab-mine
 - takeScreenshot: settings-large-text
