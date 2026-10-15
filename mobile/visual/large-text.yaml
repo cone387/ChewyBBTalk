@@ -10,5 +10,6 @@ appId: com.chewy.bbtalk
 - takeScreenshot: settings-large-text
 - tapOn: "账号与安全"
 - takeScreenshot: account-large-text
-- tapOn: "当前密码"
+- tapOn:
+    id: account-password-0
 - takeScreenshot: account-large-text-keyboard

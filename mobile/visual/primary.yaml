@@ -12,6 +12,7 @@ appId: com.chewy.bbtalk
 - inputText: https://example.test
 - takeScreenshot: server-keyboard
 - tapOn: "关闭服务选择"
+- tapOn: "收起服务设置"
 - tapOn:
     id: login-username
 - inputText: preview
@@ -44,7 +45,7 @@ appId: com.chewy.bbtalk
 - tapOn: "选择年月"
 - tapOn: "年份"
 - takeScreenshot: calendar-year-keyboard
-- hideKeyboard
+- tapOn: "收起年份键盘"
 - tapOn: "取消"
 - tapOn:
     id: tab-mine
@@ -57,7 +58,8 @@ appId: com.chewy.bbtalk
     duration: 500
 - tapOn: "编辑个人信息"
 - takeScreenshot: profile
-- tapOn: "个人简介"
+- tapOn:
+    id: profile-bio
 - takeScreenshot: profile-keyboard
 - swipe:
     start: 2%, 50%
@@ -94,3 +96,4 @@ appId: com.chewy.bbtalk
 - takeScreenshot: home-dark
 - tapOn: "新建碎碎念"
 - takeScreenshot: compose-dark-keyboard
+- tapOn: "取消"

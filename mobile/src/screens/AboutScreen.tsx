@@ -49,7 +49,7 @@ export default function AboutScreen() {
         onPress={handleCheckUpdate} disabled={checking}>
         <View style={styles.actionRow}>
           <View style={[styles.actionIcon, { backgroundColor: c.primaryLight }]}>
-            {checking ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="refresh-outline" size={20} color={c.primary} />}
+            {checking ? <ActivityIndicator size="small" color={c.primary} /> : <Ionicons name="refresh-outline" size={20} color={c.primary} />}
           </View>
           <View style={styles.actionInfo}>
             <Text style={[styles.actionTitle, { color: c.text }]}>{checking ? '正在检查...' : '检查更新'}</Text>

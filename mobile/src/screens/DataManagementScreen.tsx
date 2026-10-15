@@ -203,7 +203,7 @@ export default function DataManagementScreen() {
         </View>
         <View style={styles.cardBody}>
           <TouchableOpacity style={[styles.exportBtn, { borderColor: c.primary, opacity: busy ? 0.5 : 1 }]} onPress={handleImport} disabled={busy}>
-            {importing ? <ActivityIndicator size="small" color="#EA580C" /> : <><Ionicons name="push-outline" size={18} color="#EA580C" /><Text style={[styles.exportBtnText, { color: c.primary }]}>选择文件导入</Text></>}
+            {importing ? <ActivityIndicator size="small" color={c.primary} /> : <><Ionicons name="push-outline" size={18} color={c.primary} /><Text style={[styles.exportBtnText, { color: c.primary }]}>选择文件导入</Text></>}
           </TouchableOpacity>
         </View>
       </View>
@@ -215,7 +215,7 @@ export default function DataManagementScreen() {
         </View>
         <View style={styles.cardBody}>
           <TouchableOpacity style={[styles.exportBtn, { borderColor: c.danger, opacity: busy ? 0.5 : 1 }]} onPress={handleClearCache} disabled={busy}>
-            {clearing ? <ActivityIndicator size="small" color="#DC2626" /> : <><Ionicons name="trash-bin-outline" size={18} color="#DC2626" /><Text style={[styles.exportBtnText, { color: c.danger }]}>清除离线缓存</Text></>}
+            {clearing ? <ActivityIndicator size="small" color={c.danger} /> : <><Ionicons name="trash-bin-outline" size={18} color={c.danger} /><Text style={[styles.exportBtnText, { color: c.danger }]}>清除离线缓存</Text></>}
           </TouchableOpacity>
         </View>
       </View>

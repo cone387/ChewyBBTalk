@@ -85,7 +85,7 @@ function TagPickerModal({ visible, tags, onConfirm, onClose, theme }: TagPickerM
 
   return (
     <Modal visible={visible} transparent animationType={reduceMotion ? "none" : "slide"} onRequestClose={onClose}>
-      <TouchableOpacity style={[styles.overlay, { backgroundColor: c.overlay }]} activeOpacity={1} onPress={onClose}>
+      <TouchableOpacity accessible={false} style={[styles.overlay, { backgroundColor: c.overlay }]} activeOpacity={1} onPress={onClose}>
         <GlassSurface theme={theme} radius={28} elevated style={styles.sheet} accessibilityViewIsModal onStartShouldSetResponder={() => true}>
           <Text style={[styles.title, { color: c.text }]}>选择标签</Text>
 

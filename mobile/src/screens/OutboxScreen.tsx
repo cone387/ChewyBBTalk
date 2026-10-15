@@ -10,6 +10,7 @@ import { writeDraft } from '../services/drafts';
 import { bbtalkApi } from '../services/api/bbtalkApi';
 import { useTheme } from '../theme/ThemeContext';
 import { xConfirm } from '../utils/crossAlert';
+import { visibilityPresentation } from '../utils/visibilityPresentation';
 
 const labels = { queued: '已保存到本机 · 等待同步', syncing: '正在同步…', failed: '需要处理', conflict: '存在编辑冲突', synced: '已保存到服务器' };
 export default function OutboxScreen() {
@@ -61,13 +62,13 @@ export default function OutboxScreen() {
     {items.map(entry => <View key={entry.id} style={{ padding: 16, marginBottom: 12, borderRadius: UI.radius.card, backgroundColor: c.surface }}>
       <Text style={{ color: ['failed', 'conflict'].includes(entry.state) ? c.danger : c.primary, marginBottom: 8 }}>{labels[entry.state]}</Text>
       <Text style={{ color: c.text, fontSize: 16, lineHeight: 25 }}>{entry.payload.content}</Text>
-      <Text style={{ color: c.textSecondary, marginTop: 8 }}>{entry.payload.visibility === 'public' ? '公开可见' : entry.payload.visibility === 'friends' ? '好友可见' : '仅自己可见'} · {new Date(entry.createdAt).toLocaleString()}</Text>
+      <Text style={{ color: c.textSecondary, marginTop: 8 }}>{visibilityPresentation(entry.payload.visibility ?? 'private').label} · {new Date(entry.createdAt).toLocaleString()}</Text>
       {entry.pendingMedia.map(media => <Text key={media.id} style={{ color: c.textSecondary, marginTop: 8 }}>{media.name.startsWith('voice_') ? '语音记录' : media.name} · 待上传</Text>)}
       {!!entry.error && <Text style={{ color: c.danger, marginTop: 8 }}>{entry.error}</Text>}
       {entry.conflict && <View style={{ marginTop: 12 }}>
         <Text style={{ color: c.text, fontWeight: '600' }}>服务器最新版本</Text>
         <Text style={{ color: c.text, lineHeight: 24 }}>{entry.conflict.content}</Text>
-        <Text style={{ color: c.textSecondary }}>标签：{entry.conflict.tags.map(tag => tag.name).join('、') || '无'} · {entry.conflict.visibility === 'public' ? '公开可见' : '仅自己可见'} · {entry.conflict.attachments.length} 个附件</Text>
+        <Text style={{ color: c.textSecondary }}>标签：{entry.conflict.tags.map(tag => tag.name).join('、') || '无'} · {visibilityPresentation(entry.conflict.visibility).label} · {entry.conflict.attachments.length} 个附件</Text>
         <TouchableOpacity accessibilityRole="button" style={button} onPress={() => xConfirm('使用本机修改更新？', '服务器版本会被这份本机修改替换；如果服务器再次变化，会再次提示冲突。', () => { void retry(entry, entry.conflict?.updatedAt); }, undefined, { confirmText: '确认更新', cancelText: '继续保留两份' })}>
           <Text style={{ color: c.primary }}>比较后，使用本机修改更新</Text>
         </TouchableOpacity>

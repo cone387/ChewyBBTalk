@@ -168,7 +168,7 @@ export default function ProfileEditScreen() {
           <TextInput
             style={[styles.input, styles.bioInput, { borderColor: c.border, color: c.text }]}
             value={bio}
-            accessibilityLabel="个人简介" editable={!saving}
+            testID="profile-bio" accessibilityLabel="个人简介" editable={!saving}
             onChangeText={setBio}
             placeholder="输入个人简介"
             placeholderTextColor={c.textTertiary}

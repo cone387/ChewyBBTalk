@@ -198,7 +198,7 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
       {/* 服务器选择弹窗 */}
       <Modal visible={showServerPicker} transparent animationType={reduceMotion ? "none" : "fade"} onRequestClose={() => setShowServerPicker(false)}>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <TouchableOpacity style={[styles.modalOverlay, { backgroundColor: c.overlay, paddingTop: insets.top + 12, paddingHorizontal: 12, paddingBottom: 12 }]} activeOpacity={1} onPress={() => { setShowServerPicker(false); setShowAddServer(false); }}>
+        <TouchableOpacity accessible={false} style={[styles.modalOverlay, { backgroundColor: c.overlay, paddingTop: insets.top + 12, paddingHorizontal: 12, paddingBottom: 12 }]} activeOpacity={1} onPress={() => { setShowServerPicker(false); setShowAddServer(false); }}>
           <GlassSurface theme={theme} radius={28} elevated style={[styles.modalSheet, { paddingBottom: Math.max(insets.bottom, 16), maxHeight: '100%' }]} accessibilityViewIsModal onStartShouldSetResponder={() => true}>
             <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" style={{ flexGrow: 0 }}>
             <View style={styles.sheetHandle} />
@@ -243,7 +243,7 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
                 </View>
               </View>
             ) : (
-              <TouchableOpacity accessibilityRole="button" style={styles.addServerBtn} onPress={() => setShowAddServer(true)}>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="添加服务地址" style={styles.addServerBtn} onPress={() => setShowAddServer(true)}>
                 <Ionicons name="add-circle-outline" size={18} color={c.accent} />
                 <Text style={[styles.addServerText, { color: c.accent }]}>添加服务地址</Text>
               </TouchableOpacity>
