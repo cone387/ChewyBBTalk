@@ -1,0 +1,17 @@
+appId: com.chewy.bbtalk
+---
+- launchApp
+- tapOn:
+    id: tab-mine
+- tapOn: "账号与安全"
+- assertVisible:
+    id: BackButton
+- waitForAnimationToEnd
+# Exercise the actual screen edge, independently of the page screenshot tour.
+- swipe:
+    start: 0%, 50%
+    end: 90%, 50%
+    duration: 300
+- assertVisible:
+    id: tab-mine
+- takeScreenshot: edge-back-restored

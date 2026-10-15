@@ -7,10 +7,8 @@ appId: com.chewy.bbtalk
     id: tab-mine
 - tapOn: "外观"
 - tapOn: "默认蓝主题"
-- swipe:
-    start: 2%, 50%
-    end: 85%, 50%
-    duration: 500
+- tapOn:
+    id: BackButton
 - tapOn:
     id: tab-records
 - scrollUntilVisible:
@@ -49,18 +47,14 @@ appId: com.chewy.bbtalk
 - takeScreenshot: detail-image-preview-light
 - tapOn: "关闭照片"
 - takeScreenshot: detail-image-restored-light
-- swipe:
-    start: 2%, 50%
-    end: 85%, 50%
-    duration: 500
+- tapOn:
+    id: BackButton
 - tapOn:
     id: tab-mine
 - tapOn: "外观"
 - tapOn: "深色主题"
-- swipe:
-    start: 2%, 50%
-    end: 85%, 50%
-    duration: 500
+- tapOn:
+    id: BackButton
 - tapOn:
     id: tab-records
 - scrollUntilVisible:
@@ -71,3 +65,21 @@ appId: com.chewy.bbtalk
 - takeScreenshot: image-preview-dark
 - tapOn: "关闭图片预览"
 - takeScreenshot: image-preview-restored-dark
+- tapOn:
+    id: tab-mine
+- tapOn: "外观"
+- tapOn: "跟随系统.*"
+- tapOn:
+    id: BackButton
+- takeScreenshot: settings-follow-system
+- tapOn:
+    id: tab-records
+- takeScreenshot: home-follow-system
+- tapOn: "新建碎碎念"
+- extendedWaitUntil:
+    visible: "记录内容.*"
+    timeout: 10000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: compose-follow-system-keyboard
+- tapOn: "取消"

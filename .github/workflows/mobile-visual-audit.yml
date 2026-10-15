@@ -126,6 +126,7 @@ jobs:
           xcrun simctl terminate "$SIMULATOR_UDID" com.chewy.bbtalk || true
           xcrun simctl ui "$SIMULATOR_UDID" content_size accessibility-large
           maestro --device "$SIMULATOR_UDID" test --test-output-dir mobile/test-results/native-visual/maestro-large mobile/visual/large-text.yaml
+          xcrun simctl io "$SIMULATOR_UDID" screenshot mobile/test-results/native-visual/account-large-direct.png
       - name: Audit media controls
         id: media
         timeout-minutes: 10
@@ -142,6 +143,13 @@ jobs:
           curl --fail --silent --show-error -X POST http://localhost:8020/__visual__/empty
           xcrun simctl terminate "$SIMULATOR_UDID" com.chewy.bbtalk || true
           maestro --device "$SIMULATOR_UDID" test --test-output-dir mobile/test-results/native-visual/maestro-voice mobile/visual/voice.yaml
+      - name: Audit native edge back gesture
+        id: navigation
+        timeout-minutes: 5
+        continue-on-error: true
+        run: |
+          xcrun simctl terminate "$SIMULATOR_UDID" com.chewy.bbtalk || true
+          maestro --device "$SIMULATOR_UDID" test --test-output-dir mobile/test-results/native-visual/maestro-navigation mobile/visual/navigation.yaml
       - name: Collect native evidence
         if: always()
         timeout-minutes: 2
@@ -163,4 +171,5 @@ jobs:
           LARGE: ${{ steps.large.outcome }}
           MEDIA: ${{ steps.media.outcome }}
           VOICE: ${{ steps.voice.outcome }}
-        run: test "$LOGIN" = success && test "$PRIMARY" = success && test "$SECONDARY" = success && test "$LARGE" = success && test "$MEDIA" = success && test "$VOICE" = success
+          NAVIGATION: ${{ steps.navigation.outcome }}
+        run: test "$LOGIN" = success && test "$PRIMARY" = success && test "$SECONDARY" = success && test "$LARGE" = success && test "$MEDIA" = success && test "$VOICE" = success && test "$NAVIGATION" = success

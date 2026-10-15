@@ -32,44 +32,32 @@ appId: com.chewy.bbtalk
 - takeScreenshot: settings
 - tapOn: "账号与安全"
 - takeScreenshot: account-security
-- swipe:
-    start: 2%, 50%
-    end: 85%, 50%
-    duration: 500
+- tapOn:
+    id: BackButton
 - tapOn: "编辑个人信息"
 - takeScreenshot: profile
 - tapOn:
     id: profile-bio
 - takeScreenshot: profile-keyboard
-- swipe:
-    start: 2%, 50%
-    end: 85%, 50%
-    duration: 500
+- tapOn:
+    id: BackButton
 - tapOn: "防窥设置"
 - takeScreenshot: privacy
-- swipe:
-    start: 2%, 50%
-    end: 85%, 50%
-    duration: 500
+- tapOn:
+    id: BackButton
 - tapOn: "备份与导出"
 - takeScreenshot: data
-- swipe:
-    start: 2%, 50%
-    end: 85%, 50%
-    duration: 500
+- tapOn:
+    id: BackButton
 - tapOn: "标签管理"
 - takeScreenshot: tags
-- swipe:
-    start: 2%, 50%
-    end: 85%, 50%
-    duration: 500
+- tapOn:
+    id: BackButton
 - tapOn: "外观"
 - tapOn: "深色主题"
 - takeScreenshot: themes-dark
-- swipe:
-    start: 2%, 50%
-    end: 85%, 50%
-    duration: 500
+- tapOn:
+    id: BackButton
 - takeScreenshot: settings-dark
 - tapOn:
     id: tab-records

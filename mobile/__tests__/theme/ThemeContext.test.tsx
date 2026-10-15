@@ -3,6 +3,8 @@ jest.mock('react-native', () => {
   return {
     __esModule: true,
     Text: 'Text',
+    Platform: { OS: 'ios' },
+    Appearance: { setColorScheme: jest.fn() },
     useColorScheme: () => state.scheme,
     __state: state,
   };
@@ -49,6 +51,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockStoredTheme = null;
   RN.__state.scheme = null;
+  RN.Platform.OS = 'ios';
 });
 afterEach(() => { act(() => { tree?.unmount(); }); tree = undefined; });
 
@@ -118,6 +121,35 @@ describe('setThemeKey', () => {
     expect(getDialogColorScheme()).toBe('dark');
     await act(async () => { holder.set!('system'); });
     expect(getDialogColorScheme()).toBe('light');
+  });
+
+  it('synchronizes UIKit appearance from preference and releases system following', async () => {
+    await mountWithControl();
+    expect(RN.Appearance.setColorScheme).toHaveBeenLastCalledWith(null);
+    await act(async () => { holder.set!('dark'); });
+    expect(RN.Appearance.setColorScheme).toHaveBeenLastCalledWith('dark');
+    await act(async () => { holder.set!('rose'); });
+    expect(RN.Appearance.setColorScheme).toHaveBeenLastCalledWith('light');
+    RN.__state.scheme = 'dark';
+    await act(async () => { holder.set!('system'); });
+    expect(RN.Appearance.setColorScheme).toHaveBeenLastCalledWith(null);
+    const calls = RN.Appearance.setColorScheme.mock.calls.length;
+    RN.__state.scheme = 'light';
+    await act(async () => { tree.update(<ThemeProvider><Probe /><SetKeyProbe /></ThemeProvider>); });
+    expect(snapshot()).toEqual(['light', 'system']);
+    expect(RN.Appearance.setColorScheme).toHaveBeenCalledTimes(calls);
+  });
+
+  it('restores the native default on unmount and leaves web appearance alone', async () => {
+    mockStoredTheme = 'dark';
+    await mountWithControl();
+    expect(RN.Appearance.setColorScheme).toHaveBeenLastCalledWith('dark');
+    act(() => tree.unmount());
+    expect(RN.Appearance.setColorScheme).toHaveBeenLastCalledWith(null);
+    RN.Appearance.setColorScheme.mockClear();
+    RN.Platform.OS = 'web';
+    await mountWithControl();
+    expect(RN.Appearance.setColorScheme).not.toHaveBeenCalled();
   });
 
   it('reverts to system following', async () => {

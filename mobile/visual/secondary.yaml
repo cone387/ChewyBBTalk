@@ -34,10 +34,8 @@ appId: com.chewy.bbtalk
 - assertNotVisible: "评论内容.*"
 - tapOn: ".*碎碎念：今天的风很舒服.*"
 - takeScreenshot: record-detail
-- swipe:
-    start: 2%, 50%
-    end: 85%, 50%
-    duration: 500
+- tapOn:
+    id: BackButton
 - tapOn:
     id: tab-mine
 - scrollUntilVisible:
@@ -48,20 +46,14 @@ appId: com.chewy.bbtalk
 - takeScreenshot: advanced
 - tapOn: ".*附件存储.*"
 - takeScreenshot: storage
-- swipe:
-    start: 2%, 50%
-    end: 85%, 50%
-    duration: 500
+- tapOn:
+    id: BackButton
 - tapOn: ".*缓存管理.*"
 - takeScreenshot: cache
-- swipe:
-    start: 2%, 50%
-    end: 85%, 50%
-    duration: 500
-- swipe:
-    start: 2%, 50%
-    end: 85%, 50%
-    duration: 500
+- tapOn:
+    id: BackButton
+- tapOn:
+    id: BackButton
 - scrollUntilVisible:
     element:
       text: "帮助与关于"
