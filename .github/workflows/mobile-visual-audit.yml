@@ -87,25 +87,39 @@ jobs:
           curl -fsSL https://get.maestro.mobile.dev -o "$RUNNER_TEMP/install-maestro.sh"
           bash "$RUNNER_TEMP/install-maestro.sh"
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
-      - name: Run native visual flows
+      - name: Boot simulator and install app
+        timeout-minutes: 5
         run: |
-          set -o pipefail
+          set -euxo pipefail
           node scripts/mobile-visual/fixture-server.cjs > mobile/test-results/native-visual/fixture.log 2>&1 &
           xcrun simctl boot "$SIMULATOR_UDID" || true
           xcrun simctl bootstatus "$SIMULATOR_UDID" -b
           xcrun simctl status_bar "$SIMULATOR_UDID" override --time '9:41' --dataNetwork wifi --wifiMode active --wifiBars 3 --batteryState charged --batteryLevel 100
           xcrun simctl install "$SIMULATOR_UDID" mobile/build/visual/Build/Products/Release-iphonesimulator/ChewyBBTalk.app
           python3 scripts/mobile-visual/seed-settings.py "$SIMULATOR_UDID"
-          audit_status=0
-          maestro --device "$SIMULATOR_UDID" test --test-output-dir mobile/test-results/native-visual/maestro mobile/visual/primary.yaml || audit_status=1
+      - name: Audit primary screens
+        id: primary
+        timeout-minutes: 10
+        continue-on-error: true
+        run: maestro --device "$SIMULATOR_UDID" test --test-output-dir mobile/test-results/native-visual/maestro mobile/visual/primary.yaml
+      - name: Audit secondary screens
+        id: secondary
+        timeout-minutes: 10
+        continue-on-error: true
+        run: |
           xcrun simctl terminate "$SIMULATOR_UDID" com.chewy.bbtalk || true
-          maestro --device "$SIMULATOR_UDID" test --test-output-dir mobile/test-results/native-visual/maestro-secondary mobile/visual/secondary.yaml || audit_status=1
+          maestro --device "$SIMULATOR_UDID" test --test-output-dir mobile/test-results/native-visual/maestro-secondary mobile/visual/secondary.yaml
+      - name: Audit large text and keyboard
+        id: large
+        timeout-minutes: 10
+        continue-on-error: true
+        run: |
           xcrun simctl terminate "$SIMULATOR_UDID" com.chewy.bbtalk || true
           xcrun simctl ui "$SIMULATOR_UDID" content_size accessibility-large
-          maestro --device "$SIMULATOR_UDID" test --test-output-dir mobile/test-results/native-visual/maestro-large mobile/visual/large-text.yaml || audit_status=1
-          exit "$audit_status"
+          maestro --device "$SIMULATOR_UDID" test --test-output-dir mobile/test-results/native-visual/maestro-large mobile/visual/large-text.yaml
       - name: Collect native evidence
         if: always()
+        timeout-minutes: 2
         run: |
           git rev-parse HEAD > mobile/test-results/native-visual/commit.txt
           xcrun simctl io "$SIMULATOR_UDID" screenshot mobile/test-results/native-visual/final-screen.png || true
@@ -115,3 +129,10 @@ jobs:
           name: ios-native-visual
           path: mobile/test-results/native-visual/
           retention-days: 14
+      - name: Require all native flows to pass
+        if: always()
+        env:
+          PRIMARY: ${{ steps.primary.outcome }}
+          SECONDARY: ${{ steps.secondary.outcome }}
+          LARGE: ${{ steps.large.outcome }}
+        run: test "$PRIMARY" = success && test "$SECONDARY" = success && test "$LARGE" = success

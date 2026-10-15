@@ -1,7 +1,7 @@
 jest.mock('react-native', () => {
   const animation = () => ({ start: (done?: () => void) => done?.(), stop: jest.fn() });
   return {
-    View: 'View', TextInput: 'TextInput', TouchableOpacity: 'TouchableOpacity',
+    View: 'View', Modal: 'Modal', TextInput: 'TextInput', TouchableOpacity: 'TouchableOpacity',
     KeyboardAvoidingView: 'KeyboardAvoidingView', ActivityIndicator: 'ActivityIndicator',
     StyleSheet: { create: (value: unknown) => value, absoluteFill: {}, absoluteFillObject: {} },
     Platform: { OS: 'ios' }, Keyboard: {},
@@ -84,6 +84,14 @@ it('focuses the input after opening and labels the send action for screen reader
   mount(); expect(focus).not.toHaveBeenCalled();
   act(() => jest.advanceTimersByTime(50)); expect(focus).toHaveBeenCalledTimes(1);
   expect(send().props).toMatchObject({ accessibilityRole: 'button', accessibilityLabel: '发送评论' });
+});
+it('focuses after native presentation and routes modal back requests to close', () => {
+  const values = mount();
+  const modal = tree.root.findByType('Modal');
+  act(() => modal.props.onShow());
+  expect(focus).toHaveBeenCalledTimes(1);
+  act(() => modal.props.onRequestClose());
+  expect(values.onClose).toHaveBeenCalledTimes(1);
 });
 it('starts keyboard focus while the opening animation is still running', () => {
   (Animated.parallel as jest.Mock).mockImplementationOnce(() => ({ start: jest.fn(), stop: jest.fn() }));

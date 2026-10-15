@@ -1,6 +1,6 @@
 jest.mock('react-native', () => {
   const animation = () => ({ start: (done?: () => void) => done?.(), stop: jest.fn() });
-  return { View: 'View', TextInput: 'TextInput', TouchableOpacity: 'TouchableOpacity', KeyboardAvoidingView: 'KeyboardAvoidingView',
+  return { View: 'View', Modal: 'Modal', TextInput: 'TextInput', TouchableOpacity: 'TouchableOpacity', KeyboardAvoidingView: 'KeyboardAvoidingView',
     ActivityIndicator: 'ActivityIndicator', Platform: { OS: 'web' }, Keyboard: {},
     StyleSheet: { create: (value: unknown) => value, absoluteFill: {}, absoluteFillObject: {} },
     Animated: { Value: class {}, View: 'AnimatedView', timing: animation, spring: animation, parallel: animation },

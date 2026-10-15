@@ -167,3 +167,13 @@ uv run --project backend --frozen python -m unittest discover -s scripts/tests -
 - 切换前停写备份位于 `/home/bzl/projects/frontend-deployments/abe4f12/`，含 PostgreSQL dump、完整数据文件归档、摘要、受限配置与部署脚本。保留旧容器 `chewy-bbtalk-before-scroll-abe4f12`；原数据库、密钥和 `/home/bzl/projects/chewy-bbtalk-data-f20261013_0258` 挂载不变。
 - 候选与正式服务均通过 4 个账号读取、90 条附件元数据和 89 个本地文件下载校验；原有 1 个缺失附件没有增加。255 个原有数据文件切换后摘要一致。独立复核 Web / healthz 为 200、未登录用户 API 为 401，部署锁可正常取得。
 - [CI](https://github.com/cone387/ChewyBBTalk/actions/runs/38689882851)其他七个任务通过；移动端 1423 项单测通过，但既有覆盖率门槛未通过，不能称 CI 全绿。移动端安装包和 TestFlight 结果见[发布记录](../mobile/RELEASE_READINESS.md)。
+
+### 2026-10-15 移动界面整改版本部署
+
+17:10:29（北京时间）部署源码 `4ff23e7ef8a5e338d7a33d1aa5de9ac4b6c7a743`。[镜像构建](https://github.com/cone387/ChewyBBTalk/actions/runs/38709490163)与[SSH 传输校验](https://github.com/cone387/ChewyBBTalk/actions/runs/38709757947)均成功，master 已推送。
+
+- 固定摘要 `sha256:e27ebf9219d8d9fa8a22e56ac8efc60fbd9c426ec22ea9d9d9deff49575a81ab`；运行内容 ID `122978cd3706da08df1ee80c33c79cfdf1b736775862937d8ba59e725f0030f1`。
+- 72 个后端及启动文件与原容器一致，沿用数据库 `chewy_bbtalk_native_f20261013_0258` 和原附件挂载；未执行迁移或初始化。
+- 停写备份 `/home/bzl/projects/frontend-deployments/4ff23e7/` 包含 PostgreSQL dump、完整文件归档、摘要与受限配置；保留旧容器 `chewy-bbtalk-before-scroll-4ff23e7`。
+- 候选和正式容器均通过 4 账号读取、90 条附件元数据和 89 个本地文件下载验证；原有 1 个缺失附件未增加，255 个原有数据文件摘要不变。独立复核运行镜像匹配、Web/healthz 200、未登录用户接口 401、部署锁可取得。
+- 此记录仅证明服务器部署和数据验证完成，不代表 iOS 原生视觉验收或 TestFlight 发布完成。后续客户端评论层级修复需重新构建安装包。

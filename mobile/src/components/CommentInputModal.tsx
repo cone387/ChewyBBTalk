@@ -1,7 +1,7 @@
 import { UI } from '../theme/materials';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
-  View, TextInput, TouchableOpacity, StyleSheet,
+  View, TextInput, TouchableOpacity, StyleSheet, Modal,
   KeyboardAvoidingView, Platform, ActivityIndicator, Animated, Keyboard,
   NativeSyntheticEvent, TextInputKeyPressEventData, BackHandler,
 } from 'react-native';
@@ -182,16 +182,19 @@ export default function CommentInputModal({ visible, bbtalkId, onClose, onCommen
 
   if (isWeb) {
     return (
+      <Modal transparent visible animationType="none" onRequestClose={onClose} onShow={() => { if (visible) inputRef.current?.focus(); }}>
       <View style={styles.webOverlay}>
         <Animated.View style={[styles.backdrop, { opacity: overlayAnim }]}>
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="关闭评论" style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
         </Animated.View>
         {inputBar}
       </View>
+      </Modal>
     );
   }
 
   return (
+    <Modal transparent visible animationType="none" onRequestClose={onClose} onShow={() => { if (visible) inputRef.current?.focus(); }}>
     <View style={styles.nativeOverlay} pointerEvents="box-none">
       <Animated.View style={[styles.backdrop, { opacity: overlayAnim }]}>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="关闭评论" style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
@@ -200,11 +203,12 @@ export default function CommentInputModal({ visible, bbtalkId, onClose, onCommen
         {inputBar}
       </KeyboardAvoidingView>
     </View>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  // 原生端：绝对定位覆盖层，不使用 Modal
+  // Modal keeps the input above navigation, including with a hardware keyboard.
   nativeOverlay: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 999,
