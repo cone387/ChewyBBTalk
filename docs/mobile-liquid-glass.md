@@ -37,6 +37,16 @@
 
 ## 验证与发布
 
+### 2026-10-15：构建 33 的实际原生结果
+
+应用源码 `03b8aa0` 的运行 [38737524331](https://github.com/cone387/ChewyBBTalk/actions/runs/38737524331) 已验证主页面、大字体、媒体、录音和返回流程。iPhone 16 / iOS 26.0 模拟器实际完成边缘右滑及内容区域右滑，均恢复“我的”页面；纵向设置滚动、编辑模态和键盘布局保持正常。逐张复核了浅深色编辑器、评论键盘、跟随系统后的浅色键盘、详情图片玻璃关闭按钮、状态栏恢复和“关于”页面。`account-large-direct.png` 再次显示完整安全输入框及键盘。独立复核对照用户的五张原图，未发现新的明确视觉阻塞。
+
+该次运行仍有两项自动化失败，未计为整体验收通过：“关于”已实际打开，断言未匹配带图标及说明的合并名称，现改为包含标题的匹配；登录成功后的 iOS 保存密码服务启动 `SafariViewService`，Maestro 对其不存在的 WebView 取样导致 XCTest 崩溃，应用进程仍存活。测试模拟器按 [Appium 的实现](https://github.com/appium/appium-ios-simulator/blob/master/lib/extensions/settings.ts) 关闭 `com.apple.WebUI / AutoFillPasswords`，不改变正式应用的安全输入或密码管理器功能。`74f6130` 仅修正验收环境及选择器，继续复用经源码一致性检查的二进制。
+
+修正后的运行 [38740710027](https://github.com/cone387/ChewyBBTalk/actions/runs/38740710027) 于北京时间 21:36 完成，末尾实际 outcome 确认 LOGIN、PRIMARY、SECONDARY、LARGE、MEDIA、VOICE、NAVIGATION 七项全部成功。登录必须出现已认证首页，“关于”必须出现更新入口，两个返回手势必须恢复底栏；没有跳过或放宽这些行为断言。测试源码为 `74f6130`，应用二进制来源为 `03b8aa0`，复用前已检查应用源码、构建配置和工作流一致。
+
+EAS 1.3.15（33）已完成构建，实际 IPA 的版本、runtime、生产接口、Automatic 外观、控制器状态栏配置与 iOS 26 SDK 均已核对，日志确认原生玻璃模块编译。原生流程通过后已提交 TestFlight；Apple 确认 `VALID / IN_BETA_TESTING` 且 `bbtalk` 内部组包含构建 33，详见 [发布记录](../mobile/RELEASE_READINESS.md)。本轮没有连接物理 iPhone，旧版 iOS 与 Android 也未做原生设备验收，不能将模拟器结果泛化为所有设备验证。
+
 ### 2026-10-15：iOS 26 返回兼容与完整原生页面复核
 
 运行 `38730581978`（源码 `4a47150`）的 PRIMARY、SECONDARY、LARGE、VOICE 通过。实际截图确认深色编辑器和评论键盘与应用主题一致，图片预览的浅色状态栏及关闭后的深浅色恢复正确。`account-large-direct.png` 使用 simctl 直接截图，显示完整大字体密码输入、11 个脱敏圆点和深色键盘；Maestro 同状态截图省略安全输入层，不能据此修改密码框或键盘避让。

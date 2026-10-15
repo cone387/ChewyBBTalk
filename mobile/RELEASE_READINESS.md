@@ -2,6 +2,18 @@
 
 本轮变更：`mobile-launch-readiness`。实现与审核通过是两个阶段；此文档记录代码能力和发布前仍需实测的条件。
 
+## 手机端截图返工与完整原生验收（2026-10-15，1.3.15）
+
+修正用户截图中的编辑器顶部空洞、重复胶囊、底栏贴边和选中块形状、卡片间距及头像空白；进一步处理评论键盘与关闭入口、录音时的导航遮挡、滚动头部重叠、图片预览对比度和状态栏恢复。手动深浅色同步原生键盘，iOS 26 的边缘与内容返回手势随 `react-native-screens` 4.19.0 的原生构建恢复。完整范围和逐轮证据见 [组件核对表](../docs/mobile-liquid-glass.md)。
+
+应用源码 `03b8aa0`：108 套 / 1,440 项单测、13 套 / 97 项集成、TypeScript、三平台导出通过；390px 浅深色与 320px 浅色共享布局已检查。iPhone 16 / iOS 26.0 模拟器实际运行 Release 应用，最终 [原生验收 38740710027](https://github.com/cone387/ChewyBBTalk/actions/runs/38740710027) 的登录、主页面、二级页面、大字体键盘、媒体、录音和两种返回手势七项全部通过，截图与无障碍树经人工及独立复核。该轮测试源码 `74f6130` 只调整测试模拟器密码服务和控件匹配，未更改应用包。
+
+远端代码回归的移动单测全部通过，但既有覆盖率门槛仍未满足：行 93.39%、分支 84.70%、函数 85.55%，要求为 99% / 93% / 95%；没有降低门槛，CI 不能称全绿。其他 CI 作业通过。本次没有连接物理 iPhone，原生证据来自模拟器；旧 iOS、Android 真机体验仍未验证。
+
+EAS [构建 7fef5e2c](https://expo.dev/accounts/cone387/projects/mobile/builds/7fef5e2c-edf2-4fa0-99ee-53cd1377838d) 为 `FINISHED`，实际 IPA 为 `com.chewy.bbtalk / 1.3.15 / 33`，runtime `1.3.15`，生产接口正确，iOS 26 SDK、Automatic 外观、控制器状态栏与原生玻璃模块均核对通过。[提交 71ec051e](https://expo.dev/accounts/cone387/projects/mobile/submissions/71ec051e-eee5-431e-9dfc-63f6171f3b5c) 为 `FINISHED`；App Store Connect API 确认 build `76321ca3-bd90-41b3-9543-472561c5ad5f` 于北京时间 21:51:42 上传，为 `VALID / IN_BETA_TESTING`，自动通知开启，现有 `bbtalk` 内部测试组已包含构建 33。中文测试说明通过 Apple API 写入并回读一致，可在 [TestFlight](https://appstoreconnect.apple.com/apps/6762428762/testflight/ios) 更新。
+
+生产服务已于本日 17:10 重新部署，数据与附件核验记录见 [部署说明](../docs/image-deployment.md#2026-10-15-移动界面整改版本部署)。部署后变更均为移动端、验收工具及文档，后端与 Web 部署内容没有变化。
+
 ## 液态玻璃移动界面（2026-10-15，1.3.14）
 
 - 统一导航、返回、浮动标签栏、搜索、工具栏、弹窗、录音和媒体操作的材质、圆角与触摸区域；内容卡片与隐私遮挡保持清晰可读。完整组件清单见 [液态玻璃适配说明](../docs/mobile-liquid-glass.md)。
