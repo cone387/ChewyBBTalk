@@ -60,7 +60,9 @@ import { xAlert } from './src/utils/crossAlert';
 const PrivateRecordDetail = protectScreen(RecordDetailScreen);
 const PrivateDrafts = protectScreen(DraftsScreen);
 const PrivateOutbox = protectScreen(OutboxScreen);
-const PrivateCompose = protectScreen(ComposeScreen, true);
+// Modal insets must be measured in the presented sheet, not inherited from the full screen.
+const ComposeRoute = (props: React.ComponentProps<typeof ComposeScreen>) => <SafeAreaProvider><ComposeScreen {...props} /></SafeAreaProvider>;
+const PrivateCompose = protectScreen(ComposeRoute, true);
 const PrivateProfile = protectScreen(ProfileEditScreen);
 const PrivatePrivacySettings = protectScreen(PrivacySettingsScreen);
 const PrivateStorage = protectScreen(StorageSettingsScreen);

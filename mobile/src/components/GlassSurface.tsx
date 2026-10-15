@@ -38,7 +38,7 @@ export default function GlassSurface({ theme, radius = UI.radius.sheet, elevated
       {Glass ? <Glass pointerEvents="none" style={{ ...fill, borderRadius: radius }} glassEffectStyle="regular" colorScheme={theme.key === 'dark' ? 'dark' : 'light'} />
         : Blur ? <><Blur pointerEvents="none" style={fill} intensity={65} tint={theme.key === 'dark' ? 'dark' : 'light'} />
           <View style={{ ...fill, backgroundColor: palette.tint }} /></> : null}
-      <View style={{ ...fill, borderRadius: radius, borderWidth: 1, borderColor: canBlur ? palette.border : theme.colors.border }} />
+      {!Glass && <View style={{ ...fill, borderRadius: radius, borderWidth: 0.5, borderColor: canBlur ? palette.border : theme.colors.border }} />}
     </View>
     {children}
   </View>;

@@ -80,7 +80,7 @@ export function SearchInput({
 }) {
   const c = theme.colors;
   return (
-    <GlassSurface theme={theme} radius={26} style={styles.searchBar}>
+    <View style={[styles.searchBar, { backgroundColor: c.surface }]}>
       <Ionicons name="search" size={16} color={c.textTertiary} />
       <TextInput
         style={[styles.searchInput, { color: c.text }]}
@@ -99,7 +99,7 @@ export function SearchInput({
           <Ionicons name="close-circle" size={18} color={c.textTertiary} />
         </TouchableOpacity>
       )}
-    </GlassSurface>
+    </View>
   );
 }
 
@@ -108,7 +108,7 @@ export default React.memo(SearchBar);
 const styles = StyleSheet.create({
   searchBar: {
     flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8,
-    borderRadius: 26, paddingLeft: 16, minHeight: 48,
+    borderRadius: 12, paddingLeft: 12, minHeight: 44,
   },
   searchInput: {
     flex: 1, minWidth: 0, fontSize: 16, paddingVertical: 0, paddingHorizontal: 0,

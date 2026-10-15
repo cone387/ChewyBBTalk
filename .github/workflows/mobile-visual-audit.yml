@@ -1,0 +1,75 @@
+name: iOS native visual audit
+on:
+  workflow_dispatch:
+  push:
+    branches: [audit/mobile-glass]
+permissions:
+  contents: read
+concurrency:
+  group: native-visual-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  ios:
+    runs-on: macos-15
+    timeout-minutes: 90
+    env:
+      CI: '1'
+      MAESTRO_CLI_NO_ANALYTICS: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Prepare iOS 26 simulator
+        run: |
+          mkdir -p mobile/test-results/native-visual
+          XCODE_PATH=$(find /Applications -maxdepth 1 -name 'Xcode_26*.app' | sort -V | tail -1)
+          test -n "$XCODE_PATH"
+          sudo xcode-select -s "$XCODE_PATH/Contents/Developer"
+          xcodebuild -version | tee mobile/test-results/native-visual/xcode.txt
+          xcrun simctl list devices available -j > mobile/test-results/native-visual/devices.json
+          python3 scripts/mobile-visual/prepare-simulator.py >> "$GITHUB_ENV"
+      - name: Install dependencies and native project
+        working-directory: mobile
+        run: |
+          npm ci --no-audit
+          node ../scripts/mobile-visual/configure-build.cjs
+          npx expo prebuild --platform ios --no-install
+          pod install --project-directory=ios
+      - name: Build actual Release app for simulator
+        working-directory: mobile
+        run: |
+          set -o pipefail
+          xcodebuild -workspace ios/ChewyBBTalk.xcworkspace -scheme ChewyBBTalk -configuration Release -sdk iphonesimulator -destination "id=$SIMULATOR_UDID" -derivedDataPath build/visual CODE_SIGNING_ALLOWED=NO ONLY_ACTIVE_ARCH=YES build > test-results/native-visual/build.log 2>&1
+      - name: Install Maestro
+        run: |
+          curl -fsSL https://get.maestro.mobile.dev -o "$RUNNER_TEMP/install-maestro.sh"
+          bash "$RUNNER_TEMP/install-maestro.sh"
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+      - name: Run native visual flows
+        run: |
+          set -o pipefail
+          node scripts/mobile-visual/fixture-server.cjs > mobile/test-results/native-visual/fixture.log 2>&1 &
+          xcrun simctl boot "$SIMULATOR_UDID" || true
+          xcrun simctl bootstatus "$SIMULATOR_UDID" -b
+          xcrun simctl status_bar "$SIMULATOR_UDID" override --time '9:41' --dataNetwork wifi --wifiMode active --wifiBars 3 --batteryState charged --batteryLevel 100
+          xcrun simctl install "$SIMULATOR_UDID" mobile/build/visual/Build/Products/Release-iphonesimulator/ChewyBBTalk.app
+          python3 scripts/mobile-visual/seed-settings.py "$SIMULATOR_UDID"
+          maestro --device "$SIMULATOR_UDID" test --test-output-dir mobile/test-results/native-visual/maestro mobile/visual/primary.yaml
+      - name: Collect native evidence
+        if: always()
+        run: |
+          git rev-parse HEAD > mobile/test-results/native-visual/commit.txt
+          xcrun simctl io "$SIMULATOR_UDID" screenshot mobile/test-results/native-visual/final-screen.png || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-native-visual
+          path: mobile/test-results/native-visual/
+          retention-days: 14

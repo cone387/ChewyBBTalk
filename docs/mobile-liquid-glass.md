@@ -1,6 +1,6 @@
 # 手机端 Liquid Glass 适配
 
-适配范围是 `mobile/`（Expo / React Native App 及其 Web 预览）。设计把玻璃材质用于导航、搜索、工具栏及浮层；正文、设置表单、错误信息和防窥遮罩使用实色，避免叠加模糊影响阅读与隐私。
+适配范围是 `mobile/`（Expo / React Native App 及其 Web 预览）。玻璃材质用于悬浮导航、工具栏及必要浮层；搜索、标签、正文、设置表单、错误信息和防窥遮罩使用普通表面，避免连续胶囊和叠加模糊抢占内容。
 
 ## 材质与平台
 
@@ -18,9 +18,9 @@
 | 页面 / 组件 | 处理 |
 | --- | --- |
 | `App`、`MainTabs` | 保留原生返回；悬浮胶囊底栏、选中底色、键盘显隐、减少动态效果及防窥时隐藏 |
-| `HomeScreen`、`SearchBar`、`TagTabs`、`BatchToolbar` | 搜索和标签玻璃层、胶囊选中态、玻璃新建按钮、批量操作触控区域、列表与按钮给底栏留位 |
-| `ComposeScreen`、`DraftStatus` | 顶部操作和底部工具栏统一材质；标签与工具按钮尺寸统一；保留草稿提示、键盘避让与锁定记录流程 |
-| `CalendarScreen`、`CalendarDayRecords` | 上下月玻璃按钮、年月选择浮层、底栏留白；保留分页、离线缓存和详情返回位置 |
+| `HomeScreen`、`SearchBar`、`TagTabs`、`BatchToolbar` | 普通搜索框、下划线标签选中态、玻璃新建按钮、批量操作触控区域、列表与按钮给底栏留位 |
+| `ComposeScreen`、`DraftStatus` | 对称的普通顶部操作栏、通栏底部工具栏；预览入口放在工具栏；保留草稿提示、键盘避让与锁定记录流程 |
+| `CalendarScreen`、`CalendarDayRecords` | 普通上下月箭头、年月选择浮层、底栏留白；保留分页、离线缓存和详情返回位置 |
 | `SettingsScreen`、`SectionCard` | 分组实色卡片统一圆角，底栏留白，菜单按钮语义 |
 | `AboutScreen`、`AccountSecurityScreen`、`AdvancedSettingsScreen`、`CacheManagementScreen`、`DataManagementScreen`、`PrivacySettingsScreen`、`ProfileEditScreen`、`StorageSettingsScreen`、`ThemeSettingsScreen` | 统一命名卡片和表单控件的圆角、输入字号及按钮尺寸；开关、滑块、危险操作保留既有交互 |
 | `LoginScreen`、`PasswordRecoveryScreen` | 表单与按钮统一，修复 320px 下密码显隐按钮溢出；服务选择玻璃面板、显式关闭按钮和底部安全区 |
@@ -36,6 +36,23 @@
 | `LandingScreen`、`LandingScreen.web` | 公开介绍页，不属于 App 导航操作层，保留现有宣传布局 |
 
 ## 验证与发布
+
+### 2026-10-15：根据 TestFlight 截图返工
+
+1.3.14 (26) 的五张用户截图暴露了视觉验收遗漏：编辑弹层顶部空洞、连续大胶囊、底栏贴边且选中块呈矩形、卡片留白过大、设置头像空白。此前代码检查和 Web 预览不足以证明 iPhone 成品质量。以下为后续本地修正，尚未进入该 TestFlight 构建。
+
+- 底栏使用 `start/end` 覆盖导航库的默认定位；圆角施加到实际 `PlatformPressable`，并为图标和标签分配完整高度。直接声明既有版本的 elements 依赖，不升级导航库。
+- 编辑模态路由增加局部 SafeAreaProvider；顶部采用对称操作区，预览移至底部工具栏；快速记录缩短解锁按钮文字，保留完整无障碍标签。提交中保留主色按钮，确保白色加载指示器可见。
+- 搜索和标签去掉重复玻璃底座；卡片缩小间距，并显式覆盖 Markdown 默认段落上下边距；倒计时改为新建按钮旁的次要控件。
+- 日历收紧栅格与顶部导航；设置图标统一色彩，头像加载中及失败时始终保留文字回退。原生玻璃不再额外叠白色边框。
+
+正式 Expo Web 导出通过隔离的合成数据在 Chromium 中检查，未读取或修改真实记录。截图位于 `mobile/test-results/glass-correction/`：390px 浅色/深色、320px 浅色下的首页、日历、设置及底部、空白/有内容/编辑/锁定编辑器。检查了预览切换返回和设置底部操作可达。编辑器的蓝色焦点线来自 Web 键盘可访问性样式，不是原生 iOS 分隔线。
+
+本次 TypeScript、三平台 JS 导出、106 套单元测试（1,424 条）及 13 套集成测试（97 条）通过。首次全量运行有一条既有离线缓存属性测试失败；保留其日志后，以原 seed `-122771915` 单独重放及再次全量运行均通过，未修改该测试或缓存实现，原因尚未确认。视觉返工通过独立代码复核。
+
+这些证据仅覆盖共享布局和 Web 降级材质。iPhone 原生模态安全区、键盘弹出/收起、Liquid Glass 光学效果及大字体仍待设备验收，不能以 Web 截图或单元测试替代。
+
+### 首轮适配记录
 
 自动验证使用移动端完整单元测试、`test:integration`、TypeScript 检查和 Expo iOS / Android / Web 的 JS 导出。新增材质测试覆盖原生可用、API 不可用、缺原生模块、Android、偏好初始化以及运行中降低透明度；现有集成测试覆盖底栏导航、防窥边界、编辑器与评论等行为。
 

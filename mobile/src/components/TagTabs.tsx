@@ -5,7 +5,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import type { Tag } from '../types';
 import type { Theme } from '../theme/ThemeContext';
-import GlassSurface from './GlassSurface';
 
 export interface TagTabsProps {
   tags: Tag[];
@@ -31,7 +30,7 @@ function TagTabs({
   const c = theme.colors;
 
   return (
-    <GlassSurface theme={theme} radius={26} style={styles.tagTabsWrap}>
+    <View style={styles.tagTabsWrap}>
       <ScrollView
         style={styles.scroller}
         horizontal
@@ -42,7 +41,7 @@ function TagTabs({
         <TouchableOpacity
           style={[
             styles.tagTab,
-            !selectedTag && !selectedDate && { backgroundColor: c.primaryLight },
+            !selectedTag && !selectedDate && { borderBottomColor: c.primary },
           ]}
           onPress={() => { onSelectTag(null); onResetAnim(); }}
           accessibilityRole="tab"
@@ -66,7 +65,7 @@ function TagTabs({
               key={tag.id}
               style={[
                 styles.tagTab,
-                active && { backgroundColor: c.primaryLight },
+                active && { borderBottomColor: c.primary },
               ]}
               onPress={() => { onSelectTag(tag.id); onResetAnim(); }}
               accessibilityRole="tab"
@@ -91,21 +90,21 @@ function TagTabs({
         onPress={onManage} style={[styles.manage, { borderLeftColor: c.borderLight }]}>
         <Ionicons name="options-outline" size={22} color={c.textSecondary} />
       </TouchableOpacity>}
-    </GlassSurface>
+    </View>
   );
 }
 
 export default React.memo(TagTabs);
 
 const styles = StyleSheet.create({
-  tagTabsWrap: { flexDirection: 'row', alignItems: 'stretch', marginHorizontal: 12, marginBottom: 8 },
+  tagTabsWrap: { flexDirection: 'row', alignItems: 'stretch', marginHorizontal: 16, marginBottom: 2 },
   scroller: { flex: 1, minWidth: 0 },
-  manage: { width: 48, minHeight: 48, justifyContent: 'center', alignItems: 'center', borderLeftWidth: 0.5 },
-  tagTabsContent: { paddingHorizontal: 8, alignItems: 'stretch', gap: 4 },
+  manage: { width: 44, minHeight: 44, justifyContent: 'center', alignItems: 'center' },
+  tagTabsContent: { alignItems: 'stretch', gap: 24, paddingRight: 16 },
   tagTab: {
     alignItems: 'center', justifyContent: 'center',
-    paddingHorizontal: 16, paddingVertical: 10, marginVertical: 4,
-    minHeight: 44, borderRadius: 22,
+    paddingHorizontal: 2, paddingVertical: 10,
+    minHeight: 44, borderBottomWidth: 2, borderBottomColor: 'transparent',
   },
   tagTabText: { fontSize: 15 },
   tagTabTextActive: { fontWeight: '600' },

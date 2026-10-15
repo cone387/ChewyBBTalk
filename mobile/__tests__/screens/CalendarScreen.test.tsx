@@ -154,7 +154,7 @@ describe('CalendarScreen day selection', () => {
     expect(selected.props.style.some((s: any) => s?.backgroundColor === THEMES[0].colors.primary)).toBe(true);
     expect(NOW.getFullYear() === Y).toBe(true); // sanity: today lives in the initial month
     const todayCell = dayCells().find((n: any) =>
-      n.props.style.some((s: any) => s?.borderColor === THEMES[0].colors.primary));
+      n.props.style.some((s: any) => s?.backgroundColor === THEMES[0].colors.primaryLight));
     expect(todayCell).toBeDefined();
     expect(todayCell!.props.accessibilityLabel.startsWith(`${key(NOW.getDate())}，`)).toBe(true);
   });

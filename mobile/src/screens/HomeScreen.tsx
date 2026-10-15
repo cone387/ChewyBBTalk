@@ -539,11 +539,11 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
 
 
       {privacy.showCountdown && privacy.privacyEnabled && privacy.privacySeconds !== null && privacy.privacySeconds > 0 && !privacy.locked && (
-        <TouchableOpacity style={[styles.countdownBadge, { bottom: insets.bottom + UI.tabBarClearance + 88, backgroundColor: c.primary }]}
+        <TouchableOpacity style={[styles.countdownBadge, { bottom: insets.bottom + UI.tabBarClearance + 22, backgroundColor: c.surface }]}
           onPress={() => privacy.setLocked(true)} onLongPress={() => navigation.navigate('PrivacySettings')} activeOpacity={0.7}
           accessibilityRole="button" accessibilityLabel="锁定内容">
-          <Ionicons name="lock-closed" size={12} color="#fff" />
-          <Text style={styles.countdownText}>
+          <Ionicons name="lock-closed-outline" size={12} color={c.textSecondary} />
+          <Text style={[styles.countdownText, { color: c.textSecondary }]}>
             {privacy.privacySeconds >= 60 ? `${Math.floor(privacy.privacySeconds / 60)}:${(privacy.privacySeconds % 60).toString().padStart(2, '0')}` : `${privacy.privacySeconds}s`}
           </Text>
         </TouchableOpacity>
@@ -611,11 +611,10 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute', right: 20, width: 56, height: 56, borderRadius: 28,
     justifyContent: 'center', alignItems: 'center',
-    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 6,
   },
   countdownBadge: {
-    position: 'absolute', right: 22, flexDirection: 'row', alignItems: 'center', gap: 4,
-    borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6,
+    position: 'absolute', right: 88, flexDirection: 'row', alignItems: 'center', gap: 4,
+    minHeight: 44, borderRadius: 22, paddingHorizontal: 12,
   },
   countdownText: { color: '#fff', fontSize: 12, fontWeight: '600' },
   previewOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)' },

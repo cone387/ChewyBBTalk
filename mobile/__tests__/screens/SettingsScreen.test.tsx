@@ -88,6 +88,15 @@ describe('SettingsScreen user card', () => {
     expect(hasText('@bob')).toBe(true);
   });
 
+  it('keeps an initial visible when the avatar fails to load', async () => {
+    (getCurrentUser as jest.Mock).mockReturnValue({ username: 'alice', avatar: 'https://img.example/missing.png' });
+    await mount();
+    expect(hasText('A')).toBe(true);
+    act(() => tree.root.findByType('ExpoImage').props.onError());
+    expect(tree.root.findAllByType('ExpoImage')).toHaveLength(0);
+    expect(hasText('A')).toBe(true);
+  });
+
   it('hides the user card when nobody is logged in', async () => {
     await mount();
     expect(tree.root.findAllByType('TouchableOpacity').some((n: any) => n.props.accessibilityLabel === '编辑个人信息')).toBe(false);

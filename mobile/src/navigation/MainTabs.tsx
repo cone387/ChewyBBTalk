@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { View } from 'react-native';
-import { BottomTabBar, createBottomTabNavigator, type BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { BottomTabBar, createBottomTabNavigator, type BottomTabBarProps, type BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
+import { PlatformPressable } from '@react-navigation/elements';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import HomeScreen from '../screens/HomeScreen';
@@ -14,6 +15,10 @@ import { historyIsLocked, historyPrivacyIsReady, subscribeHistoryPrivacy, record
 import { setWidgetAuthState, clearWidget, syncWidget } from '../services/widget';
 
 const Tabs = createBottomTabNavigator();
+
+function RoundedTabButton({ style, ...props }: BottomTabBarButtonProps) {
+  return <PlatformPressable {...props} style={[style, { borderRadius: 24, overflow: 'hidden', paddingVertical: 0, justifyContent: 'center' }]} />;
+}
 
 function PrivacyTabBar(props: BottomTabBarProps) {
   const locked = useSyncExternalStore(subscribeHistoryPrivacy, historyIsLocked, historyIsLocked);
@@ -58,30 +63,31 @@ export default function MainTabs({ onLogout }: { onLogout: () => void }) {
         headerStyle: { backgroundColor: c.background },
         headerTintColor: c.text,
         headerShadowVisible: false,
-        headerBackground: () => <GlassSurface theme={theme} radius={0} style={{ position: 'absolute', inset: 0 }} />,
-
-        headerTitleStyle: { fontSize: 22, fontWeight: '700' },
+        headerTitleStyle: { fontSize: 17, fontWeight: '600' },
         tabBarActiveTintColor: c.primary,
         tabBarInactiveTintColor: c.textSecondary,
         tabBarBackground: () => <GlassSurface theme={theme} radius={32} elevated style={{ position: 'absolute', inset: 0 }} />,
-        tabBarStyle: { position: 'absolute', left: 16, right: 16, bottom: Math.max(insets.bottom, 10),
+        tabBarStyle: { position: 'absolute', start: 20, end: 20, bottom: Math.max(insets.bottom, 12),
           backgroundColor: 'transparent', borderTopWidth: 0, borderRadius: 32, elevation: 0,
-          display: locked ? 'none' : 'flex', height: UI.tabBarHeight, paddingTop: 8, paddingBottom: 8 },
-        tabBarItemStyle: { minHeight: 48, marginHorizontal: 4, borderRadius: 24 },
+          display: locked ? 'none' : 'flex', height: UI.tabBarHeight, paddingTop: 6, paddingBottom: 6, paddingHorizontal: 6 },
+        tabBarButton: RoundedTabButton,
+        tabBarItemStyle: { minHeight: 48, marginHorizontal: 2, borderRadius: 24 },
+        tabBarLabelPosition: 'below-icon',
         tabBarActiveBackgroundColor: c.primaryLight,
-        tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
+        tabBarIconStyle: { width: 26, height: 26 },
+        tabBarLabelStyle: { fontSize: 11, lineHeight: 14, fontWeight: '600' },
         tabBarHideOnKeyboard: true,
         tabBarVisibilityAnimationConfig: {
           show: { animation: 'timing', config: { duration: reduceMotion ? 0 : 180 } },
           hide: { animation: 'timing', config: { duration: reduceMotion ? 0 : 140 } },
         },
-        tabBarIcon: ({ color, size, focused }) => {
+        tabBarIcon: ({ color, focused }) => {
           const icons = {
             Records: focused ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline',
             Calendar: focused ? 'calendar' : 'calendar-outline',
             Mine: focused ? 'person' : 'person-outline',
           } as const;
-          return <Ionicons name={icons[route.name as keyof typeof icons]} size={size} color={color} />;
+          return <Ionicons name={icons[route.name as keyof typeof icons]} size={22} color={color} />;
         },
       })}>
       <Tabs.Screen name="Records" options={{ title: '记录' }}>

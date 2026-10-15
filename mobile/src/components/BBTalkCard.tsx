@@ -1,4 +1,3 @@
-import { UI } from '../theme/materials';
 import React from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Linking,
@@ -226,9 +225,7 @@ export default BBTalkCard;
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: UI.radius.card, padding: 16, marginTop: 12,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03, shadowRadius: 10, elevation: 2,
+    borderRadius: 18, padding: 14, marginTop: 10,
   },
   moreBtn: { position: 'absolute', top: 14, right: 14, zIndex: 10, padding: 6 },
   pinBadge: {
@@ -253,7 +250,7 @@ const styles = StyleSheet.create({
   fileCardMeta: { fontSize: 11, marginTop: 1 },
   footer: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    marginTop: 14,
+    marginTop: 6,
   },
   footerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   footerRight: { flexDirection: 'row', alignItems: 'center', gap: 2 },

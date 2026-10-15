@@ -69,6 +69,7 @@ const ROUTES: Record<string, string> = {
 
 export default function SettingsScreen({ onLogout }: Props) {
   const [currentUser, setCurrentUser] = useState(getCurrentUser());
+  const [failedAvatar, setFailedAvatar] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { theme } = useTheme();
@@ -97,8 +98,8 @@ export default function SettingsScreen({ onLogout }: Props) {
   const renderItem = (item: MenuItem, isLast: boolean) => {
     const content = (
       <View style={[styles.menuRow, !isLast && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border }]}>
-        <View style={[styles.menuIcon, { backgroundColor: item.bgColor }]}>
-          <Ionicons name={item.icon as any} size={20} color="#fff" />
+        <View style={[styles.menuIcon, { backgroundColor: c.primaryLight }]}>
+          <Ionicons name={item.icon as any} size={19} color={c.primary} />
         </View>
         <View style={styles.menuInfo}>
           <Text style={[styles.menuTitle, { color: c.text }]}>{item.title}</Text>
@@ -127,15 +128,14 @@ export default function SettingsScreen({ onLogout }: Props) {
             onPress={() => navigation.navigate('ProfileEdit')}
           >
             <View style={styles.userRow}>
-              {currentUser.avatar ? (
-                <Image source={buildImageSource(currentUser.avatar)} style={styles.avatar} contentFit="cover" />
-              ) : (
-                <View style={[styles.avatar, { backgroundColor: c.avatarBg }]}>
-                  <Text style={styles.avatarText}>
+                <View style={[styles.avatar, { backgroundColor: c.primaryLight }]}>
+                  <Text style={[styles.avatarText, { color: c.primary }]}>
                     {(currentUser.display_name || currentUser.username).charAt(0).toUpperCase()}
                   </Text>
+                  {currentUser.avatar && currentUser.avatar !== failedAvatar &&
+                    <Image source={buildImageSource(currentUser.avatar)} style={styles.avatarImage} contentFit="cover"
+                      onError={() => setFailedAvatar(currentUser.avatar!)} />}
                 </View>
-              )}
               <View style={styles.userInfo}>
                 <Text style={[styles.userName, { color: c.text }]}>
                   {currentUser.display_name || currentUser.username}
@@ -173,23 +173,22 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: { padding: 16, paddingTop: 12, width: '100%', maxWidth: 760, alignSelf: 'center' },
   userCard: {
-    borderRadius: UI.radius.card, padding: 18, marginBottom: 6,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
+    borderRadius: 18, padding: 16, marginBottom: 2,
   },
   userRow: { flexDirection: 'row', alignItems: 'center' },
   avatar: { width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginRight: 14, overflow: 'hidden' },
   avatarText: { color: '#fff', fontSize: 20, fontWeight: '700' },
+  avatarImage: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
   userInfo: { flex: 1 },
   userName: { fontSize: 17, fontWeight: '600' },
   userEmail: { fontSize: 13, marginTop: 2 },
-  section: { marginTop: 18 },
+  section: { marginTop: 16 },
   sectionTitle: { fontSize: 13, fontWeight: '500', marginBottom: 6, marginLeft: 4 },
   sectionCard: {
-    borderRadius: UI.radius.card, overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
+    borderRadius: 16, overflow: 'hidden',
   },
-  menuRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 },
-  menuIcon: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  menuRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12 },
+  menuIcon: { width: 32, height: 32, borderRadius: 9, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
   menuInfo: { flex: 1 },
   menuTitle: { fontSize: 15, fontWeight: '600' },
   menuSubtitle: { fontSize: 12, marginTop: 2 },

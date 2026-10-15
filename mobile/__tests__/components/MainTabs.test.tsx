@@ -1,5 +1,6 @@
 jest.mock('react-native', () => ({ View: 'View' }));
 jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Icon' }));
+jest.mock('@react-navigation/elements', () => ({ PlatformPressable: 'PlatformPressable' }));
 jest.mock('@react-navigation/bottom-tabs', () => ({
   BottomTabBar: 'BottomTabBar',
   createBottomTabNavigator: () => ({
@@ -46,7 +47,7 @@ it.each([0, 20])('provides touch target and keyboard behavior with bottom inset 
   (useSafeAreaInsets as jest.Mock).mockReturnValue({ bottom }); mount();
   const options = nav().props.screenOptions({ route: { name: 'Records' } });
   expect(options).toMatchObject({ lazy: false, freezeOnBlur: false, headerShown: false, tabBarHideOnKeyboard: true,
-    tabBarStyle: { position: 'absolute', height: 64, bottom: Math.max(bottom, 10), paddingBottom: 8 }, tabBarItemStyle: { minHeight: 48 } });
+    tabBarStyle: { position: 'absolute', start: 20, end: 20, height: 60, bottom: Math.max(bottom, 12), paddingBottom: 6 }, tabBarItemStyle: { minHeight: 48 } });
 });
 it.each([['Records', 'chatbubble-ellipses'], ['Calendar', 'calendar'], ['Mine', 'person']])('uses focused and unfocused icons for %s', (route, icon) => {
   mount(); const options = nav().props.screenOptions({ route: { name: route } });

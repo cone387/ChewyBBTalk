@@ -42,6 +42,7 @@ export function getMarkdownStyles(colors: ThemeColors): Record<string, any> {
     },
     link: { color: colors.primary, textDecorationLine: 'underline' },
     list_item: { marginVertical: 2 },
-    paragraph: { marginVertical: 2 },
+    // The renderer supplies explicit top/bottom margins; marginVertical cannot override them on native.
+    paragraph: { marginTop: 2, marginBottom: 2 },
   };
 }

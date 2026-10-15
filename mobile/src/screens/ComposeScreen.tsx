@@ -505,9 +505,12 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
 
   const canSubmit = (cleanContent(content).length > 0 || attachments.length > 0 || pendingMedia.length > 0) && submissionReady && draftReady && !submitting && !uploading;
 
-  // 计算工具栏高度（大约）
-  const toolbarHeight = 44 + (showQuickTags ? 40 : 0) + (location ? 28 : 0) + 36; // main + tags + location + md
   const bottomPad = keyboardH > 0 ? 0 : (insets.bottom || 12);
+  const previewButton = <TouchableOpacity style={styles.modeToggleBtn}
+    onPress={() => { if (editMode === 'edit') Keyboard.dismiss(); setEditMode(m => m === 'edit' ? 'preview' : 'edit'); }}
+    accessibilityRole="button" accessibilityLabel={editMode === 'edit' ? '切换到预览模式' : '切换到编辑模式'}>
+    <Ionicons name={editMode === 'edit' ? 'eye-outline' : 'create-outline'} size={21} color={c.textSecondary} />
+  </TouchableOpacity>;
 
   if (!lockedCapture && (!historyReady || historyLocked)) return <View style={[styles.container, { padding: 24, paddingTop: insets.top + 24, backgroundColor: c.background }]}>
     <Text style={{ color: c.text }}>编辑内容已锁定</Text>
@@ -515,38 +518,21 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
   </View>;
 
   return (
-    <View onTouchStart={recordHistoryActivity} pointerEvents={submitting ? 'none' : 'auto'} style={[styles.container, { paddingTop: insets.top, backgroundColor: c.background }]}>
+    <View onTouchStart={recordHistoryActivity} pointerEvents={submitting ? 'none' : 'auto'} style={[styles.container, { paddingTop: insets.top, backgroundColor: c.surface }]}>
       {/* Header */}
-      <GlassSurface theme={theme} radius={28} style={styles.header}>
+      <View style={styles.header}>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel={lockedCapture ? '解锁查看历史' : '取消'}
-          disabled={lockedCapture && uploading} style={{ minHeight: 44, justifyContent: 'center' }}
+          disabled={lockedCapture && uploading} style={styles.headerAction}
           onPress={lockedCapture ? requestUnlock : () => navigation.goBack()}>
-          <Text style={[styles.cancelText, { color: c.primary }]}>{lockedCapture ? '解锁查看历史' : '取消'}</Text>
+          <Text style={[styles.cancelText, { color: c.primary }]}>{lockedCapture ? '解锁' : '取消'}</Text>
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={[styles.headerTitle, { color: c.text }]}>{lockedCapture ? '快速记录' : isEditing ? '编辑记录' : '写一条'}</Text>
-          <TouchableOpacity
-            style={styles.modeToggleBtn}
-            onPress={() => {
-              if (editMode === 'edit') {
-                Keyboard.dismiss();
-              }
-              setEditMode(m => m === 'edit' ? 'preview' : 'edit');
-            }}
-            accessibilityRole="button"
-            accessibilityLabel={editMode === 'edit' ? '切换到预览模式' : '切换到编辑模式'}
-          >
-            <Ionicons
-              name={editMode === 'edit' ? 'eye-outline' : 'create-outline'}
-              size={20}
-              color={theme.colors.primary}
-            />
-          </TouchableOpacity>
         </View>
-        <TouchableOpacity style={[styles.publishBtn, { backgroundColor: c.primary }, !canSubmit && { opacity: 0.4 }]} onPress={handleSubmit} disabled={!canSubmit}>
-          {submitting ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.publishText}>{lockedCapture ? '保存' : isEditing ? '更新' : visibility === 'private' ? '保存' : '发布'}</Text>}
+        <TouchableOpacity accessibilityRole="button" hitSlop={{ top: 2, bottom: 2 }} style={[styles.publishBtn, { backgroundColor: (canSubmit || submitting) ? c.primary : c.surfaceSecondary }]} onPress={handleSubmit} disabled={!canSubmit}>
+          {submitting ? <ActivityIndicator size="small" color="#fff" /> : <Text style={[styles.publishText, { color: canSubmit ? '#fff' : c.textTertiary }]}>{lockedCapture ? '保存' : isEditing ? '更新' : visibility === 'private' ? '保存' : '发布'}</Text>}
         </TouchableOpacity>
-      </GlassSurface>
+      </View>
 
       {(submission || submissionMessage) && <View style={{ padding: 12, backgroundColor: c.surface, borderBottomWidth: 1, borderBottomColor: c.border }}>
         <Text accessibilityLiveRegion="polite" style={{ color: c.text, fontSize: 14 }}>{submissionMessage || (submission?.state === 'pending' ? '有一份发布结果待核对' : '原提交已确认，当前输入仍保留')}</Text>
@@ -645,7 +631,7 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
       </View>
 
       {/* 工具栏 */}
-      <GlassSurface theme={theme} radius={28} testID="compose-toolbar" style={[styles.toolbarWrap, { paddingBottom: bottomPad, marginBottom: keyboardH }]}>
+      <GlassSurface theme={theme} radius={0} testID="compose-toolbar" style={[styles.toolbarWrap, { paddingBottom: bottomPad, marginBottom: keyboardH }]}>
         {!lockedCapture && showQuickTags && existingTags.length > 0 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always" style={styles.quickTagBar} contentContainerStyle={{ paddingHorizontal: 12, gap: 8 }}>
             {existingTags.filter(t => !currentTags.includes(t.name)).slice(0, 15).map(tag => (
@@ -681,6 +667,7 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
             }} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.insertTag}><Ionicons name="pricetag-outline" size={19} color={showQuickTags ? c.primary : c.textSecondary} /></TouchableOpacity>
             <TouchableOpacity style={styles.toolBtn} onPress={() => setShowMoreTools(!showMoreTools)} accessibilityRole="button" accessibilityLabel="更多工具" accessibilityState={{ expanded: showMoreTools }}><Ionicons name="ellipsis-horizontal" size={22} color={c.textSecondary} /></TouchableOpacity>
           </ScrollView>
+          {previewButton}
         </View>
         {showMoreTools && <View>
           <Text style={{ color: c.textSecondary, fontSize: 12, paddingHorizontal: 16 }}>附件与文字格式</Text>
@@ -702,6 +689,7 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
       </GlassSurface>
         </>
       )}
+      {editMode === 'preview' && <View style={[styles.previewActions, { paddingBottom: insets.bottom }]}>{previewButton}</View>}
 
       <VoiceRecordingOverlay
         visible={voiceRecording}
@@ -718,17 +706,18 @@ const styles = StyleSheet.create({
   container: { flex: 1, width: '100%', maxWidth: 1000, alignSelf: 'center' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 8, marginHorizontal: 8, marginVertical: 8,
+    paddingHorizontal: 16, minHeight: 60,
   },
   cancelText: { fontSize: 17 },
   headerTitle: { fontSize: 17, fontWeight: '600' },
-  headerCenter: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerCenter: { flex: 1, alignItems: 'center', paddingHorizontal: 4 },
+  headerAction: { minWidth: 64, minHeight: 44, justifyContent: 'center' },
   modeToggleBtn: { borderRadius: 22, padding: 4, minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  publishBtn: { minHeight: 44, justifyContent: 'center', borderRadius: 22, paddingHorizontal: 18, paddingVertical: 8 },
+  publishBtn: { minWidth: 64, minHeight: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 8 },
   publishText: { color: '#fff', fontSize: 15, fontWeight: '600' },
   scroll: { flex: 1 },
   editorArea: { flex: 1 },
-  textInput: { flex: 1, fontSize: 17, lineHeight: 28, paddingHorizontal: 20, paddingTop: 16 },
+  textInput: { flex: 1, fontSize: 17, lineHeight: 28, paddingHorizontal: 20, paddingTop: 8 },
   previewArea: { flex: 1 },
   previewContent: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20 },
   previewPlaceholder: { fontSize: 16, fontStyle: 'italic', textAlign: 'center', marginTop: 60 },
@@ -743,14 +732,15 @@ const styles = StyleSheet.create({
   parsedTagText: { fontSize: 13, fontWeight: '500' },
   charCountWrap: { paddingHorizontal: 12 },
   charCount: { fontSize: 12 },
-  toolbarWrap: { marginHorizontal: 8, marginTop: 8 },
-  toolbarInner: { flexDirection: 'row', alignItems: 'center' },
+  toolbarWrap: { marginTop: 0 },
+  toolbarInner: { flexDirection: 'row', alignItems: 'center', paddingRight: 12 },
+  previewActions: { alignItems: 'flex-end', paddingHorizontal: 16 },
   quickTagBar: { paddingVertical: 6 },
   quickTagChip: { minHeight: 44, justifyContent: 'center', borderWidth: 1, borderRadius: 22, paddingHorizontal: 12, paddingVertical: 5 },
   quickTagText: { fontSize: 13 },
   locationBar: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 4 },
   locationText: { flex: 1, fontSize: 12, color: '#059669' },
-  toolbarRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 8, gap: 4 },
+  toolbarRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 2, gap: 4 },
   toolBtn: { borderRadius: 24, width: 48, height: 48, justifyContent: 'center', alignItems: 'center' },
   toolDivider: { width: 1, height: 20, marginHorizontal: 4 },
   mdBtn: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },

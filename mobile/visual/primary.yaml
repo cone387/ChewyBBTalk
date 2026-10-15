@@ -1,0 +1,42 @@
+appId: com.chewy.bbtalk
+---
+- launchApp
+- extendedWaitUntil:
+    visible: "欢迎回来"
+    timeout: 60000
+- takeScreenshot: login
+- tapOn: "用户名"
+- inputText: preview
+- tapOn: "请输入密码"
+- inputText: visual-password
+- hideKeyboard
+- tapOn: "登录"
+- extendedWaitUntil:
+    visible: "今天的风很舒服。"
+    timeout: 60000
+- takeScreenshot: home
+- tapOn: "新建碎碎念"
+- extendedWaitUntil:
+    visible: "记录内容"
+    timeout: 10000
+- takeScreenshot: compose-keyboard
+- inputText: "Native visual check"
+- takeScreenshot: compose-filled-keyboard
+- tapOn: "切换到预览模式"
+- takeScreenshot: compose-preview
+- tapOn: "切换到编辑模式"
+- tapOn: "取消"
+- tapOn:
+    text: "丢弃.*"
+    optional: true
+- tapOn: "日历"
+- takeScreenshot: calendar
+- tapOn: "选择年月"
+- tapOn: "年份"
+- takeScreenshot: calendar-year-keyboard
+- hideKeyboard
+- tapOn: "取消"
+- tapOn: "我的"
+- takeScreenshot: settings
+- tapOn: "账号与安全"
+- takeScreenshot: account-security
