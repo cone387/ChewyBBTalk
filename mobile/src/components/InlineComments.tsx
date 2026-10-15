@@ -178,7 +178,7 @@ export default function InlineComments({ bbtalkId, commentCount, commentPreview,
         <ActivityIndicator size="small" color={c.textTertiary} style={{ paddingVertical: 8 }} />
       ) : (
         <>
-          {loadError && <TouchableOpacity accessibilityRole="button" accessibilityLabel="重试加载评论" onPress={() => void loadComments()}>
+          {loadError && <TouchableOpacity accessibilityRole="button" accessibilityLabel="重试加载评论" style={styles.toggleBtn} onPress={() => void loadComments()}>
             <Text style={{ color: c.textSecondary }}>评论加载失败，点击重试</Text>
           </TouchableOpacity>}
           {visible.map(comment => (
@@ -200,12 +200,12 @@ export default function InlineComments({ bbtalkId, commentCount, commentPreview,
             </TouchableOpacity>
           ))}
           {expanded && nextPage && !loading && (
-            <TouchableOpacity accessibilityLabel="加载更多评论" disabled={loading} onPress={() => void loadComments()}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="加载更多评论" style={styles.toggleBtn} disabled={loading} onPress={() => void loadComments()}>
               <Text style={{ color: c.primary }}>{loading ? '加载中…' : '加载更多评论'}</Text>
             </TouchableOpacity>
           )}
           {hasMore && (
-            <TouchableOpacity onPress={toggleExpanded} style={styles.toggleBtn}>
+            <TouchableOpacity accessibilityRole="button" accessibilityState={{ expanded }} onPress={toggleExpanded} style={styles.toggleBtn}>
               <Text style={[styles.toggleText, { color: c.primary }]}>
                 {expanded ? '收起' : `查看全部 ${total} 条评论`}
               </Text>
@@ -219,10 +219,10 @@ export default function InlineComments({ bbtalkId, commentCount, commentPreview,
 
 const styles = StyleSheet.create({
   container: { marginTop: 10, paddingTop: 10, paddingHorizontal: 12, paddingBottom: 8, borderRadius: 12, borderTopWidth: 0 },
-  commentRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', paddingVertical: 3, gap: 8 },
+  commentRow: { flexDirection: 'row', minHeight: 44, alignItems: 'center', justifyContent: 'space-between', paddingVertical: 6, gap: 8 },
   commentText: { flex: 1, fontSize: 13, lineHeight: 18 },
   commentAuthor: { fontWeight: '600' },
   commentTime: { fontSize: 11, marginTop: 2 },
-  toggleBtn: { paddingVertical: 4 },
+  toggleBtn: { minHeight: 44, justifyContent: 'center', paddingVertical: 4 },
   toggleText: { fontSize: 12, fontWeight: '500' },
 });

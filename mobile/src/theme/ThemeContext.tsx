@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { THEMES, type Theme } from './themes';
+import { GlassPreferencesProvider } from './GlassPreferences';
 export { THEMES } from './themes';
 export type { Theme, ThemeColors } from './themes';
 
@@ -38,7 +39,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <ThemeContext.Provider value={{ theme, setThemeKey, themePreference }}>
-      {children}
+      <GlassPreferencesProvider>{children}</GlassPreferencesProvider>
     </ThemeContext.Provider>
   );
 }

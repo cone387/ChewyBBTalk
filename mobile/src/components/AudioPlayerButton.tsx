@@ -1,3 +1,4 @@
+import { UI } from '../theme/materials';
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -166,7 +167,7 @@ function AudioCard({ attachment }: Props) {
 const styles = StyleSheet.create({
   card: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    borderRadius: 10, padding: 10, borderWidth: 1,
+    borderRadius: UI.radius.card, padding: 10, borderWidth: 1,
   },
   iconWrap: { width: 36, height: 36, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
   info: { flex: 1 },

@@ -1,3 +1,5 @@
+import { useGlassPreferences } from '../theme/GlassPreferences';
+import { UI } from '../theme/materials';
 import React, { useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, TextInput, ActivityIndicator,
@@ -156,6 +158,7 @@ function LockedComposer(props: PrivacyLockOverlayProps) {
   const [showUnlock, setShowUnlock] = useState(false);
   const authenticating = useRef(false);
   const c = props.theme.colors;
+  const { reduceMotion } = useGlassPreferences();
   const closeUnlock = () => {
     if (props.unlocking) return;
     Keyboard.dismiss(); props.onUnlockPasswordChange(''); setShowUnlock(false);
@@ -173,7 +176,7 @@ function LockedComposer(props: PrivacyLockOverlayProps) {
   return (
     <View style={[StyleSheet.absoluteFillObject, { zIndex: 200, backgroundColor: props.theme.colors.background }]}>
       <ComposeScreen lockedCapture onRequestUnlock={requestUnlock} />
-      <Modal visible={showUnlock} transparent animationType="fade" onRequestClose={closeUnlock}>
+      <Modal visible={showUnlock} transparent animationType={reduceMotion ? "none" : "fade"} onRequestClose={closeUnlock}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={[styles.passwordBackdrop, { backgroundColor: c.overlay }]}>
           <View accessibilityViewIsModal style={[styles.passwordDialog, { backgroundColor: c.cardBg }]}>
@@ -208,7 +211,7 @@ export default React.memo(PrivacyEntry);
 const styles = StyleSheet.create({
   passwordBackdrop: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   passwordDialog: { width: '100%', maxWidth: 360, borderRadius: 16, padding: 24 },
-  passwordInput: { minHeight: 48, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, marginTop: 20, fontSize: 16 },
+  passwordInput: { minHeight: 48, borderWidth: 1, borderRadius: UI.radius.field, paddingHorizontal: 12, marginTop: 20, fontSize: 16 },
   passwordActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 12 },
   passwordAction: { minHeight: 44, minWidth: 64, alignItems: 'center', justifyContent: 'center' },
   lockOverlay: {
@@ -244,12 +247,12 @@ const styles = StyleSheet.create({
   lockDividerText: { marginHorizontal: 12, fontSize: 12 },
   inputWrap: {
     flexDirection: 'row', alignItems: 'center',
-    width: '100%', borderWidth: 1, borderRadius: 12,
-    paddingHorizontal: 14, height: 48, gap: 8,
+    width: '100%', borderWidth: 1, borderRadius: UI.radius.field,
+    paddingHorizontal: 14, minHeight: UI.touch, gap: 8,
   },
   lockInput: { flex: 1, fontSize: 15, paddingVertical: 0 },
   lockBtn: {
-    width: '100%', borderRadius: 12, height: 48,
+    width: '100%', borderRadius: UI.radius.pill, minHeight: UI.touch,
     justifyContent: 'center', alignItems: 'center', marginTop: 14,
   },
   lockBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },

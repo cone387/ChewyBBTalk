@@ -984,11 +984,11 @@ describe('HomeScreen ui details', () => {
     expect(tree.root.findAllByType('Modal')[0].props.visible).toBe(false);
   });
 
-  it('dims the compose button while a recording press is active', async () => {
+  it('keeps the glass compose surface opaque while a recording press is active', async () => {
     mockHoldPressed = true;
     await mountHome();
     const fab = tree.root.findAllByType('View').find((node: any) => node.props.accessibilityLabel === '新建碎碎念');
-    expect(fab.props.style[fab.props.style.length - 1].opacity).toBe(0.85);
+    expect(JSON.stringify(fab.props.style)).not.toContain('"opacity"');
   });
 });
 

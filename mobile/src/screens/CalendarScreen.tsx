@@ -1,3 +1,7 @@
+import { useGlassPreferences } from '../theme/GlassPreferences';
+import { UI } from '../theme/materials';
+import GlassIconButton from '../components/GlassIconButton';
+import GlassSurface from '../components/GlassSurface';
 import React, { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TextInput, Modal, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +21,7 @@ export default function CalendarScreen({ selectedDate: initialDate = null, onSel
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const c = theme.colors;
+  const { reduceMotion } = useGlassPreferences();
   const [selectedDate, setSelectedDate] = useState(initialDate);
   const [pickerVisible, setPickerVisible] = useState(false);
   const [pickerYear, setPickerYear] = useState(String(new Date().getFullYear()));
@@ -70,18 +75,14 @@ export default function CalendarScreen({ selectedDate: initialDate = null, onSel
 
   return (
     <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: c.background }} onTouchStart={recordHistoryActivity}>
-    <CalendarDayRecords date={selectedDate} contentContainerStyle={styles.content} header={<>
+    <CalendarDayRecords date={selectedDate} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + UI.tabBarClearance + 24 }]} header={<>
       <View>
         <View style={styles.monthRow}>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="上个月" style={styles.monthButton} onPress={() => moveMonth(-1)}>
-            <Ionicons name="chevron-back" size={22} color={c.text} />
-          </TouchableOpacity>
+          <GlassIconButton theme={theme} icon="chevron-back" accessibilityLabel="上个月" onPress={() => moveMonth(-1)} />
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="选择年月" style={{ minHeight: 48, justifyContent: 'center' }} onPress={() => { setPickerYear(String(year)); setPickerVisible(true); }}>
             <Text style={[styles.monthTitle, { color: c.text }]}>{year}年{monthIndex + 1}月</Text>
           </TouchableOpacity>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="下个月" style={styles.monthButton} onPress={() => moveMonth(1)}>
-            <Ionicons name="chevron-forward" size={22} color={c.text} />
-          </TouchableOpacity>
+          <GlassIconButton theme={theme} icon="chevron-forward" accessibilityLabel="下个月" onPress={() => moveMonth(1)} />
         </View>
         <View style={styles.grid}>
           {['日', '一', '二', '三', '四', '五', '六'].map(day => (
@@ -128,9 +129,9 @@ export default function CalendarScreen({ selectedDate: initialDate = null, onSel
         <Text style={{ color: c.primary, fontWeight: '600' }}>回到本月</Text>
       </TouchableOpacity>
       <Text style={[styles.hint, { color: c.textSecondary }]}>点击有记录的日期，查看当天的碎碎念。</Text>
-      <Modal visible={pickerVisible} transparent animationType="fade" onRequestClose={() => setPickerVisible(false)}>
+      <Modal visible={pickerVisible} transparent animationType={reduceMotion ? "none" : "fade"} onRequestClose={() => setPickerVisible(false)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 24 }}>
-          <View accessibilityViewIsModal style={{ backgroundColor: c.surface, borderRadius: 20, padding: 20, maxWidth: 420, width: '100%', alignSelf: 'center' }}>
+          <GlassSurface theme={theme} radius={28} elevated accessibilityViewIsModal style={{ borderRadius: 28, padding: 20, maxWidth: 420, width: '100%', alignSelf: 'center' }}>
             <Text style={{ color: c.text, fontSize: 18, fontWeight: '600' }}>选择年月</Text>
             <TextInput accessibilityLabel="年份" keyboardType="number-pad" maxLength={4} value={pickerYear} onChangeText={setPickerYear}
               style={{ color: c.text, fontSize: 20, minHeight: 48, borderBottomWidth: 1, borderBottomColor: c.border, marginVertical: 12 }} />
@@ -139,7 +140,7 @@ export default function CalendarScreen({ selectedDate: initialDate = null, onSel
               style={{ width: '25%', minHeight: 48, alignItems: 'center', justifyContent: 'center' }}
               onPress={() => { chooseMonth(new Date(Number(pickerYear), i, 1)); setPickerVisible(false); }}><Text style={{ color: c.primary }}>{i + 1}月</Text></TouchableOpacity>)}</View>
             <TouchableOpacity accessibilityRole="button" onPress={() => setPickerVisible(false)} style={{ minHeight: 48, justifyContent: 'center', alignItems: 'center' }}><Text style={{ color: c.textSecondary }}>取消</Text></TouchableOpacity>
-          </View>
+          </GlassSurface>
         </View>
       </Modal>
     </>} />

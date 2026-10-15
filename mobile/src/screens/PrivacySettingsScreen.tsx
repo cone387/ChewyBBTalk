@@ -1,3 +1,4 @@
+import { UI } from '../theme/materials';
 import React, { useState, useRef } from 'react';
 import { View, Text, StyleSheet, Switch, ScrollView, TouchableOpacity } from 'react-native';
 import Slider from '@react-native-community/slider';
@@ -160,7 +161,7 @@ export default function PrivacySettingsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  card: { borderRadius: 16, overflow: 'hidden' },
+  card: { borderRadius: UI.radius.card, overflow: 'hidden' },
   cardHeader: {
     flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16,
   },

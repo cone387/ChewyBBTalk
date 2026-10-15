@@ -1135,11 +1135,11 @@ describe('ComposeScreen keyboard and platform details', () => {
     await mountCompose();
     expect(Keyboard.addListener.mock.calls.map((call: any[]) => call[0])).toEqual(['keyboardWillShow', 'keyboardWillHide']);
     const toolbar = () => tree.root.findAllByType('View')
-      .find((node: any) => Array.isArray(node.props.style) && node.props.style[0]?.borderTopWidth === 0.5);
+      .find((node: any) => node.props.testID === 'compose-toolbar');
     await act(async () => { Keyboard.addListener.mock.calls[0][1]({ endCoordinates: { height: 260 } }); });
-    expect(toolbar().props.style[1].paddingBottom).toBe(0);
+    expect(toolbar().props.style.flat().find((s: any) => s?.paddingBottom !== undefined).paddingBottom).toBe(0);
     await act(async () => { Keyboard.addListener.mock.calls[1][1](); });
-    expect(toolbar().props.style[1].paddingBottom).toBe(12);
+    expect(toolbar().props.style.flat().find((s: any) => s?.paddingBottom !== undefined).paddingBottom).toBe(12);
   });
 
   it('subscribes to android keyboard notifications instead', async () => {

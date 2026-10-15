@@ -1,3 +1,6 @@
+import { useGlassPreferences } from '../theme/GlassPreferences';
+import { UI } from '../theme/materials';
+import GlassSurface from './GlassSurface';
 import { confirmPublicVisibility } from '../utils/confirmPublicVisibility';
 import React, { useCallback } from 'react';
 import {
@@ -37,6 +40,7 @@ const VISIBILITY_OPTIONS: VisibilityOption[] = [
  */
 function VisibilityPickerModal({ visible, onConfirm, onClose, theme }: VisibilityPickerModalProps) {
   const c = theme.colors;
+  const { reduceMotion } = useGlassPreferences();
 
   const handleSelect = useCallback((key: 'public' | 'private' | 'friends') => {
     if (key === 'public') confirmPublicVisibility(() => onConfirm(key));
@@ -44,16 +48,16 @@ function VisibilityPickerModal({ visible, onConfirm, onClose, theme }: Visibilit
   }, [onConfirm]);
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType={reduceMotion ? "none" : "fade"} onRequestClose={onClose}>
       <TouchableOpacity style={[styles.overlay, { backgroundColor: c.overlay }]} activeOpacity={1} onPress={onClose}>
-        <View style={[styles.sheet, { backgroundColor: c.surface }]} onStartShouldSetResponder={() => true}>
+        <GlassSurface theme={theme} radius={28} elevated style={styles.sheet} accessibilityViewIsModal onStartShouldSetResponder={() => true}>
           <Text style={[styles.title, { color: c.text }]}>选择可见性</Text>
 
           {VISIBILITY_OPTIONS.map(opt => (
             <TouchableOpacity
               key={opt.key}
               style={[styles.optionItem, { borderBottomColor: c.borderLight }]}
-              onPress={() => handleSelect(opt.key)}
+              accessibilityRole="button" onPress={() => handleSelect(opt.key)}
               activeOpacity={0.7}
             >
               <View style={[styles.iconWrap, { backgroundColor: c.primaryLight }]}>
@@ -74,7 +78,7 @@ function VisibilityPickerModal({ visible, onConfirm, onClose, theme }: Visibilit
           >
             <Text style={[styles.cancelText, { color: c.textSecondary }]}>取消</Text>
           </TouchableOpacity>
-        </View>
+        </GlassSurface>
       </TouchableOpacity>
     </Modal>
   );
@@ -89,7 +93,10 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   sheet: {
-    borderRadius: 20,
+    borderRadius: 28,
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
     padding: 20,
   },
   title: {
@@ -125,8 +132,8 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   cancelBtn: {
-    borderRadius: 10,
-    height: 40,
+    borderRadius: UI.radius.pill,
+    minHeight: UI.touch,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 16,

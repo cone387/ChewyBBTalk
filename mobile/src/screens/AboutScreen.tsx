@@ -1,3 +1,4 @@
+import { UI } from '../theme/materials';
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -107,7 +108,7 @@ const styles = StyleSheet.create({
   versionText: { fontSize: 14, marginTop: 4 },
   descText: { fontSize: 13, marginTop: 6 },
   actionCard: {
-    borderRadius: 16, padding: 16, marginBottom: 10,
+    borderRadius: UI.radius.card, padding: 16, marginBottom: 10,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   },
   actionRow: { flexDirection: 'row', alignItems: 'center' },

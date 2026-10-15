@@ -9,7 +9,7 @@ describe('Property 4: Theme color contrast meets WCAG AA', () => {
       const violations = validateThemeContrast(theme.colors);
       if (violations.length > 0) {
         const details = violations.map(v => `${v.pair}: ${v.ratio}:1 (need ${v.required}:1)`).join(', ');
-        fail(`Theme "${theme.name}" has contrast violations: ${details}`);
+        throw new Error(`Theme "${theme.name}" has contrast violations: ${details}`);
       }
     }
   });

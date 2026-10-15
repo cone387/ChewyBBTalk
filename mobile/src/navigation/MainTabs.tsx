@@ -7,6 +7,9 @@ import HomeScreen from '../screens/HomeScreen';
 import CalendarScreen from '../screens/CalendarScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import { useTheme } from '../theme/ThemeContext';
+import GlassSurface from '../components/GlassSurface';
+import { UI } from '../theme/materials';
+import { useGlassPreferences } from '../theme/GlassPreferences';
 import { historyIsLocked, historyPrivacyIsReady, subscribeHistoryPrivacy, recordHistoryActivity } from '../services/historyPrivacy';
 import { setWidgetAuthState, clearWidget, syncWidget } from '../services/widget';
 
@@ -24,6 +27,7 @@ function PrivacyTabBar(props: BottomTabBarProps) {
 export default function MainTabs({ onLogout }: { onLogout: () => void }) {
   const { theme } = useTheme();
   const c = theme.colors;
+  const { reduceMotion } = useGlassPreferences();
   const insets = useSafeAreaInsets();
   const privacyLocked = useSyncExternalStore(subscribeHistoryPrivacy, historyIsLocked, historyIsLocked);
   const ready = useSyncExternalStore(subscribeHistoryPrivacy, historyPrivacyIsReady, historyPrivacyIsReady);
@@ -54,15 +58,23 @@ export default function MainTabs({ onLogout }: { onLogout: () => void }) {
         headerStyle: { backgroundColor: c.background },
         headerTintColor: c.text,
         headerShadowVisible: false,
+        headerBackground: () => <GlassSurface theme={theme} radius={0} style={{ position: 'absolute', inset: 0 }} />,
 
         headerTitleStyle: { fontSize: 22, fontWeight: '700' },
         tabBarActiveTintColor: c.primary,
         tabBarInactiveTintColor: c.textSecondary,
-        tabBarStyle: { backgroundColor: c.surface, borderTopColor: c.borderLight, display: locked ? 'none' : 'flex',
-          height: 64 + insets.bottom, paddingTop: 6, paddingBottom: Math.max(insets.bottom, 6) },
-        tabBarItemStyle: { minHeight: 48 },
+        tabBarBackground: () => <GlassSurface theme={theme} radius={32} elevated style={{ position: 'absolute', inset: 0 }} />,
+        tabBarStyle: { position: 'absolute', left: 16, right: 16, bottom: Math.max(insets.bottom, 10),
+          backgroundColor: 'transparent', borderTopWidth: 0, borderRadius: 32, elevation: 0,
+          display: locked ? 'none' : 'flex', height: UI.tabBarHeight, paddingTop: 8, paddingBottom: 8 },
+        tabBarItemStyle: { minHeight: 48, marginHorizontal: 4, borderRadius: 24 },
+        tabBarActiveBackgroundColor: c.primaryLight,
         tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
         tabBarHideOnKeyboard: true,
+        tabBarVisibilityAnimationConfig: {
+          show: { animation: 'timing', config: { duration: reduceMotion ? 0 : 180 } },
+          hide: { animation: 'timing', config: { duration: reduceMotion ? 0 : 140 } },
+        },
         tabBarIcon: ({ color, size, focused }) => {
           const icons = {
             Records: focused ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline',

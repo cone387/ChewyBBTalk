@@ -1,3 +1,4 @@
+import { UI } from '../theme/materials';
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -58,7 +59,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 16, width: '100%', maxWidth: 760, alignSelf: 'center' },
   hint: { fontSize: 13, marginBottom: 12 },
-  card: { borderRadius: 16, padding: 14, marginBottom: 10 },
+  card: { borderRadius: UI.radius.card, padding: 14, marginBottom: 10 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   preview: { width: 60, height: 80, borderRadius: 8, overflow: 'hidden', borderWidth: 1 },
   previewBar: { height: 14, borderBottomWidth: 0.5 },

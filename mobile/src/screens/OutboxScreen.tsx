@@ -1,3 +1,4 @@
+import { UI } from '../theme/materials';
 import React, { useCallback, useState, useSyncExternalStore } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -57,7 +58,7 @@ export default function OutboxScreen() {
     {loading && <ActivityIndicator color={c.primary} />}
     {!!error && <TouchableOpacity accessibilityRole="button" style={button} onPress={() => setRefresh(v => v + 1)}><Text style={{ color: c.danger }}>{error}</Text></TouchableOpacity>}
     {!loading && !error && !items.length && <Text style={{ color: c.textSecondary }}>没有待同步记录</Text>}
-    {items.map(entry => <View key={entry.id} style={{ padding: 16, marginBottom: 12, borderRadius: 16, backgroundColor: c.surface }}>
+    {items.map(entry => <View key={entry.id} style={{ padding: 16, marginBottom: 12, borderRadius: UI.radius.card, backgroundColor: c.surface }}>
       <Text style={{ color: ['failed', 'conflict'].includes(entry.state) ? c.danger : c.primary, marginBottom: 8 }}>{labels[entry.state]}</Text>
       <Text style={{ color: c.text, fontSize: 16, lineHeight: 25 }}>{entry.payload.content}</Text>
       <Text style={{ color: c.textSecondary, marginTop: 8 }}>{entry.payload.visibility === 'public' ? '公开可见' : '仅自己可见'} · {new Date(entry.createdAt).toLocaleString()}</Text>

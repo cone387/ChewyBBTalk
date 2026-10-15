@@ -1,3 +1,4 @@
+import { UI } from '../theme/materials';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, TextInput, TouchableOpacity, StyleSheet,
@@ -11,6 +12,8 @@ import { getSession, isCurrentSession, onSessionChange } from '../services/sessi
 import { xAlert } from '../utils/crossAlert';
 import type { Comment } from '../types';
 import type { Theme } from '../theme/ThemeContext';
+import GlassSurface from './GlassSurface';
+import { useGlassPreferences } from '../theme/GlassPreferences';
 
 const isWeb = Platform.OS === 'web';
 
@@ -24,6 +27,7 @@ interface Props {
 
 export default function CommentInputModal({ visible, bbtalkId, onClose, onCommentAdded, theme }: Props) {
   const c = theme.colors;
+  const { reduceMotion } = useGlassPreferences();
   const insets = useSafeAreaInsets();
   const inputRef = useRef<TextInput>(null);
   const [text, setText] = useState('');
@@ -63,8 +67,9 @@ export default function CommentInputModal({ visible, bbtalkId, onClose, onCommen
     if (visible) {
       setMounted(true);
       animation = Animated.parallel([
-        Animated.timing(overlayAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
-        Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, speed: 20, bounciness: 2 }),
+        Animated.timing(overlayAnim, { toValue: 1, duration: reduceMotion ? 0 : 200, useNativeDriver: true }),
+        reduceMotion ? Animated.timing(slideAnim, { toValue: 0, duration: 0, useNativeDriver: true })
+          : Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, speed: 20, bounciness: 2 }),
       ]);
       animation.start();
       // Bring up the keyboard alongside the panel, without waiting for the spring to settle.
@@ -73,8 +78,8 @@ export default function CommentInputModal({ visible, bbtalkId, onClose, onCommen
       }, 50);
     } else {
       animation = Animated.parallel([
-        Animated.timing(overlayAnim, { toValue: 0, duration: 150, useNativeDriver: true }),
-        Animated.timing(slideAnim, { toValue: 200, duration: 150, useNativeDriver: true }),
+        Animated.timing(overlayAnim, { toValue: 0, duration: reduceMotion ? 0 : 150, useNativeDriver: true }),
+        Animated.timing(slideAnim, { toValue: 200, duration: reduceMotion ? 0 : 150, useNativeDriver: true }),
       ]);
       animation.start(result => {
         if (cancelled || result?.finished === false) return;
@@ -87,7 +92,7 @@ export default function CommentInputModal({ visible, bbtalkId, onClose, onCommen
       animation.stop();
       if (focusTimer !== undefined) clearTimeout(focusTimer);
     };
-  }, [visible]);
+  }, [visible, reduceMotion]);
 
   // Android 返回键关闭
   useEffect(() => {
@@ -136,14 +141,16 @@ export default function CommentInputModal({ visible, bbtalkId, onClose, onCommen
     <Animated.View
       style={[
         styles.container,
-        { backgroundColor: c.cardBg, paddingBottom: isWeb ? 12 : insets.bottom + 8, transform: [{ translateY: slideAnim }] },
+        { paddingBottom: isWeb ? 12 : insets.bottom + 8, transform: [{ translateY: slideAnim }] },
       ]}
     >
+      <GlassSurface theme={theme} radius={28} style={StyleSheet.absoluteFillObject} />
       <View style={styles.handle} />
       <View style={styles.inputRow}>
 
         <TextInput
           ref={inputRef}
+          accessibilityLabel="评论内容"
           style={[styles.input, { backgroundColor: c.surfaceSecondary, color: c.text }]}
           placeholder="写一条评论..."
           placeholderTextColor={c.textTertiary}
@@ -177,7 +184,7 @@ export default function CommentInputModal({ visible, bbtalkId, onClose, onCommen
     return (
       <View style={styles.webOverlay}>
         <Animated.View style={[styles.backdrop, { opacity: overlayAnim }]}>
-          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="关闭评论" style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
         </Animated.View>
         {inputBar}
       </View>
@@ -187,7 +194,7 @@ export default function CommentInputModal({ visible, bbtalkId, onClose, onCommen
   return (
     <View style={styles.nativeOverlay} pointerEvents="box-none">
       <Animated.View style={[styles.backdrop, { opacity: overlayAnim }]}>
-        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="关闭评论" style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
       </Animated.View>
       <KeyboardAvoidingView behavior="padding" style={styles.keyboardView} pointerEvents="box-none">
         {inputBar}
@@ -203,10 +210,10 @@ const styles = StyleSheet.create({
     zIndex: 999,
     justifyContent: 'flex-end',
   },
-  // 半透明蒙层 — 极轻，几乎无感
+  // Separate the input sheet from the underlying record.
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.15)',
+    backgroundColor: 'rgba(0,0,0,0.4)',
   },
   keyboardView: { justifyContent: 'flex-end' },
   // Web
@@ -216,7 +223,7 @@ const styles = StyleSheet.create({
   },
   // 输入面板
   container: {
-    borderTopLeftRadius: 16, borderTopRightRadius: 16,
+    borderTopLeftRadius: 28, borderTopRightRadius: 28,
     paddingHorizontal: 16, paddingTop: 8,
     shadowColor: '#000', shadowOffset: { width: 0, height: -3 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 10,
   },
@@ -226,11 +233,11 @@ const styles = StyleSheet.create({
   },
   inputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
   input: {
-    flex: 1, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10,
-    fontSize: 15, maxHeight: 120, minHeight: 40,
+    flex: 1, borderRadius: UI.radius.field, paddingHorizontal: 16, paddingVertical: 10,
+    fontSize: 16, maxHeight: 120, minHeight: 48,
   },
   sendBtn: {
-    width: 40, height: 40, borderRadius: 20,
+    width: 48, height: 48, borderRadius: 24,
     justifyContent: 'center', alignItems: 'center',
   },
 });

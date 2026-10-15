@@ -28,11 +28,11 @@ export interface Theme {
 }
 
 const lightColors: ThemeColors = {
-  background: '#F9FAFB',
+  background: '#F2F4F8',
   surface: '#fff',
-  surfaceSecondary: '#F0F4FF',
+  surfaceSecondary: '#F2F4F8',
   text: '#111827',
-  textSecondary: '#6B7280',
+  textSecondary: '#626B7A',
   textTertiary: '#78818F',
   border: '#E5E7EB',
   borderLight: '#F3F4F6',
@@ -51,9 +51,9 @@ const lightColors: ThemeColors = {
 };
 
 const darkColors: ThemeColors = {
-  background: '#0F172A',
-  surface: '#1E293B',
-  surfaceSecondary: '#162032',
+  background: '#111318',
+  surface: '#20242D',
+  surfaceSecondary: '#181B22',
   text: '#F1F5F9',
   textSecondary: '#94A3B8',
   textTertiary: '#7B8BA2',
@@ -64,8 +64,8 @@ const darkColors: ThemeColors = {
   accent: '#8B5CF6',
   danger: '#F87171',
   dangerBg: '#1C1917',
-  headerBg: '#1E293B',
-  cardBg: '#1E293B',
+  headerBg: '#20242D',
+  cardBg: '#20242D',
   overlay: 'rgba(0,0,0,0.6)',
   fabShadow: '#3B82F6',
   avatarBg: '#8B5CF6',

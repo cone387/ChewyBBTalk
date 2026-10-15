@@ -1,3 +1,5 @@
+import { UI } from '../theme/materials';
+import GlassSurface from '../components/GlassSurface';
 import DraftStatus from '../components/DraftStatus';
 import { capturePrivacyPlaybackGuard, usePauseOnPrivacySuspension } from '../hooks/usePauseOnPrivacySuspension';
 import { readSubmission, confirmSubmission, type SubmissionIntent } from '../services/submissions';
@@ -171,7 +173,7 @@ function CompactVideoCard({ attachment, colors: c }: { attachment: Attachment; c
 
 const compactStyles = StyleSheet.create({
   card: {
-    width: 60, height: 60, borderRadius: 8, borderWidth: 1,
+    width: 60, height: 60, borderRadius: UI.radius.card, borderWidth: 1,
     justifyContent: 'center', alignItems: 'center', gap: 2,
   },
   label: { fontSize: 12 },
@@ -515,7 +517,7 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
   return (
     <View onTouchStart={recordHistoryActivity} pointerEvents={submitting ? 'none' : 'auto'} style={[styles.container, { paddingTop: insets.top, backgroundColor: c.background }]}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: c.headerBg, borderBottomColor: c.border }]}>
+      <GlassSurface theme={theme} radius={28} style={styles.header}>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel={lockedCapture ? '解锁查看历史' : '取消'}
           disabled={lockedCapture && uploading} style={{ minHeight: 44, justifyContent: 'center' }}
           onPress={lockedCapture ? requestUnlock : () => navigation.goBack()}>
@@ -544,7 +546,7 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
         <TouchableOpacity style={[styles.publishBtn, { backgroundColor: c.primary }, !canSubmit && { opacity: 0.4 }]} onPress={handleSubmit} disabled={!canSubmit}>
           {submitting ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.publishText}>{lockedCapture ? '保存' : isEditing ? '更新' : visibility === 'private' ? '保存' : '发布'}</Text>}
         </TouchableOpacity>
-      </View>
+      </GlassSurface>
 
       {(submission || submissionMessage) && <View style={{ padding: 12, backgroundColor: c.surface, borderBottomWidth: 1, borderBottomColor: c.border }}>
         <Text accessibilityLiveRegion="polite" style={{ color: c.text, fontSize: 14 }}>{submissionMessage || (submission?.state === 'pending' ? '有一份发布结果待核对' : '原提交已确认，当前输入仍保留')}</Text>
@@ -643,7 +645,7 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
       </View>
 
       {/* 工具栏 */}
-      <View style={[styles.toolbarWrap, { backgroundColor: c.surfaceSecondary, borderTopColor: c.border, paddingBottom: bottomPad, marginBottom: keyboardH }]}>
+      <GlassSurface theme={theme} radius={28} testID="compose-toolbar" style={[styles.toolbarWrap, { paddingBottom: bottomPad, marginBottom: keyboardH }]}>
         {!lockedCapture && showQuickTags && existingTags.length > 0 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always" style={styles.quickTagBar} contentContainerStyle={{ paddingHorizontal: 12, gap: 8 }}>
             {existingTags.filter(t => !currentTags.includes(t.name)).slice(0, 15).map(tag => (
@@ -697,7 +699,7 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
             <TouchableOpacity style={[styles.mdBtn, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => mdInsert('link')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.link}><Ionicons name="link-outline" size={15} color={c.textSecondary} /></TouchableOpacity>
           </ScrollView>
         </View>}
-      </View>
+      </GlassSurface>
         </>
       )}
 
@@ -716,12 +718,12 @@ const styles = StyleSheet.create({
   container: { flex: 1, width: '100%', maxWidth: 1000, alignSelf: 'center' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 0.5,
+    paddingHorizontal: 16, paddingVertical: 8, marginHorizontal: 8, marginVertical: 8,
   },
   cancelText: { fontSize: 17 },
   headerTitle: { fontSize: 17, fontWeight: '600' },
   headerCenter: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  modeToggleBtn: { padding: 4, minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  modeToggleBtn: { borderRadius: 22, padding: 4, minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   publishBtn: { minHeight: 44, justifyContent: 'center', borderRadius: 22, paddingHorizontal: 18, paddingVertical: 8 },
   publishText: { color: '#fff', fontSize: 15, fontWeight: '600' },
   scroll: { flex: 1 },
@@ -741,17 +743,17 @@ const styles = StyleSheet.create({
   parsedTagText: { fontSize: 13, fontWeight: '500' },
   charCountWrap: { paddingHorizontal: 12 },
   charCount: { fontSize: 12 },
-  toolbarWrap: { borderTopWidth: 0.5 },
+  toolbarWrap: { marginHorizontal: 8, marginTop: 8 },
   toolbarInner: { flexDirection: 'row', alignItems: 'center' },
   quickTagBar: { paddingVertical: 6 },
-  quickTagChip: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 5 },
+  quickTagChip: { minHeight: 44, justifyContent: 'center', borderWidth: 1, borderRadius: 22, paddingHorizontal: 12, paddingVertical: 5 },
   quickTagText: { fontSize: 13 },
   locationBar: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 4 },
   locationText: { flex: 1, fontSize: 12, color: '#059669' },
   toolbarRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 8, gap: 4 },
-  toolBtn: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
+  toolBtn: { borderRadius: 24, width: 48, height: 48, justifyContent: 'center', alignItems: 'center' },
   toolDivider: { width: 1, height: 20, marginHorizontal: 4 },
-  mdBtn: { width: 44, height: 44, borderRadius: 8, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
+  mdBtn: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
   mdBold: { fontSize: 13, fontWeight: '800' },
   mdItalic: { fontSize: 13, fontWeight: '600', fontStyle: 'italic' },
   mdBtnText: { fontSize: 12, fontWeight: '700' },

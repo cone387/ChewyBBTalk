@@ -20,6 +20,7 @@ jest.mock('../../src/config', () => ({
 }));
 import React from 'react';
 import LoginScreen from '../../src/screens/LoginScreen';
+jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 34, left: 0, right: 0 }) }));
 import { publicAuthRequest } from '../../src/services/passwordRecovery';
 import { login, register } from '../../src/services/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';

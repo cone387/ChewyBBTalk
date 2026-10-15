@@ -1,3 +1,7 @@
+import { useGlassPreferences } from '../theme/GlassPreferences';
+import { UI } from '../theme/materials';
+import GlassIconButton from '../components/GlassIconButton';
+import GlassSurface from '../components/GlassSurface';
 import { createPrivacyOperation } from '../services/privacyOperation';
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
@@ -53,6 +57,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const c = theme.colors;
+  const { reduceMotion } = useGlassPreferences();
 
   const showError = useCallback((title: string, msg: string) => {
     xAlert(title, msg);
@@ -464,7 +469,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
           onEndReached={onEndReached} onEndReachedThreshold={0.3}
           initialNumToRender={6} maxToRenderPerBatch={6} windowSize={7}
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingHorizontal: 12, paddingTop: batch.batchMode ? 0 : insets.top + sticky.searchHeight + sticky.navigationHeight, paddingBottom: insets.bottom + 80 }} />
+          contentContainerStyle={{ paddingHorizontal: 12, paddingTop: batch.batchMode ? 0 : insets.top + sticky.searchHeight + sticky.navigationHeight, paddingBottom: insets.bottom + UI.tabBarClearance + 96 }} />
         </View>
       </Animated.View>
   ), [showTagTabs, visibleTags.length, tagSwipe.listSlideAnim, tagSwipe.panResponder, filteredBBTalks,
@@ -512,7 +517,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
 
       {!batch.batchMode && <View pointerEvents="box-none" style={[styles.headerClip, { top: insets.top }]}>
         <Animated.View pointerEvents="box-none" style={{ transform: [{ translateY: sticky.translateY }] }}>
-          <View onLayout={sticky.onSearchLayout} style={[styles.searchRow, { backgroundColor: c.background }]}>
+          <View onLayout={sticky.onSearchLayout} style={styles.searchRow}>
             <SearchInput searchText={searchText} onSearchTextChange={changeSearchText}
               onSubmit={saveSearchHistory} onFocus={() => setSearchVisible(true)}
               theme={theme} />
@@ -534,7 +539,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
 
 
       {privacy.showCountdown && privacy.privacyEnabled && privacy.privacySeconds !== null && privacy.privacySeconds > 0 && !privacy.locked && (
-        <TouchableOpacity style={[styles.countdownBadge, { bottom: insets.bottom + 88, backgroundColor: c.primary }]}
+        <TouchableOpacity style={[styles.countdownBadge, { bottom: insets.bottom + UI.tabBarClearance + 88, backgroundColor: c.primary }]}
           onPress={() => privacy.setLocked(true)} onLongPress={() => navigation.navigate('PrivacySettings')} activeOpacity={0.7}
           accessibilityRole="button" accessibilityLabel="锁定内容">
           <Ionicons name="lock-closed" size={12} color="#fff" />
@@ -545,18 +550,16 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
       )}
 
       {!batch.batchMode && (
-        <View style={[styles.fab, { bottom: insets.bottom + 24, backgroundColor: c.primary, shadowColor: '#000', opacity: holdRecording.pressed ? 0.85 : 1 }]}
+        <GlassSurface theme={theme} radius={28} elevated style={[styles.fab, { bottom: insets.bottom + UI.tabBarClearance + 16 }]}
           {...holdRecording.handlers} accessibilityRole="button" accessibilityLabel="新建碎碎念">
-          <Ionicons name="add" size={28} color="#fff" />
-        </View>
+          <Ionicons name="add" size={28} color={holdRecording.pressed ? c.text : c.primary} />
+        </GlassSurface>
       )}
 
-      <Modal visible={!!previewImage} transparent animationType="fade" onRequestClose={() => setPreviewImage(null)}>
+      <Modal visible={!!previewImage} transparent animationType={reduceMotion ? "none" : "fade"} onRequestClose={() => setPreviewImage(null)}>
         <View style={styles.previewOverlay}>
 
-          <TouchableOpacity style={styles.previewClose} onPress={() => setPreviewImage(null)} accessibilityRole="button" accessibilityLabel="关闭图片预览">
-            <Ionicons name="close" size={28} color="#fff" />
-          </TouchableOpacity>
+          <GlassIconButton theme={theme} icon="close" style={[styles.previewClose, { top: insets.top + 12 }]} onPress={() => setPreviewImage(null)} accessibilityLabel="关闭图片预览" />
           {previewImages.length > 1 && (
             <View style={styles.previewCounter}>
               <Text style={styles.previewCounterText}>{previewIndex + 1} / {previewImages.length}</Text>
@@ -564,14 +567,10 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
           )}
           {previewImage && <ImageViewer imageUrl={previewImage} onClose={() => setPreviewImage(null)} />}
           {previewImages.length > 1 && previewIndex > 0 && (
-            <TouchableOpacity style={[styles.previewNav, styles.previewNavLeft]} onPress={() => { const i = previewIndex - 1; setPreviewIndex(i); setPreviewImage(previewImages[i]); }} accessibilityRole="button" accessibilityLabel="上一张图片">
-              <Ionicons name="chevron-back" size={32} color="#fff" />
-            </TouchableOpacity>
+            <GlassIconButton theme={theme} icon="chevron-back" style={[styles.previewNav, styles.previewNavLeft]} onPress={() => { const i = previewIndex - 1; setPreviewIndex(i); setPreviewImage(previewImages[i]); }} accessibilityLabel="上一张图片" />
           )}
           {previewImages.length > 1 && previewIndex < previewImages.length - 1 && (
-            <TouchableOpacity style={[styles.previewNav, styles.previewNavRight]} onPress={() => { const i = previewIndex + 1; setPreviewIndex(i); setPreviewImage(previewImages[i]); }} accessibilityRole="button" accessibilityLabel="下一张图片">
-              <Ionicons name="chevron-forward" size={32} color="#fff" />
-            </TouchableOpacity>
+            <GlassIconButton theme={theme} icon="chevron-forward" style={[styles.previewNav, styles.previewNavRight]} onPress={() => { const i = previewIndex + 1; setPreviewIndex(i); setPreviewImage(previewImages[i]); }} accessibilityLabel="下一张图片" />
           )}
         </View>
       </Modal>
@@ -620,10 +619,10 @@ const styles = StyleSheet.create({
   },
   countdownText: { color: '#fff', fontSize: 12, fontWeight: '600' },
   previewOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)' },
-  previewClose: { position: 'absolute', top: 50, right: 20, zIndex: 10, padding: 8 },
+  previewClose: { position: 'absolute', top: 50, right: 20, zIndex: 10 },
   previewCounter: { position: 'absolute', top: 56, left: 0, right: 0, zIndex: 10, alignItems: 'center' },
   previewCounterText: { color: '#fff', fontSize: 15, fontWeight: '600' },
-  previewNav: { position: 'absolute', top: '45%', zIndex: 10, padding: 12, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 24 },
+  previewNav: { position: 'absolute', top: '45%', zIndex: 10 },
   previewNavLeft: { left: 12 },
   previewNavRight: { right: 12 },
 });

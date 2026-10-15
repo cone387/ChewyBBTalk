@@ -17,6 +17,10 @@ jest.mock('../../src/theme/ThemeContext', () => ({ useTheme: () => ({ theme: req
 
 import React from 'react';
 import UndoToast from '../../src/components/UndoToast';
+let mockReduceMotion = false;
+jest.mock('../../src/theme/GlassPreferences', () => ({
+  useGlassPreferences: () => ({ ready: true, reduceTransparency: true, reduceMotion: mockReduceMotion }),
+}));
 
 const { create, act } = require('react-test-renderer');
 const RN: any = require('react-native');
@@ -30,6 +34,7 @@ const childText = (children: any): string =>
 const hasText = (s: string) => tree.root.findAllByType('Text').some((t: any) => childText(t.props.children) === s);
 
 beforeEach(() => {
+  mockReduceMotion = false;
   jest.clearAllMocks();
   jest.useFakeTimers();
 });
@@ -49,6 +54,15 @@ async function mount(props: Partial<Parameters<typeof UndoToast>[0]> = {}) {
 
 const onUndo = jest.fn();
 const onDismiss = jest.fn();
+
+it('allows undo immediately with reduced motion and cancels the dismiss timer', async () => {
+  mockReduceMotion = true;
+  await mount();
+  act(() => tree.root.findByType('TouchableOpacity').props.onPress());
+  expect(onUndo).toHaveBeenCalledTimes(1);
+  act(() => jest.advanceTimersByTime(5000));
+  expect(onDismiss).not.toHaveBeenCalled();
+});
 
 describe('UndoToast visibility', () => {
   it('slides in and shows the message with an undo action', async () => {

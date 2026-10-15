@@ -1,3 +1,7 @@
+import { useGlassPreferences } from '../theme/GlassPreferences';
+import GlassSurface from '../components/GlassSurface';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { UI } from '../theme/materials';
 import { useNavigation } from '@react-navigation/native';
 import { publicAuthRequest } from '../services/passwordRecovery';
 import React, { useState, useEffect, useRef } from 'react';
@@ -22,6 +26,8 @@ interface Props { onLoginSuccess: () => void; }
 export default function LoginScreen({ onLoginSuccess }: Props) {
   const { theme } = useTheme();
   const c = theme.colors;
+  const insets = useSafeAreaInsets();
+  const { reduceMotion } = useGlassPreferences();
   const navigation = useNavigation<any>();
   const [advanced, setAdvanced] = useState(false);
   const [registrationEnabled, setRegistrationEnabled] = useState<boolean | null>(null);
@@ -121,7 +127,7 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
           {advanced && <>
           {/* 服务器选择下拉 */}
           <Text style={[styles.label, { color: c.text }]}>服务地址</Text>
-          <TouchableOpacity style={[styles.serverSelector, { borderColor: c.border, backgroundColor: c.borderLight }]} onPress={() => setShowServerPicker(true)} activeOpacity={0.7}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="选择服务" style={[styles.serverSelector, { borderColor: c.border, backgroundColor: c.borderLight }]} onPress={() => setShowServerPicker(true)} activeOpacity={0.7}>
             <Ionicons name="server-outline" size={16} color={c.textTertiary} />
             <Text style={[styles.serverText, { color: c.text }]} numberOfLines={1}>{currentLabel}</Text>
             <Ionicons name="chevron-down" size={16} color={c.textTertiary} />
@@ -165,7 +171,7 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
             </>
           )}
 
-          <TouchableOpacity style={[styles.submitBtn, { backgroundColor: c.primary }, loading && { opacity: 0.6 }]} onPress={handleSubmit} disabled={loading} activeOpacity={0.8}>
+          <TouchableOpacity accessibilityRole="button" style={[styles.submitBtn, { backgroundColor: c.primary }, loading && { opacity: 0.6 }]} onPress={handleSubmit} disabled={loading} activeOpacity={0.8}>
             {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>{isLogin ? '登录  →' : '注册  →'}</Text>}
           </TouchableOpacity>
 
@@ -181,7 +187,7 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
 
           <View style={styles.divider}><View style={[styles.dividerLine, { backgroundColor: c.border }]} /><Text style={[styles.dividerText, { color: c.textTertiary }]}>{isLogin ? '新用户？' : '已有账户？'}</Text><View style={[styles.dividerLine, { backgroundColor: c.border }]} /></View>
 
-          <TouchableOpacity style={[styles.switchBtn, { borderColor: c.border }]} onPress={() => setIsLogin(!isLogin)} disabled={loading || (isLogin && registrationEnabled === false)} activeOpacity={0.7}>
+          <TouchableOpacity accessibilityRole="button" style={[styles.switchBtn, { borderColor: c.border }]} onPress={() => setIsLogin(!isLogin)} disabled={loading || (isLogin && registrationEnabled === false)} activeOpacity={0.7}>
             <Text style={[styles.switchText, { color: c.text }]}>{isLogin ? registrationEnabled === false ? '当前服务暂未开放注册' : '创建新账户' : '登录已有账户'}</Text>
           </TouchableOpacity>
         </View>
@@ -190,11 +196,18 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
       </ScrollView>
 
       {/* 服务器选择弹窗 */}
-      <Modal visible={showServerPicker} transparent animationType="fade" onRequestClose={() => setShowServerPicker(false)}>
+      <Modal visible={showServerPicker} transparent animationType={reduceMotion ? "none" : "fade"} onRequestClose={() => setShowServerPicker(false)}>
         <TouchableOpacity style={[styles.modalOverlay, { backgroundColor: c.overlay }]} activeOpacity={1} onPress={() => { setShowServerPicker(false); setShowAddServer(false); }}>
-          <View style={[styles.modalSheet, { backgroundColor: c.surface }]} onStartShouldSetResponder={() => true}>
+          <GlassSurface theme={theme} radius={28} elevated style={[styles.modalSheet, { paddingBottom: Math.max(insets.bottom, 16) }]} accessibilityViewIsModal onStartShouldSetResponder={() => true}>
             <View style={styles.sheetHandle} />
-            <Text style={[styles.modalTitle, { color: c.text }]}>选择服务</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <Text style={[styles.modalTitle, { color: c.text, marginBottom: 0 }]}>选择服务</Text>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="关闭服务选择"
+                style={{ width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: c.borderLight }}
+                onPress={() => { setShowServerPicker(false); setShowAddServer(false); }}>
+                <Ionicons name="close" size={22} color={c.text} />
+              </TouchableOpacity>
+            </View>
 
             {servers.map(s => (
               <TouchableOpacity key={s.url} style={[styles.serverItem, selectedServer === s.url && [styles.serverItemActive, { backgroundColor: c.primaryLight }]]}
@@ -205,7 +218,7 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
                 </View>
                 {selectedServer === s.url && <Ionicons name="checkmark-circle" size={20} color={c.primary} />}
                 {s.url !== DEFAULT_URL && (
-                  <TouchableOpacity onPress={() => removeServer(s.url)} style={{ padding: 6 }} hitSlop={8}>
+                  <TouchableOpacity onPress={() => removeServer(s.url)} accessibilityRole="button" accessibilityLabel={`删除服务 ${s.label}`} style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}>
                     <Ionicons name="close-circle" size={20} color={c.textTertiary} />
                   </TouchableOpacity>
                 )}
@@ -228,14 +241,14 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
                 </View>
               </View>
             ) : (
-              <TouchableOpacity style={styles.addServerBtn} onPress={() => setShowAddServer(true)}>
+              <TouchableOpacity accessibilityRole="button" style={styles.addServerBtn} onPress={() => setShowAddServer(true)}>
                 <Ionicons name="add-circle-outline" size={18} color={c.accent} />
                 <Text style={[styles.addServerText, { color: c.accent }]}>添加服务地址</Text>
               </TouchableOpacity>
             )}
 
             <Text style={[styles.modalHint, { color: c.textTertiary }]}>点击叉号可删除自定义服务</Text>
-          </View>
+          </GlassSurface>
         </TouchableOpacity>
       </Modal>
     </KeyboardAvoidingView>
@@ -247,7 +260,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: { flexGrow: 1, justifyContent: 'center', padding: 20 },
   card: {
-    borderRadius: 20, padding: 28,
+    borderRadius: UI.radius.card, padding: 28,
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 16,
     elevation: 5, borderWidth: 1,
   },
@@ -270,12 +283,12 @@ const styles = StyleSheet.create({
   // 输入框 - 固定高度 + gap 对齐
   inputWrap: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    borderWidth: 1, borderRadius: 12,
-    paddingHorizontal: 14, height: 48,
+    borderWidth: 1, borderRadius: UI.radius.field,
+    paddingHorizontal: 14, minHeight: UI.touch,
   },
-  input: { flex: 1, fontSize: 16, paddingVertical: 0, includeFontPadding: false, lineHeight: 20 },
+  input: { flex: 1, minWidth: 0, fontSize: 16, paddingVertical: 0, includeFontPadding: false, lineHeight: 20 },
   submitBtn: {
-    marginTop: 20, borderRadius: 12, height: 50, justifyContent: 'center', alignItems: 'center',
+    marginTop: 20, borderRadius: UI.radius.pill, height: 50, justifyContent: 'center', alignItems: 'center',
   },
   submitText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 18 },
@@ -288,7 +301,7 @@ const styles = StyleSheet.create({
   privacyLink: { textDecorationLine: 'underline' },
   // 服务器选择弹窗
   modalOverlay: { flex: 1, justifyContent: 'flex-end' },
-  modalSheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 34 },
+  modalSheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 20, maxWidth: 560, width: '100%', alignSelf: 'center' },
   sheetHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: 'rgba(0,0,0,0.15)', alignSelf: 'center', marginBottom: 14 },
   modalTitle: { fontSize: 17, fontWeight: '600', marginBottom: 14 },
   serverItem: {
@@ -305,9 +318,9 @@ const styles = StyleSheet.create({
   addServerText: { fontSize: 14, fontWeight: '500' },
   addServerForm: { marginTop: 8, gap: 8 },
   addInput: {
-    borderWidth: 1, borderRadius: 10,
-    paddingHorizontal: 12, height: 42, fontSize: 14,
+    borderWidth: 1, borderRadius: UI.radius.field,
+    paddingHorizontal: 12, minHeight: UI.touch, fontSize: 16,
   },
-  addBtn: { borderRadius: 10, height: 40, justifyContent: 'center', alignItems: 'center' },
+  addBtn: { borderRadius: UI.radius.pill, minHeight: UI.touch, justifyContent: 'center', alignItems: 'center' },
   modalHint: { textAlign: 'center', fontSize: 11, marginTop: 12 },
 });

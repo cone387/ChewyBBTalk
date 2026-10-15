@@ -8,6 +8,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
+import GlassSurface from './GlassSurface';
+import { useGlassPreferences } from '../theme/GlassPreferences';
 
 interface UndoToastProps {
   visible: boolean;
@@ -31,6 +33,7 @@ export default function UndoToast({
 }: UndoToastProps) {
   const { theme } = useTheme();
   const c = theme.colors;
+  const { reduceMotion } = useGlassPreferences();
   const insets = useSafeAreaInsets();
   const translateY = useRef(new Animated.Value(100)).current;
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -38,7 +41,8 @@ export default function UndoToast({
   useEffect(() => {
     if (visible) {
       // Slide in
-      Animated.spring(translateY, {
+      if (reduceMotion) translateY.setValue(0);
+      else Animated.spring(translateY, {
         toValue: 0,
         useNativeDriver: true,
         friction: 8,
@@ -62,6 +66,7 @@ export default function UndoToast({
   }, [visible]);
 
   const slideOut = (callback: () => void) => {
+    if (reduceMotion) { translateY.setValue(100); callback(); return; }
     Animated.timing(translateY, {
       toValue: 100,
       duration: 250,
@@ -84,15 +89,15 @@ export default function UndoToast({
       style={[
         styles.container,
         {
-          backgroundColor: c.text,
-          paddingBottom: Math.max(insets.bottom, 12),
+          bottom: insets.bottom + 100,
           transform: [{ translateY }],
         },
       ]}
     >
+      <GlassSurface theme={theme} radius={24} elevated style={StyleSheet.absoluteFillObject} />
       <View style={styles.content}>
-        <Text style={[styles.message, { color: c.background }]}>{message}</Text>
-        <TouchableOpacity onPress={handleUndo} hitSlop={8}>
+        <Text accessibilityLiveRegion="polite" style={[styles.message, { color: c.text }]}>{message}</Text>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="撤销删除" onPress={handleUndo} style={{ minHeight: 48, minWidth: 48, justifyContent: 'center', alignItems: 'center' }}>
           <Text style={[styles.undoBtn, { color: c.primary }]}>撤销</Text>
         </TouchableOpacity>
       </View>
@@ -106,8 +111,8 @@ const styles = StyleSheet.create({
     left: 16,
     right: 16,
     bottom: 80,
-    borderRadius: 12,
-    paddingTop: 12,
+    borderRadius: 24,
+    paddingVertical: 8,
     paddingHorizontal: 16,
   },
   content: {
@@ -116,6 +121,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   message: {
+    flex: 1,
     fontSize: 15,
     fontWeight: '500',
   },

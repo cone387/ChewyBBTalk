@@ -1,3 +1,4 @@
+import { UI } from '../theme/materials';
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
@@ -25,12 +26,12 @@ const styles = StyleSheet.create({
   section: { marginTop: 18 },
   sectionTitle: { fontSize: 13, fontWeight: '500', marginBottom: 6, marginLeft: 4 },
   card: {
-    borderRadius: 16,
+    borderRadius: UI.radius.card,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
+    shadowOpacity: 0.03,
     shadowRadius: 8,
-    elevation: 3,
+    elevation: 1,
   },
 });

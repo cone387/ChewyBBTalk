@@ -1,3 +1,4 @@
+import { UI } from '../theme/materials';
 import React, { useCallback, useState, useSyncExternalStore } from 'react';
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -52,7 +53,7 @@ export default function DraftsScreen() {
     <FlatList data={entries} keyExtractor={entry => entry.key} contentContainerStyle={{ padding: 16, paddingBottom: 48 }}
       ListEmptyComponent={!loading && !error ? <Text style={{ color: c.textSecondary }}>没有未完成记录</Text> : null}
       renderItem={({ item }) => <TouchableOpacity disabled={opening} accessibilityRole="button" onPress={() => { void open(item); }}
-        style={{ padding: 16, marginBottom: 12, borderRadius: 16, backgroundColor: c.surface }}>
+        style={{ padding: 16, marginBottom: 12, borderRadius: UI.radius.card, backgroundColor: c.surface }}>
         <Text numberOfLines={3} style={{ color: c.text, fontSize: 16, lineHeight: 24 }}>{item.preview}</Text>
         <Text style={{ color: c.textSecondary, marginTop: 8 }}>{item.recordId ? '编辑草稿' : '新记录'} · 已保存到本机{item.pendingCount ? ` · ${item.pendingCount} 个附件待上传` : ''}</Text>
         <Text style={{ color: c.primary, marginTop: 12 }}>继续编辑</Text>

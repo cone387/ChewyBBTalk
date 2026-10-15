@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
 import { getApiBaseUrl } from '../config';
 import { publicAuthRequest } from '../services/passwordRecovery';
+import { UI } from '../theme/materials';
 
 export default function PasswordRecoveryScreen() {
   const { theme: { colors: c } } = useTheme();
@@ -29,7 +30,7 @@ export default function PasswordRecoveryScreen() {
     } catch (error: any) { setMessage(error.message || '请求失败，请重试'); }
     finally { busyRef.current = false; setBusy(false); }
   };
-  const input = { minHeight: 48, borderWidth: 1, borderColor: c.border, borderRadius: 12, paddingHorizontal: 14, color: c.text, backgroundColor: c.surface, marginTop: 8, marginBottom: 18, fontSize: 16 };
+  const input = { minHeight: UI.touch, borderWidth: 1, borderColor: c.border, borderRadius: UI.radius.field, paddingHorizontal: 14, color: c.text, backgroundColor: c.surface, marginTop: 8, marginBottom: 18, fontSize: 16 };
   return <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.background }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
     <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 24, maxWidth: 520, width: '100%', alignSelf: 'center' }}>
       <Text style={{ color: c.text, fontSize: 24, fontWeight: '700', marginBottom: 12 }}>找回你的记录</Text>
@@ -40,7 +41,7 @@ export default function PasswordRecoveryScreen() {
           <Text style={{ color: c.text }}>邮件中的恢复码</Text><TextInput accessibilityLabel="恢复码" value={code} onChangeText={setCode} style={input} editable={!busy} autoCapitalize="none" autoCorrect={false} />
           <Text style={{ color: c.text }}>新密码（至少 8 位）</Text><TextInput accessibilityLabel="新密码" value={password} onChangeText={setPassword} style={input} editable={!busy} secureTextEntry autoCapitalize="none" textContentType="newPassword" />
         </>}
-        <TouchableOpacity accessibilityRole="button" disabled={busy} onPress={submit} style={{ minHeight: 48, backgroundColor: c.primary, borderRadius: 12, justifyContent: 'center', alignItems: 'center' }}>{busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '600' }}>{stage === 'request' ? '获取恢复邮件' : '重置密码'}</Text>}</TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" disabled={busy} onPress={submit} style={{ minHeight: 48, backgroundColor: c.primary, borderRadius: UI.radius.pill, justifyContent: 'center', alignItems: 'center' }}>{busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '600' }}>{stage === 'request' ? '获取恢复邮件' : '重置密码'}</Text>}</TouchableOpacity>
         <TouchableOpacity disabled={busy} onPress={() => { setStage(stage === 'request' ? 'confirm' : 'request'); setMessage(''); }} style={{ minHeight: 48, justifyContent: 'center' }}><Text style={{ color: c.primary }}>{stage === 'request' ? '已有恢复码' : '重新申请或修改邮箱'}</Text></TouchableOpacity>
       </>}
       {!!message && <Text accessibilityLiveRegion="polite" style={{ color: c.text, lineHeight: 22, marginVertical: 16 }}>{message}</Text>}

@@ -1,3 +1,6 @@
+import { useGlassPreferences } from '../theme/GlassPreferences';
+import { UI } from '../theme/materials';
+import GlassSurface from './GlassSurface';
 import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
@@ -27,6 +30,7 @@ export interface TagPickerModalProps {
  */
 function TagPickerModal({ visible, tags, onConfirm, onClose, theme }: TagPickerModalProps) {
   const c = theme.colors;
+  const { reduceMotion } = useGlassPreferences();
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   // Reset selection when modal opens
@@ -61,7 +65,7 @@ function TagPickerModal({ visible, tags, onConfirm, onClose, theme }: TagPickerM
           { borderBottomColor: c.borderLight },
           isSelected && { backgroundColor: c.primaryLight },
         ]}
-        onPress={() => toggleTag(item.name)}
+        accessibilityRole="checkbox" accessibilityState={{ checked: isSelected }} onPress={() => toggleTag(item.name)}
         activeOpacity={0.7}
       >
         <View style={styles.tagInfo}>
@@ -80,9 +84,9 @@ function TagPickerModal({ visible, tags, onConfirm, onClose, theme }: TagPickerM
   }, [selected, c, toggleTag]);
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType={reduceMotion ? "none" : "slide"} onRequestClose={onClose}>
       <TouchableOpacity style={[styles.overlay, { backgroundColor: c.overlay }]} activeOpacity={1} onPress={onClose}>
-        <View style={[styles.sheet, { backgroundColor: c.surface }]} onStartShouldSetResponder={() => true}>
+        <GlassSurface theme={theme} radius={28} elevated style={styles.sheet} accessibilityViewIsModal onStartShouldSetResponder={() => true}>
           <Text style={[styles.title, { color: c.text }]}>选择标签</Text>
 
           {tags.length === 0 ? (
@@ -107,7 +111,7 @@ function TagPickerModal({ visible, tags, onConfirm, onClose, theme }: TagPickerM
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.footerBtn, { backgroundColor: c.primary }]}
-              onPress={handleConfirm}
+              accessibilityRole="button" accessibilityState={{ disabled: selected.size === 0 }} onPress={handleConfirm}
               activeOpacity={0.7}
               disabled={selected.size === 0}
             >
@@ -116,7 +120,7 @@ function TagPickerModal({ visible, tags, onConfirm, onClose, theme }: TagPickerM
               </Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </GlassSurface>
       </TouchableOpacity>
     </Modal>
   );
@@ -131,7 +135,10 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   sheet: {
-    borderRadius: 20,
+    borderRadius: 28,
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
     padding: 20,
     maxHeight: '70%',
   },
@@ -176,8 +183,8 @@ const styles = StyleSheet.create({
   },
   footerBtn: {
     flex: 1,
-    borderRadius: 10,
-    height: 40,
+    borderRadius: UI.radius.pill,
+    minHeight: UI.touch,
     justifyContent: 'center',
     alignItems: 'center',
   },

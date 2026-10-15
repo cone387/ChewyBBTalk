@@ -1,3 +1,4 @@
+import { UI } from '../theme/materials';
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Platform, ScrollView, KeyboardAvoidingView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -212,18 +213,18 @@ const styles = StyleSheet.create({
   avatarText: { color: '#fff', fontSize: 28, fontWeight: '700' },
   username: { fontSize: 14, marginTop: 8 },
   card: {
-    borderRadius: 16, padding: 16,
+    borderRadius: UI.radius.card, padding: 16,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   },
   label: { fontSize: 13, fontWeight: '500', marginBottom: 6, marginTop: 12 },
   input: {
-    borderWidth: 1, borderRadius: 10,
+    borderWidth: 1, borderRadius: UI.radius.field,
     paddingHorizontal: 12, paddingVertical: 10, fontSize: 16,
   },
   bioInput: { minHeight: 80 },
   saveBtn: {
-    marginTop: 20, borderRadius: 12, height: 48,
+    marginTop: 20, borderRadius: UI.radius.pill, minHeight: UI.touch,
     justifyContent: 'center', alignItems: 'center',
   },
   saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },

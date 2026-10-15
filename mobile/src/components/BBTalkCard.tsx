@@ -1,3 +1,4 @@
+import { UI } from '../theme/materials';
 import React from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Linking,
@@ -225,7 +226,7 @@ export default BBTalkCard;
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 16, padding: 16, marginTop: 12,
+    borderRadius: UI.radius.card, padding: 16, marginTop: 12,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03, shadowRadius: 10, elevation: 2,
   },

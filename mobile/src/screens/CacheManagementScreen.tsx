@@ -1,3 +1,4 @@
+import { UI } from '../theme/materials';
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -157,7 +158,7 @@ export default function CacheManagementScreen() {
       {/* Clear button */}
       {!loading && !error && (cacheInfo?.total || 0) > 0 && (
         <TouchableOpacity
-          style={[styles.clearBtn, { backgroundColor: c.dangerBg }]}
+          accessibilityRole="button" style={[styles.clearBtn, { backgroundColor: c.dangerBg }]}
           onPress={clearCache}
           disabled={clearing}
           activeOpacity={0.7}
@@ -183,14 +184,14 @@ export default function CacheManagementScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   totalCard: {
-    borderRadius: 16, padding: 28, alignItems: 'center', marginBottom: 12,
+    borderRadius: UI.radius.card, padding: 28, alignItems: 'center', marginBottom: 12,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   },
   totalSize: { fontSize: 36, fontWeight: '700' },
   totalLabel: { fontSize: 13, marginTop: 6 },
   catRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    borderRadius: 16, padding: 14, marginBottom: 8,
+    borderRadius: UI.radius.card, padding: 14, marginBottom: 8,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
   },
   catIcon: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
@@ -198,7 +199,7 @@ const styles = StyleSheet.create({
   catSize: { fontSize: 14 },
   clearBtn: {
     flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8,
-    borderRadius: 14, paddingVertical: 14, marginTop: 16,
+    borderRadius: UI.radius.pill, minHeight: UI.touch, paddingVertical: 14, marginTop: 16,
   },
   clearText: { fontSize: 15, fontWeight: '600' },
   hint: { fontSize: 12, textAlign: 'center', marginTop: 16, lineHeight: 18 },

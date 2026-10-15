@@ -1,3 +1,6 @@
+import { useGlassPreferences } from '../theme/GlassPreferences';
+import GlassSurface from '../components/GlassSurface';
+import { UI } from '../theme/materials';
 import React, { useState, useEffect, useCallback, useRef, useSyncExternalStore } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, TextInput, Modal, KeyboardAvoidingView, Platform, ScrollView, Keyboard,
@@ -24,6 +27,7 @@ export default function TagManagementScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const c = theme.colors;
+  const { reduceMotion } = useGlassPreferences();
   const dispatch = useAppDispatch();
   const [tags, setTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(true);
@@ -168,9 +172,9 @@ export default function TagManagementScreen() {
       )}
     />
 
-    {!!editingTag && <Modal transparent animationType="fade" visible onRequestClose={() => { if (!busyRef.current) cancelEdit(); }}>
+    {!!editingTag && <Modal transparent animationType={reduceMotion ? "none" : "fade"} visible onRequestClose={() => { if (!busyRef.current) cancelEdit(); }}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[styles.modalBackdrop, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]} onTouchStart={recordHistoryActivity}>
-        <View style={[styles.modalCard, { backgroundColor: c.cardBg }]} accessibilityViewIsModal>
+        <GlassSurface theme={theme} radius={28} elevated style={styles.modalCard} accessibilityViewIsModal>
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.modalContent}>
             <View style={styles.modalHeading}>
 
@@ -220,7 +224,7 @@ export default function TagManagementScreen() {
               <TouchableOpacity accessibilityRole="button" disabled={busy} onPress={() => setDeleteStage(null)} style={styles.deleteButton}><Text style={{ color: c.textSecondary }}>取消</Text></TouchableOpacity>
             </View>}
           </ScrollView>
-        </View>
+        </GlassSurface>
       </KeyboardAvoidingView>
     </Modal>}
     </View>
@@ -250,11 +254,11 @@ const styles = StyleSheet.create({
   tagCount: { fontSize: 12, marginTop: 3 },
   tagAction: { width: 48, height: 48, justifyContent: 'center', alignItems: 'center' },
   editRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  editInput: { flex: 1, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, height: 44, fontSize: 16 },
+  editInput: { flex: 1, borderWidth: 1, borderRadius: UI.radius.field, paddingHorizontal: 10, minHeight: UI.touch, fontSize: 16 },
   colorPicker: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
   colorOption: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
   colorSelected: { borderWidth: 2, borderColor: '#fff', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.3, shadowRadius: 2, elevation: 3 },
   editActions: { flexDirection: 'row', gap: 8, marginTop: 12 },
-  editBtn: { flex: 1, borderRadius: 8, height: 44, justifyContent: 'center', alignItems: 'center' },
+  editBtn: { flex: 1, borderRadius: UI.radius.pill, minHeight: UI.touch, justifyContent: 'center', alignItems: 'center' },
   editBtnText: { fontSize: 14, fontWeight: '500' },
 });

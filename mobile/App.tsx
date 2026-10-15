@@ -15,6 +15,9 @@ import { store } from './src/store';
 import { initAuth, refreshAccessToken } from './src/services/auth';
 import { loadApiBaseUrl } from './src/config';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
+import { useGlassPreferences } from './src/theme/GlassPreferences';
+import GlassIconButton from './src/components/GlassIconButton';
+import GlassSurface from './src/components/GlassSurface';
 import { checkForUpdates } from './src/utils/versionChecker';
 import { WEB_FOCUS_CSS } from './src/utils/webFocusStyle';
 
@@ -72,6 +75,7 @@ function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
 }) {
   const { theme } = useTheme();
   const c = theme.colors;
+  const { reduceMotion } = useGlassPreferences();
 
   // 认证成功后检测版本更新
   useEffect(() => {
@@ -88,9 +92,25 @@ function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
   // UIKit owns back-button geometry, typography, gestures and transitions.
   const headerOptions = { headerBackButtonDisplayMode: 'minimal' as const };
   const screenOptions = {
+    headerTintColor: c.text,
+    headerShadowVisible: false,
+    headerTitleStyle: { fontWeight: '600' as const },
+    // Keep UIKit's native back button/material and interactive pop gesture.
+    animation: reduceMotion ? 'none' as const : 'default' as const,
     statusBarStyle: theme.key === 'dark' ? 'light' as const : 'dark' as const,
     contentStyle: { backgroundColor: c.background },
   };
+  const stackScreenOptions = ({ navigation }: { navigation: { goBack: () => void } }) => ({
+    ...screenOptions,
+    ...(Platform.OS !== 'ios' ? {
+      // Native-stack mounts custom backgrounds even on headerShown:false screens.
+      // Keep Android's native background so Home/Compose/Login don't gain a blank header.
+      headerBackground: Platform.OS === 'web'
+        ? () => <GlassSurface theme={theme} radius={0} style={{ position: 'absolute', inset: 0 }} /> : undefined,
+      headerLeft: ({ canGoBack }: { canGoBack?: boolean }) => canGoBack
+        ? <GlassIconButton theme={theme} icon="chevron-back" accessibilityLabel="返回" onPress={navigation.goBack} style={{ marginRight: 8 }} /> : null,
+    } : {}),
+  });
 
   // Web 端启用 URL 路由：/ → Landing（公开），/login → Login，/app → Home
   const linking = Platform.OS === 'web' ? {
@@ -126,7 +146,7 @@ function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
     <NavigationContainer linking={linking} theme={navigationTheme}>
       {isAuthenticated && <OutboxSync />}
       {isAuthenticated ? (
-        <Stack.Navigator screenOptions={screenOptions}>
+        <Stack.Navigator screenOptions={stackScreenOptions}>
           <Stack.Screen name="Home" options={{ headerShown: false }}>
             {() => <MainTabs onLogout={onLogout} />}
           </Stack.Screen>
@@ -134,7 +154,7 @@ function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
           <Stack.Screen name="Drafts" component={PrivateDrafts} options={{ title: '未完成记录', ...headerOptions }} />
           <Stack.Screen name="Outbox" component={PrivateOutbox} options={{ title: '同步记录', ...headerOptions }} />
           <Stack.Screen name="Compose" component={PrivateCompose}
-            options={{ headerShown: false, presentation: 'modal', animation: 'slide_from_bottom', gestureEnabled: true }} />
+            options={{ headerShown: false, presentation: 'modal', animation: reduceMotion ? 'none' : 'slide_from_bottom', gestureEnabled: true }} />
           <Stack.Screen name="Settings" options={{ title: '设置', ...headerOptions }}>
             {() => <PrivacyBoundary><SettingsScreen onLogout={onLogout} /></PrivacyBoundary>}
           </Stack.Screen>
@@ -162,7 +182,7 @@ function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
             options={{ title: '关于', ...headerOptions }} />
         </Stack.Navigator>
       ) : (
-        <Stack.Navigator screenOptions={screenOptions} initialRouteName={Platform.OS === 'web' ? 'Landing' : 'Login'}>
+        <Stack.Navigator screenOptions={stackScreenOptions} initialRouteName={Platform.OS === 'web' ? 'Landing' : 'Login'}>
           {Platform.OS === 'web' && (
             <Stack.Screen name="Landing" options={{ headerShown: false, title: 'BBTalk · 你的私人碎碎念空间' }}>
               {(props) => <LandingScreen {...props} />}

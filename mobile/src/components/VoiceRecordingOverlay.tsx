@@ -1,3 +1,6 @@
+import { UI } from '../theme/materials';
+import GlassSurface from './GlassSurface';
+import { useGlassPreferences } from '../theme/GlassPreferences';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, Animated, TouchableOpacity, AppState, BackHandler,
@@ -78,9 +81,10 @@ function ActiveVoiceRecordingOverlay({ visible, holdMode = false, cancelHint = f
     };
   };
 
+  const { reduceMotion } = useGlassPreferences();
   // Pulse animation
   useEffect(() => {
-    if (!visible) return;
+    if (!visible || reduceMotion) { pulseAnim.setValue(1); return; }
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, { toValue: 1.3, duration: 600, useNativeDriver: true }),
@@ -89,7 +93,7 @@ function ActiveVoiceRecordingOverlay({ visible, holdMode = false, cancelHint = f
     );
     loop.start();
     return () => loop.stop();
-  }, [visible]);
+  }, [visible, reduceMotion]);
 
   useEffect(() => {
     if (!visible) return;
@@ -203,7 +207,7 @@ function ActiveVoiceRecordingOverlay({ visible, holdMode = false, cancelHint = f
 
   return (
     <View style={styles.overlay} pointerEvents={holdMode ? 'none' : 'auto'}>
-      <View style={[styles.card, { backgroundColor: c.cardBg }]}>
+      <GlassSurface theme={theme} radius={28} elevated style={styles.card}>
         <Animated.View style={[styles.micCircle, { backgroundColor: c.danger + '20', transform: [{ scale: pulseAnim }] }]}>
           <View style={[styles.micInner, { backgroundColor: c.danger }]}>
             <Ionicons name="mic" size={32} color="#fff" />
@@ -239,7 +243,7 @@ function ActiveVoiceRecordingOverlay({ visible, holdMode = false, cancelHint = f
             <Ionicons name="checkmark" size={28} color="#fff" />
           </TouchableOpacity>
         </View>}
-      </View>
+      </GlassSurface>
     </View>
   );
 }
@@ -252,7 +256,7 @@ const styles = StyleSheet.create({
     zIndex: 300,
   },
   card: {
-    width: '80%', borderRadius: 20, padding: 28,
+    width: '86%', maxWidth: 420, borderRadius: UI.radius.card, padding: 28,
     alignItems: 'center',
     shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15, shadowRadius: 20, elevation: 10,
@@ -278,7 +282,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 20, marginTop: 24,
   },
   cancelBtn: {
-    width: 44, height: 44, borderRadius: 22,
+    width: 44, minHeight: UI.touch, borderRadius: UI.radius.pill,
     justifyContent: 'center', alignItems: 'center',
   },
   stopBtn: {

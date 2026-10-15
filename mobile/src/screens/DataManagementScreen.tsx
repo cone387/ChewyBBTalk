@@ -1,3 +1,4 @@
+import { UI } from '../theme/materials';
 import { apiErrorMessage } from '../services/apiErrorMessage';
 import React, { useState, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
@@ -225,7 +226,7 @@ export default function DataManagementScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  card: { borderRadius: 16, overflow: 'hidden', marginBottom: 14 },
+  card: { borderRadius: UI.radius.card, overflow: 'hidden', marginBottom: 14 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16 },
   headerIcon: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
   headerTitle: { fontSize: 16, fontWeight: '600' },

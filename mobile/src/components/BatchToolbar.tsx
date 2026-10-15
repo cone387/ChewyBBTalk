@@ -1,3 +1,4 @@
+import GlassSurface from './GlassSurface';
 import React from 'react';
 import {
   View,
@@ -46,11 +47,11 @@ function BatchToolbar({
   const allSelected = selectedCount === totalCount && totalCount > 0;
 
   return (
-    <View style={[styles.container, { backgroundColor: c.headerBg, borderBottomColor: c.border, paddingTop: insets.top }]}>
+    <GlassSurface theme={theme} radius={28} style={[styles.container, { paddingTop: insets.top }]}>
       {/* Top row: close button + count + progress */}
       <View style={styles.topRow}>
         <TouchableOpacity
-          onPress={onClose}
+          accessibilityRole="button" accessibilityLabel="退出批量操作" onPress={onClose}
           disabled={isExecuting}
           style={styles.closeBtn}
           hitSlop={8}
@@ -112,7 +113,7 @@ function BatchToolbar({
           disabledColor={c.textTertiary}
         />
       </View>
-    </View>
+    </GlassSurface>
   );
 }
 
@@ -134,7 +135,7 @@ function ActionButton({
   const tint = disabled ? disabledColor : color;
   return (
     <TouchableOpacity
-      style={styles.actionBtn}
+      accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled }} style={styles.actionBtn}
       onPress={onPress}
       disabled={disabled}
       activeOpacity={0.7}
@@ -149,7 +150,7 @@ export default React.memo(BatchToolbar);
 
 const styles = StyleSheet.create({
   container: {
-    borderBottomWidth: 0.5,
+    marginHorizontal: 12,
     paddingBottom: 12,
   },
   topRow: {
@@ -160,8 +161,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   closeBtn: {
-    width: 36,
-    height: 36,
+    width: 48,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -169,7 +170,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
   },
-  balanceSpacer: { width: 36 },
+  balanceSpacer: { width: 48 },
   countText: {
     fontSize: 15,
     fontWeight: '600',
@@ -191,6 +192,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 8,
     minWidth: 56,
+    minHeight: 48,
   },
   actionLabel: {
     fontSize: 11,

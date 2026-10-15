@@ -1,3 +1,4 @@
+import { UI } from '../theme/materials';
 import React, { memo, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -84,7 +85,7 @@ export default memo(function CalendarRecordCard({ item, onOpen }: { item: BBTalk
 });
 
 const styles = StyleSheet.create({
-  card: { padding: 16, marginBottom: 12, borderRadius: 16 },
+  card: { padding: 16, marginBottom: 12, borderRadius: UI.radius.card },
   metadata: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 10 },
   status: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   time: { fontSize: 13, fontWeight: '600', fontVariant: ['tabular-nums'], marginRight: 4 },

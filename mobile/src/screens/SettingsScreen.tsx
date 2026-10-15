@@ -1,3 +1,4 @@
+import { UI } from '../theme/materials';
 import React, { useState, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -108,7 +109,7 @@ export default function SettingsScreen({ onLogout }: Props) {
     );
 
     return (
-      <TouchableOpacity key={item.key} activeOpacity={0.6} onPress={() => handleMenuPress(item.key)}>
+      <TouchableOpacity key={item.key} accessibilityRole="button" activeOpacity={0.6} onPress={() => handleMenuPress(item.key)}>
         {content}
       </TouchableOpacity>
     );
@@ -116,7 +117,7 @@ export default function SettingsScreen({ onLogout }: Props) {
 
   return (
     <View style={[styles.container, { backgroundColor: c.surfaceSecondary }]}>
-      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 24 }]}>
+      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + UI.tabBarClearance + 24 }]}>
         {/* 用户信息卡 */}
         {currentUser && (
           <TouchableOpacity
@@ -172,7 +173,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: { padding: 16, paddingTop: 12, width: '100%', maxWidth: 760, alignSelf: 'center' },
   userCard: {
-    borderRadius: 16, padding: 18, marginBottom: 6,
+    borderRadius: UI.radius.card, padding: 18, marginBottom: 6,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   },
   userRow: { flexDirection: 'row', alignItems: 'center' },
@@ -184,7 +185,7 @@ const styles = StyleSheet.create({
   section: { marginTop: 18 },
   sectionTitle: { fontSize: 13, fontWeight: '500', marginBottom: 6, marginLeft: 4 },
   sectionCard: {
-    borderRadius: 16, overflow: 'hidden',
+    borderRadius: UI.radius.card, overflow: 'hidden',
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   },
   menuRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 },

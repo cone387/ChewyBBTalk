@@ -42,7 +42,7 @@ jest.mock('react-native', () => ({
   StyleSheet: { create: (value: unknown) => value, absoluteFillObject: { top: 0, left: 0, right: 0, bottom: 0 } },
   Animated: {
     View: 'AnimatedView',
-    Value: function Value(this: any, _initial: number) { return {}; },
+    Value: function Value(this: any, _initial: number) { return { setValue: jest.fn() }; },
     timing: () => ({}), sequence: () => ({}),
     loop: () => ({ start: jest.fn(), stop: jest.fn() }),
   },

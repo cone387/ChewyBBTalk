@@ -2,6 +2,8 @@
 
 基于 Expo + React Native 的碎碎念移动端应用。
 
+手机端 Liquid Glass 材质、组件核对范围、兼容降级及原生构建验收见 [液态玻璃适配说明](../docs/mobile-liquid-glass.md)。
+
 首发准备与本轮实现、邮件配置、测试结果及真机验收项见 [RELEASE_READINESS.md](RELEASE_READINESS.md)。
 
 ## 移动体验迭代（2026-10-13）

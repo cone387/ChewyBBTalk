@@ -6,6 +6,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRoute } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
+import GlassIconButton from '../components/GlassIconButton';
 import { buildImageSource } from '../utils/imageSource';
 import { getSession, isCurrentSession } from '../services/session';
 import { capturePrivacyPlaybackGuard, usePauseOnPrivacySuspension } from '../hooks/usePauseOnPrivacySuspension';
@@ -131,10 +132,9 @@ function AudioPlayerUI({ uri, name }: { uri: string; name: string }) {
           <Text style={[styles.time, { color: c.textTertiary }]}>{formatTime(status.duration || 0)}</Text>
         </View>
 
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel={status.playing ? '暂停音频' : '播放音频'} disabled={!status.isLoaded}
-          style={[styles.playBtn, { backgroundColor: c.primary, opacity: status.isLoaded ? 1 : 0.4 }]} onPress={toggle} activeOpacity={0.8}>
-          <Ionicons name={status.playing ? 'pause' : 'play'} size={36} color="#fff" />
-        </TouchableOpacity>
+        <GlassIconButton theme={theme} icon={status.playing ? 'pause' : 'play'} size={72}
+          accessibilityLabel={status.playing ? '暂停音频' : '播放音频'} disabled={!status.isLoaded}
+          style={{ marginTop: 32 }} onPress={toggle} />
 
         {!status.isLoaded && (
           <View style={{ marginTop: 16, alignItems: 'center' }}>

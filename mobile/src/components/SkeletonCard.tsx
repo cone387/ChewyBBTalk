@@ -1,3 +1,4 @@
+import { UI } from '../theme/materials';
 import React, { useEffect, useRef } from 'react';
 import { View, Animated, StyleSheet } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
@@ -76,7 +77,7 @@ export default function SkeletonCard() {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 16,
+    borderRadius: UI.radius.card,
     padding: 18,
     marginTop: 12,
     shadowColor: '#000',

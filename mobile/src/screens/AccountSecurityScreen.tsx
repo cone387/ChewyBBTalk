@@ -1,3 +1,4 @@
+import { UI } from '../theme/materials';
 import { getSession, isCurrentSession, onSessionChange } from '../services/session';
 import { removeAccountDrafts } from '../services/pendingMedia';
 import { useNavigation } from '@react-navigation/native';
@@ -200,7 +201,7 @@ const styles = StyleSheet.create({
   scrollContent: { padding: 16, paddingTop: 12 },
   sectionTitle: { fontSize: 14, fontWeight: '600', marginTop: 8, marginBottom: 10, marginLeft: 4 },
   dangerCard: {
-    borderRadius: 16, borderWidth: 1, padding: 18,
+    borderRadius: UI.radius.card, borderWidth: 1, padding: 18,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   },
   dangerHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
@@ -208,18 +209,18 @@ const styles = StyleSheet.create({
   dangerDesc: { fontSize: 13, lineHeight: 20, marginBottom: 16 },
   deleteBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    borderRadius: 12, paddingVertical: 12,
+    borderRadius: UI.radius.pill, paddingVertical: 12,
   },
   deleteBtnText: { fontSize: 15, fontWeight: '600' },
   confirmArea: { marginTop: 4 },
   confirmHint: { fontSize: 13, marginBottom: 10, lineHeight: 18 },
   passwordInput: {
-    borderRadius: 10, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 10,
-    fontSize: 15, marginBottom: 12,
+    borderRadius: UI.radius.field, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 10,
+    fontSize: 16, marginBottom: 12,
   },
   confirmActions: { flexDirection: 'row', gap: 10 },
   confirmBtn: {
-    flex: 1, borderRadius: 10, paddingVertical: 11, alignItems: 'center', justifyContent: 'center',
+    flex: 1, borderRadius: UI.radius.pill, paddingVertical: 11, alignItems: 'center', justifyContent: 'center',
   },
   confirmBtnText: { fontSize: 14, fontWeight: '600' },
 });

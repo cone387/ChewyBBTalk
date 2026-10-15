@@ -1,3 +1,4 @@
+import { UI } from '../theme/materials';
 import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -171,17 +172,17 @@ export default function StorageSettingsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   statusCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 16, padding: 14, marginBottom: 12,
+    flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: UI.radius.card, padding: 14, marginBottom: 12,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   },
   statusText: { flex: 1, fontSize: 14, fontWeight: '500' },
   optionCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 16, padding: 14, marginBottom: 12,
+    flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: UI.radius.card, padding: 14, marginBottom: 12,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   },
   optionText: { flex: 1, fontSize: 15 },
   configCard: {
-    borderRadius: 16, padding: 14, marginBottom: 10, borderWidth: 1,
+    borderRadius: UI.radius.card, padding: 14, marginBottom: 10, borderWidth: 1,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   },
   configHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
@@ -193,13 +194,13 @@ const styles = StyleSheet.create({
   actionBtn: { minHeight: 44, minWidth: 44, justifyContent: 'center', alignItems: 'center' },
   actionBtnText: { fontSize: 13, fontWeight: '500' },
   addForm: {
-    borderRadius: 16, padding: 16, marginTop: 4,
+    borderRadius: UI.radius.card, padding: 16, marginTop: 4,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   },
   addTitle: { fontSize: 15, fontWeight: '600', marginBottom: 12 },
   fieldLabel: { fontSize: 12, fontWeight: '500', marginBottom: 4, marginTop: 8 },
-  fieldInput: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 10, height: 44, fontSize: 16 },
-  formBtn: { borderRadius: 10, height: 44, justifyContent: 'center', alignItems: 'center' },
+  fieldInput: { borderWidth: 1, borderRadius: UI.radius.field, paddingHorizontal: 10, minHeight: UI.touch, fontSize: 16 },
+  formBtn: { borderRadius: UI.radius.pill, minHeight: UI.touch, justifyContent: 'center', alignItems: 'center' },
   addBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 16 },
   addBtnText: { fontSize: 14, fontWeight: '500' },
 });

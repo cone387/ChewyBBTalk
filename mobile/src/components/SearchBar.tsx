@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { Theme } from '../theme/ThemeContext';
+import GlassSurface from './GlassSurface';
 
 export interface SearchBarProps {
   visible: boolean;
@@ -36,7 +37,7 @@ function SearchBar({
     <>
       {/* Search history panel */}
       {!searchText && searchHistory.length > 0 && (
-        <View style={[styles.searchHistoryWrap, { backgroundColor: c.cardBg, borderBottomColor: c.border }]}>
+        <GlassSurface theme={theme} elevated style={styles.searchHistoryWrap}>
           <View style={styles.searchHistoryHeader}>
             <Text style={[styles.searchHistoryTitle, { color: c.textSecondary }]}>最近搜索</Text>
             <TouchableOpacity onPress={onClearHistory} accessibilityRole="button" accessibilityLabel="清除搜索历史" style={styles.clearButton}>
@@ -55,7 +56,7 @@ function SearchBar({
               </TouchableOpacity>
             ))}
           </ScrollView>
-        </View>
+        </GlassSurface>
       )}
     </>
   );
@@ -79,7 +80,7 @@ export function SearchInput({
 }) {
   const c = theme.colors;
   return (
-    <View style={[styles.searchBar, { backgroundColor: c.borderLight }]}>
+    <GlassSurface theme={theme} radius={26} style={styles.searchBar}>
       <Ionicons name="search" size={16} color={c.textTertiary} />
       <TextInput
         style={[styles.searchInput, { color: c.text }]}
@@ -98,7 +99,7 @@ export function SearchInput({
           <Ionicons name="close-circle" size={18} color={c.textTertiary} />
         </TouchableOpacity>
       )}
-    </View>
+    </GlassSurface>
   );
 }
 
@@ -107,13 +108,13 @@ export default React.memo(SearchBar);
 const styles = StyleSheet.create({
   searchBar: {
     flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8,
-    borderRadius: 8, paddingLeft: 12, minHeight: 44,
+    borderRadius: 26, paddingLeft: 16, minHeight: 48,
   },
   searchInput: {
-    flex: 1, fontSize: 16, paddingVertical: 0, paddingHorizontal: 0,
+    flex: 1, minWidth: 0, fontSize: 16, paddingVertical: 0, paddingHorizontal: 0,
     lineHeight: 20, includeFontPadding: false,
   },
-  searchHistoryWrap: { paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 0.5 },
+  searchHistoryWrap: { marginHorizontal: 12, marginTop: 6, paddingHorizontal: 16, paddingVertical: 10 },
   searchHistoryHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   searchHistoryTitle: { fontSize: 12, fontWeight: '500' },
   searchHistoryClear: { fontSize: 12 },
