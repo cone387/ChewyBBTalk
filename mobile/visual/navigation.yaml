@@ -15,3 +15,12 @@ appId: com.chewy.bbtalk
 - assertVisible:
     id: tab-mine
 - takeScreenshot: edge-back-restored
+- tapOn: "账号与安全"
+- waitForAnimationToEnd
+- swipe:
+    start: 35%, 45%
+    end: 95%, 45%
+    duration: 400
+- assertVisible:
+    id: tab-mine
+- takeScreenshot: content-back-restored

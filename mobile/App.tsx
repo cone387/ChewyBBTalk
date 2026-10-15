@@ -149,7 +149,7 @@ function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
       {isAuthenticated && <OutboxSync />}
       {isAuthenticated ? (
         <Stack.Navigator screenOptions={stackScreenOptions}>
-          <Stack.Screen name="Home" options={{ headerShown: false }}>
+          <Stack.Screen name="Home" options={{ headerShown: false, title: '碎碎念' }}>
             {() => <MainTabs onLogout={onLogout} />}
           </Stack.Screen>
           <Stack.Screen name="RecordDetail" component={PrivateRecordDetail} options={{ title: '记录', ...headerOptions }} />

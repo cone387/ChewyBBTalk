@@ -68,7 +68,7 @@ appId: com.chewy.bbtalk
 - tapOn:
     id: tab-mine
 - tapOn: "外观"
-- tapOn: "跟随系统.*"
+- tapOn: ".*跟随系统.*"
 - tapOn:
     id: BackButton
 - takeScreenshot: settings-follow-system

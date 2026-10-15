@@ -16,6 +16,8 @@ import { xAlert } from '../utils/crossAlert';
 import AudioPlayerButton from '../components/AudioPlayerButton';
 import VideoPlayerButton from '../components/VideoPlayerButton';
 import ImageViewer from '../components/ImageViewer';
+import GlassIconButton from '../components/GlassIconButton';
+import { THEMES } from '../theme/themes';
 import { useMediaStatusBar } from '../hooks/useMediaStatusBar';
 import type { BBTalk } from '../types';
 
@@ -26,6 +28,7 @@ export default function RecordDetailScreen() {
   const original = params?.item as BBTalk | undefined;
   const item = useAppSelector(s => s.bbtalk.bbtalks.find(b => b.id === original?.id)) || original;
   const { theme } = useTheme(); const c = theme.colors;
+  const mediaTheme = THEMES.find(t => t.key === 'dark')!;
   const insets = useSafeAreaInsets();
   const [imageIndex, setImageIndex] = useState<number | null>(null);
   useMediaStatusBar(navigation, imageIndex !== null && !locked, theme.key);
@@ -46,6 +49,6 @@ export default function RecordDetailScreen() {
         <Image source={buildImageSource(att.url)} style={{ width: '100%', height: 260, borderRadius: 12 }} contentFit="contain" />
       </TouchableOpacity> : att.type === 'audio' ? <AudioPlayerButton key={att.uid} attachment={att} /> : att.type === 'video' ? <VideoPlayerButton key={att.uid} attachment={att} /> : <TouchableOpacity key={att.uid} accessibilityRole="button" onPress={() => Linking.openURL(att.url).catch(() => xAlert('无法打开附件', '请稍后重试'))} style={{ padding: 16, borderRadius: 12, backgroundColor: c.surface }}><Text style={{ color: c.primary }}>{att.originalFilename || att.filename || '打开附件'}</Text></TouchableOpacity>)}</View>
     </ScrollView>
-    <Modal visible={imageIndex !== null} transparent presentationStyle="overFullScreen" onRequestClose={() => setImageIndex(null)}>{imageIndex !== null && <View style={{ flex: 1, backgroundColor: '#000' }}><ImageViewer imageUrl={images[imageIndex].url} onClose={() => setImageIndex(null)} /><TouchableOpacity accessibilityRole="button" accessibilityLabel="关闭照片" onPress={() => setImageIndex(null)} style={{ position: 'absolute', top: insets.top + 12, right: 16, padding: 12 }}><Ionicons name="close" size={26} color="#fff" /></TouchableOpacity></View>}</Modal>
+    <Modal visible={imageIndex !== null} transparent presentationStyle="overFullScreen" onRequestClose={() => setImageIndex(null)}>{imageIndex !== null && <View style={{ flex: 1, backgroundColor: '#000' }}><ImageViewer imageUrl={images[imageIndex].url} onClose={() => setImageIndex(null)} /><GlassIconButton theme={mediaTheme} icon="close" accessibilityLabel="关闭照片" onPress={() => setImageIndex(null)} style={{ position: 'absolute', top: insets.top + 12, right: 16 }} /></View>}</Modal>
   </View>;
 }

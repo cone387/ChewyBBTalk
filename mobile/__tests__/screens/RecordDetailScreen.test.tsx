@@ -28,6 +28,7 @@ jest.mock('../../src/services/historyPrivacy', () => ({
 jest.mock('../../src/components/AudioPlayerButton', () => ({ __esModule: true, default: 'AudioPlayerButton' }));
 jest.mock('../../src/components/VideoPlayerButton', () => ({ __esModule: true, default: 'VideoPlayerButton' }));
 jest.mock('../../src/components/ImageViewer', () => ({ __esModule: true, default: 'ImageViewer' }));
+jest.mock('../../src/components/GlassSurface', () => ({ __esModule: true, default: 'GlassSurface' }));
 
 import React from 'react';
 import RecordDetailScreen from '../../src/screens/RecordDetailScreen';

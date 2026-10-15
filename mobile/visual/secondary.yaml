@@ -58,5 +58,7 @@ appId: com.chewy.bbtalk
     element:
       text: "帮助与关于"
     direction: DOWN
+    centerElement: true
 - tapOn: "帮助与关于"
+- assertVisible: "检查更新"
 - takeScreenshot: about

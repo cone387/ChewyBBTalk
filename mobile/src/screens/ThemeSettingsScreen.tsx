@@ -14,7 +14,7 @@ export default function ThemeSettingsScreen() {
     <View style={[styles.container, { backgroundColor: c.surfaceSecondary }]}>
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 20 }]}>
         <Text style={[styles.hint, { color: c.textSecondary }]}>选择你喜欢的主题风格</Text>
-        <TouchableOpacity accessibilityRole="radio" accessibilityState={{ selected: themePreference === 'system' }} onPress={() => setThemeKey('system')} style={[styles.card, { backgroundColor: c.cardBg, borderColor: c.border, borderWidth: 1, minHeight: 60 }]}>
+        <TouchableOpacity accessibilityRole="radio" accessibilityLabel="跟随系统" accessibilityState={{ selected: themePreference === 'system' }} onPress={() => setThemeKey('system')} style={[styles.card, { backgroundColor: c.cardBg, borderColor: c.border, borderWidth: 1, minHeight: 60 }]}>
           <View style={styles.row}><Ionicons name="phone-portrait-outline" size={24} color={c.primary} /><View style={{ flex: 1 }}><Text style={[styles.name, { color: c.text }]}>跟随系统</Text><Text style={{ color: c.textSecondary, fontSize: 13 }}>随设备自动切换浅色与深色</Text></View>{themePreference === 'system' && <Ionicons name="checkmark-circle" size={24} color={c.primary} />}</View>
         </TouchableOpacity>
         {THEMES.map(t => {
