@@ -27,7 +27,7 @@ appId: com.chewy.bbtalk
 - takeScreenshot: home
 - tapOn: "新建碎碎念"
 - extendedWaitUntil:
-    visible: "记录内容"
+    visible: "记录内容.*"
     timeout: 10000
 - takeScreenshot: compose-keyboard
 - inputText: "Native visual check"

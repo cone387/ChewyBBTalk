@@ -7,7 +7,7 @@ appId: com.chewy.bbtalk
 - takeScreenshot: home-large-text
 - tapOn: "新建碎碎念"
 - extendedWaitUntil:
-    visible: "记录内容"
+    visible: "记录内容.*"
     timeout: 10000
 - takeScreenshot: compose-large-text-keyboard
 - tapOn: "取消"

@@ -8,12 +8,25 @@ appId: com.chewy.bbtalk
     text: "更多操作"
     index: 0
 - takeScreenshot: record-actions
-- tapOn: "取消"
+- runFlow:
+    when:
+      visible: "取消"
+    commands:
+      - tapOn: "取消"
+# iOS 26 presents this system action sheet as a popover without a cancel row.
+# The inspected native screenshot places its top at 223pt; 20% is outside it.
+- runFlow:
+    when:
+      visible: "操作"
+    commands:
+      - tapOn:
+          point: "10%,20%"
+- assertNotVisible: "操作"
 - tapOn:
     text: "评论"
     index: 0
 - extendedWaitUntil:
-    visible: "评论内容"
+    visible: "评论内容.*"
     timeout: 10000
 - inputText: "A short comment"
 - takeScreenshot: comment-keyboard

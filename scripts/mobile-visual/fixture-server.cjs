@@ -20,6 +20,9 @@ const fixtures = {
 http.createServer((req,res)=>{
   const url=new URL(req.url,'http://localhost:8020');
   const p=url.pathname;
+  // Each audit phase changes fixture state; NSURLCache must not reuse old feeds.
+  res.setHeader('cache-control','no-store');
+  console.log(req.method,p);
   if(p==='/__visual__/empty' && req.method==='POST') { empty=true;res.writeHead(204);res.end();return; }
   if(p.startsWith('/fixtures/')) {
     const fixture=fixtures[p.slice('/fixtures/'.length)];
@@ -39,12 +42,13 @@ http.createServer((req,res)=>{
   else if(p.endsWith('/user/me'))data=user;
   else if(p.endsWith('/tags'))data=tags;
   else if(p.endsWith('/date-counts'))data=[1,2,4,5,8,9,12,13].map((d,i)=>({date:`${new Date().toISOString().slice(0,7)}-${String(d).padStart(2,'0')}`,count:i%3+1}));
-  else if(p.endsWith('/comments')||p.endsWith('/settings/storage'))data=[];
+  else if(p.endsWith('/comments'))data={items:[],total:0,page:1,page_size:20,has_more:false,revision:0};
+  else if(p.endsWith('/settings/storage'))data=[];
   else if(p==='/api/v1/bbtalk')data={items:empty?[]:records,total:empty?0:records.length,total_count:empty?0:records.length,page:1,page_size:20,has_more:false};
   else if(p.includes('/record-'))data=records.find(r=>p.endsWith(r.uid));
   else if(p.includes('missing-avatar')){res.writeHead(404);res.end();return;}
   else data={registration_enabled:false,password_recovery_enabled:false};
-  console.log(req.method,p);
-  res.writeHead(200,{'content-type':'application/json','access-control-allow-origin':'*'});
-  res.end(JSON.stringify(data??{}));
+  const body=JSON.stringify(data??{});
+  res.writeHead(200,{'content-type':'application/json; charset=utf-8','content-length':Buffer.byteLength(body),'access-control-allow-origin':'*'});
+  res.end(body);
 }).listen(8020,'127.0.0.1',()=>console.log('Fixture API listening on loopback:8020'));

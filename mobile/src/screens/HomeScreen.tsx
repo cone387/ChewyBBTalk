@@ -18,6 +18,8 @@ import { loadBBTalks, loadMoreBBTalks, togglePinAsync, setBBTalksFromCache, incr
 import { loadTags } from '../store/slices/tagSlice';
 import type { BBTalk, Comment } from '../types';
 import { useTheme } from '../theme/ThemeContext';
+import { THEMES } from '../theme/themes';
+import { useMediaStatusBar } from '../hooks/useMediaStatusBar';
 import VoiceRecordingOverlay from '../components/VoiceRecordingOverlay';
 import { useHoldToRecord } from '../hooks/useHoldToRecord';
 import UndoToast from '../components/UndoToast';
@@ -46,6 +48,8 @@ import { useOfflineCache } from '../hooks/useOfflineCache';
 import { logError } from '../utils/errorHandler';
 import { xAlert, xConfirm } from '../utils/crossAlert';
 import { getSession, isCurrentSession } from '../services/session';
+
+const mediaTheme = THEMES.find(item => item.key === 'dark')!;
 
 interface Props { selectedTag: string | null; selectedDate: string | null; onLockChange?: (locked: boolean) => void; onSelectTag?: (tagId: string | null) => void; onRecordingChange?: (active: boolean) => void; }
 
@@ -99,6 +103,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
   // --- Hooks ---
 
   const privacy = usePrivacyMode({ onLockChange, showError });
+  useMediaStatusBar(navigation.getParent?.() ?? navigation, !!previewImage && !privacy.locked, theme.key);
   useEffect(() => {
     // Locking unmounts the list; its next mount starts at offset zero as well.
     if (privacy.locked || !privacy.settingsReady) sticky.scrollY.setValue(0);
@@ -521,7 +526,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
       {feed}
 
       {!batch.batchMode && <View pointerEvents="box-none" style={[styles.headerClip, { top: insets.top }]}>
-        <Animated.View pointerEvents="box-none" style={{ transform: [{ translateY: sticky.translateY }] }}>
+        <Animated.View pointerEvents="box-none" style={{ backgroundColor: c.background, transform: [{ translateY: sticky.translateY }] }}>
           <View onLayout={sticky.onSearchLayout} style={styles.searchRow}>
             <SearchInput searchText={searchText} onSearchTextChange={changeSearchText}
               onSubmit={saveSearchHistory} onFocus={() => setSearchVisible(true)}
@@ -561,10 +566,10 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
         </GlassSurface>
       )}
 
-      <Modal visible={!!previewImage} transparent animationType={reduceMotion ? "none" : "fade"} onRequestClose={() => setPreviewImage(null)}>
+      <Modal visible={!!previewImage} transparent presentationStyle="overFullScreen" animationType={reduceMotion ? "none" : "fade"} onRequestClose={() => setPreviewImage(null)}>
         <View style={styles.previewOverlay}>
 
-          <GlassIconButton theme={theme} icon="close" style={[styles.previewClose, { top: insets.top + 12 }]} onPress={() => setPreviewImage(null)} accessibilityLabel="关闭图片预览" />
+          <GlassIconButton theme={mediaTheme} icon="close" style={[styles.previewClose, { top: insets.top + 12 }]} onPress={() => setPreviewImage(null)} accessibilityLabel="关闭图片预览" />
           {previewImages.length > 1 && (
             <View style={styles.previewCounter}>
               <Text style={styles.previewCounterText}>{previewIndex + 1} / {previewImages.length}</Text>
@@ -572,10 +577,10 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
           )}
           {previewImage && <ImageViewer imageUrl={previewImage} onClose={() => setPreviewImage(null)} />}
           {previewImages.length > 1 && previewIndex > 0 && (
-            <GlassIconButton theme={theme} icon="chevron-back" style={[styles.previewNav, styles.previewNavLeft]} onPress={() => { const i = previewIndex - 1; setPreviewIndex(i); setPreviewImage(previewImages[i]); }} accessibilityLabel="上一张图片" />
+            <GlassIconButton theme={mediaTheme} icon="chevron-back" style={[styles.previewNav, styles.previewNavLeft]} onPress={() => { const i = previewIndex - 1; setPreviewIndex(i); setPreviewImage(previewImages[i]); }} accessibilityLabel="上一张图片" />
           )}
           {previewImages.length > 1 && previewIndex < previewImages.length - 1 && (
-            <GlassIconButton theme={theme} icon="chevron-forward" style={[styles.previewNav, styles.previewNavRight]} onPress={() => { const i = previewIndex + 1; setPreviewIndex(i); setPreviewImage(previewImages[i]); }} accessibilityLabel="下一张图片" />
+            <GlassIconButton theme={mediaTheme} icon="chevron-forward" style={[styles.previewNav, styles.previewNavRight]} onPress={() => { const i = previewIndex + 1; setPreviewIndex(i); setPreviewImage(previewImages[i]); }} accessibilityLabel="下一张图片" />
           )}
         </View>
       </Modal>
@@ -622,7 +627,7 @@ const styles = StyleSheet.create({
     minHeight: 44, borderRadius: 22, paddingHorizontal: 12,
   },
   countdownText: { color: '#fff', fontSize: 12, fontWeight: '600' },
-  previewOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)' },
+  previewOverlay: { flex: 1, backgroundColor: '#000' },
   previewClose: { position: 'absolute', top: 50, right: 20, zIndex: 10 },
   previewCounter: { position: 'absolute', top: 56, left: 0, right: 0, zIndex: 10, alignItems: 'center' },
   previewCounterText: { color: '#fff', fontSize: 15, fontWeight: '600' },

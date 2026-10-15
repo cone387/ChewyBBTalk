@@ -16,6 +16,7 @@ import { xAlert } from '../utils/crossAlert';
 import AudioPlayerButton from '../components/AudioPlayerButton';
 import VideoPlayerButton from '../components/VideoPlayerButton';
 import ImageViewer from '../components/ImageViewer';
+import { useMediaStatusBar } from '../hooks/useMediaStatusBar';
 import type { BBTalk } from '../types';
 
 export default function RecordDetailScreen() {
@@ -27,6 +28,7 @@ export default function RecordDetailScreen() {
   const { theme } = useTheme(); const c = theme.colors;
   const insets = useSafeAreaInsets();
   const [imageIndex, setImageIndex] = useState<number | null>(null);
+  useMediaStatusBar(navigation, imageIndex !== null && !locked, theme.key);
   if (locked) return <View style={{ flex: 1, padding: 24, backgroundColor: c.background, justifyContent: 'center', alignItems: 'center' }}><Ionicons name="lock-closed-outline" size={36} color={c.primary} /><Text style={{ color: c.text, marginVertical: 16 }}>记录已锁定</Text><TouchableOpacity accessibilityRole="button" onPress={() => navigation.popToTop()} style={{ minHeight: 48, justifyContent: 'center' }}><Text style={{ color: c.primary }}>返回首页解锁</Text></TouchableOpacity></View>;
   if (!item) return <View style={{ flex: 1, padding: 24, backgroundColor: c.background, justifyContent: 'center', alignItems: 'center' }}><Text style={{ color: c.text }}>请从记录列表选择一条记录。</Text><TouchableOpacity accessibilityRole="button" onPress={() => navigation.navigate('Home', { screen: 'Records' })} style={{ minHeight: 48, justifyContent: 'center' }}><Text style={{ color: c.primary }}>查看记录</Text></TouchableOpacity></View>;
   const images = item.attachments.filter(a => a.type === 'image');
@@ -44,6 +46,6 @@ export default function RecordDetailScreen() {
         <Image source={buildImageSource(att.url)} style={{ width: '100%', height: 260, borderRadius: 12 }} contentFit="contain" />
       </TouchableOpacity> : att.type === 'audio' ? <AudioPlayerButton key={att.uid} attachment={att} /> : att.type === 'video' ? <VideoPlayerButton key={att.uid} attachment={att} /> : <TouchableOpacity key={att.uid} accessibilityRole="button" onPress={() => Linking.openURL(att.url).catch(() => xAlert('无法打开附件', '请稍后重试'))} style={{ padding: 16, borderRadius: 12, backgroundColor: c.surface }}><Text style={{ color: c.primary }}>{att.originalFilename || att.filename || '打开附件'}</Text></TouchableOpacity>)}</View>
     </ScrollView>
-    <Modal visible={imageIndex !== null} onRequestClose={() => setImageIndex(null)}>{imageIndex !== null && <View style={{ flex: 1, backgroundColor: '#000' }}><ImageViewer imageUrl={images[imageIndex].url} onClose={() => setImageIndex(null)} /><TouchableOpacity accessibilityRole="button" accessibilityLabel="关闭照片" onPress={() => setImageIndex(null)} style={{ position: 'absolute', top: insets.top + 12, right: 16, padding: 12 }}><Ionicons name="close" size={26} color="#fff" /></TouchableOpacity></View>}</Modal>
+    <Modal visible={imageIndex !== null} transparent presentationStyle="overFullScreen" onRequestClose={() => setImageIndex(null)}>{imageIndex !== null && <View style={{ flex: 1, backgroundColor: '#000' }}><ImageViewer imageUrl={images[imageIndex].url} onClose={() => setImageIndex(null)} /><TouchableOpacity accessibilityRole="button" accessibilityLabel="关闭照片" onPress={() => setImageIndex(null)} style={{ position: 'absolute', top: insets.top + 12, right: 16, padding: 12 }}><Ionicons name="close" size={26} color="#fff" /></TouchableOpacity></View>}</Modal>
   </View>;
 }
