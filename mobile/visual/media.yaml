@@ -1,6 +1,18 @@
 appId: com.chewy.bbtalk
 ---
 - launchApp
+# Explicit light preference catches black-on-black preview/status-bar defects
+# even when the primary flow previously selected the dark theme.
+- tapOn:
+    id: tab-mine
+- tapOn: "外观"
+- tapOn: "默认蓝主题"
+- swipe:
+    start: 2%, 50%
+    end: 85%, 50%
+    duration: 500
+- tapOn:
+    id: tab-records
 - scrollUntilVisible:
     element:
       text: "查看图片 1"
@@ -11,6 +23,7 @@ appId: com.chewy.bbtalk
 - tapOn: "下一张图片"
 - takeScreenshot: image-preview-next
 - tapOn: "关闭图片预览"
+- takeScreenshot: image-preview-restored-light
 - scrollUntilVisible:
     element:
       text: "播放音频 sample.wav"
@@ -24,3 +37,37 @@ appId: com.chewy.bbtalk
 - tapOn: "播放视频 sample.mp4"
 - takeScreenshot: video-active
 - tapOn: "关闭视频"
+- scrollUntilVisible:
+    element:
+      text: ".*碎碎念：图片、语音和视频.*"
+    direction: UP
+- tapOn: ".*碎碎念：图片、语音和视频.*"
+- takeScreenshot: media-detail-light
+- tapOn:
+    text: "查看照片"
+    index: 0
+- takeScreenshot: detail-image-preview-light
+- tapOn: "关闭照片"
+- takeScreenshot: detail-image-restored-light
+- swipe:
+    start: 2%, 50%
+    end: 85%, 50%
+    duration: 500
+- tapOn:
+    id: tab-mine
+- tapOn: "外观"
+- tapOn: "深色主题"
+- swipe:
+    start: 2%, 50%
+    end: 85%, 50%
+    duration: 500
+- tapOn:
+    id: tab-records
+- scrollUntilVisible:
+    element:
+      text: "查看图片 1"
+    direction: DOWN
+- tapOn: "查看图片 1"
+- takeScreenshot: image-preview-dark
+- tapOn: "关闭图片预览"
+- takeScreenshot: image-preview-restored-dark
