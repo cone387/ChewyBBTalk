@@ -1,3 +1,4 @@
+jest.mock('@react-navigation/elements', () => ({ useHeaderHeight: () => 88 }));
 jest.mock('react-native', () => ({
   View: 'View', Text: 'Text', TouchableOpacity: 'TouchableOpacity', ScrollView: 'ScrollView',
   TextInput: 'TextInput', ActivityIndicator: 'ActivityIndicator', KeyboardAvoidingView: 'KeyboardAvoidingView',

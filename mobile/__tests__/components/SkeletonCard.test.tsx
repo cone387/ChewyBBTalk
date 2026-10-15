@@ -1,7 +1,7 @@
 jest.mock('react-native', () => {
   const AnimatedMock = {
     View: 'AnimatedView',
-    Value: jest.fn(() => ({ interpolate: jest.fn(() => ({ __opacity: true })) })),
+    Value: jest.fn(() => ({ setValue: jest.fn(), interpolate: jest.fn(() => ({ __opacity: true })) })),
     loop: jest.fn((animation: unknown) => ({ start: jest.fn(), stop: jest.fn() })),
     sequence: jest.fn((steps: unknown) => steps),
     timing: jest.fn(() => ({})),
@@ -14,6 +14,7 @@ jest.mock('react-native', () => {
   };
 });
 jest.mock('../../src/theme/ThemeContext', () => ({ useTheme: () => ({ theme: require('../../src/theme/themes').THEMES[0] }) }));
+jest.mock('../../src/theme/GlassPreferences', () => ({ useGlassPreferences: jest.fn(() => ({ reduceMotion: false })) }));
 
 import React from 'react';
 import SkeletonCard from '../../src/components/SkeletonCard';
@@ -24,10 +25,16 @@ const { THEMES } = require('../../src/theme/themes');
 
 let tree: any;
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => { jest.clearAllMocks(); require('../../src/theme/GlassPreferences').useGlassPreferences.mockReturnValue({ reduceMotion: false }); });
 afterEach(() => { act(() => { tree?.unmount(); }); tree = undefined; });
 
 describe('SkeletonCard', () => {
+  it('stays static when reduced motion is enabled', async () => {
+    require('../../src/theme/GlassPreferences').useGlassPreferences.mockReturnValue({ reduceMotion: true });
+    await act(async () => { tree = create(<SkeletonCard />); });
+    expect(RN.Animated.loop).not.toHaveBeenCalled();
+    expect(RN.Animated.Value.mock.results[0].value.setValue).toHaveBeenCalledWith(1);
+  });
   it('starts the pulse loop over an up/down sequence', async () => {
     await act(async () => { tree = create(<SkeletonCard />); });
     expect(RN.Animated.timing).toHaveBeenCalledTimes(2);

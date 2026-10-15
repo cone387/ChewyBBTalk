@@ -1,3 +1,4 @@
+import { useHeaderHeight } from '@react-navigation/elements';
 import { UI } from '../theme/materials';
 import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
@@ -11,6 +12,7 @@ import { xConfirm } from '../utils/crossAlert';
 import { createPrivacyOperation } from '../services/privacyOperation';
 
 export default function StorageSettingsScreen() {
+  const headerHeight = useHeaderHeight();
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const c = theme.colors;
@@ -90,7 +92,7 @@ export default function StorageSettingsScreen() {
   if (loading) return <View style={[styles.container, { backgroundColor: c.surfaceSecondary }]}><LoadingPlaceholder /></View>;
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView keyboardVerticalOffset={headerHeight} style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
     <ScrollView keyboardShouldPersistTaps="handled" style={[styles.container, { backgroundColor: c.surfaceSecondary }]} contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 20, width: '100%', maxWidth: 760, alignSelf: 'center' }}>
       {notice && <View accessibilityRole="alert" style={{ marginBottom: 16 }}>
         <Text style={{ color: c.text, fontWeight: '600' }}>{notice.title}</Text>
@@ -173,17 +175,14 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   statusCard: {
     flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: UI.radius.card, padding: 14, marginBottom: 12,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   },
   statusText: { flex: 1, fontSize: 14, fontWeight: '500' },
   optionCard: {
     flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: UI.radius.card, padding: 14, marginBottom: 12,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   },
   optionText: { flex: 1, fontSize: 15 },
   configCard: {
     borderRadius: UI.radius.card, padding: 14, marginBottom: 10, borderWidth: 1,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   },
   configHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   configName: { flex: 1, fontSize: 15, fontWeight: '600', marginRight: 8 },
@@ -195,7 +194,6 @@ const styles = StyleSheet.create({
   actionBtnText: { fontSize: 13, fontWeight: '500' },
   addForm: {
     borderRadius: UI.radius.card, padding: 16, marginTop: 4,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   },
   addTitle: { fontSize: 15, fontWeight: '600', marginBottom: 12 },
   fieldLabel: { fontSize: 12, fontWeight: '500', marginBottom: 4, marginTop: 8 },

@@ -1,3 +1,4 @@
+import { useHeaderHeight } from '@react-navigation/elements';
 import { UI } from '../theme/materials';
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Platform, ScrollView, KeyboardAvoidingView } from 'react-native';
@@ -15,6 +16,7 @@ import { xAlert, xConfirm } from '../utils/crossAlert';
 import { getSession, isCurrentSession, onSessionChange } from '../services/session';
 
 export default function ProfileEditScreen() {
+  const headerHeight = useHeaderHeight();
   const currentUser = getCurrentUser();
   const session = getSession();
   const insets = useSafeAreaInsets();
@@ -27,6 +29,7 @@ export default function ProfileEditScreen() {
   const [email, setEmail] = useState(currentUser?.email || '');
   const [saving, setSaving] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(currentUser?.avatar || null);
+  const [failedAvatar, setFailedAvatar] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const savingRef = useRef(false);
   const savedRef = useRef(false);
@@ -115,20 +118,17 @@ export default function ProfileEditScreen() {
   if (!currentUser) return null;
 
   return (
-    <KeyboardAvoidingView style={[styles.container, { backgroundColor: c.surfaceSecondary }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView keyboardVerticalOffset={headerHeight} style={[styles.container, { backgroundColor: c.surfaceSecondary }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}>
         {/* Avatar */}
         <View style={styles.avatarSection}>
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="更换头像" onPress={pickAvatar} activeOpacity={0.7} disabled={uploadingAvatar || saving}>
-            {avatarUrl ? (
-              <Image source={buildImageSource(avatarUrl)} style={styles.avatar} contentFit="cover" />
-            ) : (
-              <View style={[styles.avatar, { backgroundColor: c.avatarBg }]}>
-                <Text style={styles.avatarText}>
+              <View style={[styles.avatar, { backgroundColor: c.primaryLight, overflow: 'hidden' }]}>
+                <Text style={[styles.avatarText, { color: c.primary }]}>
                   {(displayName || currentUser.username).charAt(0).toUpperCase()}
                 </Text>
+                {avatarUrl && avatarUrl !== failedAvatar && <Image source={buildImageSource(avatarUrl)} style={StyleSheet.absoluteFillObject} contentFit="cover" onError={() => setFailedAvatar(avatarUrl)} />}
               </View>
-            )}
             <View style={[styles.avatarBadge, { backgroundColor: c.primary }]}>
               {uploadingAvatar ? (
                 <ActivityIndicator size="small" color="#fff" />
@@ -214,8 +214,6 @@ const styles = StyleSheet.create({
   username: { fontSize: 14, marginTop: 8 },
   card: {
     borderRadius: UI.radius.card, padding: 16,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   },
   label: { fontSize: 13, fontWeight: '500', marginBottom: 6, marginTop: 12 },
   input: {

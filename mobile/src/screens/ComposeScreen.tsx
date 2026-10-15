@@ -215,7 +215,7 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
     return editItem.tags.map(t => `#${t.name} `).join('') + editItem.content;
   });
   const [cursorPos, setCursorPos] = useState(0);
-  const [visibility, setVisibility] = useState<'public' | 'private'>((editItem?.visibility as any) || 'private');
+  const [visibility, setVisibility] = useState<BBTalk['visibility']>(editItem?.visibility || 'private');
   const [attachments, setAttachments] = useState<Attachment[]>(editItem?.attachments || []);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -309,7 +309,7 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
           try { saved = JSON.parse(draft); } catch { /* Legacy plain text. */ }
           if (saved?.version === 1 && typeof saved.content === 'string' && Array.isArray(saved.attachments)) {
             setContent(saved.content);
-            setVisibility(saved.visibility === 'public' ? 'public' : 'private');
+            setVisibility(saved.visibility === 'public' || saved.visibility === 'friends' ? saved.visibility : 'private');
             setAttachments(saved.attachments);
             setLocation(saved.location || null);
             setPendingMedia(Array.isArray(saved.pendingMedia) ? saved.pendingMedia.filter((item: any) => typeof item?.id === 'string' && typeof item?.uri === 'string' && typeof item?.name === 'string' && typeof item?.mime === 'string') : []);
@@ -631,7 +631,7 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
       </View>
 
       {/* 工具栏 */}
-      <GlassSurface theme={theme} radius={0} testID="compose-toolbar" style={[styles.toolbarWrap, { paddingBottom: bottomPad, marginBottom: keyboardH }]}>
+      <GlassSurface theme={theme} radius={0} testID="compose-toolbar" style={[styles.toolbarWrap, { paddingBottom: bottomPad, marginBottom: Platform.OS === 'ios' ? keyboardH : 0 }]}>
         {!lockedCapture && showQuickTags && existingTags.length > 0 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always" style={styles.quickTagBar} contentContainerStyle={{ paddingHorizontal: 12, gap: 8 }}>
             {existingTags.filter(t => !currentTags.includes(t.name)).slice(0, 15).map(tag => (

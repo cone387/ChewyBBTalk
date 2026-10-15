@@ -1,6 +1,7 @@
 jest.mock('react-native', () => ({
   __esModule: true,
   View: 'View', Text: 'Text', TouchableOpacity: 'TouchableOpacity',
+  ScrollView: 'ScrollView', useColorScheme: () => 'light',
   StyleSheet: { create: (value: unknown) => value },
 }));
 jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Icon' }));

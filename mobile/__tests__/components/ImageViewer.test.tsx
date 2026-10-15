@@ -120,6 +120,24 @@ describe('ImageViewer double-tap zoom', () => {
 });
 
 describe('ImageViewer pinch to zoom', () => {
+  it('starts a pinch when a second finger joins an existing touch', async () => {
+    await mountViewer();
+    grant([touch(50, 50)]);
+    move([touch(50, 50), touch(150, 50)], { dx: 0, dy: 0 });
+    move([touch(50, 50), touch(250, 50)], { dx: 0, dy: 0 });
+    expect(RN.__values[0].__getValue()).toBe(2);
+  });
+
+  it('resets zoom and translation when the displayed photo changes', async () => {
+    await mountViewer();
+    grant([touch(50, 50), touch(150, 50)]);
+    move([touch(50, 50), touch(250, 50)], { dx: 0, dy: 0 });
+    release([], { dx: 0, dy: 0 });
+    move([touch(0, 0)], { dx: 50, dy: 20 });
+    await act(async () => { tree.update(<ImageViewer imageUrl="https://img.example/b.png" onClose={jest.fn()} />); });
+    expect(RN.__values.slice(0, 3).map((v: any) => v.__getValue())).toEqual([1, 0, 0]);
+  });
+
   it('scales with two fingers, clamps, and commits the zoom on release', async () => {
     await mountViewer();
     const scale = RN.__values[0];

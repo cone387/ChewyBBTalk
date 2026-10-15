@@ -96,7 +96,7 @@ function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
   const screenOptions = {
     headerTintColor: c.text,
     headerShadowVisible: false,
-    headerTitleStyle: { fontWeight: '600' as const },
+    headerTitleStyle: { fontSize: 17, fontWeight: '600' as const },
     // Keep UIKit's native back button/material and interactive pop gesture.
     animation: reduceMotion ? 'none' as const : 'default' as const,
     statusBarStyle: theme.key === 'dark' ? 'light' as const : 'dark' as const,

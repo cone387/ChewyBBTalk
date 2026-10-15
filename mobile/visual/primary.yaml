@@ -5,14 +5,23 @@ appId: com.chewy.bbtalk
     visible: "欢迎回来"
     timeout: 60000
 - takeScreenshot: login
-- tapOn: "用户名"
+- tapOn: "使用自建服务"
+- tapOn: "选择服务"
+- tapOn: "添加服务地址"
+- tapOn: "服务地址"
+- inputText: https://example.test
+- takeScreenshot: server-keyboard
+- tapOn: "关闭服务选择"
+- tapOn:
+    id: login-username
 - inputText: preview
-- tapOn: "请输入密码"
+- tapOn:
+    id: login-password
 - inputText: visual-password
-- hideKeyboard
-- tapOn: "登录"
+- tapOn:
+    id: login-submit
 - extendedWaitUntil:
-    visible: "今天的风很舒服。"
+    visible: ".*今天的风很舒服.*"
     timeout: 60000
 - takeScreenshot: home
 - tapOn: "新建碎碎念"
@@ -29,14 +38,59 @@ appId: com.chewy.bbtalk
 - tapOn:
     text: "丢弃.*"
     optional: true
-- tapOn: "日历"
+- tapOn:
+    id: tab-calendar
 - takeScreenshot: calendar
 - tapOn: "选择年月"
 - tapOn: "年份"
 - takeScreenshot: calendar-year-keyboard
 - hideKeyboard
 - tapOn: "取消"
-- tapOn: "我的"
+- tapOn:
+    id: tab-mine
 - takeScreenshot: settings
 - tapOn: "账号与安全"
 - takeScreenshot: account-security
+- swipe:
+    start: 2%, 50%
+    end: 85%, 50%
+    duration: 500
+- tapOn: "编辑个人信息"
+- takeScreenshot: profile
+- tapOn: "个人简介"
+- takeScreenshot: profile-keyboard
+- swipe:
+    start: 2%, 50%
+    end: 85%, 50%
+    duration: 500
+- tapOn: "防窥设置"
+- takeScreenshot: privacy
+- swipe:
+    start: 2%, 50%
+    end: 85%, 50%
+    duration: 500
+- tapOn: "备份与导出"
+- takeScreenshot: data
+- swipe:
+    start: 2%, 50%
+    end: 85%, 50%
+    duration: 500
+- tapOn: "标签管理"
+- takeScreenshot: tags
+- swipe:
+    start: 2%, 50%
+    end: 85%, 50%
+    duration: 500
+- tapOn: "外观"
+- tapOn: "深色主题"
+- takeScreenshot: themes-dark
+- swipe:
+    start: 2%, 50%
+    end: 85%, 50%
+    duration: 500
+- takeScreenshot: settings-dark
+- tapOn:
+    id: tab-records
+- takeScreenshot: home-dark
+- tapOn: "新建碎碎念"
+- takeScreenshot: compose-dark-keyboard

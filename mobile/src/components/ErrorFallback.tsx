@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, useColorScheme } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 interface ErrorFallbackProps {
@@ -13,11 +13,14 @@ interface ErrorFallbackProps {
  */
 export default function ErrorFallback({ onRetry, errorMessage }: ErrorFallbackProps) {
   const [showDetails, setShowDetails] = useState(false);
+  const dark = useColorScheme() === 'dark';
+  const text = dark ? '#F4F4F5' : '#18181B';
+  const secondary = dark ? '#A1A1AA' : '#62626B';
   return (
-    <View style={styles.container} accessibilityRole="alert" accessibilityLabel="应用出现错误">
+    <View style={[styles.container, { backgroundColor: dark ? '#18181B' : '#FAFAFA' }]} accessibilityRole="alert" accessibilityLabel="应用出现错误">
       <Ionicons name="alert-circle-outline" size={48} color="#2563EB" style={{ marginBottom: 16 }} />
-      <Text style={styles.title}>出了点问题</Text>
-      <Text style={styles.message}>
+      <Text style={[styles.title, { color: text }]}>出了点问题</Text>
+      <Text style={[styles.message, { color: secondary }]}>
         页面暂时无法显示，请尝试重新加载。
       </Text>
       <TouchableOpacity
@@ -31,9 +34,9 @@ export default function ErrorFallback({ onRetry, errorMessage }: ErrorFallbackPr
       </TouchableOpacity>
       {!!errorMessage && <TouchableOpacity accessibilityRole="button" accessibilityState={{ expanded: showDetails }}
         onPress={() => setShowDetails(value => !value)} style={{ minHeight: 44, justifyContent: 'center', marginTop: 12 }}>
-        <Text style={{ color: '#71717A' }}>{showDetails ? '收起错误详情' : '查看错误详情'}</Text>
+        <Text style={{ color: secondary }}>{showDetails ? '收起错误详情' : '查看错误详情'}</Text>
       </TouchableOpacity>}
-      {showDetails && <Text selectable style={styles.message}>{errorMessage}</Text>}
+      {showDetails && <ScrollView style={{ maxHeight: 180, width: '100%' }}><Text selectable style={[styles.message, { color: secondary }]}>{errorMessage}</Text></ScrollView>}
     </View>
   );
 }

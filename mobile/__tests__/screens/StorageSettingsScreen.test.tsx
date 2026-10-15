@@ -1,3 +1,4 @@
+jest.mock('@react-navigation/elements', () => ({ useHeaderHeight: () => 88 }));
 const mockApi: any = {};
 const mockXAlert = jest.fn();
 const mockXConfirm = jest.fn();

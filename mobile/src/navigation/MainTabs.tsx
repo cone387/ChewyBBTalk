@@ -71,6 +71,7 @@ export default function MainTabs({ onLogout }: { onLogout: () => void }) {
           backgroundColor: 'transparent', borderTopWidth: 0, borderRadius: 32, elevation: 0,
           display: locked ? 'none' : 'flex', height: UI.tabBarHeight, paddingTop: 6, paddingBottom: 6, paddingHorizontal: 6 },
         tabBarButton: RoundedTabButton,
+        tabBarButtonTestID: `tab-${route.name.toLowerCase()}`,
         tabBarItemStyle: { minHeight: 48, marginHorizontal: 2, borderRadius: 24 },
         tabBarLabelPosition: 'below-icon',
         tabBarActiveBackgroundColor: c.primaryLight,

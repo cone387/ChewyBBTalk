@@ -1,8 +1,8 @@
 jest.mock('react-native', () => {
   const AnimatedMock = {
     View: 'AnimatedView',
-    Value: jest.fn(() => ({ __value: true })),
-    timing: jest.fn(() => ({ start: jest.fn() })),
+    Value: jest.fn(() => ({ __value: true, setValue: jest.fn() })),
+    timing: jest.fn(() => ({ start: jest.fn(), stop: jest.fn() })),
   };
   return {
     __esModule: true,
@@ -12,6 +12,7 @@ jest.mock('react-native', () => {
   };
 });
 jest.mock('../../src/theme/ThemeContext', () => ({ useTheme: () => ({ theme: require('../../src/theme/themes').THEMES[0] }) }));
+jest.mock('../../src/theme/GlassPreferences', () => ({ useGlassPreferences: jest.fn(() => ({ reduceMotion: false })) }));
 
 import React from 'react';
 import LoadingPlaceholder from '../../src/components/LoadingPlaceholder';
@@ -22,10 +23,16 @@ const { THEMES } = require('../../src/theme/themes');
 
 let tree: any;
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => { jest.clearAllMocks(); require('../../src/theme/GlassPreferences').useGlassPreferences.mockReturnValue({ reduceMotion: false }); });
 afterEach(() => { act(() => { tree?.unmount(); }); tree = undefined; });
 
 describe('LoadingPlaceholder', () => {
+  it('appears without animation when reduced motion is enabled', async () => {
+    require('../../src/theme/GlassPreferences').useGlassPreferences.mockReturnValue({ reduceMotion: true });
+    await act(async () => { tree = create(<LoadingPlaceholder />); });
+    expect(RN.Animated.timing).not.toHaveBeenCalled();
+    expect(RN.Animated.Value.mock.results[0].value.setValue).toHaveBeenCalledWith(1);
+  });
   it('fades in with a 200ms timing and shows the spinner', async () => {
     await act(async () => { tree = create(<LoadingPlaceholder />); });
     expect(RN.Animated.timing).toHaveBeenCalledWith(

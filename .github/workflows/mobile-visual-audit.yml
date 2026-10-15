@@ -47,6 +47,8 @@ jobs:
         run: |
           set -o pipefail
           xcodebuild -workspace ios/ChewyBBTalk.xcworkspace -scheme ChewyBBTalk -configuration Release -sdk iphonesimulator -destination "id=$SIMULATOR_UDID" -derivedDataPath build/visual CODE_SIGNING_ALLOWED=NO ONLY_ACTIVE_ARCH=YES build > test-results/native-visual/build.log 2>&1
+      - name: Preserve simulator binary for additional flows
+        run: tar -czf mobile/test-results/native-visual/simulator-app.tar.gz -C mobile/build/visual/Build/Products/Release-iphonesimulator ChewyBBTalk.app
       - name: Install Maestro
         run: |
           curl -fsSL https://get.maestro.mobile.dev -o "$RUNNER_TEMP/install-maestro.sh"
@@ -62,6 +64,9 @@ jobs:
           xcrun simctl install "$SIMULATOR_UDID" mobile/build/visual/Build/Products/Release-iphonesimulator/ChewyBBTalk.app
           python3 scripts/mobile-visual/seed-settings.py "$SIMULATOR_UDID"
           maestro --device "$SIMULATOR_UDID" test --test-output-dir mobile/test-results/native-visual/maestro mobile/visual/primary.yaml
+          xcrun simctl terminate "$SIMULATOR_UDID" com.chewy.bbtalk || true
+          xcrun simctl ui "$SIMULATOR_UDID" content_size accessibility-large
+          maestro --device "$SIMULATOR_UDID" test --test-output-dir mobile/test-results/native-visual/maestro-large mobile/visual/large-text.yaml
       - name: Collect native evidence
         if: always()
         run: |

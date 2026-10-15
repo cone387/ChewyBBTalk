@@ -1,3 +1,4 @@
+import { useHeaderHeight } from '@react-navigation/elements';
 import { UI } from '../theme/materials';
 import { getSession, isCurrentSession, onSessionChange } from '../services/session';
 import { removeAccountDrafts } from '../services/pendingMedia';
@@ -14,6 +15,7 @@ import { xAlert, xConfirm } from '../utils/crossAlert';
 interface Props { onLogout: () => void; }
 
 export default function AccountSecurityScreen({ onLogout }: Props) {
+  const headerHeight = useHeaderHeight();
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const c = theme.colors;
@@ -108,7 +110,7 @@ export default function AccountSecurityScreen({ onLogout }: Props) {
   };
 
   return (
-    <KeyboardAvoidingView style={[styles.container, { backgroundColor: c.surfaceSecondary }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView keyboardVerticalOffset={headerHeight} style={[styles.container, { backgroundColor: c.surfaceSecondary }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}>
         <Text style={[styles.sectionTitle, { color: c.textSecondary }]}>账号信息</Text>
         <TouchableOpacity accessibilityRole="button" onPress={() => navigation.navigate('ProfileEdit')} style={[styles.dangerCard, { backgroundColor: c.cardBg, borderColor: c.border, marginBottom: 20 }]}>
@@ -202,7 +204,6 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 14, fontWeight: '600', marginTop: 8, marginBottom: 10, marginLeft: 4 },
   dangerCard: {
     borderRadius: UI.radius.card, borderWidth: 1, padding: 18,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   },
   dangerHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
   dangerHeaderText: { fontSize: 16, fontWeight: '600' },

@@ -14,7 +14,7 @@ export default function AboutScreen() {
   const { theme } = useTheme();
   const c = theme.colors;
   const version = Constants.expoConfig?.version || '1.1.0';
-  const buildNumber = Constants.expoConfig?.ios?.buildNumber || '1';
+  const buildNumber = Constants.platform?.ios?.buildNumber || Constants.expoConfig?.ios?.buildNumber || '1';
   const [checking, setChecking] = useState(false);
 
   const handleCheckUpdate = async () => {
@@ -37,7 +37,7 @@ export default function AboutScreen() {
       contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 20 }}>
       
       <View style={[styles.logoCard, { backgroundColor: c.cardBg }]}>
-        <View style={[styles.logoIcon, { backgroundColor: c.accent }]}>
+        <View style={[styles.logoIcon, { backgroundColor: c.primary }]}>
           <Ionicons name="chatbubbles" size={36} color="#fff" />
         </View>
         <Text style={[styles.appName, { color: c.text }]}>ChewyBBTalk</Text>
@@ -48,8 +48,8 @@ export default function AboutScreen() {
       <TouchableOpacity style={[styles.actionCard, { backgroundColor: c.cardBg }]} activeOpacity={0.7}
         onPress={handleCheckUpdate} disabled={checking}>
         <View style={styles.actionRow}>
-          <View style={[styles.actionIcon, { backgroundColor: '#10B981' }]}>
-            {checking ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="refresh-outline" size={20} color="#fff" />}
+          <View style={[styles.actionIcon, { backgroundColor: c.primaryLight }]}>
+            {checking ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="refresh-outline" size={20} color={c.primary} />}
           </View>
           <View style={styles.actionInfo}>
             <Text style={[styles.actionTitle, { color: c.text }]}>{checking ? '正在检查...' : '检查更新'}</Text>
@@ -62,8 +62,8 @@ export default function AboutScreen() {
       <TouchableOpacity style={[styles.actionCard, { backgroundColor: c.cardBg }]} activeOpacity={0.7}
         onPress={() => Linking.openURL(`${getApiBaseUrl()}/privacy-policy/`).catch(() => xAlert('无法打开隐私政策', '请检查网络后重试'))}>
         <View style={styles.actionRow}>
-          <View style={[styles.actionIcon, { backgroundColor: '#0EA5E9' }]}>
-            <Ionicons name="shield-checkmark" size={20} color="#fff" />
+          <View style={[styles.actionIcon, { backgroundColor: c.primaryLight }]}>
+            <Ionicons name="shield-checkmark" size={20} color={c.primary} />
           </View>
           <View style={styles.actionInfo}>
             <Text style={[styles.actionTitle, { color: c.text }]}>隐私政策</Text>
@@ -79,8 +79,8 @@ export default function AboutScreen() {
       <TouchableOpacity style={[styles.actionCard, { backgroundColor: c.cardBg }]} activeOpacity={0.7}
         onPress={() => Linking.openURL('https://github.com/cone387/ChewyBBTalk').catch(() => xAlert('无法打开仓库', '请检查网络后重试'))}>
         <View style={styles.actionRow}>
-          <View style={[styles.actionIcon, { backgroundColor: '#1F2937' }]}>
-            <Ionicons name="logo-github" size={20} color="#fff" />
+          <View style={[styles.actionIcon, { backgroundColor: c.primaryLight }]}>
+            <Ionicons name="logo-github" size={20} color={c.primary} />
           </View>
           <View style={styles.actionInfo}>
             <Text style={[styles.actionTitle, { color: c.text }]}>GitHub 仓库</Text>
@@ -101,7 +101,6 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   logoCard: {
     borderRadius: 16, padding: 28, alignItems: 'center', marginBottom: 12,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   },
   logoIcon: { width: 72, height: 72, borderRadius: 18, justifyContent: 'center', alignItems: 'center', marginBottom: 14 },
   appName: { fontSize: 22, fontWeight: '700' },
@@ -109,7 +108,6 @@ const styles = StyleSheet.create({
   descText: { fontSize: 13, marginTop: 6 },
   actionCard: {
     borderRadius: UI.radius.card, padding: 16, marginBottom: 10,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   },
   actionRow: { flexDirection: 'row', alignItems: 'center' },
   actionIcon: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 12 },

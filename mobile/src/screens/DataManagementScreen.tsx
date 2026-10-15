@@ -184,7 +184,7 @@ export default function DataManagementScreen() {
       <View style={[styles.card, { backgroundColor: c.cardBg }]}>
         <View style={[styles.cardHeader, { backgroundColor: c.borderLight }]}>
           <View style={[styles.headerIcon, { backgroundColor: c.primary }]}><Ionicons name="cloud-download-outline" size={20} color="#fff" /></View>
-          <View><Text style={[styles.headerTitle, { color: c.text }]}>导出数据</Text><Text style={[styles.headerSub, { color: c.textSecondary }]}>导出你的碎碎念和标签数据</Text></View>
+          <View style={{ flex: 1 }}><Text style={[styles.headerTitle, { color: c.text }]}>导出数据</Text><Text style={[styles.headerSub, { color: c.textSecondary }]}>导出你的碎碎念和标签数据</Text></View>
         </View>
         <View style={styles.cardBody}>
           <TouchableOpacity style={[styles.exportBtn, { borderColor: c.primary, opacity: busy ? 0.5 : 1 }]} onPress={() => handleExport('json')} disabled={busy}>
@@ -198,24 +198,24 @@ export default function DataManagementScreen() {
 
       <View style={[styles.card, { backgroundColor: c.cardBg }]}>
         <View style={[styles.cardHeader, { backgroundColor: c.borderLight }]}>
-          <View style={[styles.headerIcon, { backgroundColor: '#EA580C' }]}><Ionicons name="cloud-upload-outline" size={20} color="#fff" /></View>
-          <View><Text style={[styles.headerTitle, { color: c.text }]}>导入数据</Text><Text style={[styles.headerSub, { color: c.textSecondary }]}>从 JSON 或 ZIP 文件导入数据</Text></View>
+          <View style={[styles.headerIcon, { backgroundColor: c.primary }]}><Ionicons name="cloud-upload-outline" size={20} color="#fff" /></View>
+          <View style={{ flex: 1 }}><Text style={[styles.headerTitle, { color: c.text }]}>导入数据</Text><Text style={[styles.headerSub, { color: c.textSecondary }]}>从 JSON 或 ZIP 文件导入数据</Text></View>
         </View>
         <View style={styles.cardBody}>
-          <TouchableOpacity style={[styles.exportBtn, { borderColor: '#EA580C', opacity: busy ? 0.5 : 1 }]} onPress={handleImport} disabled={busy}>
-            {importing ? <ActivityIndicator size="small" color="#EA580C" /> : <><Ionicons name="push-outline" size={18} color="#EA580C" /><Text style={[styles.exportBtnText, { color: '#EA580C' }]}>选择文件导入</Text></>}
+          <TouchableOpacity style={[styles.exportBtn, { borderColor: c.primary, opacity: busy ? 0.5 : 1 }]} onPress={handleImport} disabled={busy}>
+            {importing ? <ActivityIndicator size="small" color="#EA580C" /> : <><Ionicons name="push-outline" size={18} color="#EA580C" /><Text style={[styles.exportBtnText, { color: c.primary }]}>选择文件导入</Text></>}
           </TouchableOpacity>
         </View>
       </View>
 
       <View style={[styles.card, { backgroundColor: c.cardBg }]}>
         <View style={[styles.cardHeader, { backgroundColor: c.borderLight }]}>
-          <View style={[styles.headerIcon, { backgroundColor: '#DC2626' }]}><Ionicons name="trash-outline" size={20} color="#fff" /></View>
-          <View><Text style={[styles.headerTitle, { color: c.text }]}>离线缓存</Text><Text style={[styles.headerSub, { color: c.textSecondary }]}>清除本地缓存的碎碎念数据</Text></View>
+          <View style={[styles.headerIcon, { backgroundColor: c.danger }]}><Ionicons name="trash-outline" size={20} color="#fff" /></View>
+          <View style={{ flex: 1 }}><Text style={[styles.headerTitle, { color: c.text }]}>离线缓存</Text><Text style={[styles.headerSub, { color: c.textSecondary }]}>清除本地缓存的碎碎念数据</Text></View>
         </View>
         <View style={styles.cardBody}>
-          <TouchableOpacity style={[styles.exportBtn, { borderColor: '#DC2626', opacity: busy ? 0.5 : 1 }]} onPress={handleClearCache} disabled={busy}>
-            {clearing ? <ActivityIndicator size="small" color="#DC2626" /> : <><Ionicons name="trash-bin-outline" size={18} color="#DC2626" /><Text style={[styles.exportBtnText, { color: '#DC2626' }]}>清除离线缓存</Text></>}
+          <TouchableOpacity style={[styles.exportBtn, { borderColor: c.danger, opacity: busy ? 0.5 : 1 }]} onPress={handleClearCache} disabled={busy}>
+            {clearing ? <ActivityIndicator size="small" color="#DC2626" /> : <><Ionicons name="trash-bin-outline" size={18} color="#DC2626" /><Text style={[styles.exportBtnText, { color: c.danger }]}>清除离线缓存</Text></>}
           </TouchableOpacity>
         </View>
       </View>
@@ -234,8 +234,8 @@ const styles = StyleSheet.create({
   cardBody: { padding: 16, gap: 10 },
   exportBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    borderWidth: 1, borderRadius: 10, height: 44,
+    borderWidth: 1, borderRadius: 12, minHeight: 48, paddingHorizontal: 12, paddingVertical: 12,
   },
-  exportBtnText: { fontSize: 14, fontWeight: '500' },
+  exportBtnText: { fontSize: 14, fontWeight: '500', flexShrink: 1, textAlign: 'center' },
   hint: { textAlign: 'center', fontSize: 12, marginTop: 16 },
 });

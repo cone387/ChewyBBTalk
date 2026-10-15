@@ -38,7 +38,7 @@ jest.mock('expo-audio', () => {
 const mockXAlert = jest.fn();
 
 jest.mock('react-native', () => ({
-  View: 'View', Text: 'Text', TouchableOpacity: 'TouchableOpacity',
+  View: 'View', Text: 'Text', TouchableOpacity: 'TouchableOpacity', ScrollView: 'ScrollView',
   StyleSheet: { create: (value: unknown) => value, absoluteFillObject: { top: 0, left: 0, right: 0, bottom: 0 } },
   Animated: {
     View: 'AnimatedView',

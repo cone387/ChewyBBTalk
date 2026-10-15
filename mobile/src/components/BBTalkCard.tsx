@@ -1,4 +1,5 @@
 import React from 'react';
+import { visibilityPresentation } from '../utils/visibilityPresentation';
 import {
   View, Text, TouchableOpacity, StyleSheet, Linking,
 } from 'react-native';
@@ -158,8 +159,9 @@ const BBTalkCard = React.memo(function BBTalkCard({
       {item.tags.length > 0 && (
         <View style={styles.tagRow}>
           {item.tags.map(tag => (
-            <View key={tag.id} style={[styles.tag, { backgroundColor: tag.color || '#3B82F6' }]}>
-              <Text style={styles.tagText}>{tag.name}</Text>
+            <View key={tag.id} style={[styles.tag, { backgroundColor: c.surfaceSecondary, flexDirection: 'row', alignItems: 'center', gap: 5 }]}>
+              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: tag.color || c.primary }} />
+              <Text style={[styles.tagText, { color: c.textSecondary }]}>{tag.name}</Text>
             </View>
           ))}
         </View>
@@ -204,11 +206,11 @@ const BBTalkCard = React.memo(function BBTalkCard({
           </TouchableOpacity>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <Ionicons
-              name={item.visibility === 'public' ? 'globe-outline' : 'lock-closed-outline'}
+              name={visibilityPresentation(item.visibility).icon}
               size={16}
               color={item.visibility === 'public' ? c.textTertiary : c.textTertiary}
             />
-            <Text style={{ color: c.textSecondary, fontSize: 12 }}>{item.visibility === 'public' ? '公开可见' : '仅自己'}</Text>
+            <Text style={{ color: c.textSecondary, fontSize: 12 }}>{visibilityPresentation(item.visibility).shortLabel}</Text>
           </View>
         </View>
       </View>

@@ -110,7 +110,7 @@ export default function SettingsScreen({ onLogout }: Props) {
     );
 
     return (
-      <TouchableOpacity key={item.key} accessibilityRole="button" activeOpacity={0.6} onPress={() => handleMenuPress(item.key)}>
+      <TouchableOpacity key={item.key} accessibilityRole="button" accessibilityLabel={item.title} accessibilityHint={item.subtitle} activeOpacity={0.6} onPress={() => handleMenuPress(item.key)}>
         {content}
       </TouchableOpacity>
     );

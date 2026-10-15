@@ -3,7 +3,7 @@ import GlassSurface from './GlassSurface';
 import { useGlassPreferences } from '../theme/GlassPreferences';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, Animated, TouchableOpacity, AppState, BackHandler,
+  View, Text, StyleSheet, Animated, TouchableOpacity, AppState, BackHandler, ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -223,12 +223,12 @@ function ActiveVoiceRecordingOverlay({ visible, holdMode = false, cancelHint = f
         </Text>
 
         {displayText ? (
-          <View style={[styles.transcriptBox, { backgroundColor: c.borderLight }]}>
+          <ScrollView style={[styles.transcriptBox, { backgroundColor: c.borderLight }]} contentContainerStyle={{ padding: 12 }}>
             <Text style={[styles.transcriptText, { color: c.text }]}>{displayText}</Text>
             {partialResult && !transcript ? (
               <Text style={[styles.transcriptHint, { color: c.textTertiary }]}>识别中...</Text>
             ) : null}
-          </View>
+          </ScrollView>
         ) : sttAvailable ? (
           <Text style={[styles.transcriptPlaceholder, { color: c.textTertiary }]}>语音识别中...</Text>
         ) : (
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
     zIndex: 300,
   },
   card: {
-    width: '86%', maxWidth: 420, borderRadius: UI.radius.card, padding: 28,
+    width: '86%', maxWidth: 420, maxHeight: '90%', borderRadius: UI.radius.card, padding: 24,
     alignItems: 'center',
     shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15, shadowRadius: 20, elevation: 10,
@@ -272,8 +272,8 @@ const styles = StyleSheet.create({
   timer: { fontSize: 28, fontWeight: '700', marginTop: 16 },
   hint: { fontSize: 13, marginTop: 6 },
   transcriptBox: {
-    marginTop: 16, padding: 12, borderRadius: 12,
-    width: '100%', minHeight: 50,
+    marginTop: 16, borderRadius: 12,
+    width: '100%', minHeight: 50, maxHeight: 180, flexShrink: 1,
   },
   transcriptText: { fontSize: 15, lineHeight: 22 },
   transcriptHint: { fontSize: 11, marginTop: 4 },

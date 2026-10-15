@@ -61,7 +61,7 @@ export default function OutboxScreen() {
     {items.map(entry => <View key={entry.id} style={{ padding: 16, marginBottom: 12, borderRadius: UI.radius.card, backgroundColor: c.surface }}>
       <Text style={{ color: ['failed', 'conflict'].includes(entry.state) ? c.danger : c.primary, marginBottom: 8 }}>{labels[entry.state]}</Text>
       <Text style={{ color: c.text, fontSize: 16, lineHeight: 25 }}>{entry.payload.content}</Text>
-      <Text style={{ color: c.textSecondary, marginTop: 8 }}>{entry.payload.visibility === 'public' ? '公开可见' : '仅自己可见'} · {new Date(entry.createdAt).toLocaleString()}</Text>
+      <Text style={{ color: c.textSecondary, marginTop: 8 }}>{entry.payload.visibility === 'public' ? '公开可见' : entry.payload.visibility === 'friends' ? '好友可见' : '仅自己可见'} · {new Date(entry.createdAt).toLocaleString()}</Text>
       {entry.pendingMedia.map(media => <Text key={media.id} style={{ color: c.textSecondary, marginTop: 8 }}>{media.name.startsWith('voice_') ? '语音记录' : media.name} · 待上传</Text>)}
       {!!entry.error && <Text style={{ color: c.danger, marginTop: 8 }}>{entry.error}</Text>}
       {entry.conflict && <View style={{ marginTop: 12 }}>

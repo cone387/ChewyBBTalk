@@ -1,4 +1,5 @@
 import { UI } from '../theme/materials';
+import { useGlassPreferences } from '../theme/GlassPreferences';
 import React, { useEffect, useRef } from 'react';
 import { View, Animated, StyleSheet } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
@@ -10,9 +11,11 @@ import { useTheme } from '../theme/ThemeContext';
 export default function SkeletonCard() {
   const { theme } = useTheme();
   const c = theme.colors;
+  const { reduceMotion } = useGlassPreferences();
   const pulseAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    if (reduceMotion) { pulseAnim.setValue(1); return; }
     const animation = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
@@ -29,7 +32,7 @@ export default function SkeletonCard() {
     );
     animation.start();
     return () => animation.stop();
-  }, [pulseAnim]);
+  }, [pulseAnim, reduceMotion]);
 
   const opacity = pulseAnim.interpolate({
     inputRange: [0, 1],

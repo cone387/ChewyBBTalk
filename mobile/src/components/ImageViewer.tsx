@@ -1,4 +1,4 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import { buildImageSource } from '../utils/imageSource';
 import {
   Animated,
@@ -41,6 +41,18 @@ export default function ImageViewer({ imageUrl, onClose }: ImageViewerProps) {
   const lastTapTime = useRef(0);
   const isZoomed = useRef(false);
 
+  useEffect(() => {
+    baseScale.current = 1;
+    baseTranslateX.current = 0;
+    baseTranslateY.current = 0;
+    pinchStartDistance.current = 0;
+    lastTapTime.current = 0;
+    isZoomed.current = false;
+    scale.setValue(1);
+    translateX.setValue(0);
+    translateY.setValue(0);
+  }, [imageUrl, scale, translateX, translateY]);
+
   /** Calculate distance between two touches */
   const getDistance = (touches: { pageX: number; pageY: number }[]) => {
     const dx = touches[0].pageX - touches[1].pageX;
@@ -74,6 +86,7 @@ export default function ImageViewer({ imageUrl, onClose }: ImageViewerProps) {
 
         onPanResponderGrant: (evt) => {
           const touches = evt.nativeEvent.touches;
+          pinchStartDistance.current = 0;
 
           // --- Double-tap detection (single finger only) ---
           if (touches.length === 1) {
@@ -101,8 +114,13 @@ export default function ImageViewer({ imageUrl, onClose }: ImageViewerProps) {
           const touches = evt.nativeEvent.touches;
 
           // --- Pinch-to-zoom (two fingers) ---
-          if (touches.length === 2 && pinchStartDistance.current > 0) {
+          if (touches.length === 2) {
             const currentDistance = getDistance(touches as any);
+            if (pinchStartDistance.current === 0) {
+              pinchStartDistance.current = currentDistance;
+              lastTapTime.current = 0;
+              return;
+            }
             const pinchScale = currentDistance / pinchStartDistance.current;
             const newScale = Math.max(0.5, Math.min(5, baseScale.current * pinchScale));
             scale.setValue(newScale);

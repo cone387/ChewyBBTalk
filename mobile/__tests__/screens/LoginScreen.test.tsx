@@ -228,6 +228,6 @@ it('cancelling the add-server form restores the list and the backdrop closes the
   await press('取消');
   expect(input('https://your-server.com')).toBeUndefined();
   expect(button('添加服务地址')).toBeDefined();
-  await act(async () => picker().props.children.props.onPress());
+  await act(async () => picker().findAllByType('TouchableOpacity')[0].props.onPress());
   expect(picker().props.visible).toBe(false);
 });

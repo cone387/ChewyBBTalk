@@ -11,6 +11,7 @@ import { useAppSelector } from '../store/hooks';
 import { getMarkdownStyles } from '../utils/markdownStyles';
 import { buildImageSource } from '../utils/imageSource';
 import { formatTime } from '../utils/formatTime';
+import { visibilityPresentation } from '../utils/visibilityPresentation';
 import { xAlert } from '../utils/crossAlert';
 import AudioPlayerButton from '../components/AudioPlayerButton';
 import VideoPlayerButton from '../components/VideoPlayerButton';
@@ -32,7 +33,7 @@ export default function RecordDetailScreen() {
   return <View style={{ flex: 1, backgroundColor: c.background }}>
     <ScrollView onTouchStart={recordHistoryActivity} onScrollBeginDrag={recordHistoryActivity} contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 32, maxWidth: 760, width: '100%', alignSelf: 'center' }}>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <Text style={{ fontSize: 13, color: c.textSecondary }}>{formatTime(item.createdAt)} · {item.visibility === 'public' ? '公开可见' : '仅自己可见'}</Text>
+        <Text style={{ fontSize: 13, color: c.textSecondary }}>{formatTime(item.createdAt)} · {visibilityPresentation(item.visibility).label}</Text>
         <TouchableOpacity accessibilityRole="button" onPress={() => navigation.navigate('Compose', { editItem: item })} style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <Ionicons name="create-outline" size={18} color={c.primary} /><Text style={{ color: c.primary }}>编辑</Text>
         </TouchableOpacity>

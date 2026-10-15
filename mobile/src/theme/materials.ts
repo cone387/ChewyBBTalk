@@ -1,7 +1,7 @@
 import type { Theme } from './themes';
 
 export const UI = {
-  radius: { field: 16, card: 22, sheet: 28, pill: 999 },
+  radius: { field: 14, card: 18, sheet: 28, pill: 999 },
   touch: 48,
   tabBarHeight: 60,
   // Space for the floating dock, its outer margins, and scroll clearance (plus safe area).

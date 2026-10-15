@@ -1,0 +1,14 @@
+appId: com.chewy.bbtalk
+---
+- launchApp
+- extendedWaitUntil:
+    visible: "新建碎碎念"
+    timeout: 60000
+- takeScreenshot: home-large-text
+- tapOn:
+    id: tab-mine
+- takeScreenshot: settings-large-text
+- tapOn: "账号与安全"
+- takeScreenshot: account-large-text
+- tapOn: "当前密码"
+- takeScreenshot: account-large-text-keyboard

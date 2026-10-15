@@ -1,5 +1,6 @@
 import React from 'react';
-import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
+import { render as renderNative, fireEvent, waitFor, act } from '@testing-library/react-native';
+import { HeaderHeightContext } from '@react-navigation/elements';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ProfileEditScreen from '../src/screens/ProfileEditScreen';
 import TagManagementScreen from '../src/screens/TagManagementScreen';
@@ -21,6 +22,7 @@ import { clearSession, setSession } from '../src/services/session';
 import { setHistoryLocked, setHistoryPrivacyReady } from '../src/services/historyPrivacy';
 
 const mockGoBack = jest.fn();
+const render = (screen: React.ReactElement) => renderNative(<HeaderHeightContext.Provider value={88}>{screen}</HeaderHeightContext.Provider>);
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ goBack: mockGoBack, dispatch: jest.fn() }), usePreventRemove: jest.fn(),
   useRoute: () => ({ params: undefined }),

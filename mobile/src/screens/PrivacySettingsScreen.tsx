@@ -71,7 +71,7 @@ export default function PrivacySettingsScreen() {
     <ScrollView style={[styles.container, { backgroundColor: c.surfaceSecondary }]} contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 20 }}>
       <View style={[styles.card, { backgroundColor: c.cardBg }]}>
         <View style={[styles.cardHeader, { backgroundColor: c.primaryLight }]}>
-          <View style={[styles.headerIcon, { backgroundColor: c.accent }]}><Ionicons name="lock-closed" size={20} color="#fff" /></View>
+          <View style={[styles.headerIcon, { backgroundColor: c.primary }]}><Ionicons name="lock-closed" size={20} color="#fff" /></View>
           <View style={{ flex: 1 }}>
             <Text style={[styles.headerTitle, { color: c.text }]}>防窥模式</Text>
             <Text style={[styles.headerSub, { color: c.textSecondary }]}>分别管理自动锁定、后台预览和截图录屏</Text>
@@ -83,8 +83,8 @@ export default function PrivacySettingsScreen() {
             <Text style={[styles.switchLabel, { color: c.text }]}>启用自动锁定</Text>
             <Text style={[styles.switchHint, { color: c.textTertiary }]}>控制自动锁定；后台预览和截图录屏可单独设置</Text>
           </View>
-          <Switch disabled={!ready || loading || saving} accessibilityState={{ disabled: !ready || loading || saving }} accessibilityLabel="启用自动锁定" value={enabled} onValueChange={onEnabledChange}
-            trackColor={{ false: c.border, true: c.accent }} thumbColor="#fff" />
+          <Switch style={{ flexShrink: 0 }} disabled={!ready || loading || saving} accessibilityState={{ disabled: !ready || loading || saving }} accessibilityLabel="启用自动锁定" value={enabled} onValueChange={onEnabledChange}
+            trackColor={{ false: c.border, true: c.primary }} thumbColor="#fff" />
         </View>
 
         <View style={[styles.divider, { backgroundColor: c.borderLight }]} />
@@ -109,7 +109,7 @@ export default function PrivacySettingsScreen() {
             <Text style={[styles.switchLabel, { color: c.text }]}>显示防窥倒计时</Text>
             <Text style={[styles.switchHint, { color: c.textTertiary }]}>在记录页显示剩余时间</Text>
           </View>
-          <Switch disabled={!ready || !enabled || loading || saving} accessibilityState={{ disabled: !ready || !enabled || loading || saving }} accessibilityLabel="显示防窥倒计时" value={showCountdown} onValueChange={onCountdownChange}
+          <Switch style={{ flexShrink: 0 }} disabled={!ready || !enabled || loading || saving} accessibilityState={{ disabled: !ready || !enabled || loading || saving }} accessibilityLabel="显示防窥倒计时" value={showCountdown} onValueChange={onCountdownChange}
             trackColor={{ false: c.border, true: c.primary }} thumbColor="#fff" />
         </View>
 
@@ -120,7 +120,7 @@ export default function PrivacySettingsScreen() {
             <Text style={[styles.switchLabel, { color: c.text }]}>锁定时允许新建</Text>
             <Text style={[styles.switchHint, { color: c.textTertiary }]}>锁定后直接进入快速记录，查看历史需解锁</Text>
           </View>
-          <Switch disabled={!ready || !enabled || loading || saving} accessibilityState={{ disabled: !ready || !enabled || loading || saving }} accessibilityLabel="锁定时允许新建" value={allowCompose} onValueChange={onAllowComposeChange}
+          <Switch style={{ flexShrink: 0 }} disabled={!ready || !enabled || loading || saving} accessibilityState={{ disabled: !ready || !enabled || loading || saving }} accessibilityLabel="锁定时允许新建" value={allowCompose} onValueChange={onAllowComposeChange}
             trackColor={{ false: c.border, true: c.primary }} thumbColor="#fff" />
         </View>
 
@@ -139,7 +139,7 @@ export default function PrivacySettingsScreen() {
                   <Text style={[styles.switchLabel, { color: c.text }]}>{option.label}</Text>
                   <Text style={[styles.switchHint, { color: c.textTertiary }]}>{option.hint}</Text>
                 </View>
-                <Switch disabled={disabled} accessibilityState={{ disabled }} accessibilityLabel={option.label}
+                <Switch style={{ flexShrink: 0 }} disabled={disabled} accessibilityState={{ disabled }} accessibilityLabel={option.label}
                   accessibilityHint={option.hint} value={option.value}
                   onValueChange={value => { if (!disabled) void persist(option.key, value, () => option.setter(value)); }}
                   trackColor={{ false: c.border, true: c.primary }} thumbColor="#fff" />
@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
   sliderValue: { fontSize: 14, fontWeight: '600', width: 60, textAlign: 'right' },
   hint: { fontSize: 12, marginTop: 8 },
   divider: { height: 0.5, marginHorizontal: 16 },
-  switchRow: { flexDirection: 'row', alignItems: 'center', padding: 16 },
+  switchRow: { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 16 },
   switchLabel: { fontSize: 14, fontWeight: '500' },
   switchHint: { fontSize: 12, marginTop: 2 },
   savedRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingBottom: 16 },

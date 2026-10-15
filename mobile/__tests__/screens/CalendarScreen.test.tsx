@@ -3,6 +3,7 @@ jest.mock('../../src/components/CalendarDayRecords', () => (props: any) => requi
 jest.mock('react-native', () => ({
   View: 'View', Text: 'Text', TouchableOpacity: 'TouchableOpacity',
   Modal: 'Modal', TextInput: 'TextInput', ScrollView: 'ScrollView', ActivityIndicator: 'ActivityIndicator',
+  KeyboardAvoidingView: 'KeyboardAvoidingView', Platform: { OS: 'ios' }, Keyboard: { dismiss: jest.fn() },
   StyleSheet: { create: (value: unknown) => value },
 }));
 jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Icon' }));

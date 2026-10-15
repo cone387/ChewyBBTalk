@@ -2,7 +2,7 @@ import { useGlassPreferences } from '../theme/GlassPreferences';
 import { UI } from '../theme/materials';
 import GlassSurface from '../components/GlassSurface';
 import React, { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TextInput, Modal, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, TextInput, Modal, TouchableOpacity, View, KeyboardAvoidingView, ScrollView, Platform, Keyboard } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -132,9 +132,13 @@ export default function CalendarScreen({ selectedDate: initialDate = null, onSel
       </TouchableOpacity>}
       {!selectedDate && <Text style={[styles.hint, { color: c.textSecondary }]}>点击日期，回看当天的记录</Text>}
       <Modal visible={pickerVisible} transparent animationType={reduceMotion ? "none" : "fade"} onRequestClose={() => setPickerVisible(false)}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 24 }}>
+        <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.overlay }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }}>
           <GlassSurface theme={theme} radius={28} elevated accessibilityViewIsModal style={{ borderRadius: 28, padding: 20, maxWidth: 420, width: '100%', alignSelf: 'center' }}>
-            <Text style={{ color: c.text, fontSize: 18, fontWeight: '600' }}>选择年月</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={{ color: c.text, fontSize: 18, fontWeight: '600', flexShrink: 1 }}>选择年月</Text>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="收起年份键盘" onPress={Keyboard.dismiss} style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}><Ionicons name="keypad-outline" size={20} color={c.textSecondary} /></TouchableOpacity>
+            </View>
             <TextInput accessibilityLabel="年份" keyboardType="number-pad" maxLength={4} value={pickerYear} onChangeText={setPickerYear}
               style={{ color: c.text, fontSize: 20, minHeight: 48, borderBottomWidth: 1, borderBottomColor: c.border, marginVertical: 12 }} />
             <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>{Array.from({ length: 12 }, (_, i) => <TouchableOpacity key={i} accessibilityRole="button" accessibilityLabel={`选择${i + 1}月`}
@@ -143,7 +147,8 @@ export default function CalendarScreen({ selectedDate: initialDate = null, onSel
               onPress={() => { chooseMonth(new Date(Number(pickerYear), i, 1)); setPickerVisible(false); }}><Text style={{ color: c.primary }}>{i + 1}月</Text></TouchableOpacity>)}</View>
             <TouchableOpacity accessibilityRole="button" onPress={() => setPickerVisible(false)} style={{ minHeight: 48, justifyContent: 'center', alignItems: 'center' }}><Text style={{ color: c.textSecondary }}>取消</Text></TouchableOpacity>
           </GlassSurface>
-        </View>
+        </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
     </>} />
     </View>

@@ -1,3 +1,4 @@
+import { useHeaderHeight } from '@react-navigation/elements';
 import React, { useEffect, useRef, useState } from 'react';
 import { ScrollView, View, Text, TextInput, TouchableOpacity, ActivityIndicator, Linking, KeyboardAvoidingView, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -7,6 +8,7 @@ import { publicAuthRequest } from '../services/passwordRecovery';
 import { UI } from '../theme/materials';
 
 export default function PasswordRecoveryScreen() {
+  const headerHeight = useHeaderHeight();
   const { theme: { colors: c } } = useTheme();
   const navigation = useNavigation<any>();
   const [enabled, setEnabled] = useState<boolean | null>(null);
@@ -31,7 +33,7 @@ export default function PasswordRecoveryScreen() {
     finally { busyRef.current = false; setBusy(false); }
   };
   const input = { minHeight: UI.touch, borderWidth: 1, borderColor: c.border, borderRadius: UI.radius.field, paddingHorizontal: 14, color: c.text, backgroundColor: c.surface, marginTop: 8, marginBottom: 18, fontSize: 16 };
-  return <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.background }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+  return <KeyboardAvoidingView keyboardVerticalOffset={headerHeight} style={{ flex: 1, backgroundColor: c.background }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
     <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 24, maxWidth: 520, width: '100%', alignSelf: 'center' }}>
       <Text style={{ color: c.text, fontSize: 24, fontWeight: '700', marginBottom: 12 }}>找回你的记录</Text>
       <Text style={{ color: c.textSecondary, lineHeight: 22, marginBottom: 24 }}>使用账号中保存的邮箱重置密码。恢复码仅可使用一次，15 分钟内有效。</Text>

@@ -138,7 +138,7 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
           <Text style={[styles.label, { color: c.text }]}>用户名</Text>
           <View style={[styles.inputWrap, { borderColor: c.border, backgroundColor: c.surface }]}>
             <Ionicons name="person-outline" size={18} color={c.textTertiary} />
-            <TextInput style={[styles.input, { color: c.text }]} accessibilityLabel="用户名" textContentType="username" autoCorrect={false} placeholder="请输入用户名" placeholderTextColor={c.textTertiary}
+            <TextInput testID="login-username" style={[styles.input, { color: c.text }]} accessibilityLabel="用户名" textContentType="username" autoCorrect={false} placeholder="请输入用户名" placeholderTextColor={c.textTertiary}
               value={username} onChangeText={setUsername} autoCapitalize="none" editable={!loading} />
           </View>
 
@@ -146,7 +146,7 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
           <Text style={[styles.label, { color: c.text }]}>密码</Text>
           <View style={[styles.inputWrap, { borderColor: c.border, backgroundColor: c.surface }]}>
             <Ionicons name="lock-closed-outline" size={18} color={c.textTertiary} />
-            <TextInput style={[styles.input, { color: c.text }]} placeholder="请输入密码" placeholderTextColor={c.textTertiary}
+            <TextInput testID="login-password" accessibilityLabel="密码" style={[styles.input, { color: c.text }]} placeholder="请输入密码" placeholderTextColor={c.textTertiary}
               value={password} onChangeText={setPassword} secureTextEntry={!showPassword} editable={!loading}
               autoCapitalize="none" autoCorrect={false} keyboardType="ascii-capable" textContentType={isLogin ? 'password' : 'newPassword'} />
             <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }} accessibilityRole="button" accessibilityLabel={showPassword ? '隐藏密码' : '显示密码'}>
@@ -171,7 +171,7 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
             </>
           )}
 
-          <TouchableOpacity accessibilityRole="button" style={[styles.submitBtn, { backgroundColor: c.primary }, loading && { opacity: 0.6 }]} onPress={handleSubmit} disabled={loading} activeOpacity={0.8}>
+          <TouchableOpacity testID="login-submit" accessibilityRole="button" style={[styles.submitBtn, { backgroundColor: c.primary }, loading && { opacity: 0.6 }]} onPress={handleSubmit} disabled={loading} activeOpacity={0.8}>
             {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>{isLogin ? '登录  →' : '注册  →'}</Text>}
           </TouchableOpacity>
 
@@ -197,8 +197,10 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
 
       {/* 服务器选择弹窗 */}
       <Modal visible={showServerPicker} transparent animationType={reduceMotion ? "none" : "fade"} onRequestClose={() => setShowServerPicker(false)}>
-        <TouchableOpacity style={[styles.modalOverlay, { backgroundColor: c.overlay }]} activeOpacity={1} onPress={() => { setShowServerPicker(false); setShowAddServer(false); }}>
-          <GlassSurface theme={theme} radius={28} elevated style={[styles.modalSheet, { paddingBottom: Math.max(insets.bottom, 16) }]} accessibilityViewIsModal onStartShouldSetResponder={() => true}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <TouchableOpacity style={[styles.modalOverlay, { backgroundColor: c.overlay, paddingTop: insets.top + 12, paddingHorizontal: 12, paddingBottom: 12 }]} activeOpacity={1} onPress={() => { setShowServerPicker(false); setShowAddServer(false); }}>
+          <GlassSurface theme={theme} radius={28} elevated style={[styles.modalSheet, { paddingBottom: Math.max(insets.bottom, 16), maxHeight: '100%' }]} accessibilityViewIsModal onStartShouldSetResponder={() => true}>
+            <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" style={{ flexGrow: 0 }}>
             <View style={styles.sheetHandle} />
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
               <Text style={[styles.modalTitle, { color: c.text, marginBottom: 0 }]}>选择服务</Text>
@@ -227,9 +229,9 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
 
             {showAddServer ? (
               <View style={styles.addServerForm}>
-                <TextInput style={[styles.addInput, { borderColor: c.border, color: c.text }]} placeholder="名称（可选）" placeholderTextColor={c.textTertiary}
+                <TextInput accessibilityLabel="服务名称" style={[styles.addInput, { borderColor: c.border, color: c.text }]} placeholder="名称（可选）" placeholderTextColor={c.textTertiary}
                   value={newLabel} onChangeText={setNewLabel} />
-                <TextInput style={[styles.addInput, { borderColor: c.border, color: c.text }]} placeholder="https://your-server.com" placeholderTextColor={c.textTertiary}
+                <TextInput accessibilityLabel="服务地址" style={[styles.addInput, { borderColor: c.border, color: c.text }]} placeholder="https://your-server.com" placeholderTextColor={c.textTertiary}
                   value={newUrl} onChangeText={setNewUrl} autoCapitalize="none" keyboardType="url" />
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   <TouchableOpacity style={[styles.addBtn, { flex: 1, backgroundColor: c.borderLight }]} onPress={() => setShowAddServer(false)}>
@@ -248,8 +250,10 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
             )}
 
             <Text style={[styles.modalHint, { color: c.textTertiary }]}>点击叉号可删除自定义服务</Text>
+            </ScrollView>
           </GlassSurface>
         </TouchableOpacity>
+        </KeyboardAvoidingView>
       </Modal>
     </KeyboardAvoidingView>
   );

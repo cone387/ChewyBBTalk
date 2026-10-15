@@ -28,10 +28,5 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: UI.radius.card,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 8,
-    elevation: 1,
   },
 });
