@@ -2,6 +2,18 @@
 
 本轮变更：`mobile-launch-readiness`。实现与审核通过是两个阶段；此文档记录代码能力和发布前仍需实测的条件。
 
+## 液态玻璃移动界面（2026-10-15，1.3.14）
+
+- 统一导航、返回、浮动标签栏、搜索、工具栏、弹窗、录音和媒体操作的材质、圆角与触摸区域；内容卡片与隐私遮挡保持清晰可读。完整组件清单见 [液态玻璃适配说明](../docs/mobile-liquid-glass.md)。
+- iOS 26 使用 `expo-glass-effect` 原生玻璃，保留 UIKit 返回导航；旧 iOS / Web 使用模糊材质，Android 使用实体表面。系统减少透明度、减少动态效果及原生模块不可用时均有降级。
+- 版本和更新 runtime 升为 `1.3.14`，新增原生依赖随新安装包发布。
+
+验证：106 套 / 1423 项单测、13 套 / 97 项集成、TypeScript、iOS/Android/Web 导出通过；浏览器检查了 320px / 390px 登录、返回、服务选择与深色布局。远端单测同样全部通过；覆盖率行 93.34%、分支 84.64%、函数 85.44%，低于既有 99% / 93% / 95% 门槛，没有降低门槛。没有连接 iPhone，液态玻璃实际观感、原生键盘、滚动和返回手势仍需 TestFlight 真机复验。
+
+发布确认：源码 `abe4f12ccb56e5ed19d95cd0b037b5c738306128` 已推送 master，生产服务重新部署和数据核验通过，详见[部署记录](../docs/image-deployment.md#2026-10-15-液态玻璃版本重新部署)。EAS [构建 a5e85375](https://expo.dev/accounts/cone387/projects/mobile/builds/a5e85375-4cae-4428-8c65-2c03ee79b97d)与[提交 9eba87e9](https://expo.dev/accounts/cone387/projects/mobile/submissions/9eba87e9-ba16-4c31-94af-ba0576906c75)均为 `FINISHED`。实际 IPA 核对 bundle `com.chewy.bbtalk`、版本 `1.3.14`、构建 `26`、runtime `1.3.14`、iOS 26 SDK、外观 `Automatic`、`UIViewControllerBasedStatusBarAppearance=true`；构建日志确认 `ExpoGlassEffect` 原生模块编译打包成功。
+
+App Store Connect API 最终确认：Apple build `3b31f36a-419c-4e3d-9250-ca4ffe12eee1` 于北京时间 14:14:01 上传，已为 `VALID / IN_BETA_TESTING`，自动通知开启，现有 `bbtalk` 内部测试组包含构建 26。可在 [TestFlight](https://appstoreconnect.apple.com/apps/6762428762/testflight/ios) 更新；本次沿用现有内部测试范围。
+
 ## 日历顶部与状态栏主题衔接（2026-10-14，1.3.13）
 
 - 日历移除独立圆角底色容器，顶部安全区、月份和日期网格使用同一页面背景；横向间距收敛至 12pt、顶部内容间距 8pt，保持没有标题栏的布局。

@@ -157,3 +157,13 @@ uv run --project backend --frozen python -m unittest discover -s scripts/tests -
 - 运行镜像：`ghcr.io/cone387/chewy-bbtalk@sha256:356cdaf15b2975c8bd3e183c9a8c91440014ea7d6c51b90697cd6120139199d4`；内容 ID：`b100ff73cf3bc25942aa52ec8839b05c8399b8f22807be9b21d88868ef4b4ac9`。
 - 72 个后端和启动配置文件与原运行容器的摘要完全一致。沿用当前数据库和文件挂载，使用不执行迁移或初始化的既有启动命令。候选容器以只读数据库会话验证后停止，正式切换完成 4 用户、89 附件元数据及 88 文件下载验证。
 - 切换前停写备份位于 `/home/bzl/projects/frontend-deployments/a869f23/`，包含 PostgreSQL dump、恢复附件后的完整文件归档、校验清单和受限配置；254 个原有数据文件切换后摘要未变。旧容器 `chewy-bbtalk-before-scroll-a869f23` 已停止并保留，候选容器也已停止。
+
+### 2026-10-15 液态玻璃版本重新部署
+
+源码 `abe4f12ccb56e5ed19d95cd0b037b5c738306128` 已推送 master，14:11:32（北京时间）切换生产容器。此次变更集中在移动客户端；镜像内 72 个后端和启动配置文件与原运行版本摘要一致，沿用原启动命令，没有执行数据库迁移或初始化。
+
+- [构建与首次部署](https://github.com/cone387/ChewyBBTalk/actions/runs/38689898563)的测试及镜像构建通过，生产服务器直接拉取 GHCR 超时；确认旧服务仍运行后停止该任务并释放锁，随后通过[已有 SSH 传输工作流](https://github.com/cone387/ChewyBBTalk/actions/runs/38690587498)完成镜像传输和身份校验。
+- 镜像摘要 `sha256:0b3272e9d9b3f2d0b9927f138fc731be569a02947762fd235848e15d933e6b63`；实际运行内容 ID `0e5799c547d4de5cfb3eb21471a6b736b5222a9754abe7b86c78cde0d9be1a47`。复用上次已验证的保留数据部署脚本，固定此次源码、镜像与旧镜像身份。
+- 切换前停写备份位于 `/home/bzl/projects/frontend-deployments/abe4f12/`，含 PostgreSQL dump、完整数据文件归档、摘要、受限配置与部署脚本。保留旧容器 `chewy-bbtalk-before-scroll-abe4f12`；原数据库、密钥和 `/home/bzl/projects/chewy-bbtalk-data-f20261013_0258` 挂载不变。
+- 候选与正式服务均通过 4 个账号读取、90 条附件元数据和 89 个本地文件下载校验；原有 1 个缺失附件没有增加。255 个原有数据文件切换后摘要一致。独立复核 Web / healthz 为 200、未登录用户 API 为 401，部署锁可正常取得。
+- [CI](https://github.com/cone387/ChewyBBTalk/actions/runs/38689882851)其他七个任务通过；移动端 1423 项单测通过，但既有覆盖率门槛未通过，不能称 CI 全绿。移动端安装包和 TestFlight 结果见[发布记录](../mobile/RELEASE_READINESS.md)。
