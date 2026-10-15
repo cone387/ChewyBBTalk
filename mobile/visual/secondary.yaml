@@ -60,5 +60,5 @@ appId: com.chewy.bbtalk
     direction: DOWN
     centerElement: true
 - tapOn: "帮助与关于"
-- assertVisible: "检查更新"
+- assertVisible: ".*检查更新.*"
 - takeScreenshot: about

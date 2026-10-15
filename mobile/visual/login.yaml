@@ -19,8 +19,7 @@ appId: com.chewy.bbtalk
 - tapOn:
     id: login-password
 - inputText: visual-password
-# Settle keyboard dismissal separately from auth/navigation: the recorded
-# XCTest AX-window snapshot crashes occurred during that combined transition.
+# Dismiss the keyboard before submitting, then verify the authenticated feed.
 - tapOn: "欢迎回来"
 - waitForAnimationToEnd
 - tapOn:
