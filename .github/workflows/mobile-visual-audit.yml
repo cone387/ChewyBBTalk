@@ -99,6 +99,13 @@ jobs:
           xcrun simctl status_bar "$SIMULATOR_UDID" override --time '9:41' --dataNetwork wifi --wifiMode active --wifiBars 3 --batteryState charged --batteryLevel 100
           xcrun simctl install "$SIMULATOR_UDID" mobile/build/visual/Build/Products/Release-iphonesimulator/ChewyBBTalk.app
           python3 scripts/mobile-visual/seed-settings.py "$SIMULATOR_UDID"
+      # Keep authentication separate so a driver snapshot crash after a valid
+      # login does not discard the entire screen audit. Its outcome still gates.
+      - name: Audit login and service selection
+        id: login
+        timeout-minutes: 10
+        continue-on-error: true
+        run: maestro --device "$SIMULATOR_UDID" test --test-output-dir mobile/test-results/native-visual/maestro-login mobile/visual/login.yaml
       - name: Audit primary screens
         id: primary
         timeout-minutes: 10
@@ -150,9 +157,10 @@ jobs:
       - name: Require all native flows to pass
         if: always()
         env:
+          LOGIN: ${{ steps.login.outcome }}
           PRIMARY: ${{ steps.primary.outcome }}
           SECONDARY: ${{ steps.secondary.outcome }}
           LARGE: ${{ steps.large.outcome }}
           MEDIA: ${{ steps.media.outcome }}
           VOICE: ${{ steps.voice.outcome }}
-        run: test "$PRIMARY" = success && test "$SECONDARY" = success && test "$LARGE" = success && test "$MEDIA" = success && test "$VOICE" = success
+        run: test "$LOGIN" = success && test "$PRIMARY" = success && test "$SECONDARY" = success && test "$LARGE" = success && test "$MEDIA" = success && test "$VOICE" = success

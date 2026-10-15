@@ -32,9 +32,18 @@ export default function CommentInputModal({ visible, bbtalkId, onClose, onCommen
   const inputRef = useRef<TextInput>(null);
   const [text, setText] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const sending = useRef(false);
   const operation = useRef(0);
   const alive = useRef(true);
+
+  useEffect(() => {
+    if (isWeb || !visible) { setKeyboardVisible(false); return; }
+    setKeyboardVisible(Keyboard.isVisible());
+    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setKeyboardVisible(true));
+    const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboardVisible(false));
+    return () => { show.remove(); hide.remove(); };
+  }, [visible]);
 
   useEffect(() => {
     alive.current = true;
@@ -141,13 +150,15 @@ export default function CommentInputModal({ visible, bbtalkId, onClose, onCommen
     <Animated.View
       style={[
         styles.container,
-        { paddingBottom: isWeb ? 12 : insets.bottom + 8, transform: [{ translateY: slideAnim }] },
+        { paddingBottom: isWeb ? 12 : keyboardVisible ? 8 : insets.bottom + 8, transform: [{ translateY: slideAnim }] },
       ]}
     >
       <GlassSurface theme={theme} radius={28} style={StyleSheet.absoluteFillObject} />
       <View style={styles.handle} />
       <View style={styles.inputRow}>
-
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="关闭评论" style={styles.closeBtn} onPress={onClose}>
+          <Ionicons name="close" size={22} color={c.textSecondary} />
+        </TouchableOpacity>
         <TextInput
           ref={inputRef}
           accessibilityLabel="评论内容"
@@ -185,7 +196,7 @@ export default function CommentInputModal({ visible, bbtalkId, onClose, onCommen
       <Modal transparent visible animationType="none" onRequestClose={onClose} onShow={() => { if (visible) inputRef.current?.focus(); }}>
       <View style={styles.webOverlay}>
         <Animated.View style={[styles.backdrop, { opacity: overlayAnim }]}>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="关闭评论" style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
+          <TouchableOpacity accessible={false} importantForAccessibility="no" style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
         </Animated.View>
         {inputBar}
       </View>
@@ -197,7 +208,7 @@ export default function CommentInputModal({ visible, bbtalkId, onClose, onCommen
     <Modal transparent visible animationType="none" onRequestClose={onClose} onShow={() => { if (visible) inputRef.current?.focus(); }}>
     <View style={styles.nativeOverlay} pointerEvents="box-none">
       <Animated.View style={[styles.backdrop, { opacity: overlayAnim }]}>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel="关闭评论" style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
+        <TouchableOpacity accessible={false} importantForAccessibility="no" style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
       </Animated.View>
       <KeyboardAvoidingView behavior="padding" style={styles.keyboardView} pointerEvents="box-none">
         {inputBar}
@@ -236,8 +247,9 @@ const styles = StyleSheet.create({
     alignSelf: 'center', marginBottom: 10,
   },
   inputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+  closeBtn: { width: 44, height: 48, alignItems: 'center', justifyContent: 'center' },
   input: {
-    flex: 1, borderRadius: UI.radius.field, paddingHorizontal: 16, paddingVertical: 10,
+    flex: 1, minWidth: 0, borderRadius: UI.radius.field, paddingHorizontal: 16, paddingVertical: 10,
     fontSize: 16, maxHeight: 120, minHeight: 48,
   },
   sendBtn: {

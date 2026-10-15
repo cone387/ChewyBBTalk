@@ -1,0 +1,26 @@
+appId: com.chewy.bbtalk
+---
+- launchApp
+- extendedWaitUntil:
+    visible: "欢迎回来"
+    timeout: 60000
+- takeScreenshot: login
+- tapOn: "使用自建服务"
+- tapOn: "选择服务"
+- tapOn: "添加服务地址"
+- tapOn: "服务地址"
+- inputText: https://example.test
+- takeScreenshot: server-keyboard
+- tapOn: "关闭服务选择"
+- tapOn: "收起服务设置"
+- tapOn:
+    id: login-username
+- inputText: preview
+- tapOn:
+    id: login-password
+- inputText: visual-password
+- tapOn:
+    id: login-submit
+- extendedWaitUntil:
+    visible: ".*今天的风很舒服.*"
+    timeout: 60000

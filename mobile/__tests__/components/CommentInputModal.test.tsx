@@ -4,7 +4,7 @@ jest.mock('react-native', () => {
     View: 'View', Modal: 'Modal', TextInput: 'TextInput', TouchableOpacity: 'TouchableOpacity',
     KeyboardAvoidingView: 'KeyboardAvoidingView', ActivityIndicator: 'ActivityIndicator',
     StyleSheet: { create: (value: unknown) => value, absoluteFill: {}, absoluteFillObject: {} },
-    Platform: { OS: 'ios' }, Keyboard: {},
+    Platform: { OS: 'ios' }, Keyboard: { isVisible: jest.fn(() => false), addListener: jest.fn(() => ({ remove: jest.fn() })) },
     Animated: { Value: class {}, View: 'AnimatedView', parallel: jest.fn(animation), timing: animation, spring: animation },
     BackHandler: { addEventListener: jest.fn(() => ({ remove: jest.fn() })) },
   };
@@ -14,7 +14,7 @@ jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({
 jest.mock('../../src/services/api/bbtalkApi', () => ({ bbtalkApi: { createComment: jest.fn() } }));
 jest.mock('../../src/utils/crossAlert', () => ({ xAlert: jest.fn() }));
 import React from 'react';
-import { Animated, BackHandler } from 'react-native';
+import { Animated, BackHandler, Keyboard } from 'react-native';
 import CommentInputModal from '../../src/components/CommentInputModal';
 import { bbtalkApi } from '../../src/services/api/bbtalkApi';
 import { xAlert } from '../../src/utils/crossAlert';
@@ -34,7 +34,7 @@ function mount(overrides = {}) {
   return values;
 }
 const input = () => tree.root.findByType('TextInput');
-const send = () => tree.root.findAllByType('TouchableOpacity')[1];
+const send = () => tree.root.findByProps({ accessibilityLabel: '发送评论' });
 function type(text: string) { act(() => input().props.onChangeText(text)); }
 beforeEach(() => {
   jest.useFakeTimers(); jest.clearAllMocks(); api.mockReset().mockResolvedValue(comment);
@@ -111,6 +111,23 @@ it('closes through backdrop tap or hardware back without submitting', () => {
   const handler = (BackHandler.addEventListener as jest.Mock).mock.calls[0][1];
   expect(handler()).toBe(true);
   expect(values.onClose).toHaveBeenCalledTimes(2); expect(api).not.toHaveBeenCalled();
+});
+it('provides a close control in the input row, clear of the backdrop', () => {
+  const values = mount();
+  const close = tree.root.findByProps({ accessibilityLabel: '关闭评论' });
+  expect(close.parent.findAllByType('TextInput')).toHaveLength(1);
+  act(() => close.props.onPress());
+  expect(values.onClose).toHaveBeenCalledTimes(1);
+});
+it('uses keyboard spacing while shown and restores the home-indicator inset when hidden', () => {
+  mount();
+  const panel = () => tree.root.findAllByType('AnimatedView').find((node: any) => Array.isArray(node.props.style) && node.props.style.some((s: any) => s?.paddingBottom !== undefined));
+  expect(panel().props.style[1].paddingBottom).toBe(28);
+  const handler = (name: string) => (Keyboard.addListener as jest.Mock).mock.calls.find(([event]) => event === name)[1];
+  act(() => handler('keyboardWillShow')());
+  expect(panel().props.style[1].paddingBottom).toBe(8);
+  act(() => handler('keyboardWillHide')());
+  expect(panel().props.style[1].paddingBottom).toBe(28);
 });
 it('clears old input when closed and reopened', () => {
   const values = mount(); type('draft');

@@ -18,4 +18,7 @@ appId: com.chewy.bbtalk
 - takeScreenshot: account-large-text
 - tapOn:
     id: account-password-0
+- inputText: visual-only
+- waitForAnimationToEnd:
+    timeout: 3000
 - takeScreenshot: account-large-text-keyboard
