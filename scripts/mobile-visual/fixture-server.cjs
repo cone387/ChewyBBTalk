@@ -11,7 +11,7 @@ http.createServer((req,res)=>{
   else if(p.endsWith('/user/me'))data=user;
   else if(p.endsWith('/tags'))data=tags;
   else if(p.endsWith('/date-counts'))data=[1,2,4,5,8,9,12,13].map((d,i)=>({date:`${new Date().toISOString().slice(0,7)}-${String(d).padStart(2,'0')}`,count:i%3+1}));
-  else if(p.endsWith('/comments'))data=[];
+  else if(p.endsWith('/comments')||p.endsWith('/settings/storage'))data=[];
   else if(p==='/api/v1/bbtalk')data={items:records,total:records.length,total_count:records.length,page:1,page_size:20,has_more:false};
   else if(p.includes('/record-'))data=records.find(r=>p.endsWith(r.uid));
   else if(p.includes('missing-avatar')){res.writeHead(404);res.end();return;}

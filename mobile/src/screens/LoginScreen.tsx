@@ -212,19 +212,20 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
             </View>
 
             {servers.map(s => (
-              <TouchableOpacity key={s.url} style={[styles.serverItem, selectedServer === s.url && [styles.serverItemActive, { backgroundColor: c.primaryLight }]]}
-                onPress={() => selectServer(s.url)}>
+              <View key={s.url} style={[styles.serverItem, selectedServer === s.url && [styles.serverItemActive, { backgroundColor: c.primaryLight }]]}>
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel={s.label} accessibilityState={{ selected: selectedServer === s.url }} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', minHeight: 44 }} onPress={() => selectServer(s.url)}>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.serverItemLabel, { color: c.text }, selectedServer === s.url && { color: c.primary, fontWeight: '600' }]}>{s.label}</Text>
                   <Text style={[styles.serverItemUrl, { color: c.textTertiary }]} numberOfLines={1}>{s.url}</Text>
                 </View>
                 {selectedServer === s.url && <Ionicons name="checkmark-circle" size={20} color={c.primary} />}
+                </TouchableOpacity>
                 {s.url !== DEFAULT_URL && (
                   <TouchableOpacity onPress={() => removeServer(s.url)} accessibilityRole="button" accessibilityLabel={`删除服务 ${s.label}`} style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}>
                     <Ionicons name="close-circle" size={20} color={c.textTertiary} />
                   </TouchableOpacity>
                 )}
-              </TouchableOpacity>
+              </View>
             ))}
 
             {showAddServer ? (

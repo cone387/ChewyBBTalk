@@ -211,17 +211,14 @@ it('selecting another server closes the picker and re-checks the policy', async 
 it('removes a custom server and falls back to the default when it was selected', async () => {
   savedServers([{ label: '自建服务', url: 'https://custom.example' }]);
   await mount(); await press('使用自建服务'); await press('默认服务'); await press('自建服务');
-  const row = serverRowsWithUrl('https://custom.example')[0];
-  const remove = row.findAllByType('TouchableOpacity').find((node: any) => node !== row);
-  await act(async () => remove.props.onPress());
+  await press('删除服务 自建服务');
   expect(AsyncStorage.setItem).toHaveBeenCalledWith('bbtalk_servers', JSON.stringify([{ label: '默认服务', url: DEFAULT }]));
   expect(mockConfig.setBase).toHaveBeenCalledWith(DEFAULT);
 });
 it('never offers removal for the default server entry', async () => {
   savedServers([{ label: '自建服务', url: 'https://custom.example' }]);
   await mount(); await press('使用自建服务'); await press('默认服务'); await press('自建服务');
-  const defaultRow = serverRowsWithUrl(DEFAULT)[0];
-  expect(defaultRow.findAllByType('TouchableOpacity').find((node: any) => node !== defaultRow)).toBeUndefined();
+  expect(button('删除服务 默认服务')).toBeUndefined();
 });
 it('cancelling the add-server form restores the list and the backdrop closes the picker', async () => {
   await mount(); await press('使用自建服务'); await press('默认服务'); await press('添加服务地址');

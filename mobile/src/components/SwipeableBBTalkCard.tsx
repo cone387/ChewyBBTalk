@@ -60,6 +60,7 @@ const SwipeableBBTalkCard = React.memo(function SwipeableBBTalkCard({
 
   return (
     <TouchableOpacity
+      accessible={false}
       activeOpacity={1}
       onLongPress={batchMode ? undefined : handleLongPress}
       delayLongPress={500}
@@ -73,6 +74,7 @@ const SwipeableBBTalkCard = React.memo(function SwipeableBBTalkCard({
             activeOpacity={0.7}
             accessibilityLabel={selected ? '取消选中' : '选中'}
             accessibilityRole="checkbox"
+            accessibilityState={{ checked: selected }}
           >
             <View
               style={[

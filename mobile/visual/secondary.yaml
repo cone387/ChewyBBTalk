@@ -1,0 +1,56 @@
+appId: com.chewy.bbtalk
+---
+- launchApp
+- extendedWaitUntil:
+    visible: "新建碎碎念"
+    timeout: 60000
+- tapOn:
+    text: "更多操作"
+    index: 0
+- takeScreenshot: record-actions
+- tapOn: "取消"
+- tapOn:
+    text: "评论"
+    index: 0
+- extendedWaitUntil:
+    visible: "评论内容"
+    timeout: 10000
+- inputText: "A short comment"
+- takeScreenshot: comment-keyboard
+- tapOn: "关闭评论"
+- tapOn: ".*碎碎念：今天的风很舒服.*"
+- takeScreenshot: record-detail
+- swipe:
+    start: 2%, 50%
+    end: 85%, 50%
+    duration: 500
+- tapOn:
+    id: tab-mine
+- scrollUntilVisible:
+    element:
+      text: "高级设置"
+    direction: DOWN
+- tapOn: "高级设置"
+- takeScreenshot: advanced
+- tapOn: ".*附件存储.*"
+- takeScreenshot: storage
+- swipe:
+    start: 2%, 50%
+    end: 85%, 50%
+    duration: 500
+- tapOn: ".*缓存管理.*"
+- takeScreenshot: cache
+- swipe:
+    start: 2%, 50%
+    end: 85%, 50%
+    duration: 500
+- swipe:
+    start: 2%, 50%
+    end: 85%, 50%
+    duration: 500
+- scrollUntilVisible:
+    element:
+      text: "帮助与关于"
+    direction: DOWN
+- tapOn: "帮助与关于"
+- takeScreenshot: about

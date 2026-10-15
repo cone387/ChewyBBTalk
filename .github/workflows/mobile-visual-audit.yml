@@ -63,10 +63,14 @@ jobs:
           xcrun simctl status_bar "$SIMULATOR_UDID" override --time '9:41' --dataNetwork wifi --wifiMode active --wifiBars 3 --batteryState charged --batteryLevel 100
           xcrun simctl install "$SIMULATOR_UDID" mobile/build/visual/Build/Products/Release-iphonesimulator/ChewyBBTalk.app
           python3 scripts/mobile-visual/seed-settings.py "$SIMULATOR_UDID"
-          maestro --device "$SIMULATOR_UDID" test --test-output-dir mobile/test-results/native-visual/maestro mobile/visual/primary.yaml
+          audit_status=0
+          maestro --device "$SIMULATOR_UDID" test --test-output-dir mobile/test-results/native-visual/maestro mobile/visual/primary.yaml || audit_status=1
+          xcrun simctl terminate "$SIMULATOR_UDID" com.chewy.bbtalk || true
+          maestro --device "$SIMULATOR_UDID" test --test-output-dir mobile/test-results/native-visual/maestro-secondary mobile/visual/secondary.yaml || audit_status=1
           xcrun simctl terminate "$SIMULATOR_UDID" com.chewy.bbtalk || true
           xcrun simctl ui "$SIMULATOR_UDID" content_size accessibility-large
-          maestro --device "$SIMULATOR_UDID" test --test-output-dir mobile/test-results/native-visual/maestro-large mobile/visual/large-text.yaml
+          maestro --device "$SIMULATOR_UDID" test --test-output-dir mobile/test-results/native-visual/maestro-large mobile/visual/large-text.yaml || audit_status=1
+          exit "$audit_status"
       - name: Collect native evidence
         if: always()
         run: |
