@@ -3,6 +3,8 @@
  * 替代浏览器原生 window.alert / confirm / prompt，保持与 Native 一致的视觉风格
  */
 
+import { getDialogColorScheme } from '../theme/dialogTheme';
+
 let openCount = 0;
 let zCounter = 99999;
 
@@ -40,8 +42,10 @@ const Dark: Palette = {
   hover: 'rgba(255,255,255,0.06)',
 };
 
-const palette = (): Palette =>
-  window.matchMedia?.('(prefers-color-scheme: dark)').matches ? Dark : Light;
+const palette = (): Palette => {
+  const scheme = getDialogColorScheme();
+  return (scheme ? scheme === 'dark' : window.matchMedia?.('(prefers-color-scheme: dark)').matches) ? Dark : Light;
+};
 
 const FONT =
   '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif';

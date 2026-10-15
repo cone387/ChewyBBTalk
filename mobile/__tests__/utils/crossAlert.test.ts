@@ -18,6 +18,7 @@ jest.mock('../../src/utils/webAlert', () => ({
 }));
 
 import { xAlert, xConfirm, xActionSheet } from '../../src/utils/crossAlert';
+import { setDialogColorScheme } from '../../src/theme/dialogTheme';
 
 const RN: any = require('react-native');
 const { Alert, ActionSheetIOS } = RN;
@@ -31,12 +32,22 @@ const enableWeb = (on: boolean) => {
 beforeEach(() => {
   jest.clearAllMocks();
   RN.__state.os = 'ios';
+  setDialogColorScheme(undefined);
   enableWeb(false);
 });
 
 afterEach(() => enableWeb(false));
 
 describe('xAlert', () => {
+  it.each(['light', 'dark'] as const)('uses the app %s appearance for iOS alerts and action sheets', scheme => {
+    setDialogColorScheme(scheme);
+    xAlert('Message');
+    expect(Alert.alert).toHaveBeenLastCalledWith('Message', undefined, undefined, { userInterfaceStyle: scheme });
+    xConfirm('Confirm', 'Details', jest.fn());
+    expect(Alert.alert.mock.calls.at(-1)[3]).toEqual({ userInterfaceStyle: scheme });
+    xActionSheet('Actions', [{ text: 'Edit' }], jest.fn());
+    expect(ActionSheetIOS.showActionSheetWithOptions.mock.calls.at(-1)[0].userInterfaceStyle).toBe(scheme);
+  });
   it('uses the native alert off web', () => {
     xAlert('标题', '内容');
     expect(Alert.alert).toHaveBeenCalledWith('标题', '内容');

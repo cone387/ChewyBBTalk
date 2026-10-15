@@ -84,6 +84,17 @@ it('blocks tab presses while locked and records activity for unlocked navigation
   act(() => nav().props.screenListeners.tabPress({ preventDefault }));
   expect(preventDefault).toHaveBeenCalledTimes(1); expect(activity).toHaveBeenCalledTimes(1); unsubscribe();
 });
+it('hides navigation during recording and restores it after recording ends', () => {
+  mount(); const navigation = tabBar();
+  const updateBar = () => act(() => bar.update(nav().props.tabBar({ navigation })));
+  act(() => tree.root.findByType('HomeScreen').props.onRecordingChange(true));
+  updateBar(); expect(bar.toJSON()).toBeNull();
+  const preventDefault = jest.fn();
+  act(() => nav().props.screenListeners.tabPress({ preventDefault }));
+  expect(preventDefault).toHaveBeenCalledTimes(1);
+  act(() => tree.root.findByType('HomeScreen').props.onRecordingChange(false));
+  updateBar(); expect(bar.root.findAllByType('BottomTabBar')).toHaveLength(1);
+});
 it('hides secondary pages and prevents navigation until foreground privacy checks finish', () => {
   mount(); tabBar();
   act(() => setHistoryPrivacyReady(false));

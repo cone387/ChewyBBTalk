@@ -746,16 +746,20 @@ describe('HomeScreen tag tabs and voice', () => {
   });
 
   it('finishes a voice recording by navigating to compose with the result', async () => {
-    await mountHome();
+    const onRecordingChange = jest.fn();
+    await mountHome({ onRecordingChange });
     await act(async () => { mockHoldArgs[0]!(); });
     expect(overlayProps().visible).toBe(true);
+    expect(onRecordingChange).toHaveBeenLastCalledWith(true);
     const result = { text: '语音', audioUri: null, audioDuration: 2 };
     await act(async () => { await overlayProps().onFinish(result); });
     expect(mockNav.value.navigate).toHaveBeenCalledWith('Compose', { voiceResult: result });
     expect(overlayProps().visible).toBe(false);
+    expect(onRecordingChange).toHaveBeenLastCalledWith(false);
     await act(async () => { mockHoldArgs[0]!(); });
     await act(async () => { overlayProps().onCancel(); });
     expect(overlayProps().visible).toBe(false);
+    expect(onRecordingChange).toHaveBeenLastCalledWith(false);
   });
 
   it('closes the overlay without navigating when nothing was captured', async () => {

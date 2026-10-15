@@ -57,7 +57,9 @@ jobs:
         working-directory: mobile
         run: |
           set -o pipefail
-          xcodebuild -workspace ios/ChewyBBTalk.xcworkspace -scheme ChewyBBTalk -configuration Release -sdk iphonesimulator -destination "id=$SIMULATOR_UDID" -derivedDataPath build/visual CODE_SIGNING_ALLOWED=NO ONLY_ACTIVE_ARCH=YES build > test-results/native-visual/build.log 2>&1
+          # Simulator ad-hoc signing embeds the application identifier required by
+          # Keychain. Disabling signing compiles but SecureStore fails with -34018.
+          xcodebuild -workspace ios/ChewyBBTalk.xcworkspace -scheme ChewyBBTalk -configuration Release -sdk iphonesimulator -destination "id=$SIMULATOR_UDID" -derivedDataPath build/visual CODE_SIGN_IDENTITY=- ONLY_ACTIVE_ARCH=YES build > test-results/native-visual/build.log 2>&1
       - name: Preserve simulator binary for additional flows
         if: ${{ !inputs.reuse_build_run }}
         run: tar -czf mobile/test-results/native-visual/simulator-app.tar.gz -C mobile/build/visual/Build/Products/Release-iphonesimulator ChewyBBTalk.app
@@ -77,7 +79,7 @@ jobs:
           SOURCE_COMMIT=$(cat "$PREVIOUS_AUDIT/commit.txt")
           [[ "$SOURCE_COMMIT" =~ ^[a-f0-9]{40}$ ]]
           git merge-base --is-ancestor "$SOURCE_COMMIT" HEAD
-          git diff --exit-code "$SOURCE_COMMIT" HEAD -- mobile ':!mobile/visual' ':!mobile/__tests__' ':!mobile/integration' scripts/mobile-visual/configure-build.cjs
+          git diff --exit-code "$SOURCE_COMMIT" HEAD -- mobile ':!mobile/visual' ':!mobile/__tests__' ':!mobile/integration' scripts/mobile-visual/configure-build.cjs .github/workflows/mobile-visual-audit.yml
           mkdir -p mobile/build/visual/Build/Products/Release-iphonesimulator
           tar -xzf "$PREVIOUS_AUDIT/simulator-app.tar.gz" -C mobile/build/visual/Build/Products/Release-iphonesimulator
           cp "$PREVIOUS_AUDIT/simulator-app.tar.gz" mobile/test-results/native-visual/
@@ -117,6 +119,22 @@ jobs:
           xcrun simctl terminate "$SIMULATOR_UDID" com.chewy.bbtalk || true
           xcrun simctl ui "$SIMULATOR_UDID" content_size accessibility-large
           maestro --device "$SIMULATOR_UDID" test --test-output-dir mobile/test-results/native-visual/maestro-large mobile/visual/large-text.yaml
+      - name: Audit media controls
+        id: media
+        timeout-minutes: 10
+        continue-on-error: true
+        run: |
+          xcrun simctl terminate "$SIMULATOR_UDID" com.chewy.bbtalk || true
+          xcrun simctl ui "$SIMULATOR_UDID" content_size large
+          maestro --device "$SIMULATOR_UDID" test --test-output-dir mobile/test-results/native-visual/maestro-media mobile/visual/media.yaml
+      - name: Audit recording and navigation restoration
+        id: voice
+        timeout-minutes: 10
+        continue-on-error: true
+        run: |
+          curl --fail --silent --show-error -X POST http://localhost:8020/__visual__/empty
+          xcrun simctl terminate "$SIMULATOR_UDID" com.chewy.bbtalk || true
+          maestro --device "$SIMULATOR_UDID" test --test-output-dir mobile/test-results/native-visual/maestro-voice mobile/visual/voice.yaml
       - name: Collect native evidence
         if: always()
         timeout-minutes: 2
@@ -135,4 +153,6 @@ jobs:
           PRIMARY: ${{ steps.primary.outcome }}
           SECONDARY: ${{ steps.secondary.outcome }}
           LARGE: ${{ steps.large.outcome }}
-        run: test "$PRIMARY" = success && test "$SECONDARY" = success && test "$LARGE" = success
+          MEDIA: ${{ steps.media.outcome }}
+          VOICE: ${{ steps.voice.outcome }}
+        run: test "$PRIMARY" = success && test "$SECONDARY" = success && test "$LARGE" = success && test "$MEDIA" = success && test "$VOICE" = success

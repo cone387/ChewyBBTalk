@@ -15,6 +15,7 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 import React from 'react';
 import { Text } from 'react-native';
 import { ThemeProvider, useTheme } from '../../src/theme/ThemeContext';
+import { getDialogColorScheme } from '../../src/theme/dialogTheme';
 
 const { create, act } = require('react-test-renderer');
 const RN: any = require('react-native');
@@ -73,6 +74,7 @@ describe('ThemeProvider resolution', () => {
     mockStoredTheme = 'dark';
     await mount();
     expect(snapshot()).toEqual(['dark', 'dark']);
+    expect(getDialogColorScheme()).toBe('dark');
   });
 
   it('ignores an unknown saved preference', async () => {
@@ -113,6 +115,9 @@ describe('setThemeKey', () => {
     await act(async () => { holder.set!('dark'); });
     expect(snapshot()).toEqual(['dark', 'dark']);
     expect(AsyncStorage.setItem).toHaveBeenCalledWith('bbtalk_theme_key', 'dark');
+    expect(getDialogColorScheme()).toBe('dark');
+    await act(async () => { holder.set!('system'); });
+    expect(getDialogColorScheme()).toBe('light');
   });
 
   it('reverts to system following', async () => {

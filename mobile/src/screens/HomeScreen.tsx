@@ -47,9 +47,9 @@ import { logError } from '../utils/errorHandler';
 import { xAlert, xConfirm } from '../utils/crossAlert';
 import { getSession, isCurrentSession } from '../services/session';
 
-interface Props { selectedTag: string | null; selectedDate: string | null; onLockChange?: (locked: boolean) => void; onSelectTag?: (tagId: string | null) => void; }
+interface Props { selectedTag: string | null; selectedDate: string | null; onLockChange?: (locked: boolean) => void; onSelectTag?: (tagId: string | null) => void; onRecordingChange?: (active: boolean) => void; }
 
-export default function HomeScreen({ selectedTag, selectedDate, onLockChange, onSelectTag }: Props) {
+export default function HomeScreen({ selectedTag, selectedDate, onLockChange, onSelectTag, onRecordingChange }: Props) {
   const session = useRef(getSession()).current;
   const searchHistoryKey = `search_history:${session.scope}`;
   const navigation = useNavigation<any>();
@@ -160,6 +160,11 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
 
   const onRefreshRef = useRef<() => void>(() => {});
   const batch = useBatchMode({ showError, onComplete: () => onRefreshRef.current() });
+  const recordingVisible = voiceRecording && !batch.batchMode && !privacy.locked;
+  useEffect(() => {
+    onRecordingChange?.(recordingVisible);
+    return () => onRecordingChange?.(false);
+  }, [recordingVisible, onRecordingChange]);
   const [tagPickerVisible, setTagPickerVisible] = useState(false);
   const [visibilityPickerVisible, setVisibilityPickerVisible] = useState(false);
 

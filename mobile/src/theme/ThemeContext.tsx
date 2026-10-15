@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { THEMES, type Theme } from './themes';
 import { GlassPreferencesProvider } from './GlassPreferences';
+import { setDialogColorScheme } from './dialogTheme';
 export { THEMES } from './themes';
 export type { Theme, ThemeColors } from './themes';
 
@@ -26,6 +27,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [themePreference, setPreference] = useState('system');
   const resolvedKey = themePreference === 'system' ? systemScheme === 'dark' ? 'dark' : 'light' : themePreference;
   const theme = THEMES.find(t => t.key === resolvedKey) || THEMES[0];
+  useEffect(() => { setDialogColorScheme(theme.key === 'dark' ? 'dark' : 'light'); }, [theme.key]);
   useEffect(() => {
     AsyncStorage.getItem(THEME_STORAGE_KEY).then(key => {
       if (key === 'system' || THEMES.some(t => t.key === key)) setPreference(key!);

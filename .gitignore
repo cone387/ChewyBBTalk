@@ -78,6 +78,7 @@ certs/
 .playwright-mcp/
 frontend/playwright-report/
 frontend/test-results/
+/mobile/test-results/
 web-*.png
 
 # HyperFrames

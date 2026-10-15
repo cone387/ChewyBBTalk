@@ -206,7 +206,7 @@ function ActiveVoiceRecordingOverlay({ visible, holdMode = false, cancelHint = f
   const secsPart = secs % 60;
 
   return (
-    <View style={styles.overlay} pointerEvents={holdMode ? 'none' : 'auto'}>
+    <View style={styles.overlay} accessibilityViewIsModal pointerEvents={holdMode ? 'none' : 'auto'}>
       <GlassSurface theme={theme} radius={28} elevated style={styles.card}>
         <Animated.View style={[styles.micCircle, { backgroundColor: c.danger + '20', transform: [{ scale: pulseAnim }] }]}>
           <View style={[styles.micInner, { backgroundColor: c.danger }]}>

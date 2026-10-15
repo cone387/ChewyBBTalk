@@ -2,6 +2,7 @@
  * @jest-environment jsdom
  */
 import { webAlert, webConfirm, webActionSheet } from '../../src/utils/webAlert';
+import { setDialogColorScheme } from '../../src/theme/dialogTheme';
 
 // jsdom's rAF is timer-driven; run entrance animations synchronously instead.
 beforeAll(() => {
@@ -10,6 +11,7 @@ beforeAll(() => {
 });
 
 afterEach(() => {
+  setDialogColorScheme(undefined);
   jest.advanceTimersByTime(250);
   document.body.innerHTML = '';
   document.body.style.overflow = '';
@@ -216,6 +218,17 @@ describe('overlay stacking and theme', () => {
     } finally {
       (window as any).matchMedia = original;
     }
+  });
+  it('uses the app appearance when it differs from the system', () => {
+    const original = window.matchMedia;
+    (window as any).matchMedia = () => ({ matches: false });
+    try {
+      setDialogColorScheme('dark');
+      webActionSheet('Actions', [{ text: 'Edit' }], jest.fn());
+      const root = overlay();
+      expect((root.querySelector('[data-c="s"] > div') as HTMLElement).style.backgroundColor).toBe('rgba(44, 44, 46, 0.97)');
+      click(button(root, '取消'));
+    } finally { window.matchMedia = original; }
   });
 
   it('applies hover feedback and detaches key handlers after removal', async () => {

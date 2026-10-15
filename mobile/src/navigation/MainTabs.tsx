@@ -20,13 +20,13 @@ function RoundedTabButton({ style, ...props }: BottomTabBarButtonProps) {
   return <PlatformPressable {...props} style={[style, { borderRadius: 24, overflow: 'hidden', paddingVertical: 0, justifyContent: 'center' }]} />;
 }
 
-function PrivacyTabBar(props: BottomTabBarProps) {
+function PrivacyTabBar({ recording, ...props }: BottomTabBarProps & { recording: boolean }) {
   const locked = useSyncExternalStore(subscribeHistoryPrivacy, historyIsLocked, historyIsLocked);
   const ready = useSyncExternalStore(subscribeHistoryPrivacy, historyPrivacyIsReady, historyPrivacyIsReady);
   useEffect(() => {
     if (ready && locked) props.navigation.navigate('Records');
   }, [ready, locked, props.navigation]);
-  return !ready || locked ? null : <BottomTabBar {...props} />;
+  return !ready || locked || recording ? null : <BottomTabBar {...props} />;
 }
 
 export default function MainTabs({ onLogout }: { onLogout: () => void }) {
@@ -39,6 +39,7 @@ export default function MainTabs({ onLogout }: { onLogout: () => void }) {
   const locked = privacyLocked || !ready;
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [recording, setRecording] = useState(false);
   const selectTag = useCallback((id: string | null) => {
     setSelectedTag(id);
     setSelectedDate(null);
@@ -50,9 +51,9 @@ export default function MainTabs({ onLogout }: { onLogout: () => void }) {
   }, []);
 
   return (
-    <Tabs.Navigator initialRouteName="Records" tabBar={props => <PrivacyTabBar {...props} />}
+    <Tabs.Navigator initialRouteName="Records" tabBar={props => <PrivacyTabBar {...props} recording={recording} />}
       screenListeners={{ tabPress: event => {
-        if (!historyPrivacyIsReady() || historyIsLocked()) event.preventDefault();
+        if (!historyPrivacyIsReady() || historyIsLocked() || recording) event.preventDefault();
         else recordHistoryActivity();
       } }}
       screenOptions={({ route }) => ({
@@ -93,7 +94,7 @@ export default function MainTabs({ onLogout }: { onLogout: () => void }) {
       })}>
       <Tabs.Screen name="Records" options={{ title: '记录' }}>
         {() => <HomeScreen selectedTag={selectedTag} selectedDate={selectedDate}
-          onSelectTag={selectTag} onLockChange={handleLockChange} />}
+          onSelectTag={selectTag} onLockChange={handleLockChange} onRecordingChange={setRecording} />}
       </Tabs.Screen>
       <Tabs.Screen name="Calendar" options={{ title: '日历' }}>
         {() => locked ? <View style={{ flex: 1, backgroundColor: c.background }} /> :

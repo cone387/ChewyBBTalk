@@ -1,5 +1,13 @@
 import { Alert, ActionSheetIOS, Platform } from 'react-native';
 import { webAlert, webConfirm, webActionSheet } from './webAlert';
+import { getDialogColorScheme } from '../theme/dialogTheme';
+
+function nativeAlert(title: string, message?: string, buttons?: Parameters<typeof Alert.alert>[2]) {
+  const userInterfaceStyle = getDialogColorScheme();
+  if (userInterfaceStyle) Alert.alert(title, message, buttons, { userInterfaceStyle });
+  else if (buttons) Alert.alert(title, message, buttons);
+  else Alert.alert(title, message);
+}
 
 function getPlatformOS(): string {
   return Platform?.OS ?? 'native';
@@ -17,7 +25,7 @@ export function xAlert(title: string, message?: string): void {
   if (canUseWebDialog()) {
     webAlert(title, message);
   } else {
-    Alert.alert(title, message);
+    nativeAlert(title, message);
   }
 }
 
@@ -35,7 +43,7 @@ export function xConfirm(
   if (canUseWebDialog()) {
     webConfirm(title, message, onConfirm, onCancel, options);
   } else {
-    Alert.alert(title, message, [
+    nativeAlert(title, message, [
       { text: options?.cancelText || '取消', style: 'cancel', onPress: onCancel },
       { text: options?.confirmText || '确定', style: options?.destructive ? 'destructive' : 'default', onPress: onConfirm },
     ]);
@@ -68,6 +76,7 @@ export function xActionSheet(
         options: labels,
         destructiveButtonIndex: destructiveIndex >= 0 ? destructiveIndex : undefined,
         cancelButtonIndex: labels.length - 1,
+        userInterfaceStyle: getDialogColorScheme(),
       },
       (idx) => {
         if (idx < options.length) onSelect(idx);
@@ -75,7 +84,7 @@ export function xActionSheet(
     );
   } else {
     // Android
-    Alert.alert(
+    nativeAlert(
       title,
       '',
       [

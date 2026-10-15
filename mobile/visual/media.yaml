@@ -1,0 +1,26 @@
+appId: com.chewy.bbtalk
+---
+- launchApp
+- scrollUntilVisible:
+    element:
+      text: "查看图片 1"
+    direction: DOWN
+- takeScreenshot: media-cards
+- tapOn: "查看图片 1"
+- takeScreenshot: image-preview
+- tapOn: "下一张图片"
+- takeScreenshot: image-preview-next
+- tapOn: "关闭图片预览"
+- scrollUntilVisible:
+    element:
+      text: "播放音频 sample.wav"
+    direction: DOWN
+- tapOn: "播放音频 sample.wav"
+- takeScreenshot: audio-active
+- scrollUntilVisible:
+    element:
+      text: "播放视频 sample.mp4"
+    direction: DOWN
+- tapOn: "播放视频 sample.mp4"
+- takeScreenshot: video-active
+- tapOn: "关闭视频"
