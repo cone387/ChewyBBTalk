@@ -9,7 +9,21 @@ export function LoginWindow() {
   const [error, setError] = useState('');
   const [pending, setPending] = useState<'browser' | 'password' | null>(null);
   const [success, setSuccess] = useState(false);
-  useEffect(() => { void window.desktop.compose.getApiUrl().then(setApiUrl); }, []);
+  useEffect(() => {
+    let active = true;
+    let savedServer: string | undefined;
+    const updateServer = (value: string) => {
+      if (!active || value === savedServer) return;
+      savedServer = value;
+      setApiUrl(value);
+    };
+    const unsubscribe = window.desktop.auth.onStateChanged(state => updateServer(state.apiUrl));
+    void window.desktop.compose.getApiUrl().then(value => {
+      // A settings change may arrive before this initial IPC response.
+      if (savedServer === undefined) updateServer(value);
+    }).catch(() => { if (active) setError('无法读取服务器设置，请重新打开登录窗口'); });
+    return () => { active = false; unsubscribe(); };
+  }, []);
   const signIn = async (mode: 'browser' | 'password') => {
     setPending(mode); setError('');
     try {

@@ -43,6 +43,7 @@ win:
   target:
     - nsis
 nsis:
+  artifactName: ChewyBBTalk-Setup-${version}.${ext}
   oneClick: false
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true

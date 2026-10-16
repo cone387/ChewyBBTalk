@@ -4,6 +4,7 @@ import { LoginWindow } from '../LoginWindow';
 
 const state = vi.hoisted(() => ({
   apiUrl: 'https://server.test',
+  onAuthChange: undefined as undefined | ((state: { apiUrl: string }) => void),
 }));
 
 const desktop = vi.hoisted(() => ({
@@ -12,6 +13,10 @@ const desktop = vi.hoisted(() => ({
     browserLogin: vi.fn((): Promise<{ ok: boolean; error?: string }> => Promise.resolve({ ok: true })),
     login: vi.fn((): Promise<{ ok: boolean; error?: string }> => Promise.resolve({ ok: true })),
     cancelBrowserLogin: vi.fn(),
+    onStateChanged: vi.fn((callback: (value: { apiUrl: string }) => void) => {
+      state.onAuthChange = callback;
+      return () => { state.onAuthChange = undefined; };
+    }),
   },
   login: { hide: vi.fn() },
 }));
@@ -70,6 +75,25 @@ it('closes the window from the titlebar', async () => {
   await mount();
   await act(() => dom.dispatch(q('.login-close-btn')[0], { type: 'click' }));
   expect(desktop.login.hide).toHaveBeenCalledTimes(1);
+});
+
+it('uses the newly saved server when settings change while login is open', async () => {
+  desktop.auth.browserLogin.mockResolvedValueOnce({ ok: false, error: '已取消' });
+  state.apiUrl = 'http://127.0.0.1:8020';
+  await mount();
+  await act(() => state.onAuthChange?.({ apiUrl: 'https://online.example' }));
+  expect(q('#server')[0].value).toBe('https://online.example');
+  await act(() => dom.dispatch(q('.login-submit')[0], { type: 'click' }));
+  expect(desktop.auth.browserLogin).toHaveBeenCalledWith('https://online.example');
+});
+
+it('keeps an edited server when an unrelated auth notification arrives', async () => {
+  await mount();
+  const input = q('#server')[0];
+  input.value = 'https://custom.example';
+  await act(() => dom.dispatch(input, { type: 'input', target: input }));
+  await act(() => state.onAuthChange?.({ apiUrl: 'https://server.test' }));
+  expect(input.value).toBe('https://custom.example');
 });
 
 it('completes browser login, announces success, and hides after a delay', async () => {

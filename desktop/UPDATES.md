@@ -25,7 +25,18 @@
 
 不能直接对 generic provider 使用 `npm run publish` 来替代该流程。手动分发时同样需要先上传 installer/blockmap，最后上传 manifest。网络不可用或通道尚未发布时，客户端显示更新失败，不会误报“已是最新版”。
 
-首次上线需要将代码推送到 GitHub 并执行上述 workflow；此次本地实现没有推送标签或创建线上 Release。没有远端 manifest 时，自动更新尚不能获取正式版本。
+首次上线需要发布 `desktop-stable` Release 及上述文件；只生成本地安装包不会建立线上更新通道。没有远端 manifest 时，自动更新无法获取正式版本。
+
+安装包文件名使用无空格的 `ChewyBBTalk-Setup-${version}.exe`。GitHub 会重命名部分特殊字符，不能依赖上传前的带空格名称仍然可下载，参见 [GitHub Release assets 文档](https://docs.github.com/en/rest/releases/assets#upload-a-release-asset)。`verify-update.cjs` 会拒绝不适合直接发布的文件名。
+
+## 0.2.5 验证记录（2026-10-16）
+
+- 实机已安装 0.2.4，API 配置为正确的线上地址；安装包仍请求旧的 `/api/v1/bbtalk/auth/desktop/exchange/`，线上响应 404，当前无尾斜杠接口可达。新安装包包含 API 3.0 认证适配。
+- 排查时 `desktop-stable/latest.yml` 返回 404，GitHub 没有该 Release。这是自动更新不可用的直接原因；需要发布更新通道才能恢复。
+- 新增已打开登录窗口同步服务器设置的回归测试，复现旧地址残留后修复；384 项桌面测试和类型检查通过。
+- Electron + FastAPI + 浏览器联调通过真实授权、回调、令牌交换及设置切换；更新界面联调通过开发模式保护、下载进度和安装按钮状态。
+- 真实 NsisUpdater 验证更新发现、下载、SHA-512 拒绝损坏文件和网络失败；0.2.5 NSIS 安装包构建成功，实际清单、大小、SHA-512 和 blockmap 校验通过。
+- 上述验证不执行安装器，不替换用户正在运行的 0.2.4；线上发布与旧版实际安装替换需分别验收。
 
 ## 验证记录（2026-09-18）
 

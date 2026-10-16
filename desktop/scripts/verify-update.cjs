@@ -8,6 +8,7 @@ if (manifest.version !== version || !manifest.files?.length) throw Error('Invali
 for (const entry of manifest.files) {
   const filename = decodeURIComponent(entry.url);
   if (path.basename(filename) !== filename || !filename.endsWith('.exe')) throw Error('Unexpected installer path');
+  if (!/^[A-Za-z0-9_-][A-Za-z0-9._-]*\.exe$/.test(filename)) throw Error('Installer name must be preserved by GitHub release uploads (no spaces or special characters)');
   const bytes = fs.readFileSync(path.join('dist', filename));
   if (bytes.length !== entry.size || crypto.createHash('sha512').update(bytes).digest('base64') !== entry.sha512) throw Error('Installer integrity mismatch');
   if (!fs.existsSync(path.join('dist', filename + '.blockmap'))) throw Error('Missing blockmap');
