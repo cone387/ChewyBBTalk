@@ -187,3 +187,14 @@ uv run --project backend --frozen python -m unittest discover -s scripts/tests -
 - 候选和正式容器均通过 4 账号读取、93 条附件元数据及 92 个本地文件下载验证；原有 1 个缺失附件未增加，258 个原有数据文件摘要不变。独立复核配置和挂载未变、5 份备份文件摘要正确，公网首页、healthz、OpenAPI、隐私页及支持页为 200，未登录用户接口为 401。API 标题为 `BBTalk API`，部署锁可取得。
 - [CI](https://github.com/cone387/ChewyBBTalk/actions/runs/38867372706)的后端、数据库、桌面、代理和目录检查通过；移动端 108 套 / 1449 项单测通过，但覆盖率门禁失败。记录时 Web 单测、lint、构建已通过，浏览器回归仍在运行，不能称全仓 CI 全绿。
 - 此次更新服务端和 Web，未发布新的原生客户端安装包。产品介绍页源码位于 `mobile/src/screens/LandingScreen.web.tsx`，由移动端 Web 的 `/` 路由提供；当前 Docker 仅包含 `frontend` 应用，`https://bbtalk.cone387.top/` 尚未部署该介绍页。
+
+### 2026-10-16 产品介绍页接入正式 Web
+
+16:12:32（北京时间）切换至源码 `953a9f57f1c0ae3d23a536ae57d43cef5572958a`，已推送 master。[镜像构建](https://github.com/cone387/ChewyBBTalk/actions/runs/38871522867)和[SSH 传输校验](https://github.com/cone387/ChewyBBTalk/actions/runs/38871743563)通过。
+
+- 正式介绍页现由 `frontend/src/pages/LandingPage.tsx` 提供，固定入口为 [产品介绍 `/about`](https://bbtalk.cone387.top/about)。官网 `/` 未登录展示介绍、已登录保留记录首页；[应用入口 `/app`](https://bbtalk.cone387.top/app) 根据认证状态进入记录或登录。登录和设置页均增加介绍入口。`/about` 不启动认证检查，应用入口仍经过防窥锁定判断。
+- 页面沿用原介绍页设计，转换为正式 React 页面，样式本地构建；不加载 Expo 或 Tailwind CDN。修正旧 PWA、默认管理员密码和无效 App Store 下载入口。生产 Web 一律以 `frontend/` 为准，Expo Web 不做生产用途，约定已写入 `AGENTS.md` 和架构文档。
+- 固定镜像摘要 `sha256:ea1b19af4d1611e4d45f9d52f3e584fc18c4aec15419ef6216f60ad03740727a`，运行内容 ID `e98895c2dec88dae774ef31039e06581aaf484d94859d55c2c6432a325f127cb`。72 个后端与启动配置文件和旧容器完全一致，未执行数据库迁移或初始化，运行配置和数据挂载保持一致。
+- 停写备份位于 `/home/bzl/projects/web-deployments/953a9f5/`，包含 PostgreSQL dump、完整数据归档、受限配置和校验清单。旧容器 `chewy-bbtalk-before-web-953a9f5` 已停止并保留。切换前、候选容器和上线后均通过 4 账户、93 条附件元数据、92 个本地文件下载验证；原有 1 个缺失附件未增加，258 个原有数据文件摘要不变，5 份备份文件校验通过。
+- 本地 Web 单测、覆盖率门禁（行 96.12%、分支 92.32%）、lint 与生产构建通过；最终 12 项产品页、认证和防窥浏览器回归全部通过。公网 1440px / 375px 实测介绍页、FAQ、应用与登录跳转均通过，没有页面脚本错误或横向溢出；产品资源与运行镜像内容一致。公网首页、`/about`、`/app`、`/login`、健康检查及公开文档返回 200，未认证用户接口返回 401。
+- [CI](https://github.com/cone387/ChewyBBTalk/actions/runs/38871522886)记录时 Web 单测、覆盖率、lint 与构建已通过，完整浏览器与 Electron 回归尚未结束；移动端仍在既有覆盖率门禁失败，不能称全仓 CI 全绿。本次没有发布原生客户端安装包。
