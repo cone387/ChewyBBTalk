@@ -177,3 +177,13 @@ uv run --project backend --frozen python -m unittest discover -s scripts/tests -
 - 停写备份 `/home/bzl/projects/frontend-deployments/4ff23e7/` 包含 PostgreSQL dump、完整文件归档、摘要与受限配置；保留旧容器 `chewy-bbtalk-before-scroll-4ff23e7`。
 - 候选和正式容器均通过 4 账号读取、90 条附件元数据和 89 个本地文件下载验证；原有 1 个缺失附件未增加，255 个原有数据文件摘要不变。独立复核运行镜像匹配、Web/healthz 200、未登录用户接口 401、部署锁可取得。
 - 此记录仅证明服务器部署和数据验证完成，不代表 iOS 原生视觉验收或 TestFlight 发布完成。后续客户端评论层级修复需重新构建安装包。
+
+### 2026-10-16 BBTalk 品牌统一部署
+
+15:36:23（北京时间）切换至源码 `b0c7e2618ed8716e4b8370af7f01bc52f42fc22f`，已推送 master。[镜像构建](https://github.com/cone387/ChewyBBTalk/actions/runs/38867372696)和[SSH 传输校验](https://github.com/cone387/ChewyBBTalk/actions/runs/38867668483)通过。
+
+- 固定镜像摘要 `sha256:2e072e66531ab438bdb44314167b4d3180a4ac46428f4ca5f18acf7349f3b4ad`，运行内容 ID `427a9686621e9fa67ce303b5f1605abad43a0680a5875b758724a6b021b0d61d`。63 个后端和启动文件与旧容器一致，9 个文件逐个验证仅有品牌文字替换；未执行迁移或初始化。
+- 停写备份位于 `/home/bzl/projects/branding-deployments/b0c7e26/`，包含 PostgreSQL dump、附件与数据归档、部署配置、运行环境、旧容器配置及校验清单；保留旧容器 `chewy-bbtalk-before-brand-b0c7e26`。
+- 候选和正式容器均通过 4 账号读取、93 条附件元数据及 92 个本地文件下载验证；原有 1 个缺失附件未增加，258 个原有数据文件摘要不变。独立复核配置和挂载未变、5 份备份文件摘要正确，公网首页、healthz、OpenAPI、隐私页及支持页为 200，未登录用户接口为 401。API 标题为 `BBTalk API`，部署锁可取得。
+- [CI](https://github.com/cone387/ChewyBBTalk/actions/runs/38867372706)的后端、数据库、桌面、代理和目录检查通过；移动端 108 套 / 1449 项单测通过，但覆盖率门禁失败。记录时 Web 单测、lint、构建已通过，浏览器回归仍在运行，不能称全仓 CI 全绿。
+- 此次更新服务端和 Web，未发布新的原生客户端安装包。产品介绍页源码位于 `mobile/src/screens/LandingScreen.web.tsx`，由移动端 Web 的 `/` 路由提供；当前 Docker 仅包含 `frontend` 应用，`https://bbtalk.cone387.top/` 尚未部署该介绍页。
