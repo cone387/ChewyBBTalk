@@ -1,8 +1,54 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import workspaceImage from '../assets/product/workspace.png'
 import './LandingPage.css'
 
-// Production product page. Kept entirely in frontend; no Expo runtime or CDN.
+const repository = 'https://github.com/cone387/ChewyBBTalk'
+const features = [
+  {
+    title: '想到什么，就记下来', description: '几句话、一段代码、一张照片，都可以成为一条记录。',
+    items: [
+      ['Markdown 编辑', '用标题、列表、引用和代码块，把想法写清楚。'],
+      ['图片、音视频与文件', '为记录附上素材，也可在授权后添加位置；上传失败的附件可以单独重试。'],
+      ['草稿自动保存', '在同一浏览器恢复未完成的文字和附件，接着上次继续写。'],
+    ],
+  },
+  {
+    title: '留下的想法，找得回来', description: '不只向前记录，也给过去的自己留一个入口。',
+    items: [
+      ['搜索与标签筛选', '用关键词查找，配合标签缩小范围；标签支持颜色和拖拽排序。'],
+      ['置顶与评论补充', '把常用记录留在前面，在评论里补上后续想法。'],
+      ['公开或仅自己可见', '每条记录都能选择可见性，公开记录可通过链接分享。'],
+    ],
+  },
+  {
+    title: '中途打断，也能继续', description: '把保存状态说清楚，让每次提交都有回应。',
+    items: [
+      ['恢复与重试', '保留未完成的内容，查看附件上传状态，失败后继续处理。'],
+      ['删除后可撤销', '误删时通过撤销提示恢复记录，减少一次手滑的损失。'],
+      ['修改冲突提醒', '记录已在另一处更新时，先核对差异，再决定如何保存。'],
+    ],
+  },
+]
+const questions = [
+  ['支持哪些设备？', '正式 Web 支持现代桌面和手机浏览器，无需安装。Windows 有桌面客户端，iOS 与 Android 有原生项目；当前获取方式见上方各端入口。macOS 用户可以先使用 Web。'],
+  ['BBTalk 收费吗？', 'BBTalk 源码开放，可自行部署使用。自托管的服务器、域名与存储费用由你承担；在线服务的开放注册与使用政策以对应站点说明为准。'],
+  ['记录和草稿都会同步吗？', '已发布的记录保存在你连接的服务器上。不同客户端使用同一服务器和账号，即可访问自己的记录。未发布草稿保存在当前浏览器或设备，不会自动变成跨端草稿。'],
+  ['Web 可以直接录音吗？', 'Web 支持上传和播放音频附件，暂不提供内置录音。原生客户端提供录音入口；语音转文字取决于设备、系统权限和安装版本。'],
+  ['断网时还能记录吗？', 'Web 可以保留本地草稿，发布与读取服务器记录需要联网。桌面端也可保留草稿；原生客户端支持离线保存待提交记录，恢复网络后重试同步，只有明确保存的记录才进入提交队列。'],
+  ['数据存在哪里，可以搬走吗？', '已发布内容保存在所连接的服务器，附件可使用服务器本地存储或 S3 兼容存储。可导出 JSON，或选择包含附件的 ZIP；迁移前请备份并核对文件是否完整。'],
+  ['防窥锁屏和私密记录有什么区别？', '防窥模式用于遮住当前屏幕上的内容；记录的公开或私密设置决定其他人是否能访问。私密记录和附件还受服务端权限校验保护，自托管时服务器安全与备份由你管理。'],
+  ['进入后没有注册按钮怎么办？', '是否开放注册由当前服务器管理员设置。已有账号可以登录；没有账号时，请联系该站点管理员，或按部署文档建立自己的服务。'],
+]
+
+function Brand() {
+  return <span className="lp-brand">
+    <span className="lp-brand-icon"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+    </svg></span>BBTalk
+  </span>
+}
+
 export default function LandingPage() {
   useEffect(() => {
     const previousTitle = document.title
@@ -11,435 +57,84 @@ export default function LandingPage() {
   }, [])
 
   return <div className="landing-root">
-<a href="#landing-main" className="landing-skip">跳到主要内容</a>
-
-{/* Nav */}
-<header className="glass sticky top-0 z-50 border-b border-black/5">
-  <nav aria-label="产品导航" className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-    <Link to="/about" aria-label="BBTalk 产品介绍" className="flex items-center gap-2.5">
-      <span className="w-9 h-9 rounded-2xl shadow-glow flex items-center justify-center text-white font-bold text-lg" style={{"background": "linear-gradient(135deg,#0A84FF,#5E5CE6)"}}>B</span>
-      <span className="text-lg font-semibold tracking-tight">BBTalk</span>
-    </Link>
-    <div className="hidden md:flex items-center gap-8 text-sm" style={{"color": "rgba(28,28,30,0.75)"}}>
-      <a href="#features" className="hover:text-[#0A84FF] transition">特色</a>
-      <a href="#privacy" className="hover:text-[#0A84FF] transition">隐私</a>
-      <a href="#deploy" className="hover:text-[#0A84FF] transition">自托管</a>
-      <a href="#faq" className="hover:text-[#0A84FF] transition">FAQ</a>
-    </div>
-    <Link to="/app" className="text-sm font-medium text-white px-4 py-2 rounded-full hover:opacity-90 transition" style={{"background": "#0B0B0E"}}>
-      进入 BBTalk
-    </Link>
-  </nav>
-</header>
-
-<main id="landing-main">
-{/* Hero */}
-<section className="grid-bg relative overflow-hidden">
-  <div className="max-w-6xl mx-auto px-6 pt-16 md:pt-24 pb-20 md:pb-28 grid md:grid-cols-2 gap-10 lg:gap-16 items-center">
-    <div className="anim-fade-up">
-      <span className="inline-flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-full ring-1" style={{"color": "#0052A3", "background": "#EFF6FF", "borderColor": "#DBEAFE"}}>
-        <span className="w-1.5 h-1.5 rounded-full" style={{"background": "#0A84FF"}}></span>
-        多端 · 私密 · 自托管
-      </span>
-      <h1 className="mt-6 text-[32px] sm:text-5xl md:text-[52px] lg:text-[60px] font-bold tracking-tight leading-[1.1]">
-        <span className="block whitespace-nowrap">你的<span className="text-gradient">私人碎碎念</span></span>
-        <span className="block">都值得被记住</span>
-      </h1>
-      <p className="mt-6 text-base md:text-lg leading-relaxed max-w-xl" style={{"color": "rgba(28,28,30,0.65)"}}>
-        BBTalk 是一款现代化的个人微博应用 —— 灵感、读书、心情、代码片段，
-        随手一记，永久属于自己。
-        支持 Markdown、图音视频附件、智能标签、防偷窥锁屏。
-      </p>
-      <div className="mt-8 flex flex-wrap gap-3">
-        <Link to="/app" className="inline-flex items-center gap-2 text-white px-5 py-3 rounded-2xl font-medium shadow-glow hover:opacity-90 transition" style={{"background": "#0B0B0E"}}>
-          立即开始
-          <svg aria-hidden="true" focusable="false" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M13 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round"></path></svg>
-        </Link>
-        <a href="https://github.com/cone387/ChewyBBTalk" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl font-medium border border-black/10 hover:border-[#0A84FF] hover:text-[#0A84FF] transition" style={{"background": "#fff", "color": "#1C1C1E"}}>
-          <svg aria-hidden="true" focusable="false" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.4.7-4.1-1.6-4.1-1.6-.5-1.4-1.4-1.8-1.4-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.9 1.3 1.9 1.3 1.1 1.9 2.9 1.4 3.6 1 .1-.8.4-1.4.8-1.7-2.7-.3-5.6-1.4-5.6-6 0-1.3.5-2.4 1.3-3.3-.1-.4-.6-1.6.1-3.3 0 0 1-.3 3.3 1.3a11.5 11.5 0 0 1 6 0c2.3-1.6 3.3-1.3 3.3-1.3.7 1.7.2 2.9.1 3.3.8.9 1.3 2 1.3 3.3 0 4.6-2.9 5.6-5.6 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3"></path></svg>
-          GitHub 开源
-        </a>
-      </div>
-      <div className="mt-10 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs" style={{"color": "rgba(28,28,30,0.6)"}}>
-        <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> 100% 开源</span>
-        <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> 无广告无追踪</span>
-        <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> 数据自托管</span>
-        <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> 永久免费</span>
-      </div>
-    </div>
-
-    {/* Phone mockup —— 还原真实 App 的 Feed 界面 */}
-    <div className="relative anim-fade-up" style={{"animationDelay": ".15s"}}>
-      <div className="blob" style={{"width": "240px", "height": "240px", "background": "#BFDBFE", "top": "-30px", "right": "-20px"}}></div>
-      <div className="blob" style={{"width": "240px", "height": "240px", "background": "#E9D5FF", "bottom": "-30px", "left": "-20px"}}></div>
-      <div className="relative mx-auto w-[260px] sm:w-[280px] md:w-[320px] max-w-full aspect-[9/19] rounded-[3rem] p-3 shadow-soft anim-float" style={{"background": "#0B0B0E"}}>
-        {/* notch */}
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 w-24 h-6 rounded-b-2xl z-10" style={{"background": "#0B0B0E"}}></div>
-        <div className="w-full h-full rounded-[2.5rem] overflow-hidden relative" style={{"background": "#F2F2F7"}}>
-          {/* App header: hamburger + search （和 HomeScreen 一致） */}
-          <div className="px-4 pt-10 pb-2 flex items-center justify-between" style={{"background": "#F2F2F7"}}>
-            <svg aria-hidden="true" focusable="false" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="#1C1C1E" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-            <svg aria-hidden="true" focusable="false" className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="#1C1C1E" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.5" y2="16.5"></line></svg>
-          </div>
-          {/* Tag tabs */}
-          <div className="px-4 pt-1 pb-2 flex items-center gap-2 overflow-hidden">
-            <span className="text-[10px] px-2.5 py-1 rounded-full text-white" style={{"background": "#0A84FF"}}>全部</span>
-            <span className="text-[10px] px-2.5 py-1 rounded-full" style={{"background": "#FFFFFF", "color": "rgba(28,28,30,0.6)"}}>读书</span>
-            <span className="text-[10px] px-2.5 py-1 rounded-full" style={{"background": "#FFFFFF", "color": "rgba(28,28,30,0.6)"}}>日常</span>
-            <span className="text-[10px] px-2.5 py-1 rounded-full" style={{"background": "#FFFFFF", "color": "rgba(28,28,30,0.6)"}}>灵感</span>
-          </div>
-          {/* Feed cards —— 完全还原 BBTalkCard 的结构 */}
-          <div className="px-3 pb-3 space-y-3">
-            {/* Card 1 */}
-            <div className="bg-white rounded-2xl p-3 relative">
-              <span className="absolute top-2 right-2 text-[12px] leading-none" style={{"color": "rgba(28,28,30,0.35)"}}>···</span>
-              <div className="text-[11px] leading-relaxed pr-4" style={{"color": "#1C1C1E"}}>下午的咖啡，配一本《禅与摩托车维修艺术》📖</div>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                <span className="text-[9px] px-2 py-0.5 rounded-xl text-white" style={{"background": "#A855F7"}}>读书</span>
-              </div>
-              <div className="mt-2 flex items-center justify-between">
-                <span className="text-[9px]" style={{"color": "rgba(28,28,30,0.4)"}}>10 分钟前</span>
-                <div className="flex items-center gap-1" style={{"color": "rgba(28,28,30,0.4)"}}>
-                  <svg aria-hidden="true" focusable="false" className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-                  <span className="text-[9px]">2</span>
-                </div>
-              </div>
-            </div>
-            {/* Card 2 with images */}
-            <div className="bg-white rounded-2xl p-3 relative">
-              <span className="absolute top-2 right-2 text-[12px] leading-none" style={{"color": "rgba(28,28,30,0.35)"}}>···</span>
-              <div className="text-[11px] leading-relaxed pr-4" style={{"color": "#1C1C1E"}}>今天写完了 BBTalk 的隐私锁功能 🔒 终于可以放心地把它装在自己的设备上了。</div>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                <span className="text-[9px] px-2 py-0.5 rounded-xl text-white" style={{"background": "#3B82F6"}}>开发</span>
-                <span className="text-[9px] px-2 py-0.5 rounded-xl text-white" style={{"background": "#10B981"}}>BBTalk</span>
-              </div>
-              <div className="mt-2 flex gap-1.5">
-                <div className="w-[52px] h-[52px] rounded-lg" style={{"background": "linear-gradient(135deg,#BFDBFE,#60A5FA)"}}></div>
-                <div className="w-[52px] h-[52px] rounded-lg" style={{"background": "linear-gradient(135deg,#FBCFE8,#FDBA74)"}}></div>
-              </div>
-              <div className="mt-2 flex items-center justify-between">
-                <span className="text-[9px]" style={{"color": "rgba(28,28,30,0.4)"}}>2 小时前</span>
-                <div className="flex items-center gap-2" style={{"color": "rgba(28,28,30,0.4)"}}>
-                  <svg aria-hidden="true" focusable="false" className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 21s-7-4.35-7-10a4 4 0 0 1 7-2.65A4 4 0 0 1 19 11c0 5.65-7 10-7 10z"></path></svg>
-                  <svg aria-hidden="true" focusable="false" className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-                </div>
-              </div>
-            </div>
-            {/* Card 3 */}
-            <div className="bg-white rounded-2xl p-3 relative">
-              <span className="absolute top-2 right-2 text-[12px] leading-none" style={{"color": "rgba(28,28,30,0.35)"}}>···</span>
-              <div className="text-[11px] leading-relaxed pr-4" style={{"color": "#1C1C1E"}}>想到的小灵感：碎碎念也可以是私密日记 💭</div>
-              <div className="mt-2 flex items-center justify-between">
-                <span className="text-[9px]" style={{"color": "rgba(28,28,30,0.4)"}}>昨天</span>
-              </div>
-            </div>
-          </div>
-          {/* FAB */}
-          <div className="absolute bottom-5 right-5 w-11 h-11 rounded-full flex items-center justify-center shadow-glow" style={{"background": "#0A84FF"}}>
-            <svg aria-hidden="true" focusable="false" className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14" strokeLinecap="round"></path></svg>
+    <a href="#landing-main" className="landing-skip">跳到主要内容</a>
+    <header className="lp-header">
+      <nav aria-label="产品导航" className="lp-container lp-navigation">
+        <Link to="/about" aria-label="BBTalk 产品介绍"><Brand /></Link>
+        <div className="lp-nav-links"><a href="#features">功能</a><a href="#platforms">各端入口</a><a href="#privacy">隐私与数据</a><a href="#deploy">自托管</a><a href="#faq">常见问题</a></div>
+        <Link to="/app" className="lp-button lp-button-primary lp-nav-cta">进入 BBTalk</Link>
+      </nav>
+    </header>
+    <main id="landing-main">
+      <section className="lp-hero lp-container" aria-labelledby="product-title">
+        <div className="lp-hero-copy">
+          <div><p className="lp-intro">给日常的想法，一个自己的地方。</p><h1 id="product-title"><span>你的私人碎碎念</span><span>都值得被记住</span></h1></div>
+          <div className="lp-hero-description">
+            <p>随手记下灵感、读书摘录和生活片段，用搜索与标签把它们找回来。BBTalk 是一个支持多端访问、可以自托管的个人记录工具。</p>
+            <div className="lp-actions"><Link to="/app" className="lp-button lp-button-primary">立即开始</Link><a href="#platforms" className="lp-button lp-button-secondary">选择适合你的客户端</a></div>
+            <p className="lp-caption">先从 Web 开始，无需安装。连接自己的服务器，也能继续使用。</p>
           </div>
         </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-{/* Trust strip */}
-<section className="border-y border-black/5" style={{"background": "#F9FAFB"}}>
-  <div className="max-w-6xl mx-auto px-6 py-8 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-xs" style={{"color": "rgba(28,28,30,0.5)"}}>
-    <span>iOS</span><span>·</span>
-    <span>Android</span><span>·</span>
-    <span>Web / 桌面</span><span>·</span>
-    <span>Docker 自部署</span><span>·</span>
-    <span>S3 兼容存储</span><span>·</span>
-    <span>SQLite / PostgreSQL</span>
-  </div>
-</section>
-
-{/* Features */}
-<section id="features" className="py-20 md:py-28">
-  <div className="max-w-6xl mx-auto px-6">
-    <div className="text-center max-w-2xl mx-auto">
-      <span className="text-xs font-semibold uppercase tracking-widest" style={{"color": "#0A84FF"}}>CORE FEATURES</span>
-      <h2 className="mt-3 text-3xl md:text-4xl font-bold tracking-tight">为「想随手记下一切」而生</h2>
-      <p className="mt-4" style={{"color": "rgba(28,28,30,0.6)"}}>每一项功能都来自真实使用场景，不堆砌、不打扰。</p>
-    </div>
-
-    <div className="mt-14 grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-
-        <div className="group relative bg-white rounded-3xl p-6 border border-black/5 hover-lift">
-          <div className="feature-icon-wrap w-12 h-12 rounded-2xl flex items-center justify-center" style={{"background": "#EFF6FF", "color": "#0A84FF"}}>
-            <svg aria-hidden="true" focusable="false" className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+        <figure className="lp-workspace">
+          <div className="lp-window-bar" aria-hidden="true"><span className="lp-window-dots"><i /><i /><i /></span><span>BBTalk / 我的记录</span><span>Web</span></div>
+          <img src={workspaceImage} width="1360" height="980" alt="BBTalk Web 实际界面：左侧搜索与标签，右侧编辑器和置顶记录；画面使用示例内容" />
+          <figcaption>正式 Web 实际界面 · 示例内容<span>从一个想法，写到一段日常。</span></figcaption>
+        </figure>
+      </section>
+      <section id="features" className="lp-section lp-container" aria-labelledby="features-title">
+        <div className="lp-section-heading"><h2 id="features-title">记下来，也找得回来。</h2><p>从写下第一句，到重新读到它，照顾好记录的每一步。</p></div>
+        <div className="lp-feature-grid">{features.map(feature => <article className="lp-feature" key={feature.title}>
+          <h3>{feature.title}</h3><p>{feature.description}</p>
+          <dl>{feature.items.map(([title, description]) => <div key={title}><dt>{title}</dt><dd>{description}</dd></div>)}</dl>
+        </article>)}</div>
+      </section>
+      <section id="platforms" className="lp-platform-section" aria-labelledby="platforms-title">
+        <div className="lp-container lp-section">
+          <div className="lp-section-heading"><h2 id="platforms-title">在顺手的地方，接着记录。</h2><p>连接同一服务器、登录同一账号，访问已经发布的记录。各端保留适合自己的使用方式。</p></div>
+          <div className="lp-platform-grid">
+            <article className="lp-platform lp-platform-web">
+              <span className="lp-availability">直接使用</span><h3>Web</h3><p className="lp-platform-lead">打开浏览器，就是你的记录空间。</p>
+              <ul><li>完整的编辑、搜索、标签与记录管理</li><li>适配桌面和手机浏览器</li><li>账户、存储、备份与导入导出设置</li></ul>
+              <Link to="/app" className="lp-button lp-button-primary">打开 Web 版</Link>
+            </article>
+            <article className="lp-platform">
+              <span className="lp-availability lp-availability-neutral">Windows · 预发布下载</span><h3>桌面快捷记录</h3><p className="lp-platform-lead">不用离开手头的工作，就能记一笔。</p>
+              <ul><li>悬浮球、托盘和全局快捷键唤起</li><li>截图、拖拽与文件附件</li><li>关闭前保留草稿，上传失败可重试</li></ul>
+              <a className="lp-button lp-button-secondary" href={`${repository}/releases/tag/desktop-stable`} target="_blank" rel="noopener noreferrer">查看 Windows 安装包</a>
+              <p className="lp-caption">Windows 安装版支持检查更新。安装包与版本说明见发布页；macOS 暂推荐使用 Web。</p>
+            </article>
+            <article className="lp-platform">
+              <span className="lp-availability lp-availability-neutral">iOS / Android</span><h3>原生移动端</h3><p className="lp-platform-lead">把路上的灵感，留给之后的自己。</p>
+              <ul><li>日历回顾、标签与日期筛选</li><li>录音入口，语音转文字视设备和版本而定</li><li>离线保存待提交记录，联网后重试同步</li></ul>
+              <p className="lp-release-status">iOS：TestFlight 内测。Android：目前提供源码构建方式。</p>
+              <div className="lp-platform-links"><a href="/support/">咨询 iOS 内测</a><a href={`${repository}/blob/master/mobile/README.md`} target="_blank" rel="noopener noreferrer">Android 构建说明</a></div>
+            </article>
           </div>
-          <h3 className="mt-5 text-lg font-semibold tracking-tight">Markdown 原生支持</h3>
-          <p className="mt-2 text-sm leading-relaxed" style={{"color": "rgba(28,28,30,0.6)"}}>代码块、列表、链接、加粗一应俱全，写完即所见即所得。</p>
         </div>
-
-        <div className="group relative bg-white rounded-3xl p-6 border border-black/5 hover-lift">
-          <div className="feature-icon-wrap w-12 h-12 rounded-2xl flex items-center justify-center" style={{"background": "#F5F3FF", "color": "#A855F7"}}>
-            <svg aria-hidden="true" focusable="false" className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
-          </div>
-          <h3 className="mt-5 text-lg font-semibold tracking-tight">附件 · 图音视频</h3>
-          <p className="mt-2 text-sm leading-relaxed" style={{"color": "rgba(28,28,30,0.6)"}}>每条碎碎念都能附图片、视频、音频、文件，一气呵成。</p>
+      </section>
+      <section id="privacy" className="lp-section lp-container lp-data-section" aria-labelledby="privacy-title">
+        <div><h2 id="privacy-title">分享多少，<br />由你决定。</h2><p>写给自己的记录，设为仅自己可见；想分享的内容，设为公开。防窥模式在你离开时保护屏幕上的内容，私密附件访问也需要认证。原生端还可使用设备支持的生物识别解锁。</p><a className="lp-text-link" href="/privacy-policy/">阅读隐私政策</a></div>
+        <div className="lp-data-options">
+          <article><h3>选择存放的位置</h3><p>内容保存在你连接的服务器上。附件可使用服务器本地存储，或 S3 兼容服务；支持存储迁移。</p></article>
+          <article><h3>保留带走的方式</h3><p>导出 JSON，或选择包含附件的 ZIP。更换服务器前先备份、核对导出文件，让迁移有据可查。</p></article>
+          <article><h3>分清草稿与已发布记录</h3><p>草稿保存在当前浏览器或设备；发布后的记录通过服务器在各端访问。自托管时，服务器与备份由你管理。</p></article>
         </div>
-
-        <div className="group relative bg-white rounded-3xl p-6 border border-black/5 hover-lift">
-          <div className="feature-icon-wrap w-12 h-12 rounded-2xl flex items-center justify-center" style={{"background": "#FDF2F8", "color": "#EC4899"}}>
-            <svg aria-hidden="true" focusable="false" className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
-          </div>
-          <h3 className="mt-5 text-lg font-semibold tracking-tight">智能标签系统</h3>
-          <p className="mt-2 text-sm leading-relaxed" style={{"color": "rgba(28,28,30,0.6)"}}>输入 #标签名 自动创建，自定义颜色、拖拽排序，分类一目了然。</p>
+      </section>
+      <section id="deploy" className="lp-deploy-section" aria-labelledby="deploy-title">
+        <div className="lp-container lp-section lp-deploy-grid">
+          <div><h2 id="deploy-title">也可以，放在自己的服务器上。</h2><p>通过 Docker 部署 BBTalk，把 Web 和后端运行在兼容的 NAS、VPS 或自建服务器上。源码开放，数据存储由你配置。</p><a href={`${repository}/blob/master/docs/image-deployment.md`} target="_blank" rel="noopener noreferrer" className="lp-button lp-button-secondary">查看部署文档</a></div>
+          <div className="lp-terminal"><p>启动一个 BBTalk 服务</p><pre tabIndex={0} aria-label="Docker 部署命令"><code>{`docker run -d --name bbtalk \\
+  -p 4010:4010 \\
+  -v bbtalk_data:/app/data \\
+  ghcr.io/cone387/chewy-bbtalk:latest`}</code></pre><p>启动后访问 http://localhost:4010。首次管理员信息、配置与升级步骤请按部署文档操作。</p></div>
         </div>
-
-        <div className="group relative bg-white rounded-3xl p-6 border border-black/5 hover-lift">
-          <div className="feature-icon-wrap w-12 h-12 rounded-2xl flex items-center justify-center" style={{"background": "#ECFDF5", "color": "#10B981"}}>
-            <svg aria-hidden="true" focusable="false" className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-          </div>
-          <h3 className="mt-5 text-lg font-semibold tracking-tight">防偷窥锁屏</h3>
-          <p className="mt-2 text-sm leading-relaxed" style={{"color": "rgba(28,28,30,0.6)"}}>Web 支持防窥锁屏；原生客户端还可使用设备支持的生物识别解锁。</p>
-        </div>
-
-        <div className="group relative bg-white rounded-3xl p-6 border border-black/5 hover-lift">
-          <div className="feature-icon-wrap w-12 h-12 rounded-2xl flex items-center justify-center" style={{"background": "#FFFBEB", "color": "#F59E0B"}}>
-            <svg aria-hidden="true" focusable="false" className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-          </div>
-          <h3 className="mt-5 text-lg font-semibold tracking-tight">数据自由</h3>
-          <p className="mt-2 text-sm leading-relaxed" style={{"color": "rgba(28,28,30,0.6)"}}>一键导出 JSON / ZIP，附件随行，跨服务器迁移零障碍。</p>
-        </div>
-
-        <div className="group relative bg-white rounded-3xl p-6 border border-black/5 hover-lift">
-          <div className="feature-icon-wrap w-12 h-12 rounded-2xl flex items-center justify-center" style={{"background": "#F0F9FF", "color": "#0EA5E9"}}>
-            <svg aria-hidden="true" focusable="false" className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-          </div>
-          <h3 className="mt-5 text-lg font-semibold tracking-tight">多端同步</h3>
-          <p className="mt-2 text-sm leading-relaxed" style={{"color": "rgba(28,28,30,0.6)"}}>Web、桌面与 iOS / Android 客户端，连接同一服务器，随时接着记录。</p>
-        </div>
-
-        <div className="group relative bg-white rounded-3xl p-6 border border-black/5 hover-lift">
-          <div className="feature-icon-wrap w-12 h-12 rounded-2xl flex items-center justify-center" style={{"background": "#EEF2FF", "color": "#6366F1"}}>
-            <svg aria-hidden="true" focusable="false" className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
-          </div>
-          <h3 className="mt-5 text-lg font-semibold tracking-tight">语音速记</h3>
-          <p className="mt-2 text-sm leading-relaxed" style={{"color": "rgba(28,28,30,0.6)"}}>记录声音、保存音频附件，让来不及打字的灵感也有地方安放。</p>
-        </div>
-
-        <div className="group relative bg-white rounded-3xl p-6 border border-black/5 hover-lift">
-          <div className="feature-icon-wrap w-12 h-12 rounded-2xl flex items-center justify-center" style={{"background": "#FFF1F2", "color": "#F43F5E"}}>
-            <svg aria-hidden="true" focusable="false" className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-          </div>
-          <h3 className="mt-5 text-lg font-semibold tracking-tight">位置标记</h3>
-          <p className="mt-2 text-sm leading-relaxed" style={{"color": "rgba(28,28,30,0.6)"}}>可选附加位置信息，让每条碎碎念都有「时空坐标」。</p>
-        </div>
-
-        <div className="group relative bg-white rounded-3xl p-6 border border-black/5 hover-lift">
-          <div className="feature-icon-wrap w-12 h-12 rounded-2xl flex items-center justify-center" style={{"background": "#F0FDFA", "color": "#14B8A6"}}>
-            <svg aria-hidden="true" focusable="false" className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>
-          </div>
-          <h3 className="mt-5 text-lg font-semibold tracking-tight">本地或云存储</h3>
-          <p className="mt-2 text-sm leading-relaxed" style={{"color": "rgba(28,28,30,0.6)"}}>附件可存本地或对接 S3 / 阿里云 OSS / MinIO，随心切换迁移。</p>
-        </div>
-
-    </div>
-  </div>
-</section>
-
-{/* Privacy */}
-<section id="privacy" className="py-20 md:py-28 relative overflow-hidden border-y border-black/5" style={{"background": "#FFFFFF"}}>
-  <div className="absolute inset-0 grid-bg opacity-60"></div>
-  <div className="blob" style={{"width": "260px", "height": "260px", "background": "#A5B4FC", "top": "-40px", "left": "-40px", "opacity": ".35"}}></div>
-  <div className="blob" style={{"width": "220px", "height": "220px", "background": "#FBCFE8", "top": "60px", "right": "-40px", "opacity": ".25"}}></div>
-  <div className="max-w-6xl mx-auto px-6 grid md:grid-cols-2 gap-12 items-center relative">
-    <div>
-      <span className="text-xs font-semibold uppercase tracking-widest" style={{"color": "#0A84FF"}}>PRIVACY FIRST</span>
-      <h2 className="mt-3 text-3xl md:text-5xl font-bold leading-[1.1] tracking-tight" style={{"color": "#1C1C1E"}}>
-        你的数据，<br />
-        <span style={{"background": "linear-gradient(135deg,#0A84FF,#BF5AF2)", "WebkitBackgroundClip": "text", "backgroundClip": "text", "color": "transparent"}}>只属于你自己。</span>
-      </h2>
-      <p className="mt-6 leading-relaxed max-w-lg" style={{"color": "rgba(28,28,30,0.7)"}}>
-        通过自托管决定数据存在哪里，通过可见性设置决定记录分享给谁。
-        所有数据都存储在你选择的地方 —— 你连接的服务器，或你配置的 S3 兼容存储。
-      </p>
-      <ul className="mt-8 space-y-3.5">
-
-          <li className="flex items-start gap-3">
-            <span className="mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{"background": "rgba(16,185,129,0.14)"}}>
-              <svg aria-hidden="true" focusable="false" className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-            </span>
-            <span style={{"color": "rgba(28,28,30,0.85)"}}>Web 支持防窥模式，离开时保护屏幕上的记录</span>
-          </li>
-
-          <li className="flex items-start gap-3">
-            <span className="mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{"background": "rgba(16,185,129,0.14)"}}>
-              <svg aria-hidden="true" focusable="false" className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-            </span>
-            <span style={{"color": "rgba(28,28,30,0.85)"}}>原生客户端支持设备可用的生物识别解锁</span>
-          </li>
-
-          <li className="flex items-start gap-3">
-            <span className="mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{"background": "rgba(16,185,129,0.14)"}}>
-              <svg aria-hidden="true" focusable="false" className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-            </span>
-            <span style={{"color": "rgba(28,28,30,0.85)"}}>完全开源，所有代码可在 GitHub 审查</span>
-          </li>
-
-          <li className="flex items-start gap-3">
-            <span className="mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{"background": "rgba(16,185,129,0.14)"}}>
-              <svg aria-hidden="true" focusable="false" className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-            </span>
-            <span style={{"color": "rgba(28,28,30,0.85)"}}>支持服务器本地存储与 S3 兼容存储</span>
-          </li>
-
-          <li className="flex items-start gap-3">
-            <span className="mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{"background": "rgba(16,185,129,0.14)"}}>
-              <svg aria-hidden="true" focusable="false" className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-            </span>
-            <span style={{"color": "rgba(28,28,30,0.85)"}}>可随时一键导出全部数据，无锁定</span>
-          </li>
-
-      </ul>
-    </div>
-    <div className="flex justify-center">
-      <div className="relative">
-        <div className="blob" style={{"width": "280px", "height": "280px", "background": "#A5B4FC", "top": "-20px", "left": "-20px", "opacity": ".4"}}></div>
-        <div className="relative w-64 h-64 rounded-full flex items-center justify-center shadow-glow anim-float" style={{"background": "linear-gradient(135deg,#0A84FF,#BF5AF2)"}}>
-          <svg aria-hidden="true" focusable="false" className="w-32 h-32" style={{"color": "rgba(255,255,255,0.95)"}} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-          </svg>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-{/* Self-host */}
-<section id="deploy" className="py-20 md:py-28" style={{"background": "#F9FAFB"}}>
-  <div className="max-w-6xl mx-auto px-6 grid md:grid-cols-2 gap-12 items-center">
-    <div>
-      <span className="text-xs font-semibold uppercase tracking-widest" style={{"color": "#0A84FF"}}>SELF-HOSTED</span>
-      <h2 className="mt-3 text-3xl md:text-4xl font-bold tracking-tight">一行命令，自己当老板</h2>
-      <p className="mt-4 leading-relaxed" style={{"color": "rgba(28,28,30,0.6)"}}>
-        完全开源 + Docker 单容器，无需复杂依赖。把 BBTalk 部署在兼容的 NAS、VPS 或自建服务器上，
-        所有数据归你所有。
-      </p>
-      <div className="mt-6 flex flex-wrap gap-3">
-        <a href="https://github.com/cone387/ChewyBBTalk/blob/master/docs/image-deployment.md" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 font-medium hover:gap-3 transition-all" style={{"color": "#0A84FF"}}>
-          部署文档
-          <svg aria-hidden="true" focusable="false" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-        </a>
-      </div>
-    </div>
-    <div className="min-w-0 overflow-x-auto rounded-2xl p-6 shadow-soft text-xs sm:text-sm font-mono leading-relaxed" style={{"background": "#0B0B0E"}}>
-      <div className="flex items-center gap-1.5 mb-4">
-        <div className="w-3 h-3 rounded-full bg-red-400"></div>
-        <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
-        <div className="w-3 h-3 rounded-full bg-green-400"></div>
-        <span className="ml-2 text-xs" style={{"color": "rgba(255,255,255,0.4)"}}>terminal</span>
-      </div>
-      <div style={{"color": "#34D399"}}>$ docker run -d \</div>
-      <div className="ml-2" style={{"color": "rgba(255,255,255,0.85)"}}>--name bbtalk \</div>
-      <div className="ml-2" style={{"color": "rgba(255,255,255,0.85)"}}>-p 4010:4010 \</div>
-      <div className="ml-2" style={{"color": "rgba(255,255,255,0.85)"}}>-v bbtalk_data:/app/data \</div>
-      <div className="ml-2" style={{"color": "rgba(255,255,255,0.85)"}}>ghcr.io/cone387/chewy-bbtalk:latest</div>
-      <div className="mt-3" style={{"color": "rgba(255,255,255,0.4)"}}># 打开 http://localhost:4010</div>
-      <div style={{"color": "rgba(255,255,255,0.4)"}}># 初始管理员密码请参阅部署文档</div>
-    </div>
-  </div>
-</section>
-
-{/* Download */}
-<section id="download" className="py-20 md:py-28">
-  <div className="max-w-3xl mx-auto px-6 text-center">
-    <span className="text-xs font-semibold uppercase tracking-widest" style={{"color": "#0A84FF"}}>GET STARTED</span>
-    <h2 className="mt-3 text-3xl md:text-5xl font-bold tracking-tight">现在就开始记录</h2>
-    <p className="mt-4" style={{"color": "rgba(28,28,30,0.6)"}}>免费 · 无广告 · 永久使用</p>
-    <div className="mt-10 flex flex-wrap justify-center gap-3">
-      <Link to="/app" className="inline-flex items-center gap-3 text-white px-6 py-4 rounded-2xl shadow-glow hover:opacity-90 transition" style={{"background": "#0B0B0E"}}>
-        <svg aria-hidden="true" focusable="false" className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-        <div className="text-left">
-          <div className="text-[10px] uppercase tracking-wider" style={{"opacity": ".7"}}>立即使用</div>
-          <div className="font-semibold text-base">Web 网页版</div>
-        </div>
-      </Link>
-      <a href="https://github.com/cone387/ChewyBBTalk" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-3 px-6 py-4 rounded-2xl border border-black/10 hover:border-[#0A84FF] hover:text-[#0A84FF] transition" style={{"background": "#fff", "color": "#1C1C1E"}}>
-        <svg aria-hidden="true" focusable="false" className="w-7 h-7" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.4.7-4.1-1.6-4.1-1.6-.5-1.4-1.4-1.8-1.4-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.9 1.3 1.9 1.3 1.1 1.9 2.9 1.4 3.6 1 .1-.8.4-1.4.8-1.7-2.7-.3-5.6-1.4-5.6-6 0-1.3.5-2.4 1.3-3.3-.1-.4-.6-1.6.1-3.3 0 0 1-.3 3.3 1.3a11.5 11.5 0 0 1 6 0c2.3-1.6 3.3-1.3 3.3-1.3.7 1.7.2 2.9.1 3.3.8.9 1.3 2 1.3 3.3 0 4.6-2.9 5.6-5.6 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3"></path></svg>
-        <div className="text-left">
-          <div className="text-[10px] uppercase tracking-wider" style={{"opacity": ".7"}}>查看</div>
-          <div className="font-semibold text-base">源代码</div>
-        </div>
-      </a>
-    </div>
-  </div>
-</section>
-
-{/* FAQ */}
-<section id="faq" className="py-20 md:py-28" style={{"background": "#F9FAFB"}}>
-  <div className="max-w-3xl mx-auto px-6">
-    <div className="text-center">
-      <span className="text-xs font-semibold uppercase tracking-widest" style={{"color": "#0A84FF"}}>FAQ</span>
-      <h2 className="mt-3 text-3xl md:text-4xl font-bold tracking-tight">常见问题</h2>
-    </div>
-    <div className="mt-12 space-y-3">
-
-        <details className="group bg-white rounded-2xl p-5 border border-black/5 hover:border-black/10 transition">
-          <summary className="cursor-pointer flex items-center justify-between font-medium">
-            <span>BBTalk 收费吗？</span>
-            <svg aria-hidden="true" focusable="false" className="w-5 h-5 transition-transform group-open:rotate-180" style={{"color": "rgba(28,28,30,0.5)"}} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-          </summary>
-          <p className="mt-3 text-sm leading-relaxed" style={{"color": "rgba(28,28,30,0.7)"}}>完全免费且开源。无内购、无广告、无订阅。源代码在 GitHub 开放。</p>
-        </details>
-
-        <details className="group bg-white rounded-2xl p-5 border border-black/5 hover:border-black/10 transition">
-          <summary className="cursor-pointer flex items-center justify-between font-medium">
-            <span>我的数据存在哪里？</span>
-            <svg aria-hidden="true" focusable="false" className="w-5 h-5 transition-transform group-open:rotate-180" style={{"color": "rgba(28,28,30,0.5)"}} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-          </summary>
-          <p className="mt-3 text-sm leading-relaxed" style={{"color": "rgba(28,28,30,0.7)"}}>记录保存在你登录的服务器上；你也可以将服务部署到兼容的 NAS / VPS / 自建服务器上。附件可存本地或对接 S3 兼容存储。完全由你掌控。</p>
-        </details>
-
-        <details className="group bg-white rounded-2xl p-5 border border-black/5 hover:border-black/10 transition">
-          <summary className="cursor-pointer flex items-center justify-between font-medium">
-            <span>支持哪些设备？</span>
-            <svg aria-hidden="true" focusable="false" className="w-5 h-5 transition-transform group-open:rotate-180" style={{"color": "rgba(28,28,30,0.5)"}} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-          </summary>
-          <p className="mt-3 text-sm leading-relaxed" style={{"color": "rgba(28,28,30,0.7)"}}>正式 Web 支持现代桌面和手机浏览器，另有桌面及 iOS / Android 客户端。客户端发布情况、后端镜像支持的架构以项目文档为准。</p>
-        </details>
-
-        <details className="group bg-white rounded-2xl p-5 border border-black/5 hover:border-black/10 transition">
-          <summary className="cursor-pointer flex items-center justify-between font-medium">
-            <span>万一以后不维护了，我的数据怎么办？</span>
-            <svg aria-hidden="true" focusable="false" className="w-5 h-5 transition-transform group-open:rotate-180" style={{"color": "rgba(28,28,30,0.5)"}} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-          </summary>
-          <p className="mt-3 text-sm leading-relaxed" style={{"color": "rgba(28,28,30,0.7)"}}>所有数据可一键导出为 JSON / ZIP（含附件），格式公开透明。即使项目停止维护，你的数据依然可读、可迁移。</p>
-        </details>
-
-        <details className="group bg-white rounded-2xl p-5 border border-black/5 hover:border-black/10 transition">
-          <summary className="cursor-pointer flex items-center justify-between font-medium">
-            <span>会同步到其他平台吗？</span>
-            <svg aria-hidden="true" focusable="false" className="w-5 h-5 transition-transform group-open:rotate-180" style={{"color": "rgba(28,28,30,0.5)"}} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-          </summary>
-          <p className="mt-3 text-sm leading-relaxed" style={{"color": "rgba(28,28,30,0.7)"}}>多个客户端连接同一服务器即可访问自己的记录。附件存储与外部服务由你的服务器和账户配置决定。</p>
-        </details>
-
-    </div>
-  </div>
-</section>
-
-</main>
-{/* Footer */}
-<footer className="py-12 border-t border-black/5">
-  <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
-    <div className="flex items-center gap-2">
-      <span className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold" style={{"background": "linear-gradient(135deg,#0A84FF,#5E5CE6)"}}>B</span>
-      <span className="text-sm font-medium">BBTalk</span>
-      <span className="text-xs" style={{"color": "rgba(28,28,30,0.4)"}}>· © 2024-2026 cone387</span>
-    </div>
-    <div className="flex items-center gap-6 text-xs" style={{"color": "rgba(28,28,30,0.6)"}}>
-      <a href="https://github.com/cone387/ChewyBBTalk" target="_blank" rel="noopener noreferrer" className="hover:text-[#0A84FF]">GitHub</a>
-      <Link to="/app" className="hover:text-[#0A84FF]">进入应用</Link>
-    </div>
-  </div>
-</footer>
-
+      </section>
+      <section id="faq" className="lp-section lp-container lp-faq" aria-labelledby="faq-title">
+        <div className="lp-section-heading"><h2 id="faq-title">开始之前，你可能想知道。</h2></div>
+        {questions.map(([question, answer]) => <details key={question}><summary>{question}<span aria-hidden="true">＋</span></summary><p>{answer}</p></details>)}
+      </section>
+      <section className="lp-container lp-start" aria-labelledby="start-title"><div><h2 id="start-title">从今天的一件小事开始。</h2><p>不必整理好所有想法，先记下这一刻。</p></div><Link to="/app" className="lp-button lp-button-primary">开始我的记录</Link></section>
+    </main>
+    <footer className="lp-footer lp-container"><div><Brand /><p>BBTalk · 记录与回顾</p></div><nav aria-label="页脚导航"><a href={repository} target="_blank" rel="noopener noreferrer">GitHub</a><a href="/privacy-policy/">隐私政策</a><a href="/support/">支持与反馈</a><Link to="/app">进入应用</Link></nav></footer>
   </div>
 }

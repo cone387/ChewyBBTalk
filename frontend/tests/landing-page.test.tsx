@@ -5,6 +5,18 @@ import LandingPage from '../src/pages/LandingPage'
 
 afterEach(cleanup)
 
+it('distinguishes available clients and explains voice, offline and hosting limits', () => {
+  render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><LandingPage /></MemoryRouter>)
+  expect(screen.getByRole('img', { name: /BBTalk Web 实际界面/ })).toBeTruthy()
+  expect(screen.getByRole('link', { name: '查看 Windows 安装包' }).getAttribute('href')).toBe('https://github.com/cone387/ChewyBBTalk/releases/tag/desktop-stable')
+  expect(screen.getByText(/TestFlight 内测/)).toBeTruthy()
+  expect(screen.getByRole('link', { name: 'Android 构建说明' })).toBeTruthy()
+  expect(screen.getByText(/Web 支持上传和播放音频附件，暂不提供内置录音/)).toBeTruthy()
+  expect(screen.getByText(/服务器、域名与存储费用/)).toBeTruthy()
+  expect(screen.getByRole('link', { name: '隐私政策' }).getAttribute('href')).toBe('/privacy-policy/')
+  expect(screen.queryByText('永久免费')).toBeNull()
+})
+
 it('keeps application links inside the deployment basename and restores the app title on exit', () => {
   document.title = 'My BBTalk'
   render(<MemoryRouter basename="/notes" initialEntries={['/notes/about']}

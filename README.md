@@ -14,6 +14,7 @@
 - 登录页与设置页均提供“产品介绍”入口。自托管部署使用相同路径。
 
 介绍页源码为 `frontend/src/pages/LandingPage.tsx`，样式随正式 Web 打包；不加载 Expo 或 Tailwind CDN。
+页面展示真实 Web 的隔离示例截图，并分别说明 Web、Windows、原生移动端的当前能力与获取方式，以及草稿同步、录音、离线使用、数据备份和自托管的边界。截图来源见 `frontend/src/assets/product/README.md`。
 
 ## ✨ 特性
 
