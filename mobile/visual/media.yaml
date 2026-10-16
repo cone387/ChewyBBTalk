@@ -40,6 +40,10 @@ appId: com.chewy.bbtalk
       text: ".*碎碎念：图片、语音和视频.*"
     direction: UP
 - tapOn: ".*碎碎念：图片、语音和视频.*"
+- assertVisible: "记录内容.*"
+- assertVisible: "拍照"
+- assertVisible: "加粗"
+- assertNotVisible: "更多工具"
 - takeScreenshot: media-detail-light
 - tapOn:
     text: "查看照片"
@@ -47,8 +51,7 @@ appId: com.chewy.bbtalk
 - takeScreenshot: detail-image-preview-light
 - tapOn: "关闭照片"
 - takeScreenshot: detail-image-restored-light
-- tapOn:
-    id: BackButton
+- tapOn: "取消"
 - tapOn:
     id: tab-mine
 - tapOn: "外观"

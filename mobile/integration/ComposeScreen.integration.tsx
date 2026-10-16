@@ -381,13 +381,14 @@ test('discard waits for previous writes and never restores discarded input', asy
   expect(await AsyncStorage.getItem(`compose_draft:${getSession().scope}`)).toBeNull();
 });
 
-test('public visibility remains private until confirmation', async () => {
+test('visibility switches immediately without a confirmation or dropdown', async () => {
   const screen = mount(); await act(async () => {});
   fireEvent.press(screen.getByLabelText('修改可见性'));
-  expect(screen.getByText('仅自己可见')).toBeTruthy();
-  expect((xConfirm as jest.Mock).mock.calls.at(-1)[1]).toContain('无需登录');
-  await act(async () => { (xConfirm as jest.Mock).mock.calls.at(-1)[2](); });
   expect(screen.getByText('公开可见')).toBeTruthy();
+  fireEvent.press(screen.getByLabelText('修改可见性'));
+  expect(screen.getByText('仅自己可见')).toBeTruthy();
+  expect(xConfirm).not.toHaveBeenCalled();
+  expect(xActionSheet).not.toHaveBeenCalled();
 });
 
 

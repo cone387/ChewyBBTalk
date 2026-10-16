@@ -13,10 +13,12 @@ export default function DraftStatus({ visibility, onVisibility, status, onSave, 
   const { theme: { colors: c } } = useTheme();
   return <View style={{ backgroundColor: c.surface, paddingHorizontal: 16 }}>
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center' }}>
-      <TouchableOpacity accessibilityRole="button" accessibilityLabel="修改可见性" onPress={onVisibility} style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel="修改可见性"
+        accessibilityValue={{ text: visibilityPresentation(visibility).label }}
+        accessibilityHint={visibility === 'public' ? '点按切换为仅自己可见' : '点按切换为公开可见'}
+        onPress={onVisibility} style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
         <Ionicons name={visibilityPresentation(visibility).icon} size={16} color={c.textSecondary} />
         <Text style={{ color: c.textSecondary, fontSize: 13 }}>{visibilityPresentation(visibility).label}</Text>
-        <Ionicons name="chevron-down" size={12} color={c.textSecondary} />
       </TouchableOpacity>
       <TouchableOpacity accessibilityRole="button" accessibilityLabel="重试保存草稿" onPress={onSave} style={{ minHeight: 44, justifyContent: 'center' }}>
         <Text accessibilityLiveRegion="polite" style={{ color: status.includes('失败') ? c.danger : c.textSecondary, fontSize: 12 }}>{status}</Text>

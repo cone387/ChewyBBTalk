@@ -5,7 +5,7 @@ const mockVideoPlayer = jest.fn((_props: any) => null as any);
 const mockMarkdown = jest.fn((props: any) => props.children as any);
 
 jest.mock('react-native', () => ({
-  View: 'View', Text: 'Text', TouchableOpacity: 'TouchableOpacity',
+  View: 'View', Text: 'Text', TouchableOpacity: 'TouchableOpacity', Pressable: 'Pressable',
   StyleSheet: { create: (value: unknown) => value },
   Linking: { openURL: jest.fn(() => Promise.resolve()) },
 }));
@@ -70,6 +70,12 @@ beforeEach(() => {
 afterEach(() => { act(() => { tree?.unmount(); }); tree = undefined; });
 
 describe('BBTalkCard rendering', () => {
+  it('opens the record when the card background is pressed', async () => {
+    const item = talk();
+    await mountCard(item);
+    await act(async () => tree.root.findByProps({ testID: 'record-card-t1' }).props.onPress());
+    expect(cb.onEdit).toHaveBeenCalledWith(item);
+  });
   it('keeps unchanged markdown out of comment updates while still applying content and theme edits', async () => {
     const item = talk({ content: '**original**', commentCount: 1 });
     await mountCard(item);

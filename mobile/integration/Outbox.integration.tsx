@@ -43,7 +43,7 @@ test('network recovery automatically syncs a durable entry and shows the confirm
   await screen.findByText('已保存到服务器');
   expect((apiClient.post as jest.Mock).mock.calls[0][2]).toEqual({ 'Idempotency-Key': entry.id });
   fireEvent.press(screen.getByText('查看记录'));
-  expect(mockNavigation.navigate).toHaveBeenCalledWith('RecordDetail', { item: expect.objectContaining({ id: 'record' }) });
+  expect(mockNavigation.navigate).toHaveBeenCalledWith('Compose', { editItem: expect.objectContaining({ id: 'record' }) });
 });
 
 test('foreground recovery resumes a persisted syncing entry with the original key', async () => {

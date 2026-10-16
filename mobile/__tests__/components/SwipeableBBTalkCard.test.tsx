@@ -40,7 +40,7 @@ it('renders the selected checkbox state and its accessible action', () => {
 });
 it('passes the record, comment and callbacks through to the actual child boundary', () => {
   const props = mount(); const card = tree.root.findByType('BBTalkCard');
-  for (const key of ['item', 'onMenu', 'onEdit', 'onToggleVisibility', 'onImagePreview', 'onLocationPress', 'onComment', 'theme'] as const) expect(card.props[key]).toBe(props[key]);
+  for (const key of ['item', 'onMenu', 'onEdit', 'onLongPress', 'onToggleVisibility', 'onImagePreview', 'onLocationPress', 'onComment', 'theme'] as const) expect(card.props[key]).toBe(props[key]);
 });
 it('does not install obsolete record swipe gestures that conflict with tag navigation', () => {
   mount(); const touch = tree.root.findByType('TouchableOpacity');

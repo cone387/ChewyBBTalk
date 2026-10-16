@@ -456,7 +456,7 @@ describe('HomeScreen list and navigation', () => {
     expect(mockSlice.loadBBTalks).toHaveBeenCalledWith({ search: undefined, tags: ['工作'], date: '2026-10-08' });
     expect(tappable('卡片 a')).toBeDefined();
     await press('卡片 a');
-    expect(mockNav.value.navigate).toHaveBeenCalledWith('RecordDetail', { item: expect.objectContaining({ id: 'a' }) });
+    expect(mockNav.value.navigate).toHaveBeenCalledWith('Compose', { editItem: expect.objectContaining({ id: 'a' }) });
     await press(`清除日期筛选：2026-10-08`);
     expect(onSelectTag).toHaveBeenCalledWith(null);
   });

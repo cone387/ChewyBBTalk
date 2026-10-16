@@ -127,7 +127,7 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
   }, [navigation]);
 
   const onNavigateDetail = useCallback((item: BBTalk) => {
-    navigation.navigate('RecordDetail', { item });
+    navigation.navigate('Compose', { editItem: item });
   }, [navigation]);
 
   const actions = useBBTalkActions({ showError, onNavigateCompose });
@@ -531,6 +531,16 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
             <SearchInput searchText={searchText} onSearchTextChange={changeSearchText}
               onSubmit={saveSearchHistory} onFocus={() => setSearchVisible(true)}
               theme={theme} />
+            {privacy.showCountdown && privacy.privacyEnabled && privacy.privacySeconds !== null && privacy.privacySeconds > 0 && !privacy.locked && (
+              <TouchableOpacity style={[styles.countdownBadge, { backgroundColor: c.surface }]}
+                onPress={() => privacy.setLocked(true)} onLongPress={() => navigation.navigate('PrivacySettings')} activeOpacity={0.7}
+                accessibilityRole="button" accessibilityLabel="锁定内容">
+                <Ionicons name="lock-closed-outline" size={12} color={c.textSecondary} />
+                <Text style={[styles.countdownText, { color: c.textSecondary }]}>
+                  {privacy.privacySeconds >= 60 ? `${Math.floor(privacy.privacySeconds / 60)}:${(privacy.privacySeconds % 60).toString().padStart(2, '0')}` : `${privacy.privacySeconds}s`}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
           <View onLayout={sticky.onNavigationLayout}>
             <TagTabs tags={visibleTags} selectedTag={selectedTag} selectedDate={selectedDate}
@@ -546,18 +556,6 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
         </Animated.View>
       </View>}
       {!batch.batchMode && <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: insets.top, backgroundColor: c.background, zIndex: 21 }} />}
-
-
-      {privacy.showCountdown && privacy.privacyEnabled && privacy.privacySeconds !== null && privacy.privacySeconds > 0 && !privacy.locked && (
-        <TouchableOpacity style={[styles.countdownBadge, { bottom: insets.bottom + UI.tabBarClearance + 22, backgroundColor: c.surface }]}
-          onPress={() => privacy.setLocked(true)} onLongPress={() => navigation.navigate('PrivacySettings')} activeOpacity={0.7}
-          accessibilityRole="button" accessibilityLabel="锁定内容">
-          <Ionicons name="lock-closed-outline" size={12} color={c.textSecondary} />
-          <Text style={[styles.countdownText, { color: c.textSecondary }]}>
-            {privacy.privacySeconds >= 60 ? `${Math.floor(privacy.privacySeconds / 60)}:${(privacy.privacySeconds % 60).toString().padStart(2, '0')}` : `${privacy.privacySeconds}s`}
-          </Text>
-        </TouchableOpacity>
-      )}
 
       {!batch.batchMode && (
         <GlassSurface theme={theme} radius={28} elevated style={[styles.fab, { bottom: insets.bottom + UI.tabBarClearance + 16 }]}
@@ -623,7 +621,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center',
   },
   countdownBadge: {
-    position: 'absolute', right: 88, flexDirection: 'row', alignItems: 'center', gap: 4,
+    flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 8,
     minHeight: 44, borderRadius: 22, paddingHorizontal: 12,
   },
   countdownText: { color: '#fff', fontSize: 12, fontWeight: '600' },

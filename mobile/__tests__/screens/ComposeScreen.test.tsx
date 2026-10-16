@@ -64,7 +64,8 @@ jest.mock('expo-location', () => ({
   requestForegroundPermissionsAsync: (...args: any[]) => mockLocationSvc.requestForegroundPermissionsAsync(...args),
   getCurrentPositionAsync: (...args: any[]) => mockLocationSvc.getCurrentPositionAsync(...args),
 }));
-jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 10, bottom: 12, left: 0, right: 0 }) }));
+jest.mock('react-native-safe-area-context', () => ({ SafeAreaProvider: 'SafeAreaProvider', SafeAreaView: 'SafeAreaView', useSafeAreaInsets: () => ({ top: 10, bottom: 12, left: 0, right: 0 }) }));
+jest.mock('../../src/components/ImageViewer', () => 'ImageViewer');
 jest.mock('@react-native-async-storage/async-storage', () => ({
   getItem: (...args: any[]) => mockAsyncStorage.getItem(...args),
   setItem: (...args: any[]) => mockAsyncStorage.setItem(...args),
@@ -302,15 +303,30 @@ describe('ComposeScreen rendering and modes', () => {
     expect(input().props.value).toBe('#tag hello **bold**');
   });
 
-  it('switches to public only after the confirmation dialog accepts', async () => {
-    mockConfirmPublic.mockReset().mockImplementationOnce((cb: any) => {});
+  it('toggles visibility immediately in both directions without a confirmation', async () => {
     await mountCompose();
     await press('修改可见性');
-    expect(hasText('仅自己可见')).toBe(true);
-    mockConfirmPublic.mockImplementationOnce((cb: any) => cb());
-    await press('修改可见性');
     expect(hasText('公开可见')).toBe(true);
+    expect(tappable('修改可见性').props.accessibilityValue).toEqual({ text: '公开可见' });
     expect(tappable('发布')).toBeDefined();
+    await press('修改可见性');
+    expect(hasText('仅自己可见')).toBe(true);
+    expect(mockConfirmPublic).not.toHaveBeenCalled();
+  });
+
+  it('opens existing records ready to edit without requesting the keyboard', async () => {
+    mockRoute.params = { editItem: makeEditItem() };
+    await mountCompose();
+    expect(input().props.value).toBe('#工作 原始内容');
+    expect(input().props.autoFocus).toBe(false);
+    expect(mockPrevent?.enabled).toBe(false);
+    await typeIn('直接修改');
+    expect(mockPrevent?.enabled).toBe(true);
+  });
+
+  it('still focuses the input when creating a new record', async () => {
+    await mountCompose();
+    expect(input().props.autoFocus).toBe(true);
   });
 
   it('saves a manual draft retry through the status bar', async () => {
@@ -768,7 +784,6 @@ describe('ComposeScreen media', () => {
 
   it('requires camera permission before capturing a photo', async () => {
     await mountCompose();
-    await press('更多工具');
     await press('拍照');
     expect(mockXAlert).toHaveBeenCalledWith('需要相机权限', '可在系统设置中允许相机访问，也可以从相册添加照片。');
     expect(mockImagePicker.launchCameraAsync).not.toHaveBeenCalled();
@@ -782,7 +797,6 @@ describe('ComposeScreen media', () => {
     mockDocumentPicker.getDocumentAsync.mockResolvedValue({
       canceled: true, assets: [{ uri: 'file:///doc.pdf', name: 'doc.pdf', mimeType: 'application/pdf' }],
     });
-    await press('更多工具');
     await press('添加文件');
     expect(mockRetainMedia).not.toHaveBeenCalled();
   });
@@ -794,17 +808,27 @@ describe('ComposeScreen media', () => {
     await press('删除附件');
     expect(imageCount()).toBe(1);
   });
+
+  it('views an existing photo without changing the attachment or focusing the editor', async () => {
+    mockRoute.params = { editItem: makeEditItem({ attachments: [att('img1')] }) };
+    await mountCompose();
+    await press('查看照片');
+    expect(tree.root.findByType('ImageViewer').props.imageUrl).toBe('file:///img1');
+    await press('关闭照片');
+    expect(tree.root.findAllByType('ImageViewer')).toHaveLength(0);
+    expect(imageCount()).toBe(1);
+    expect(input().props.autoFocus).toBe(false);
+    expect(mockPrevent?.enabled).toBe(false);
+  });
 });
 
 describe('ComposeScreen toolbar', () => {
-  it('expands and collapses the extra tools row', async () => {
+  it('exposes attachment and formatting actions without a more menu', async () => {
     await mountCompose();
-    expect(tappable('拍照')).toBeUndefined();
-    await press('更多工具');
     expect(tappable('拍照')).toBeDefined();
     expect(tappable('添加位置')).toBeDefined();
-    await press('更多工具');
-    expect(tappable('拍照')).toBeUndefined();
+    expect(tappable('加粗')).toBeDefined();
+    expect(tappable('更多工具')).toBeUndefined();
   });
 
   it('inserts a hash, offers quick tags, and inserts a chosen tag', async () => {
@@ -838,7 +862,6 @@ describe('ComposeScreen toolbar', () => {
 
   it('inserts markdown snippets at the cursor', async () => {
     await mountCompose();
-    await press('更多工具');
     await press('加粗');
     expect(input().props.value).toBe('**粗体**');
     await press('引用');
@@ -847,7 +870,6 @@ describe('ComposeScreen toolbar', () => {
 
   it('captures and clears the location, toggling off without re-requesting', async () => {
     await mountCompose();
-    await press('更多工具');
     await press('添加位置');
     expect(mockLocationSvc.getCurrentPositionAsync).toHaveBeenCalledWith({ accuracy: 4 });
     expect(hasText('39.9042, 116.4074')).toBe(true);
@@ -862,7 +884,6 @@ describe('ComposeScreen toolbar', () => {
   it('explains denied location permission and transient failures', async () => {
     mockLocationSvc.requestForegroundPermissionsAsync.mockResolvedValue({ status: 'denied' });
     await mountCompose();
-    await press('更多工具');
     await press('添加位置');
     expect(mockXAlert).toHaveBeenCalledWith('提示', '需要定位权限');
     mockLocationSvc.requestForegroundPermissionsAsync.mockRejectedValue(new Error('boom'));
@@ -982,7 +1003,6 @@ describe('ComposeScreen media pickers', () => {
     mockRetainMedia.mockResolvedValue(pendingItem('cam1'));
     mockUploadRetained.mockResolvedValue(att('camup'));
     await mountCompose();
-    await press('更多工具');
     await press('拍照');
     expect(mockRetainMedia).toHaveBeenCalledWith('file:///shot.jpg', expect.stringMatching(/^photo_\d+\.jpg$/), 'image/jpeg', getSession());
     expect(mockUploadRetained).toHaveBeenCalledWith(pendingItem('cam1'), getSession());
@@ -994,7 +1014,6 @@ describe('ComposeScreen media pickers', () => {
     mockImagePicker.launchCameraAsync.mockRejectedValue(new Error('crash'));
     mockDocumentPicker.getDocumentAsync.mockRejectedValue(new Error('nope'));
     await mountCompose();
-    await press('更多工具');
     await press('拍照');
     expect(mockXAlert).toHaveBeenCalledWith('无法拍照', '请稍后重试');
     await press('添加文件');
@@ -1008,7 +1027,6 @@ describe('ComposeScreen media pickers', () => {
     mockRetainMedia.mockResolvedValue(pendingItem('vid1', 'clip.mp4'));
     mockUploadRetained.mockResolvedValue(att('vidup', 'video'));
     await mountCompose();
-    await press('更多工具');
     await press('添加视频');
     expect(mockRetainMedia).not.toHaveBeenCalled();
     await press('添加视频');
@@ -1024,7 +1042,6 @@ describe('ComposeScreen media pickers', () => {
     mockRetainMedia.mockResolvedValue(pendingItem('doc1', 'note.pdf'));
     mockUploadRetained.mockResolvedValue(att('docup', 'file'));
     await mountCompose();
-    await press('更多工具');
     await press('添加文件');
     expect(mockRetainMedia).toHaveBeenCalledWith('file:///note.pdf', 'note.pdf', 'application/pdf', getSession());
     expect(hasText('docup.orig')).toBe(true);
@@ -1047,7 +1064,6 @@ describe('ComposeScreen editing details', () => {
     await mountCompose();
     await typeIn('hello');
     await act(async () => { input().props.onSelectionChange({ nativeEvent: { selection: { start: 2 } } }); });
-    await press('更多工具');
     await press('加粗');
     expect(input().props.value).toBe('he**粗体**llo');
     await press('取消');
@@ -1100,7 +1116,7 @@ describe('ComposeScreen editing details', () => {
     expect(hasText('公开可见')).toBe(true);
     await press('修改可见性');
     expect(hasText('仅自己可见')).toBe(true);
-    expect(mockConfirmPublic).toHaveBeenCalledTimes(1);
+    expect(mockConfirmPublic).not.toHaveBeenCalled();
   });
 
   it('labels an attachment without an original filename as 附件', async () => {
@@ -1159,7 +1175,6 @@ describe('ComposeScreen keyboard and platform details', () => {
 
   it('inserts every markdown snippet from the expanded toolbar', async () => {
     await mountCompose();
-    await press('更多工具');
     await press('斜体');
     await press('标题');
     await press('无序列表');

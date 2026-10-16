@@ -118,7 +118,7 @@ export default function TagManagementScreen() {
     <View style={[styles.container, { backgroundColor: c.surfaceSecondary }]} onTouchStart={recordHistoryActivity}>
     <DragList
       containerStyle={[styles.container, { backgroundColor: c.surfaceSecondary }]}
-      contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 24 }}
+      contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: insets.bottom + 24 }}
       keyboardShouldPersistTaps="handled"
       automaticallyAdjustKeyboardInsets
       keyboardDismissMode="on-drag"
@@ -126,15 +126,13 @@ export default function TagManagementScreen() {
       onReordered={reorder}
       onDragBegin={() => setDragging(true)}
       onDragEnd={() => setDragging(false)}
-      ListHeaderComponent={<View style={styles.intro}>
-        <Text style={[styles.introTitle, { color: c.text }]}>{tags.length} 个标签</Text>
-        <Text style={[styles.introHint, { color: c.textSecondary }]}>长按右侧手柄拖动，调整首页显示顺序</Text>
-        <Text accessibilityLiveRegion="polite" style={[styles.status, { color: c.textSecondary }]}>{orderStatus || '松手后自动保存'}</Text>
+      ListHeaderComponent={orderStatus || error ? <View style={{ paddingBottom: 12 }}>
+        {!!orderStatus && <Text accessibilityLiveRegion="polite" style={[styles.status, { color: c.textSecondary }]}>{orderStatus}</Text>}
         {!!error && <View style={{ marginTop: 12 }}>
         <Text accessibilityRole="alert" style={{ color: c.danger }}>{error}</Text>
         <TouchableOpacity accessibilityRole="button" onPress={() => load()} style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: c.primary }}>重新加载</Text></TouchableOpacity>
         </View>}
-      </View>}
+      </View> : null}
       ListEmptyComponent={!error ? (
         <EmptyState
           icon="pricetags-outline"
@@ -164,7 +162,7 @@ export default function TagManagementScreen() {
                 }}
                 delayLongPress={220} onLongPress={onDragStart} onPressOut={onDragEnd}
                 style={[styles.tagAction, { opacity: busy || !!editingId || tags.length < 2 ? 0.35 : 1 }]}>
-                <Ionicons name="reorder-three-outline" size={24} color={isActive ? c.primary : c.textSecondary} />
+                <Ionicons name="reorder-three-outline" size={24} color={isActive ? c.primary : c.textTertiary} />
               </TouchableOpacity>
             </View>
 
@@ -239,9 +237,7 @@ const styles = StyleSheet.create({
   modalHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   deleteButton: { minHeight: 48, justifyContent: 'center', alignItems: 'center', marginTop: 8 },
   deleteMessage: { fontSize: 15, lineHeight: 24 },
-  intro: { paddingTop: 20, paddingBottom: 16 },
   introTitle: { fontSize: 18, fontWeight: '600' },
-  introHint: { fontSize: 13, lineHeight: 20, marginTop: 6 },
   status: { fontSize: 12, marginTop: 8 },
   tagCard: {
     borderRadius: 10, padding: 12, marginBottom: 8, borderWidth: 1,

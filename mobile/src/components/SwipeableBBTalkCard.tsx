@@ -92,11 +92,14 @@ const SwipeableBBTalkCard = React.memo(function SwipeableBBTalkCard({
           </TouchableOpacity>
         )}
 
-        <View style={[styles.cardContent, batchMode && styles.cardContentBatch]}>
+        <View pointerEvents={batchMode ? 'none' : 'auto'} accessibilityElementsHidden={batchMode}
+          importantForAccessibility={batchMode ? 'no-hide-descendants' : 'auto'}
+          style={[styles.cardContent, batchMode && styles.cardContentBatch]}>
           <BBTalkCard
             item={item}
             onMenu={onMenu}
             onEdit={onEdit}
+            onLongPress={onLongPress}
             onToggleVisibility={onToggleVisibility}
             onImagePreview={onImagePreview}
             onLocationPress={onLocationPress}

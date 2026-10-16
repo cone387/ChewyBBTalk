@@ -1,6 +1,10 @@
 import { UI } from '../theme/materials';
 import GlassSurface from '../components/GlassSurface';
 import DraftStatus from '../components/DraftStatus';
+import ImageViewer from '../components/ImageViewer';
+import GlassIconButton from '../components/GlassIconButton';
+import { THEMES } from '../theme/themes';
+import { useMediaStatusBar } from '../hooks/useMediaStatusBar';
 import { capturePrivacyPlaybackGuard, usePauseOnPrivacySuspension } from '../hooks/usePauseOnPrivacySuspension';
 import { readSubmission, confirmSubmission, type SubmissionIntent } from '../services/submissions';
 import { enqueueSubmission, reviseFailedSubmission } from '../services/outbox';
@@ -11,7 +15,7 @@ import { getSession, isCurrentSession } from '../services/session';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, ActivityIndicator,
+  ScrollView, ActivityIndicator, Modal, Linking,
   Platform, Keyboard, Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,7 +24,7 @@ import Markdown from 'react-native-markdown-display';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Location from 'expo-location';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute, usePreventRemove } from '@react-navigation/native';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
@@ -37,7 +41,6 @@ import { xAlert, xConfirm, xActionSheet } from '../utils/crossAlert';
 import { useDraftAutosave } from '../hooks/useDraftAutosave';
 import { isScopedDraftKey, isUnchangedEditDraft, readDraft, writeDraft } from '../services/drafts';
 import { retainMedia, uploadRetainedMedia, pruneRetainedMedia, type PendingMedia } from '../services/pendingMedia';
-import { confirmPublicVisibility } from '../utils/confirmPublicVisibility';
 import { COMPOSE_TOOLBAR_LABELS } from '../utils/composeToolbarLabels';
 
 import { useAudioPlayer, setAudioModeAsync } from 'expo-audio';
@@ -195,6 +198,9 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const c = theme.colors;
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  useMediaStatusBar(navigation, previewImage !== null && !historyLocked, theme.key);
+  useEffect(() => { if (historyLocked) setPreviewImage(null); }, [historyLocked]);
 
   const editItem: BBTalk | undefined = lockedCapture ? undefined : route.params?.editItem;
   const isEditing = !!editItem;
@@ -207,7 +213,6 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
   const [uploadError, setUploadError] = useState('');
   const [uploadingId, setUploadingId] = useState<string>();
   const uploadBusy = useRef(false);
-  const [showMoreTools, setShowMoreTools] = useState(false);
   const leavingRef = useRef(false);
 
   const [content, setContent] = useState(() => {
@@ -549,7 +554,7 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
           </TouchableOpacity>
         </View>}
       </View>}
-      <DraftStatus visibility={visibility} onVisibility={() => visibility === 'public' ? setVisibility('private') : confirmPublicVisibility(() => { if (isCurrentSession(session)) setVisibility('public'); })}
+      <DraftStatus visibility={visibility} onVisibility={() => setVisibility(value => value === 'public' ? 'private' : 'public')}
         status={autosave.status} onSave={() => { void autosave.save().catch(() => {}); }} pending={pendingMedia} uploading={uploading} uploadingId={uploadingId} error={uploadError}
         onRetryItem={item => { void uploadPending([item]); }}
         onRetry={() => { void uploadPending(); }} onRemove={id => { setPendingMedia(prev => prev.filter(item => item.id !== id)); setUploadError(''); }} />
@@ -560,7 +565,7 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
           <TextInput ref={inputRef} style={[styles.textInput, { color: c.text }]}
             accessibilityLabel="记录内容"
             placeholder="此刻，有什么想记下来的？" placeholderTextColor={c.textTertiary}
-            editable={!submitting && draftReady} value={content} onChangeText={value => { recordHistoryActivity(); setContent(value); }} multiline textAlignVertical="top" autoFocus
+            editable={!submitting && draftReady} value={content} onChangeText={value => { recordHistoryActivity(); setContent(value); }} multiline textAlignVertical="top" autoFocus={!isEditing}
             onSelectionChange={(e) => setCursorPos(e.nativeEvent.selection.start)}
             scrollEnabled={true} />
         </View>
@@ -589,16 +594,18 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
             {attachments.map(att => (
               <View key={att.uid} style={styles.attachmentItem}>
                 {att.type === 'image' ? (
-                  <Image source={buildImageSource(att.url)} style={[styles.attachmentImage, { backgroundColor: c.borderLight }]} contentFit="cover" />
+                  <TouchableOpacity accessibilityRole="button" accessibilityLabel="查看照片" onPress={() => { Keyboard.dismiss(); setPreviewImage(att.url); }}>
+                    <Image source={buildImageSource(att.url)} style={[styles.attachmentImage, { backgroundColor: c.borderLight }]} contentFit="cover" />
+                  </TouchableOpacity>
                 ) : att.type === 'audio' ? (
                   <CompactAudioCard attachment={att} colors={c} />
                 ) : att.type === 'video' ? (
                   <CompactVideoCard attachment={att} colors={c} />
                 ) : (
-                  <View style={[styles.filePlaceholder, { backgroundColor: c.borderLight, borderColor: c.border }]}>
+                  <TouchableOpacity accessibilityRole="button" accessibilityLabel={`打开附件 ${att.originalFilename || '附件'}`} onPress={() => Linking.openURL(att.url).catch(() => xAlert('无法打开附件', '请稍后重试'))} style={[styles.filePlaceholder, { backgroundColor: c.borderLight, borderColor: c.border }]}>
                     <Ionicons name="document" size={20} color={c.textTertiary} />
                     <Text style={[styles.fileName, { color: c.textTertiary }]} numberOfLines={1}>{att.originalFilename || '附件'}</Text>
-                  </View>
+                  </TouchableOpacity>
                 )}
                 <TouchableOpacity style={styles.removeBtn} onPress={() => setAttachments(p => p.filter(a => a.uid !== att.uid))} hitSlop={{ top: 11, bottom: 11, left: 11, right: 11 }} accessibilityRole="button" accessibilityLabel="删除附件"><Ionicons name="close" size={12} color="#fff" /></TouchableOpacity>
               </View>
@@ -665,18 +672,14 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
               }
               setTimeout(() => inputRef.current?.focus(), 30);
             }} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.insertTag}><Ionicons name="pricetag-outline" size={19} color={showQuickTags ? c.primary : c.textSecondary} /></TouchableOpacity>
-            <TouchableOpacity style={styles.toolBtn} onPress={() => setShowMoreTools(!showMoreTools)} accessibilityRole="button" accessibilityLabel="更多工具" accessibilityState={{ expanded: showMoreTools }}><Ionicons name="ellipsis-horizontal" size={22} color={c.textSecondary} /></TouchableOpacity>
-          </ScrollView>
-          {previewButton}
-        </View>
-        {showMoreTools && <View>
-          <Text style={{ color: c.textSecondary, fontSize: 12, paddingHorizontal: 16 }}>附件与文字格式</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always" contentContainerStyle={styles.toolbarRow}>
             <TouchableOpacity style={styles.toolBtn} onPress={takePhoto} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.takePhoto}><Ionicons name="camera-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
             <TouchableOpacity style={styles.toolBtn} onPress={() => pickMedia('videos')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.addVideo}><Ionicons name="videocam-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
             <TouchableOpacity style={styles.toolBtn} onPress={pickFile} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.addFile}><Ionicons name="attach-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
             <TouchableOpacity style={styles.toolBtn} onPress={getLocation} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.addLocation}><Ionicons name="location-outline" size={19} color={location ? '#10B981' : c.textSecondary} /></TouchableOpacity>
-            <View style={[styles.toolDivider, { backgroundColor: c.border }]} />
+          </ScrollView>
+        </View>
+        <View style={styles.toolbarInner}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always" contentContainerStyle={styles.toolbarRow}>
             <TouchableOpacity style={[styles.mdBtn, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => mdInsert('bold')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.bold}><Text style={[styles.mdBold, { color: c.text }]}>B</Text></TouchableOpacity>
             <TouchableOpacity style={[styles.mdBtn, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => mdInsert('italic')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.italic}><Text style={[styles.mdItalic, { color: c.text }]}>I</Text></TouchableOpacity>
             <TouchableOpacity style={[styles.mdBtn, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => mdInsert('heading')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.heading}><Text style={[styles.mdBtnText, { color: c.textSecondary }]}>H</Text></TouchableOpacity>
@@ -685,12 +688,24 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
             <TouchableOpacity style={[styles.mdBtn, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => mdInsert('code')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.code}><Ionicons name="code-slash" size={15} color={c.textSecondary} /></TouchableOpacity>
             <TouchableOpacity style={[styles.mdBtn, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => mdInsert('link')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.link}><Ionicons name="link-outline" size={15} color={c.textSecondary} /></TouchableOpacity>
           </ScrollView>
-        </View>}
+          {previewButton}
+        </View>
       </GlassSurface>
         </>
       )}
       {editMode === 'preview' && <View style={[styles.previewActions, { paddingBottom: insets.bottom }]}>{previewButton}</View>}
 
+      {previewImage !== null && <Modal transparent presentationStyle="overFullScreen" onRequestClose={() => setPreviewImage(null)}>
+        <SafeAreaProvider>
+        <View style={{ flex: 1, backgroundColor: '#000' }}>
+          <ImageViewer imageUrl={previewImage} onClose={() => setPreviewImage(null)} />
+          <SafeAreaView edges={['top']} pointerEvents="box-none" style={{ position: 'absolute', top: 0, right: 16, paddingTop: 12 }}>
+            <GlassIconButton theme={THEMES.find(t => t.key === 'dark')!} icon="close" accessibilityLabel="关闭照片"
+              onPress={() => setPreviewImage(null)} />
+          </SafeAreaView>
+        </View>
+        </SafeAreaProvider>
+      </Modal>}
       <VoiceRecordingOverlay
         visible={voiceRecording}
         holdMode={holdRecording.holdMode} cancelHint={holdRecording.cancelHint} stopAction={holdRecording.stopAction}
@@ -733,17 +748,16 @@ const styles = StyleSheet.create({
   charCountWrap: { paddingHorizontal: 12 },
   charCount: { fontSize: 12 },
   toolbarWrap: { marginTop: 0 },
-  toolbarInner: { flexDirection: 'row', alignItems: 'center', paddingRight: 12 },
+  toolbarInner: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 6 },
   previewActions: { alignItems: 'flex-end', paddingHorizontal: 16 },
   quickTagBar: { paddingVertical: 6 },
   quickTagChip: { minHeight: 44, justifyContent: 'center', borderWidth: 1, borderRadius: 22, paddingHorizontal: 12, paddingVertical: 5 },
   quickTagText: { fontSize: 13 },
   locationBar: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 4 },
   locationText: { flex: 1, fontSize: 12, color: '#059669' },
-  toolbarRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 2, gap: 4 },
-  toolBtn: { borderRadius: 24, width: 48, height: 48, justifyContent: 'center', alignItems: 'center' },
-  toolDivider: { width: 1, height: 20, marginHorizontal: 4 },
-  mdBtn: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
+  toolbarRow: { flexDirection: 'row', alignItems: 'center', flexGrow: 1, justifyContent: 'space-between', paddingVertical: 2 },
+  toolBtn: { borderRadius: 22, width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
+  mdBtn: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
   mdBold: { fontSize: 13, fontWeight: '800' },
   mdItalic: { fontSize: 13, fontWeight: '600', fontStyle: 'italic' },
   mdBtnText: { fontSize: 12, fontWeight: '700' },

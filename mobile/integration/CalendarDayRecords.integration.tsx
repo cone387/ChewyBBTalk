@@ -49,7 +49,7 @@ test('day cards expose time, tags, formatted text and attachment previews before
   expect(screen.getByText('河边.mp4')).toBeTruthy();
   expect(screen.getByText('路线.pdf')).toBeTruthy();
   fireEvent.press(screen.getByText('鸟鸣.m4a'));
-  expect(mockNavigate).toHaveBeenCalledWith('RecordDetail', { item });
+  expect(mockNavigate).toHaveBeenCalledWith('Compose', { editItem: item });
 });
 
 test('all preview presses retain the history lock and session guards', async () => {
@@ -73,7 +73,7 @@ test('large media records bound image previews and long text while keeping the o
   expect(screen.getByText('+8')).toBeTruthy();
   expect(screen.queryByText(largeItem.content)).toBeNull();
   fireEvent.press(screen.getByText('阅读全文'));
-  await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('RecordDetail', { item: largeItem }));
+  await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('Compose', { editItem: largeItem }));
 });
 
 test('linked markdown images cannot bypass the guarded record action', async () => {
@@ -88,7 +88,7 @@ test('linked markdown images cannot bypass the guarded record action', async () 
   expect(mockNavigate).not.toHaveBeenCalled();
   setHistoryLocked(false);
   fireEvent.press(preview);
-  expect(mockNavigate).toHaveBeenCalledWith('RecordDetail', { item: linkedItem });
+  expect(mockNavigate).toHaveBeenCalledWith('Compose', { editItem: linkedItem });
   expect(openURL).not.toHaveBeenCalled();
   openURL.mockRestore();
 });

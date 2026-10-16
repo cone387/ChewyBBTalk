@@ -57,7 +57,7 @@ test('selecting a recorded day reads in place and opens details without leaving 
   await screen.findByText('当天的第一条记录');
   expect(mockNavigate).not.toHaveBeenCalled();
   fireEvent.press(screen.getByText('当天的第一条记录'));
-  expect(mockNavigate).toHaveBeenCalledWith('RecordDetail', { item: expect.objectContaining({ id: 'one' }) });
+  expect(mockNavigate).toHaveBeenCalledWith('Compose', { editItem: expect.objectContaining({ id: 'one' }) });
   const emptyDate = dateKey.replace(/01$/, '02');
   fireEvent.press(screen.getByLabelText(`${emptyDate}，0条记录`));
   expect(onSelectDate).toHaveBeenCalledTimes(1);
@@ -130,7 +130,7 @@ test('returning from record details retains the loaded calendar pages', async ()
   const screen = render(<CalendarDayRecords date={dateKey} />);
   fireEvent.press(await screen.findByText('加载更多当天记录'));
   fireEvent.press(await screen.findByText('保留第二页'));
-  expect(mockNavigate).toHaveBeenCalledWith('RecordDetail', { item: second });
+  expect(mockNavigate).toHaveBeenCalledWith('Compose', { editItem: second });
   mockFocused = false;
   await act(async () => screen.rerender(<CalendarDayRecords date={dateKey} />));
   mockFocused = true;

@@ -76,7 +76,7 @@ export default function CalendarDayRecords({ date, header, contentContainerStyle
   }, [date]);
 
   const openRecord = useCallback((item: BBTalk) => {
-    if (canOpen.current()) navigation.navigate('RecordDetail', { item });
+    if (canOpen.current()) navigation.navigate('Compose', { editItem: item });
   }, [navigation]);
   const renderItem = useCallback(({ item }: { item: BBTalk }) => <CalendarRecordCard item={item} onOpen={openRecord} />, [openRecord]);
 

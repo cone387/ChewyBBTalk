@@ -1,7 +1,7 @@
 import React from 'react';
 import { visibilityPresentation } from '../utils/visibilityPresentation';
 import {
-  View, Text, TouchableOpacity, StyleSheet, Linking,
+  View, Text, TouchableOpacity, Pressable, StyleSheet, Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -20,6 +20,7 @@ export interface BBTalkCardProps {
   item: BBTalk;
   onMenu: (item: BBTalk) => void;
   onEdit: (item: BBTalk) => void;
+  onLongPress?: (item: BBTalk) => void;
   onToggleVisibility: (item: BBTalk) => void;
   onImagePreview: (images: string[], index: number) => void;
   onLocationPress: (loc: { latitude: number; longitude: number }) => void;
@@ -95,6 +96,7 @@ export function arePropsEqual(prev: BBTalkCardProps, next: BBTalkCardProps): boo
   // Callback references
   if (prev.onMenu !== next.onMenu) return false;
   if (prev.onEdit !== next.onEdit) return false;
+  if (prev.onLongPress !== next.onLongPress) return false;
   if (prev.onToggleVisibility !== next.onToggleVisibility) return false;
   if (prev.onImagePreview !== next.onImagePreview) return false;
   if (prev.onLocationPress !== next.onLocationPress) return false;
@@ -111,6 +113,7 @@ const BBTalkCard = React.memo(function BBTalkCard({
   item,
   onMenu,
   onEdit,
+  onLongPress,
   onToggleVisibility,
   onImagePreview,
   onLocationPress,
@@ -134,7 +137,9 @@ const BBTalkCard = React.memo(function BBTalkCard({
   }, [item.content, isLong, c]);
 
   return (
-    <View style={[styles.card, { backgroundColor: c.cardBg }]}>
+    <Pressable accessible={false} testID={`record-card-${item.id}`} onPress={() => onEdit(item)}
+      onLongPress={onLongPress ? () => onLongPress(item) : undefined} delayLongPress={500}
+      style={[styles.card, { backgroundColor: c.cardBg }]}>
       <TouchableOpacity
         style={styles.moreBtn}
         hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
@@ -145,8 +150,8 @@ const BBTalkCard = React.memo(function BBTalkCard({
         <Ionicons name="ellipsis-horizontal" size={18} color={c.textTertiary} />
       </TouchableOpacity>
 
-      {/* Content area — tap to read */}
-      <TouchableOpacity activeOpacity={0.8} onPress={() => onEdit(item)} accessibilityRole="button" accessibilityLabel={`碎碎念：${item.content.slice(0, 50)}${item.content.length > 50 ? '…' : ''}`}>
+      {/* Keep a separate accessible entry so media and comment controls remain reachable. */}
+      <TouchableOpacity activeOpacity={0.8} onPress={() => onEdit(item)} onLongPress={onLongPress ? () => onLongPress(item) : undefined} delayLongPress={500} accessibilityRole="button" accessibilityLabel={`碎碎念：${item.content.slice(0, 50)}${item.content.length > 50 ? '…' : ''}`}>
 
 
         {contentBody}
@@ -219,7 +224,7 @@ const BBTalkCard = React.memo(function BBTalkCard({
       {((item.commentCount ?? 0) > 0 || newComment) && (
         <InlineComments bbtalkId={item.id} collapsedLimit={1} commentCount={item.commentCount ?? 0} commentPreview={item.commentPreview} commentsRevision={item.commentsRevision} newComment={newComment} theme={theme} />
       )}
-    </View>
+    </Pressable>
   );
 }, arePropsEqual);
 

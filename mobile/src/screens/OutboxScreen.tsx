@@ -76,7 +76,7 @@ export default function OutboxScreen() {
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         {['queued', 'failed'].includes(entry.state) && <TouchableOpacity accessibilityRole="button" style={button} onPress={() => { void retry(entry); }}><Text style={{ color: c.primary }}>重试同步</Text></TouchableOpacity>}
         {entry.state === 'failed' && <TouchableOpacity accessibilityRole="button" style={button} onPress={() => { void edit(entry); }}><Text style={{ color: c.primary }}>修改后重试</Text></TouchableOpacity>}
-        {entry.state === 'synced' && entry.record && <TouchableOpacity accessibilityRole="button" style={button} onPress={() => navigation.navigate('RecordDetail', { item: entry.record })}><Text style={{ color: c.primary }}>查看记录</Text></TouchableOpacity>}
+        {entry.state === 'synced' && entry.record && <TouchableOpacity accessibilityRole="button" style={button} onPress={() => navigation.navigate('Compose', { editItem: entry.record })}><Text style={{ color: c.primary }}>查看记录</Text></TouchableOpacity>}
       </View>
     </View>)}
   </ScrollView>;
