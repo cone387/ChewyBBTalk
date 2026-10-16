@@ -198,3 +198,13 @@ uv run --project backend --frozen python -m unittest discover -s scripts/tests -
 - 停写备份位于 `/home/bzl/projects/web-deployments/953a9f5/`，包含 PostgreSQL dump、完整数据归档、受限配置和校验清单。旧容器 `chewy-bbtalk-before-web-953a9f5` 已停止并保留。切换前、候选容器和上线后均通过 4 账户、93 条附件元数据、92 个本地文件下载验证；原有 1 个缺失附件未增加，258 个原有数据文件摘要不变，5 份备份文件校验通过。
 - 本地 Web 单测、覆盖率门禁（行 96.12%、分支 92.32%）、lint 与生产构建通过；最终 12 项产品页、认证和防窥浏览器回归全部通过。公网 1440px / 375px 实测介绍页、FAQ、应用与登录跳转均通过，没有页面脚本错误或横向溢出；产品资源与运行镜像内容一致。公网首页、`/about`、`/app`、`/login`、健康检查及公开文档返回 200，未认证用户接口返回 401。
 - [CI](https://github.com/cone387/ChewyBBTalk/actions/runs/38871522886)记录时 Web 单测、覆盖率、lint 与构建已通过，完整浏览器与 Electron 回归尚未结束；移动端仍在既有覆盖率门禁失败，不能称全仓 CI 全绿。本次没有发布原生客户端安装包。
+
+### 2026-10-16 产品介绍内容更新
+
+17:05:03（北京时间）上线 `ae2dd1a89b34b619546db8612b21cddf20765094`。正式 Web 的 `/about` 换为真实 Web 示例截图，补齐草稿、附件重试、记录管理、桌面快捷记录、原生移动端、隐私、备份、自托管和 FAQ；明确录音、离线和草稿同步的端侧边界。客户端入口按当前发布状态展示，生产 Web 继续仅由 `frontend/` 提供。
+
+- [镜像构建](https://github.com/cone387/ChewyBBTalk/actions/runs/38877368299)与[传输校验](https://github.com/cone387/ChewyBBTalk/actions/runs/38877637060)通过。固定镜像为 `ghcr.io/cone387/chewy-bbtalk@sha256:8895176d4d7a95cc7a79f2c012aaa169ca3a29bea514e199bb3170bf2b36de74`，内容 ID 为 `f45d0226c1d188f7d02c23a2ba45ad7694c847823fbef8200bc5b492605730b7`。
+- 72 个后端和启动配置文件与上一版本完全一致。运行配置、数据库和文件挂载保持不变，没有迁移或初始化。停写备份与校验记录位于 `/home/bzl/projects/web-deployments/ae2dd1a/`，旧容器 `chewy-bbtalk-before-web-ae2dd1a` 已停止并保留。
+- 切换前、只读候选实例及正式实例均通过 4 账户、93 条附件元数据、92 个本地附件下载检查；原有 1 个缺失附件未增加，258 个数据文件摘要一致。5 份备份文件校验通过，公网介绍页资源与运行镜像一致。
+- 本地 623 项 Web 单测、覆盖率门禁（行 96.02%、分支 92.42%）、lint 与生产构建通过。12 项介绍页、登录和防窥浏览器回归通过；截图检查补充后介绍页 6 项再次通过。上线后 1440px 与 375px 浏览器验证实际截图加载、各端入口、录音 FAQ 和登录往返，无横向溢出或页面脚本错误。
+- [CI](https://github.com/cone387/ChewyBBTalk/actions/runs/38877368492)记录时 Web 单测、覆盖率、lint、构建均通过，完整浏览器和 Electron 回归仍在运行；移动端失败于既有覆盖率门禁。本次没有发布原生或桌面安装包。
