@@ -166,7 +166,7 @@ export default function LandingPage() {
     </div>
 
     <div className="mt-14 grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-      
+
         <div className="group relative bg-white rounded-3xl p-6 border border-black/5 hover-lift">
           <div className="feature-icon-wrap w-12 h-12 rounded-2xl flex items-center justify-center" style={{"background": "#EFF6FF", "color": "#0A84FF"}}>
             <svg aria-hidden="true" focusable="false" className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
@@ -174,7 +174,7 @@ export default function LandingPage() {
           <h3 className="mt-5 text-lg font-semibold tracking-tight">Markdown 原生支持</h3>
           <p className="mt-2 text-sm leading-relaxed" style={{"color": "rgba(28,28,30,0.6)"}}>代码块、列表、链接、加粗一应俱全，写完即所见即所得。</p>
         </div>
-      
+
         <div className="group relative bg-white rounded-3xl p-6 border border-black/5 hover-lift">
           <div className="feature-icon-wrap w-12 h-12 rounded-2xl flex items-center justify-center" style={{"background": "#F5F3FF", "color": "#A855F7"}}>
             <svg aria-hidden="true" focusable="false" className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
@@ -182,7 +182,7 @@ export default function LandingPage() {
           <h3 className="mt-5 text-lg font-semibold tracking-tight">附件 · 图音视频</h3>
           <p className="mt-2 text-sm leading-relaxed" style={{"color": "rgba(28,28,30,0.6)"}}>每条碎碎念都能附图片、视频、音频、文件，一气呵成。</p>
         </div>
-      
+
         <div className="group relative bg-white rounded-3xl p-6 border border-black/5 hover-lift">
           <div className="feature-icon-wrap w-12 h-12 rounded-2xl flex items-center justify-center" style={{"background": "#FDF2F8", "color": "#EC4899"}}>
             <svg aria-hidden="true" focusable="false" className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
@@ -190,7 +190,7 @@ export default function LandingPage() {
           <h3 className="mt-5 text-lg font-semibold tracking-tight">智能标签系统</h3>
           <p className="mt-2 text-sm leading-relaxed" style={{"color": "rgba(28,28,30,0.6)"}}>输入 #标签名 自动创建，自定义颜色、拖拽排序，分类一目了然。</p>
         </div>
-      
+
         <div className="group relative bg-white rounded-3xl p-6 border border-black/5 hover-lift">
           <div className="feature-icon-wrap w-12 h-12 rounded-2xl flex items-center justify-center" style={{"background": "#ECFDF5", "color": "#10B981"}}>
             <svg aria-hidden="true" focusable="false" className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
@@ -198,7 +198,7 @@ export default function LandingPage() {
           <h3 className="mt-5 text-lg font-semibold tracking-tight">防偷窥锁屏</h3>
           <p className="mt-2 text-sm leading-relaxed" style={{"color": "rgba(28,28,30,0.6)"}}>Web 支持防窥锁屏；原生客户端还可使用设备支持的生物识别解锁。</p>
         </div>
-      
+
         <div className="group relative bg-white rounded-3xl p-6 border border-black/5 hover-lift">
           <div className="feature-icon-wrap w-12 h-12 rounded-2xl flex items-center justify-center" style={{"background": "#FFFBEB", "color": "#F59E0B"}}>
             <svg aria-hidden="true" focusable="false" className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
@@ -206,7 +206,7 @@ export default function LandingPage() {
           <h3 className="mt-5 text-lg font-semibold tracking-tight">数据自由</h3>
           <p className="mt-2 text-sm leading-relaxed" style={{"color": "rgba(28,28,30,0.6)"}}>一键导出 JSON / ZIP，附件随行，跨服务器迁移零障碍。</p>
         </div>
-      
+
         <div className="group relative bg-white rounded-3xl p-6 border border-black/5 hover-lift">
           <div className="feature-icon-wrap w-12 h-12 rounded-2xl flex items-center justify-center" style={{"background": "#F0F9FF", "color": "#0EA5E9"}}>
             <svg aria-hidden="true" focusable="false" className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
@@ -214,7 +214,7 @@ export default function LandingPage() {
           <h3 className="mt-5 text-lg font-semibold tracking-tight">多端同步</h3>
           <p className="mt-2 text-sm leading-relaxed" style={{"color": "rgba(28,28,30,0.6)"}}>Web、桌面与 iOS / Android 客户端，连接同一服务器，随时接着记录。</p>
         </div>
-      
+
         <div className="group relative bg-white rounded-3xl p-6 border border-black/5 hover-lift">
           <div className="feature-icon-wrap w-12 h-12 rounded-2xl flex items-center justify-center" style={{"background": "#EEF2FF", "color": "#6366F1"}}>
             <svg aria-hidden="true" focusable="false" className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
@@ -222,7 +222,7 @@ export default function LandingPage() {
           <h3 className="mt-5 text-lg font-semibold tracking-tight">语音速记</h3>
           <p className="mt-2 text-sm leading-relaxed" style={{"color": "rgba(28,28,30,0.6)"}}>记录声音、保存音频附件，让来不及打字的灵感也有地方安放。</p>
         </div>
-      
+
         <div className="group relative bg-white rounded-3xl p-6 border border-black/5 hover-lift">
           <div className="feature-icon-wrap w-12 h-12 rounded-2xl flex items-center justify-center" style={{"background": "#FFF1F2", "color": "#F43F5E"}}>
             <svg aria-hidden="true" focusable="false" className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
@@ -230,7 +230,7 @@ export default function LandingPage() {
           <h3 className="mt-5 text-lg font-semibold tracking-tight">位置标记</h3>
           <p className="mt-2 text-sm leading-relaxed" style={{"color": "rgba(28,28,30,0.6)"}}>可选附加位置信息，让每条碎碎念都有「时空坐标」。</p>
         </div>
-      
+
         <div className="group relative bg-white rounded-3xl p-6 border border-black/5 hover-lift">
           <div className="feature-icon-wrap w-12 h-12 rounded-2xl flex items-center justify-center" style={{"background": "#F0FDFA", "color": "#14B8A6"}}>
             <svg aria-hidden="true" focusable="false" className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>
@@ -238,7 +238,7 @@ export default function LandingPage() {
           <h3 className="mt-5 text-lg font-semibold tracking-tight">本地或云存储</h3>
           <p className="mt-2 text-sm leading-relaxed" style={{"color": "rgba(28,28,30,0.6)"}}>附件可存本地或对接 S3 / 阿里云 OSS / MinIO，随心切换迁移。</p>
         </div>
-      
+
     </div>
   </div>
 </section>
@@ -260,42 +260,42 @@ export default function LandingPage() {
         所有数据都存储在你选择的地方 —— 你连接的服务器，或你配置的 S3 兼容存储。
       </p>
       <ul className="mt-8 space-y-3.5">
-        
+
           <li className="flex items-start gap-3">
             <span className="mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{"background": "rgba(16,185,129,0.14)"}}>
               <svg aria-hidden="true" focusable="false" className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
             </span>
             <span style={{"color": "rgba(28,28,30,0.85)"}}>Web 支持防窥模式，离开时保护屏幕上的记录</span>
           </li>
-        
+
           <li className="flex items-start gap-3">
             <span className="mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{"background": "rgba(16,185,129,0.14)"}}>
               <svg aria-hidden="true" focusable="false" className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
             </span>
             <span style={{"color": "rgba(28,28,30,0.85)"}}>原生客户端支持设备可用的生物识别解锁</span>
           </li>
-        
+
           <li className="flex items-start gap-3">
             <span className="mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{"background": "rgba(16,185,129,0.14)"}}>
               <svg aria-hidden="true" focusable="false" className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
             </span>
             <span style={{"color": "rgba(28,28,30,0.85)"}}>完全开源，所有代码可在 GitHub 审查</span>
           </li>
-        
+
           <li className="flex items-start gap-3">
             <span className="mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{"background": "rgba(16,185,129,0.14)"}}>
               <svg aria-hidden="true" focusable="false" className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
             </span>
             <span style={{"color": "rgba(28,28,30,0.85)"}}>支持服务器本地存储与 S3 兼容存储</span>
           </li>
-        
+
           <li className="flex items-start gap-3">
             <span className="mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{"background": "rgba(16,185,129,0.14)"}}>
               <svg aria-hidden="true" focusable="false" className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
             </span>
             <span style={{"color": "rgba(28,28,30,0.85)"}}>可随时一键导出全部数据，无锁定</span>
           </li>
-        
+
       </ul>
     </div>
     <div className="flex justify-center">
@@ -380,7 +380,7 @@ export default function LandingPage() {
       <h2 className="mt-3 text-3xl md:text-4xl font-bold tracking-tight">常见问题</h2>
     </div>
     <div className="mt-12 space-y-3">
-      
+
         <details className="group bg-white rounded-2xl p-5 border border-black/5 hover:border-black/10 transition">
           <summary className="cursor-pointer flex items-center justify-between font-medium">
             <span>BBTalk 收费吗？</span>
@@ -388,7 +388,7 @@ export default function LandingPage() {
           </summary>
           <p className="mt-3 text-sm leading-relaxed" style={{"color": "rgba(28,28,30,0.7)"}}>完全免费且开源。无内购、无广告、无订阅。源代码在 GitHub 开放。</p>
         </details>
-      
+
         <details className="group bg-white rounded-2xl p-5 border border-black/5 hover:border-black/10 transition">
           <summary className="cursor-pointer flex items-center justify-between font-medium">
             <span>我的数据存在哪里？</span>
@@ -396,7 +396,7 @@ export default function LandingPage() {
           </summary>
           <p className="mt-3 text-sm leading-relaxed" style={{"color": "rgba(28,28,30,0.7)"}}>记录保存在你登录的服务器上；你也可以将服务部署到兼容的 NAS / VPS / 自建服务器上。附件可存本地或对接 S3 兼容存储。完全由你掌控。</p>
         </details>
-      
+
         <details className="group bg-white rounded-2xl p-5 border border-black/5 hover:border-black/10 transition">
           <summary className="cursor-pointer flex items-center justify-between font-medium">
             <span>支持哪些设备？</span>
@@ -404,7 +404,7 @@ export default function LandingPage() {
           </summary>
           <p className="mt-3 text-sm leading-relaxed" style={{"color": "rgba(28,28,30,0.7)"}}>正式 Web 支持现代桌面和手机浏览器，另有桌面及 iOS / Android 客户端。客户端发布情况、后端镜像支持的架构以项目文档为准。</p>
         </details>
-      
+
         <details className="group bg-white rounded-2xl p-5 border border-black/5 hover:border-black/10 transition">
           <summary className="cursor-pointer flex items-center justify-between font-medium">
             <span>万一以后不维护了，我的数据怎么办？</span>
@@ -412,7 +412,7 @@ export default function LandingPage() {
           </summary>
           <p className="mt-3 text-sm leading-relaxed" style={{"color": "rgba(28,28,30,0.7)"}}>所有数据可一键导出为 JSON / ZIP（含附件），格式公开透明。即使项目停止维护，你的数据依然可读、可迁移。</p>
         </details>
-      
+
         <details className="group bg-white rounded-2xl p-5 border border-black/5 hover:border-black/10 transition">
           <summary className="cursor-pointer flex items-center justify-between font-medium">
             <span>会同步到其他平台吗？</span>
@@ -420,7 +420,7 @@ export default function LandingPage() {
           </summary>
           <p className="mt-3 text-sm leading-relaxed" style={{"color": "rgba(28,28,30,0.7)"}}>多个客户端连接同一服务器即可访问自己的记录。附件存储与外部服务由你的服务器和账户配置决定。</p>
         </details>
-      
+
     </div>
   </div>
 </section>
