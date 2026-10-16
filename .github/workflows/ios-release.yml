@@ -1,0 +1,75 @@
+name: iOS signed release
+on:
+  workflow_dispatch:
+    inputs:
+      build_number:
+        description: 'Unused App Store Connect build number (reserve through EAS first)'
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: ios-signed-release
+  cancel-in-progress: false
+jobs:
+  archive:
+    if: github.ref == 'refs/heads/master'
+    runs-on: macos-15
+    timeout-minutes: 90
+    env:
+      CI: '1'
+      EXPO_OFFLINE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - name: Prepare production project
+        working-directory: mobile
+        env:
+          IOS_BUILD_NUMBER: ${{ inputs.build_number }}
+        run: |
+          set -euo pipefail
+          [[ "$IOS_BUILD_NUMBER" =~ ^[1-9][0-9]{0,8}$ ]]
+          mkdir -p test-results/ios-release
+          XCODE_PATH=$(find /Applications -maxdepth 1 -name 'Xcode_26*.app' | sort -V | tail -1)
+          test -n "$XCODE_PATH"
+          sudo xcode-select -s "$XCODE_PATH/Contents/Developer"
+          xcodebuild -version
+          npm ci --no-audit
+          node - <<'NODE'
+          const fs = require('fs');
+          const app = JSON.parse(fs.readFileSync('app.json'));
+          app.expo.ios.buildNumber = process.env.IOS_BUILD_NUMBER;
+          if (app.expo.ios.bundleIdentifier !== 'com.chewy.bbtalk' || app.expo.extra.apiBaseUrl !== 'https://bbtalk.cone387.top') throw Error('Unexpected production configuration');
+          fs.writeFileSync('app.json', JSON.stringify(app, null, 2) + '\n');
+          fs.writeFileSync('test-results/ios-release/source.json', JSON.stringify({ commit: process.env.GITHUB_SHA, version: app.expo.version, build: process.env.IOS_BUILD_NUMBER, api: app.expo.extra.apiBaseUrl }, null, 2));
+          NODE
+          npx expo prebuild --platform ios --no-install
+          pod install --project-directory=ios
+      - name: Import temporary signing credentials
+        env:
+          IOS_SIGNING_BUNDLE: ${{ secrets.IOS_SIGNING_BUNDLE }}
+        run: python3 scripts/mobile-release/prepare-signing.py
+      - name: Configure application signing
+        run: ruby scripts/mobile-release/configure-signing.rb
+      - name: Archive and export production IPA
+        working-directory: mobile
+        run: |
+          set -euo pipefail
+          xcodebuild -workspace ios/ChewyBBTalk.xcworkspace -scheme ChewyBBTalk -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build/release -archivePath build/ChewyBBTalk.xcarchive archive > test-results/ios-release/archive.log 2>&1
+          xcodebuild -exportArchive -archivePath build/ChewyBBTalk.xcarchive -exportPath test-results/ios-release -exportOptionsPlist "$RUNNER_TEMP/bbtalk-signing/ExportOptions.plist" > test-results/ios-release/export.log 2>&1
+          test -f test-results/ios-release/ChewyBBTalk.ipa
+      - name: Remove signing material
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/bbtalk-signing/signing.keychain-db" || true
+          python3 scripts/mobile-release/prepare-signing.py --cleanup
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-signed-release-${{ inputs.build_number }}
+          path: mobile/test-results/ios-release/
+          retention-days: 7
