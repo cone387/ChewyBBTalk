@@ -36,11 +36,11 @@ export function LoginWindow() {
   };
   return <div className="login-root">
     <header className="login-titlebar">
-      <span className="login-title">登录 ChewyBBTalk</span><div className="login-titlebar-spacer" />
+      <span className="login-title">登录 BBTalk</span><div className="login-titlebar-spacer" />
       <button className="login-close-btn" onClick={() => window.desktop.login.hide()} aria-label="关闭">×</button>
     </header>
     <main className="login-body">
-      <div className="login-logo"><img src={logoUrl} width="48" height="48" alt="ChewyBBTalk" /></div>
+      <div className="login-logo"><img src={logoUrl} width="48" height="48" alt="BBTalk" /></div>
       <label className="login-help" htmlFor="server">服务器地址</label>
       <input id="server" className="login-field" value={apiUrl} disabled={!!pending} onChange={e => setApiUrl(e.target.value)} placeholder="https://your-server.com" />
       <button className="login-submit" disabled={!!pending || success} onClick={() => signIn('browser')}>

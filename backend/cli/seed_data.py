@@ -14,7 +14,7 @@ DEMO_BBTALKS = [
         'visibility': 'public',
         'hours_ago': 2,
         'context': {
-            'source': {'client': 'ChewyBBTalk Mobile', 'version': '1.2.0', 'platform': 'mobile'},
+            'source': {'client': 'BBTalk Mobile', 'version': '1.2.0', 'platform': 'mobile'},
             'location': {'latitude': 30.2741, 'longitude': 120.1551},
         },
     },
@@ -24,7 +24,7 @@ DEMO_BBTALKS = [
         'visibility': 'public',
         'hours_ago': 8,
         'context': {
-            'source': {'client': 'ChewyBBTalk Web', 'version': '1.0', 'platform': 'web'},
+            'source': {'client': 'BBTalk Web', 'version': '1.0', 'platform': 'web'},
         },
     },
     {
@@ -33,7 +33,7 @@ DEMO_BBTALKS = [
         'visibility': 'public',
         'hours_ago': 26,
         'context': {
-            'source': {'client': 'ChewyBBTalk Mobile', 'version': '1.2.0', 'platform': 'mobile'},
+            'source': {'client': 'BBTalk Mobile', 'version': '1.2.0', 'platform': 'mobile'},
             'location': {'latitude': 31.2304, 'longitude': 121.4737},
         },
     },
@@ -43,7 +43,7 @@ DEMO_BBTALKS = [
         'visibility': 'public',
         'hours_ago': 50,
         'context': {
-            'source': {'client': 'ChewyBBTalk Mobile', 'version': '1.2.0', 'platform': 'mobile'},
+            'source': {'client': 'BBTalk Mobile', 'version': '1.2.0', 'platform': 'mobile'},
             'location': {'latitude': 30.2590, 'longitude': 120.1388},
         },
     },
@@ -53,7 +53,7 @@ DEMO_BBTALKS = [
         'visibility': 'public',
         'hours_ago': 72,
         'context': {
-            'source': {'client': 'ChewyBBTalk Web', 'version': '1.0', 'platform': 'web'},
+            'source': {'client': 'BBTalk Web', 'version': '1.0', 'platform': 'web'},
         },
     },
     {
@@ -63,7 +63,7 @@ DEMO_BBTALKS = [
         'hours_ago': 96,
         'is_pinned': True,
         'context': {
-            'source': {'client': 'ChewyBBTalk Mobile', 'version': '1.1.0', 'platform': 'mobile'},
+            'source': {'client': 'BBTalk Mobile', 'version': '1.1.0', 'platform': 'mobile'},
         },
     },
     {
@@ -72,7 +72,7 @@ DEMO_BBTALKS = [
         'visibility': 'public',
         'hours_ago': 120,
         'context': {
-            'source': {'client': 'ChewyBBTalk Web', 'version': '1.0', 'platform': 'web'},
+            'source': {'client': 'BBTalk Web', 'version': '1.0', 'platform': 'web'},
         },
     },
     {
@@ -81,7 +81,7 @@ DEMO_BBTALKS = [
         'visibility': 'public',
         'hours_ago': 144,
         'context': {
-            'source': {'client': 'ChewyBBTalk Mobile', 'version': '1.2.0', 'platform': 'mobile'},
+            'source': {'client': 'BBTalk Mobile', 'version': '1.2.0', 'platform': 'mobile'},
             'location': {'latitude': 39.9042, 'longitude': 116.4074},
         },
     },
@@ -91,7 +91,7 @@ DEMO_BBTALKS = [
         'visibility': 'private',
         'hours_ago': 168,
         'context': {
-            'source': {'client': 'ChewyBBTalk Mobile', 'version': '1.2.0', 'platform': 'mobile'},
+            'source': {'client': 'BBTalk Mobile', 'version': '1.2.0', 'platform': 'mobile'},
         },
     },
     {
@@ -100,7 +100,7 @@ DEMO_BBTALKS = [
         'visibility': 'public',
         'hours_ago': 200,
         'context': {
-            'source': {'client': 'ChewyBBTalk Mobile', 'version': '1.1.0', 'platform': 'mobile'},
+            'source': {'client': 'BBTalk Mobile', 'version': '1.1.0', 'platform': 'mobile'},
             'location': {'latitude': 30.5728, 'longitude': 104.0668},
         },
     },

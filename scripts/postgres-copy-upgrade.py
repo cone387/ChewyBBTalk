@@ -37,7 +37,7 @@ for path, expected in [('/', 200), ('/healthz', 200), ('/openapi.json', 200), ('
         assert response.status == expected, (path, response.status)
         if path == '/openapi.json':
             value = json.load(response)
-            assert value['info']['title'] == 'ChewyBBTalk API'
+            assert value['info']['title'] == 'BBTalk API'
 print('HTTP_SMOKE_OK')
 '''
 

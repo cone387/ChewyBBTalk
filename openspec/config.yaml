@@ -2,7 +2,7 @@ schema: spec-driven
 
 # 项目上下文 — 该内容会注入到 AI 创建工件时的提示词中
 context: |
-  # ChewyBBTalk — 个人碎碎念系统
+  # BBTalk — 个人碎碎念系统
 
   ## 项目定位
   现代化的个人微博/碎碎念系统，自托管，单用户为主，支持多端访问（Web、iOS、Android、桌面）。

@@ -1,4 +1,4 @@
-# ChouYu → ChewyBBTalk Desktop 移植指南（精简版）
+# ChouYu → BBTalk Desktop 移植指南（精简版）
 
 ## 目标
 
@@ -8,7 +8,7 @@ BBTalk Desktop 已经有完整的 Ball + Compose 发布流程。移植的目标�
 
 ## 现状对比
 
-| | ChewyBBTalk Compose (现有) | ChouYu InputArea |
+| | BBTalk Compose (现有) | ChouYu InputArea |
 |--|---------------------------|------------------|
 | 文本输入 | ✅ textarea | ✅ textarea |
 | 草稿自动保存 | ✅ | ❌ (靠 memory 模块) |

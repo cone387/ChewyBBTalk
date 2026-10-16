@@ -1,4 +1,4 @@
-# ChewyBBTalk Mobile 更新日志
+# BBTalk Mobile 更新日志
 
 ## v1.3.5 (2026-09-20)
 

@@ -24,7 +24,7 @@ def create_app(settings=None):
         engine.dispose()
 
     app = FastAPI(
-        title='ChewyBBTalk API',
+        title='BBTalk API',
         version='3.0.0',
         lifespan=lifespan,
         docs_url='/docs',

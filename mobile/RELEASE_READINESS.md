@@ -205,7 +205,7 @@ EMAIL_USE_TLS=true
 EMAIL_USE_SSL=false
 EMAIL_HOST_USER=your-smtp-user
 EMAIL_HOST_PASSWORD=your-smtp-secret
-DEFAULT_FROM_EMAIL=ChewyBBTalk <noreply@example.com>
+DEFAULT_FROM_EMAIL=BBTalk <noreply@example.com>
 ```
 
 SMTP 465 通常使用 `EMAIL_USE_SSL=true`、`EMAIL_USE_TLS=false`；具体以发信服务配置为准。恢复邮件通过 Python `smtplib` 发送，保留现有 `EMAIL_*` 环境变量。

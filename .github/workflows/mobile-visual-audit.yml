@@ -59,10 +59,10 @@ jobs:
           set -o pipefail
           # Simulator ad-hoc signing embeds the application identifier required by
           # Keychain. Disabling signing compiles but SecureStore fails with -34018.
-          xcodebuild -workspace ios/ChewyBBTalk.xcworkspace -scheme ChewyBBTalk -configuration Release -sdk iphonesimulator -destination "id=$SIMULATOR_UDID" -derivedDataPath build/visual CODE_SIGN_IDENTITY=- ONLY_ACTIVE_ARCH=YES build > test-results/native-visual/build.log 2>&1
+          xcodebuild -workspace ios/BBTalk.xcworkspace -scheme BBTalk -configuration Release -sdk iphonesimulator -destination "id=$SIMULATOR_UDID" -derivedDataPath build/visual CODE_SIGN_IDENTITY=- ONLY_ACTIVE_ARCH=YES build > test-results/native-visual/build.log 2>&1
       - name: Preserve simulator binary for additional flows
         if: ${{ !inputs.reuse_build_run }}
-        run: tar -czf mobile/test-results/native-visual/simulator-app.tar.gz -C mobile/build/visual/Build/Products/Release-iphonesimulator ChewyBBTalk.app
+        run: tar -czf mobile/test-results/native-visual/simulator-app.tar.gz -C mobile/build/visual/Build/Products/Release-iphonesimulator BBTalk.app
       - uses: actions/download-artifact@v4
         if: ${{ inputs.reuse_build_run }}
         with:
@@ -97,7 +97,7 @@ jobs:
           xcrun simctl boot "$SIMULATOR_UDID" || true
           xcrun simctl bootstatus "$SIMULATOR_UDID" -b
           xcrun simctl status_bar "$SIMULATOR_UDID" override --time '9:41' --dataNetwork wifi --wifiMode active --wifiBars 3 --batteryState charged --batteryLevel 100
-          xcrun simctl install "$SIMULATOR_UDID" mobile/build/visual/Build/Products/Release-iphonesimulator/ChewyBBTalk.app
+          xcrun simctl install "$SIMULATOR_UDID" mobile/build/visual/Build/Products/Release-iphonesimulator/BBTalk.app
           python3 scripts/mobile-visual/seed-settings.py "$SIMULATOR_UDID"
       # Keep authentication separate so a driver snapshot crash after a valid
       # login does not discard the entire screen audit. Its outcome still gates.

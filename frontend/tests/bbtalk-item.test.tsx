@@ -44,6 +44,18 @@ beforeEach(() => {
 afterEach(() => { cleanup(); withClipboard(undefined); });
 
 describe('metadata rendering', () => {
+  it.each([
+    'ChewyBBTalk',
+    { client: 'chewybbtalk Web' },
+    { source: { client: 'ChewyBBTalk Desktop', platform: 'desktop' } },
+  ])('displays the current brand for historical client metadata without rewriting it', (context) => {
+    const record = item({ context });
+    const original = structuredClone(record);
+    render(<BBTalkItem bbtalk={record} />);
+    expect(screen.getByTitle(/^BBTalk(?: Web| Desktop)?$/)).toBeTruthy();
+    expect(record).toEqual(original);
+  });
+
   it('highlights search keywords, tags, and formats just-now timestamps', () => {
     render(<BBTalkItem bbtalk={item({ tags: [{ id: 't1', name: '工作', color: '' }] })} searchKeyword="记录" />);
     expect(screen.getByText('今天的记录')).toBeTruthy();

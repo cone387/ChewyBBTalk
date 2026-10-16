@@ -27,7 +27,7 @@
 
 首次上线需要发布 `desktop-stable` Release 及上述文件；只生成本地安装包不会建立线上更新通道。没有远端 manifest 时，自动更新无法获取正式版本。
 
-安装包文件名使用无空格的 `ChewyBBTalk-Setup-${version}.exe`。GitHub 会重命名部分特殊字符，不能依赖上传前的带空格名称仍然可下载，参见 [GitHub Release assets 文档](https://docs.github.com/en/rest/releases/assets#upload-a-release-asset)。`verify-update.cjs` 会拒绝不适合直接发布的文件名。
+安装包文件名使用无空格的 `BBTalk-Setup-${version}.exe`。GitHub 会重命名部分特殊字符，不能依赖上传前的带空格名称仍然可下载，参见 [GitHub Release assets 文档](https://docs.github.com/en/rest/releases/assets#upload-a-release-asset)。`verify-update.cjs` 会拒绝不适合直接发布的文件名。
 
 ## 0.2.5 验证记录（2026-10-16）
 

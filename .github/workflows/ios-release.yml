@@ -59,9 +59,9 @@ jobs:
         working-directory: mobile
         run: |
           set -euo pipefail
-          xcodebuild -workspace ios/ChewyBBTalk.xcworkspace -scheme ChewyBBTalk -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build/release -archivePath build/ChewyBBTalk.xcarchive archive > test-results/ios-release/archive.log 2>&1
-          xcodebuild -exportArchive -archivePath build/ChewyBBTalk.xcarchive -exportPath test-results/ios-release -exportOptionsPlist "$RUNNER_TEMP/bbtalk-signing/ExportOptions.plist" > test-results/ios-release/export.log 2>&1
-          test -f test-results/ios-release/ChewyBBTalk.ipa
+          xcodebuild -workspace ios/BBTalk.xcworkspace -scheme BBTalk -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build/release -archivePath build/BBTalk.xcarchive archive > test-results/ios-release/archive.log 2>&1
+          xcodebuild -exportArchive -archivePath build/BBTalk.xcarchive -exportPath test-results/ios-release -exportOptionsPlist "$RUNNER_TEMP/bbtalk-signing/ExportOptions.plist" > test-results/ios-release/export.log 2>&1
+          test -f test-results/ios-release/BBTalk.ipa
       - name: Remove signing material
         if: always()
         run: |

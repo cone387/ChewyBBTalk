@@ -1,5 +1,5 @@
 appId: com.chewybbtalk.desktop
-productName: ChewyBBTalk
+productName: BBTalk
 directories:
   buildResources: resources
   output: dist
@@ -43,7 +43,7 @@ win:
   target:
     - nsis
 nsis:
-  artifactName: ChewyBBTalk-Setup-${version}.${ext}
+  artifactName: BBTalk-Setup-${version}.${ext}
   oneClick: false
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true

@@ -136,7 +136,7 @@ def initialize_demo(db, settings):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description='ChewyBBTalk 原生后端管理')
+    parser = argparse.ArgumentParser(description='BBTalk 原生后端管理')
     commands = parser.add_subparsers(dest='command', required=True)
     for name in ('migrate', 'init', 'seed-demo', 'check', 'encrypt-storage-secrets', 'shell'):
         commands.add_parser(name)

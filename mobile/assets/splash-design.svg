@@ -27,6 +27,6 @@
   </g>
   
   <!-- App 名称 -->
-  <text x="642" y="1550" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="48" font-weight="600" fill="#374151">ChewyBBTalk</text>
+  <text x="642" y="1550" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="48" font-weight="600" fill="#374151">BBTalk</text>
   <text x="642" y="1600" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="28" fill="#9CA3AF">记录生活的点滴</text>
 </svg>

@@ -423,7 +423,7 @@ export function Ball() {
             onPointerDown={onPointerDown}
             onContextMenu={onContextMenu}
             role="button"
-            aria-label="ChewyBBTalk"
+            aria-label="BBTalk"
           >
             <img src={logoUrl} alt="" draggable={false} style={{ width: '100%', height: '100%', pointerEvents: 'none' }} />
           </div>

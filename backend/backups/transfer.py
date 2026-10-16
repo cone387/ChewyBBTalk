@@ -131,7 +131,7 @@ class DataExporter:
             archive.writestr('data.json', payload)
             archive.writestr(
                 'README.txt',
-                'ChewyBBTalk 数据备份。data.json 包含记录、标签、评论和附件元信息；存储密钥不导出。完整备份含附件文件及 manifest.json 校验清单。',
+                'BBTalk 数据备份。data.json 包含记录、标签、评论和附件元信息；存储密钥不导出。完整备份含附件文件及 manifest.json 校验清单。',
             )
             if include_attachments:
                 members = {'data.json': fingerprint(payload)}

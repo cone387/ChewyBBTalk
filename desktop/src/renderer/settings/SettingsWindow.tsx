@@ -189,7 +189,7 @@ export function SettingsWindow() {
 
           {activeNav === 'about' && (
             <div className="settings-pane settings-about">
-              <img src={logoUrl} alt="ChewyBBTalk" width="48" height="48" />
+              <img src={logoUrl} alt="BBTalk" width="48" height="48" />
               <div className="settings-about-version">Desktop {version && `v${version}`}</div>
               <div className="settings-about-desc">桌面悬浮球，快速记录碎碎念</div>
               <button className="settings-update-btn" onClick={handleCheckUpdate} disabled={['checking', 'downloading', 'installing', 'unsupported'].includes(updateState.status)}>

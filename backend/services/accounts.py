@@ -94,7 +94,7 @@ def change_password(db, user, password):
 
 def send_recovery_email(email, code):
     message = EmailMessage()
-    message['Subject'] = 'ChewyBBTalk 密码找回'
+    message['Subject'] = 'BBTalk 密码找回'
     message['From'] = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@example.invalid')
     message['To'] = email
     message.set_content(

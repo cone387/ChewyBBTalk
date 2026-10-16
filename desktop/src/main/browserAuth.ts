@@ -53,7 +53,7 @@ export async function browserLogin(serverUrl = getApiUrl()): Promise<{ ok: boole
         if (!response.ok) throw new Error(apiErrorMessage(data, '授权失败，请重新发起登录'));
         if (generation !== getSessionGeneration()) throw new Error('会话已改变，请重新登录');
         acceptTokens(data, apiUrl, generation);
-        res.end('登录成功，请返回 ChewyBBTalk。此页面可以关闭。');
+        res.end('登录成功，请返回 BBTalk。此页面可以关闭。');
         setImmediate(() => finish({ ok: true }));
       } catch (error) {
         res.end('登录未完成，请返回桌面端重试。');

@@ -1,4 +1,4 @@
-# ChewyBBTalk Mobile
+# BBTalk Mobile
 
 基于 Expo + React Native 的碎碎念移动端应用。
 

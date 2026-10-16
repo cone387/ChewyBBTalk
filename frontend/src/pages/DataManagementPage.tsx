@@ -44,7 +44,7 @@ export default function DataManagementPage() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `chewybbtalk_export_${new Date().toISOString().slice(0, 10)}.${exportFormat}`;
+      a.download = `bbtalk_export_${new Date().toISOString().slice(0, 10)}.${exportFormat}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

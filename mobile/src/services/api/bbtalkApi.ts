@@ -108,7 +108,7 @@ export const bbtalkApi = {
       tags: data.tags?.length ? data.tags : undefined,
       context: {
         ...data.context,
-        source: { client: 'ChewyBBTalk Mobile', version: '1.0', platform: 'mobile' },
+        source: { client: 'BBTalk Mobile', version: '1.0', platform: 'mobile' },
       },
     };
 

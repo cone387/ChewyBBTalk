@@ -1,9 +1,9 @@
-# ChewyBBTalk — AI 协作指南
+# BBTalk — AI 协作指南
 
 > 本文档面向所有进入本仓库工作的 AI Agent。阅读本文后，你将了解项目的整体架构、核心模块、约定和工作流。
 
 ## 1. 项目一句话介绍
-ChewyBBTalk 是一个**自托管的个人微博/碎碎念系统**，主打 Markdown 内容、附件管理、隐私保护，全栈 TypeScript/Python，支持 Docker 一键部署，提供 Web、iOS、Android、桌面 多端访问。
+BBTalk 是一个**自托管的个人微博/碎碎念系统**，主打 Markdown 内容、附件管理、隐私保护，全栈 TypeScript/Python，支持 Docker 一键部署，提供 Web、iOS、Android、桌面 多端访问。
 
 ## 2. 仓库结构
 

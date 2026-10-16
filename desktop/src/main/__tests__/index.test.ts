@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { join } from 'node:path';
 
 const state = vi.hoisted(() => ({
   handlers: new Map<string, Array<(...args: any[]) => void>>(),
@@ -6,6 +7,11 @@ const state = vi.hoisted(() => ({
   lock: true,
   quit: vi.fn(),
   setAppUserModelId: vi.fn(),
+  packaged: true,
+  setPath: vi.fn(),
+  setName: vi.fn(),
+  getPath: vi.fn(() => '/existing-app-data'),
+  mkdir: vi.fn(),
   windows: [] as unknown[],
   powerHandlers: new Map<string, Array<() => void>>(),
   createBall: vi.fn(), registerBall: vi.fn(), registerCompose: vi.fn(), registerAuth: vi.fn(),
@@ -16,6 +22,10 @@ const state = vi.hoisted(() => ({
 
 vi.mock('electron', () => ({
   app: {
+    get isPackaged() { return state.packaged; },
+    getPath: state.getPath,
+    setPath: state.setPath,
+    setName: state.setName,
     requestSingleInstanceLock: () => state.lock,
     quit: state.quit,
     setAppUserModelId: state.setAppUserModelId,
@@ -26,6 +36,7 @@ vi.mock('electron', () => ({
   BrowserWindow: { getAllWindows: () => state.windows },
   powerMonitor: { on: (event: string, handler: () => void) => { state.powerHandlers.set(event, [...(state.powerHandlers.get(event) || []), handler]); } },
 }));
+vi.mock('node:fs', () => ({ mkdirSync: state.mkdir }));
 vi.mock('../windows/ballWindow', () => ({ createBallWindow: state.createBall }));
 vi.mock('../ipc/ballIpc', () => ({ registerBallIpc: state.registerBall, registerDisplayWatchers: state.registerWatchers }));
 vi.mock('../ipc/composeIpc', () => ({ registerComposeIpc: state.registerCompose }));
@@ -44,6 +55,7 @@ beforeEach(() => {
   vi.resetModules(); vi.clearAllMocks();
   state.handlers.clear(); state.powerHandlers.clear(); state.windows = [];
   state.lock = true; state.compose = null;
+  state.packaged = true;
   state.tryRestore.mockImplementation(() => Promise.resolve(true));
   vi.spyOn(console, 'log').mockImplementation(() => {});
 });
@@ -54,6 +66,22 @@ async function boot() {
   await Promise.resolve();
   await Promise.resolve();
 }
+
+it('keeps the installed app profile before startup so renaming preserves sessions and drafts', async () => {
+  await boot();
+  expect(state.getPath).toHaveBeenCalledWith('appData');
+  expect(state.mkdir).toHaveBeenCalledWith(join('/existing-app-data', 'chewybbtalk-desktop'), { recursive: true });
+  expect(state.setPath).toHaveBeenCalledWith('userData', join('/existing-app-data', 'chewybbtalk-desktop'));
+  expect(state.setName).toHaveBeenCalledWith('BBTalk');
+  expect(state.createBall).not.toHaveBeenCalled();
+});
+
+it('preserves the isolated development profile', async () => {
+  state.packaged = false;
+  await boot();
+  expect(state.setPath).not.toHaveBeenCalled();
+  expect(state.setName).not.toHaveBeenCalled();
+});
 
 it('quits immediately when another instance owns the single-instance lock', async () => {
   state.lock = false;

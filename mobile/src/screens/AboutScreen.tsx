@@ -40,7 +40,7 @@ export default function AboutScreen() {
         <View style={[styles.logoIcon, { backgroundColor: c.primary }]}>
           <Ionicons name="chatbubbles" size={36} color="#fff" />
         </View>
-        <Text style={[styles.appName, { color: c.text }]}>ChewyBBTalk</Text>
+        <Text style={[styles.appName, { color: c.text }]}>BBTalk</Text>
         <Text style={[styles.versionText, { color: c.textSecondary }]}>版本 {version} (Build {buildNumber})</Text>
         <Text style={[styles.descText, { color: c.textTertiary }]}>记录生活的点滴碎碎念</Text>
       </View>
@@ -91,7 +91,7 @@ export default function AboutScreen() {
       </TouchableOpacity>
 
       <Text style={[styles.copyright, { color: c.textTertiary }]}>
-        © 2024-2026 ChewyBBTalk{'\n'}Made with ❤️
+        © 2024-2026 BBTalk{'\n'}Made with ❤️
       </Text>
     </ScrollView>
   );

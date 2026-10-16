@@ -116,7 +116,7 @@ export function useBBTalkActions({ showError, onNavigateCompose }: UseBBTalkActi
       await dispatch(createBBTalkAsync({
         content: text || '🎙️ 语音记录', attachments: audioAttachment ? [audioAttachment] : [],
         visibility: 'private',
-        context: { source: { client: 'ChewyBBTalk Mobile', version: '1.0', platform: 'mobile', input: 'voice' } },
+        context: { source: { client: 'BBTalk Mobile', version: '1.0', platform: 'mobile', input: 'voice' } },
       })).unwrap();
     } catch { if (isCurrentSession(session)) showError('保存失败', '录音未能保存，请稍后重试'); }
   }, [dispatch, showError]);

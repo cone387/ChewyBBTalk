@@ -94,7 +94,7 @@ export function registerUpdater() {
   autoUpdater.on('update-downloaded', info => {
     setState({ status: 'downloaded', version: info.version });
     if (Notification.isSupported()) {
-      const notice = new Notification({ title: 'ChewyBBTalk 更新已就绪', body: `v${info.version} 已下载，打开设置后可保存草稿并重启安装。` });
+      const notice = new Notification({ title: 'BBTalk 更新已就绪', body: `v${info.version} 已下载，打开设置后可保存草稿并重启安装。` });
       notice.on('click', showSettingsWindow); notice.show();
     }
   });

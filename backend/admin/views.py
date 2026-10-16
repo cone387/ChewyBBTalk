@@ -56,7 +56,7 @@ def install_admin(app):
     admin = Admin(
         app,
         app.state.engine,
-        title='ChewyBBTalk 管理',
+        title='BBTalk 管理',
         authentication_backend=Authentication(
             app.state.settings.secret_key,
             session_cookie='adminsession',

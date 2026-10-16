@@ -1,4 +1,4 @@
-# ChewyBBTalk Mobile 产品路线图
+# BBTalk Mobile 产品路线图
 
 ## P0 — 上架必须
 

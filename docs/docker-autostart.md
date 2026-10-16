@@ -25,7 +25,7 @@ systemctl status docker           # 应为 active (running)
 
 ## 宿主机定时备份（systemd timer）
 
-备份由宿主机负责调度，实际导出在 ChewyBBTalk 容器内执行。先确保脚本路径和容器名符合当前部署：
+备份由宿主机负责调度，实际导出在 BBTalk 容器内执行。先确保脚本路径和容器名符合当前部署：
 
 ```bash
 sudo cp deploy/chewybbtalk-backup.service /etc/systemd/system/

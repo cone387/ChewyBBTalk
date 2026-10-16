@@ -56,7 +56,7 @@ describe('AboutScreen version display', () => {
   it('falls back to bundled defaults without expo config', async () => {
     await mount();
     expect(hasText('版本 1.1.0 (Build 1)')).toBe(true);
-    expect(hasText('ChewyBBTalk')).toBe(true);
+    expect(hasText('BBTalk')).toBe(true);
     expect(tree.root.findAllByType('Text').some((t: any) => childText(t.props.children).includes('© 2024-2026'))).toBe(true);
   });
 });

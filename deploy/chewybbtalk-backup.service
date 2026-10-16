@@ -1,5 +1,5 @@
 [Unit]
-Description=ChewyBBTalk data backup
+Description=BBTalk data backup
 After=docker.service
 Requires=docker.service
 

@@ -2,7 +2,7 @@
   "name": "chewybbtalk-intro-video",
   "version": "1.0.0",
   "private": true,
-  "description": "ChewyBBTalk 项目介绍视频（Remotion）",
+  "description": "BBTalk 项目介绍视频（Remotion）",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "dev": "remotion studio src/index.ts",

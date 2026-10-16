@@ -41,7 +41,7 @@ it('builds the tray menu and wires every action', async () => {
 
   expect(state.createFromPath).toHaveBeenCalledWith(`/fake/resources/${realPlatform === 'darwin' ? 'trayTemplate.png' : 'tray.png'}`);
   expect(state.resize).toHaveBeenCalledWith({ width: realPlatform === 'darwin' ? 22 : 16, height: realPlatform === 'darwin' ? 22 : 16 });
-  expect(state.tray.setToolTip).toHaveBeenCalledWith('ChewyBBTalk');
+  expect(state.tray.setToolTip).toHaveBeenCalledWith('BBTalk');
   expect(state.tray.setContextMenu).toHaveBeenCalledWith({ template: expect.anything() });
 
   const template = state.buildFromTemplate.mock.calls[0][0] as Array<{ label?: string; click?: () => void; type?: string }>;

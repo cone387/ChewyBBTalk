@@ -192,7 +192,7 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
           </TouchableOpacity>
         </View>
         <TouchableOpacity accessibilityRole="button" accessibilityState={{ expanded: advanced }} onPress={() => setAdvanced(!advanced)} style={{ minHeight: 48, justifyContent: 'center', alignItems: 'center' }}><Text style={{ color: c.textSecondary }}>{advanced ? '收起服务设置' : selectedServer !== DEFAULT_URL ? `当前使用：${currentLabel} · 切换服务` : '使用自建服务'}</Text></TouchableOpacity>
-        <Text style={[styles.footer, { color: c.textTertiary }]}>ChewyBBTalk - 记录生活的点滴</Text>
+        <Text style={[styles.footer, { color: c.textTertiary }]}>BBTalk - 记录生活的点滴</Text>
       </ScrollView>
 
       {/* 服务器选择弹窗 */}

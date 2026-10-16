@@ -3,7 +3,7 @@
   "version": "0.2.5",
   "private": true,
   "author": "cone387",
-  "description": "ChewyBBTalk 桌面悬浮球 —— 一个始终悬浮的圆形入口，快速记录碎碎念",
+  "description": "BBTalk 桌面悬浮球 —— 一个始终悬浮的圆形入口，快速记录碎碎念",
   "main": "out/main/index.js",
   "type": "module",
   "scripts": {

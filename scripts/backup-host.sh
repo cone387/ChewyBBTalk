@@ -42,7 +42,7 @@ else
 fi
 
 if [[ -z "$CONTAINER" ]]; then
-  echo "no running ChewyBBTalk container found; set BACKUP_CONTAINER" >&2
+  echo "no running BBTalk container found; set BACKUP_CONTAINER" >&2
   exit 1
 fi
 

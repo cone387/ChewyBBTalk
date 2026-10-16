@@ -19,7 +19,7 @@ export function createTray() {
   if (process.platform === 'darwin') icon.setTemplateImage(true);
 
   tray = new Tray(icon);
-  tray.setToolTip('ChewyBBTalk');
+  tray.setToolTip('BBTalk');
 
   const contextMenu = Menu.buildFromTemplate([
     { label: '新建碎碎念', click: () => showComposeWindow() },

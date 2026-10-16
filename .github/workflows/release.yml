@@ -64,7 +64,7 @@ jobs:
       run: |
         # Create release docker-compose file with published images
         cat > docker-compose.release.yml << EOF
-        # ChewyBBTalk Release Docker Compose
+        # BBTalk Release Docker Compose
         # 使用预构建的镜像进行部署
         
         services:
@@ -109,7 +109,7 @@ jobs:
           docker-compose.release.yml
           .env.example
         body: |
-          ## ChewyBBTalk ${{ steps.version.outputs.VERSION }}
+          ## BBTalk ${{ steps.version.outputs.VERSION }}
           
           ### 🚀 快速部署
           

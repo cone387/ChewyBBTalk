@@ -50,7 +50,7 @@ def export(request: Request, db: DB, user: CurrentUser, params: Annotated[Export
         payload,
         media_type=media,
         headers={
-            'Content-Disposition': f'attachment; filename="chewybbtalk_export_{user.id}_{now():%Y%m%d_%H%M%S}.{mode}"'
+            'Content-Disposition': f'attachment; filename="bbtalk_export_{user.id}_{now():%Y%m%d_%H%M%S}.{mode}"'
         },
     )
 

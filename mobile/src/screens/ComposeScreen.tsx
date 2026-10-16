@@ -500,7 +500,7 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
     const cleaned = cleanContent(content) || (attachments.length || pendingMedia.length ? '附件记录' : ''); if (!cleaned) { xAlert('提示', '请输入内容'); return; }
     submittingRef.current = true; Keyboard.dismiss(); setSubmitting(true);
     let queued = false;
-    const ctx: Record<string, any> = { ...editItem?.context, source: { client: 'ChewyBBTalk Mobile', version: '1.0', platform: 'mobile' } }; if (location) ctx.location = location; else delete ctx.location;
+    const ctx: Record<string, any> = { ...editItem?.context, source: { client: 'BBTalk Mobile', version: '1.0', platform: 'mobile' } }; if (location) ctx.location = location; else delete ctx.location;
     const payload = { content: cleaned, tags: currentTags, visibility, attachments, context: ctx };
     try {
       await autosave.save();

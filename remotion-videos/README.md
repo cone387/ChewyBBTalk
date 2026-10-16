@@ -1,4 +1,4 @@
-# ChewyBBTalk 项目介绍视频
+# BBTalk 项目介绍视频
 
 用 [Remotion](https://www.remotion.dev/)（React 写视频）生成的 30 秒 16:9 项目介绍片。
 所有内容都是可编辑的 React 代码，改完重新渲染即可。

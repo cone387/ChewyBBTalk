@@ -303,7 +303,8 @@ const BBTalkItem: React.FC<BBTalkItemProps> = React.memo(function BBTalkItem({
     return null
   }
 
-  const source = getSource()
+  // Normalize historical first-party labels for display without rewriting records.
+  const source = getSource().replace(/^chewy[ _-]?bbtalk(?=$|\s)/i, 'BBTalk')
   const isMobile = isMobileSource()
   const location = getLocation()
 

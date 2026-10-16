@@ -8,6 +8,7 @@
  *   - 位置持久化
  *   - 显示器热插拔时重算 overlay 尺寸
  */
+import './appIdentity';
 import { app, BrowserWindow, powerMonitor } from 'electron';
 import { createBallWindow } from './windows/ballWindow';
 import { registerBallIpc, registerDisplayWatchers } from './ipc/ballIpc';

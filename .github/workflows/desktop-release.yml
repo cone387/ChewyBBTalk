@@ -55,9 +55,11 @@ jobs:
           $repo = $env:GITHUB_REPOSITORY
           gh release view desktop-stable --repo $repo *> $null
           if ($LASTEXITCODE -ne 0) {
-            gh release create desktop-stable --repo $repo --target $env:GITHUB_SHA --title 'ChewyBBTalk Desktop' --notes 'Windows desktop stable update channel. Download the latest versioned installer below.' --prerelease
+            gh release create desktop-stable --repo $repo --target $env:GITHUB_SHA --title 'BBTalk Desktop' --notes 'Windows desktop stable update channel. Download the latest versioned installer below.' --prerelease
             if ($LASTEXITCODE -ne 0) { throw 'Cannot create desktop release' }
           }
+          gh release edit desktop-stable --repo $repo --title 'BBTalk Desktop'
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot update desktop release title' }
           # Keep old versioned binaries: clients may have fetched the previous manifest.
           $assets = @(Get-ChildItem dist/*.exe, dist/*.blockmap | ForEach-Object FullName)
           gh release upload desktop-stable @assets --repo $repo --clobber

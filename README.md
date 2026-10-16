@@ -1,6 +1,8 @@
-# ChewyBBTalk
+# BBTalk
 
 一个现代化的个人微博/碎碎念系统，支持 Markdown、文件上传、标签管理等功能。
+
+产品展示名统一为 **BBTalk**。GitHub 仓库、镜像地址、应用标识和历史数据存储名称保留兼容名称，避免影响已有部署、应用升级和草稿读取。
 
 ## ✨ 特性
 
@@ -97,8 +99,8 @@ VITE_PRIVACY_TIMEOUT_MINUTES=5
 VITE_SHOW_PRIVACY_COUNTDOWN=true
 
 # 站点信息
-VITE_SITE_NAME=ChewyBBTalk
-VITE_SITE_COPYRIGHT=© 2024 ChewyBBTalk
+VITE_SITE_NAME=BBTalk
+VITE_SITE_COPYRIGHT=© 2024 BBTalk
 ```
 
 ## 📦 Docker 镜像

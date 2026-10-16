@@ -1,13 +1,13 @@
 /**
  * ============================================================================
- * ChewyBBTalk 介绍视频 —— 全局视觉与文案常量
+ * BBTalk 介绍视频 —— 全局视觉与文案常量
  * 想改颜色、字体、文案，只改这个文件就够了。
  * ============================================================================
  */
 
-// ---------- 品牌色（取自 ChewyBBTalk 前端真实视觉：蓝 → 紫渐变 + 白卡片） ----------
+// ---------- 品牌色（取自 BBTalk 前端真实视觉：蓝 → 紫渐变 + 白卡片） ----------
 export const BRAND = {
-  name: 'ChewyBBTalk',
+  name: 'BBTalk',
   blue: '#3B82F6',
   indigo: '#6366F1',
   purple: '#8B5CF6',
@@ -68,7 +68,7 @@ export const SCENES = {
 // ---------- 文案 ----------
 export const COPY = {
   brand: {
-    title: 'ChewyBBTalk',
+    title: 'BBTalk',
     tagline: '个人碎碎念系统',
     sub: '把每一个想说的瞬间，留在自己的地方',
     badge: 'Open Source · MIT License',
@@ -110,7 +110,7 @@ export const COPY = {
     title: '同一份记录，三种打开方式',
     items: [
       { title: 'Web 响应式', desc: '浏览器打开就能写', addr: 'localhost:4010' },
-      { title: 'iOS · Android', desc: '原生客户端体验', addr: 'ChewyBBTalk' },
+      { title: 'iOS · Android', desc: '原生客户端体验', addr: 'BBTalk' },
       { title: '桌面快捷球', desc: '悬浮入口，随手记一笔', addr: 'Ctrl + Shift + B' },
     ],
     footer: '三端共用一套 API，记录始终一致',
@@ -118,7 +118,7 @@ export const COPY = {
 
   cta: {
     command: 'docker run -d -p 4010:4010 ghcr.io/cone387/chewy-bbtalk:latest',
-    output: 'ChewyBBTalk 已启动 → http://localhost:4010',
+    output: 'BBTalk 已启动 → http://localhost:4010',
     headline: '一条命令，拥有属于你自己的碎碎念空间',
     repo: 'github.com/cone387/ChewyBBTalk',
     license: 'MIT License',

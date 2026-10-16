@@ -36,7 +36,7 @@ test('opens ready to type and restores a docked ball without replaying hover ani
     await expect(compose.getByPlaceholder('你要BB什么？')).toBeFocused()
     await closeCompose()
 
-    const icon = ball.getByRole('button', { name: 'ChewyBBTalk', exact: true })
+    const icon = ball.getByRole('button', { name: 'BBTalk', exact: true })
     const box = (await icon.boundingBox())!
     const y = Math.round(box.y + box.height / 2)
     await ball.mouse.move(box.x + 28, y)

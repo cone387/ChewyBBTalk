@@ -1,4 +1,4 @@
-# ChewyBBTalk Docker Compose
+# BBTalk Docker Compose
 # Quickstart: docker compose up -d
 # 管理员: admin；未指定密码时生成受限凭据文件
 # 访问: http://localhost:4010

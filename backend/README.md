@@ -1,4 +1,4 @@
-# ChewyBBTalk 后端
+# BBTalk 后端
 
 原生 FastAPI + Uvicorn，使用 Pydantic、SQLAlchemy 2、Alembic、SQLAdmin 和 PyJWT。
 应用运行不加载 Django、DRF、SimpleJWT 或 chewy-attachment；附件使用原生本地/S3 存储。

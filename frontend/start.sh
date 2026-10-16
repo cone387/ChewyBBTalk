@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# ChewyBBTalk 快速启动脚本
+# BBTalk 快速启动脚本
 
 set -e
 
 echo "========================================"
-echo "ChewyBBTalk 子应用启动脚本"
+echo "BBTalk 子应用启动脚本"
 echo "========================================"
 echo ""
 

@@ -178,7 +178,7 @@ function makeEditItem(overrides: Partial<BBTalk> = {}): BBTalk {
 }
 const pendingItem = (id: string, name = `${id}.jpg`): any => ({ id, uri: `file:///${id}`, name, mime: 'image/jpeg' });
 const draftJson = (value: any) => JSON.stringify(value);
-const SOURCE_CONTEXT = { client: 'ChewyBBTalk Mobile', version: '1.0', platform: 'mobile' };
+const SOURCE_CONTEXT = { client: 'BBTalk Mobile', version: '1.0', platform: 'mobile' };
 
 const settle = async (rounds = 2) => {
   for (let i = 0; i < rounds; i += 1) await act(async () => { await new Promise((resolve) => { setTimeout(resolve, 0); }); });
