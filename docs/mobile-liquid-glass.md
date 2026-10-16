@@ -18,8 +18,8 @@
 | 页面 / 组件 | 处理 |
 | --- | --- |
 | `App`、`MainTabs` | 保留原生返回；悬浮胶囊底栏、选中底色、键盘显隐、减少动态效果及防窥时隐藏 |
-| `HomeScreen`、`SearchBar`、`TagTabs`、`BatchToolbar` | 普通搜索框、下划线标签选中态、玻璃新建按钮、批量操作触控区域、列表与按钮给底栏留位 |
-| `ComposeScreen`、`DraftStatus` | 对称的普通顶部操作栏、通栏底部工具栏；预览入口放在工具栏；保留草稿提示、键盘避让与锁定记录流程 |
+| `HomeScreen`、`SearchBar`、`TagTabs`、`BatchToolbar` | 普通搜索框、下划线标签选中态；倒计时位于玻璃新建按钮正上方，间隔 10pt；批量操作触控区域、列表与按钮给底栏留位 |
+| `ComposeScreen`、`DraftStatus` | 对称的普通顶部操作栏；工具合并为单行横向滚动，预览固定右侧；常驻标签列表直接多选，标签与正文分开保存；保留草稿提示、键盘避让与锁定记录流程 |
 | `CalendarScreen`、`CalendarDayRecords` | 普通上下月箭头、年月选择浮层、底栏留白；保留分页、离线缓存和详情返回位置 |
 | `SettingsScreen`、`SectionCard` | 分组实色卡片统一圆角，底栏留白，菜单按钮语义 |
 | `AboutScreen`、`AccountSecurityScreen`、`AdvancedSettingsScreen`、`CacheManagementScreen`、`DataManagementScreen`、`PrivacySettingsScreen`、`ProfileEditScreen`、`StorageSettingsScreen`、`ThemeSettingsScreen` | 统一命名卡片和表单控件的圆角、输入字号及按钮尺寸；开关、滑块、危险操作保留既有交互 |
