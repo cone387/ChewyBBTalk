@@ -10,6 +10,7 @@ vi.mock('../src/services/auth', () => ({
   logout: vi.fn(),
 }));
 vi.mock('../src/pages/BBTalkPage', () => ({ default: () => <div>私有主页</div> }));
+vi.mock('../src/pages/LandingPage', () => ({ default: () => <div>产品介绍页</div> }));
 vi.mock('../src/pages/PublicBBTalkPage', () => ({ default: () => <div>公开主页</div> }));
 vi.mock('../src/pages/BBTalkDetailPage', () => ({ default: () => <div>详情页</div> }));
 vi.mock('../src/pages/LoginPage', () => ({ default: () => <div>登录页</div> }));
@@ -52,17 +53,17 @@ describe('authentication bootstrap', () => {
     expect(await view.findByText('私有主页')).toBeTruthy();
   });
 
-  it('sends unauthenticated visitors from protected roots to the login page', async () => {
+  it('shows the product page to anonymous homepage visitors', async () => {
     boundary.initAuth.mockResolvedValue(false);
     const view = await mountApp();
-    expect(await view.findByText('登录页')).toBeTruthy();
+    expect(await view.findByText('产品介绍页')).toBeTruthy();
     expect(view.queryByText('私有主页')).toBeNull();
   });
 
   it('treats an auth probe crash as signed out', async () => {
     boundary.initAuth.mockRejectedValue(new Error('token 解析失败'));
     const view = await mountApp();
-    expect(await view.findByText('登录页')).toBeTruthy();
+    expect(await view.findByText('产品介绍页')).toBeTruthy();
   });
 
   it('trusts the host app in wujie micro-frontend mode without probing', async () => {
@@ -74,6 +75,33 @@ describe('authentication bootstrap', () => {
 });
 
 describe('routing', () => {
+  it('serves the fixed product URL without authentication, even in a locked session', async () => {
+    boundary.initAuth.mockReturnValue(new Promise(() => {}));
+    localStorage.setItem('bbtalk_privacy_mode', 'true');
+    history.pushState({}, '', '/about');
+    const view = await mountApp();
+    expect(await view.findByText('产品介绍页')).toBeTruthy();
+    expect(boundary.initAuth).not.toHaveBeenCalled();
+    expect(window.location.pathname).toBe('/about');
+    expect(view.queryByText('私有主页')).toBeNull();
+  });
+
+  it.each([true, false])('routes the application entry according to authentication (%s)', async authenticated => {
+    boundary.initAuth.mockResolvedValue(authenticated);
+    history.pushState({}, '', '/app');
+    const view = await mountApp();
+    expect(await view.findByText(authenticated ? '私有主页' : '登录页')).toBeTruthy();
+    expect(window.location.pathname).toBe(authenticated ? '/' : '/login');
+  });
+
+  it.each([true, false])('keeps the application entry behind the privacy lock (authenticated: %s)', async authenticated => {
+    boundary.initAuth.mockResolvedValue(authenticated);
+    localStorage.setItem('bbtalk_privacy_mode', 'true');
+    history.pushState({}, '', '/app');
+    const view = await mountApp();
+    expect(await view.findByText('锁定页')).toBeTruthy();
+    expect(view.queryByText('私有主页')).toBeNull();
+  });
   it('sends a locked authenticated login visit to unlock without a return URL', async () => {
     localStorage.setItem('bbtalk_privacy_mode', 'true');
     history.pushState({}, '', '/login');

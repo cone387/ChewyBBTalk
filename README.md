@@ -4,6 +4,17 @@
 
 产品展示名统一为 **BBTalk**。GitHub 仓库、镜像地址、应用标识和历史数据存储名称保留兼容名称，避免影响已有部署、应用升级和草稿读取。
 
+## Web 入口与端归属
+
+正式 Web 由 `frontend/` 独立维护、构建和部署，包含产品介绍与记录应用。`mobile/` 负责 iOS / Android；Expo Web 只是开发预览附加产物，不用于生产。
+
+- 产品介绍：[bbtalk.cone387.top/about](https://bbtalk.cone387.top/about)，无需登录，也不依赖认证服务响应。
+- 官网首页：[bbtalk.cone387.top](https://bbtalk.cone387.top/)，未登录显示介绍，已登录保留记录首页。
+- 应用入口：[bbtalk.cone387.top/app](https://bbtalk.cone387.top/app)，未登录进入登录页，已登录进入记录。
+- 登录页与设置页均提供“产品介绍”入口。自托管部署使用相同路径。
+
+介绍页源码为 `frontend/src/pages/LandingPage.tsx`，样式随正式 Web 打包；不加载 Expo 或 Tailwind CDN。
+
 ## ✨ 特性
 
 - 📝 支持 Markdown 格式的内容编辑

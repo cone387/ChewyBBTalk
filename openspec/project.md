@@ -50,6 +50,8 @@ ChewyBBTalk/
 
 > 端策略：`frontend/` 负责实际 Web 部署，`mobile/` 负责 iOS/Android 原生体验；两者通过后端 API 共享能力。
 
+生产 Web 的所有页面（包括产品介绍）以 `frontend/` 为准。Expo Web 仅为原生项目的开发预览附加产物，不做生产用途。正式产品介绍固定为 `/about`；`/` 未登录展示介绍、已登录展示记录；`/app` 为应用入口。不要将 `mobile/src/screens/LandingScreen.web.tsx` 当作正式官网入口。
+
 ## 4. 核心领域模型（必须理解）
 
 ### BBTalk（碎碎念）— 主实体

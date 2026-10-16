@@ -1,4 +1,6 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render as renderComponent, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+const render = (ui: React.ReactNode) => renderComponent(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>{ui}</MemoryRouter>);
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import LoginPage from '../src/pages/LoginPage';
 

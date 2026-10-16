@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { login, register, getAuthPolicy } from '../services/auth';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
@@ -175,6 +176,7 @@ export default function LoginPage() {
               </Button>
             </form>
             <div className="mt-6 border-t border-gray-100 pt-4">
+              <Link to="/about" className="mb-2 flex min-h-11 items-center justify-center rounded-lg text-sm text-blue-700 hover:underline">了解 BBTalk · 产品介绍</Link>
               {(registrationEnabled === true || !isLogin) && <div className="flex flex-wrap items-center justify-center gap-x-1 text-sm">
                 <span className="text-gray-500">{isLogin ? '还没有账户？' : '已有账户？'}</span>
                 <Button type="button" variant="ghost" disabled={loading} onClick={() => {

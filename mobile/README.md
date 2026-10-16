@@ -2,6 +2,8 @@
 
 基于 Expo + React Native 的碎碎念移动端应用。
 
+本模块负责 iOS / Android 原生应用。Expo Web 仅是开发预览附加产物，不用于生产；正式 Web（含产品介绍页）统一维护在 `frontend/`，介绍页入口为 `/about`。
+
 手机端 Liquid Glass 材质、组件核对范围、兼容降级及原生构建验收见 [液态玻璃适配说明](../docs/mobile-liquid-glass.md)。
 
 首发准备与本轮实现、邮件配置、测试结果及真机验收项见 [RELEASE_READINESS.md](RELEASE_READINESS.md)。

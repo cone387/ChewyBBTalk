@@ -1,10 +1,11 @@
-import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Provider } from 'react-redux'
 import { lazy, Suspense, useEffect, useState, useRef } from 'react'
 import { store } from './store'
 import { initAuth } from './services/auth'
 
 const BBTalkPage = lazy(() => import('./pages/BBTalkPage'))
+const LandingPage = lazy(() => import('./pages/LandingPage'))
 const PublicBBTalkPage = lazy(() => import('./pages/PublicBBTalkPage'))
 const BBTalkDetailPage = lazy(() => import('./pages/BBTalkDetailPage'))
 const LoginPage = lazy(() => import('./pages/LoginPage'))
@@ -55,24 +56,34 @@ function LoginRoute({ authenticated }: { authenticated: boolean }) {
 
 // 防窥模式检查组件
 function PrivacyModeChecker({ children }: { children: React.ReactNode }) {
-  const navigate = useNavigate()
-  
-  useEffect(() => {
-    // 检查是否处于防窥模式
-    const isLocked = localStorage.getItem(PRIVACY_STATE_KEY) === 'true'
-    // 避免在 /locked 和 /login 页面重复跳转，防止死循环
-    const currentPath = window.location.pathname
-    if (isLocked && currentPath !== '/locked' && currentPath !== '/login') {
-      console.log('[App] 检测到防窥模式，跳转到锁定页面')
-      const next = currentPath === '/desktop/authorize' ? `?next=${encodeURIComponent(currentPath + window.location.search)}` : ''
-      navigate('/locked' + next, { replace: true })
-    }
-  }, [navigate])
-  
+  const { pathname, search } = useLocation()
+  // Resolve the privacy gate before rendering child redirects or private content.
+  const isLocked = localStorage.getItem(PRIVACY_STATE_KEY) === 'true'
+  if (isLocked && pathname !== '/locked' && pathname !== '/login') {
+    const next = pathname === '/desktop/authorize' ? `?next=${encodeURIComponent(pathname + search)}` : ''
+    return <Navigate to={'/locked' + next} replace />
+  }
   return <>{children}</>
 }
 
 export default function App({ basename = '/' }: AppProps) {
+  return (
+    <Provider store={store}>
+      <BrowserRouter basename={basename} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <RouteViewport>
+          <Suspense fallback={<RouteLoading />}>
+            <Routes>
+              <Route path="/about" element={<LandingPage />} />
+              <Route path="/*" element={<ApplicationRoutes />} />
+            </Routes>
+          </Suspense>
+        </RouteViewport>
+      </BrowserRouter>
+    </Provider>
+  )
+}
+
+function ApplicationRoutes() {
   const [authReady, setAuthReady] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [authError, setAuthError] = useState<string | null>(null)
@@ -161,18 +172,10 @@ export default function App({ basename = '/' }: AppProps) {
   }
 
   return (
-    <Provider store={store}>
-      <BrowserRouter 
-        basename={basename}
-        future={{
-          v7_startTransition: true,
-          v7_relativeSplatPath: true
-        }}
-      >
         <PrivacyModeChecker>
-          <RouteViewport>
           <Suspense fallback={<RouteLoading />}>
           <Routes>
+            <Route path="/app" element={<Navigate to={isAuthenticated ? '/' : '/login'} replace />} />
             {/* 登录页面 */}
             <Route path="/login" element={<LoginRoute authenticated={isAuthenticated} />} />
             <Route path="/desktop/authorize" element={<DesktopAuthorizePage />} />
@@ -190,13 +193,13 @@ export default function App({ basename = '/' }: AppProps) {
             <Route path="/detail/:id" element={<BBTalkDetailPage />} />
             <Route path="/bbtalk/:id" element={<BBTalkDetailPage />} />
 
-            {/* 私有主页 - 未登录跳转登录 */}
+            {/* 未登录展示产品介绍，已登录保持原有记录首页。 */}
             <Route 
               path="/" 
               element={
                 isAuthenticated 
                   ? <BBTalkPage /> 
-                  : <Navigate to="/login" replace />
+                  : <LandingPage />
               } 
             />
             
@@ -249,9 +252,6 @@ export default function App({ basename = '/' }: AppProps) {
             <Route path="/settings/account" element={isAuthenticated ? <AccountSettingsPage /> : <Navigate to="/login" replace />} />
           </Routes>
           </Suspense>
-          </RouteViewport>
         </PrivacyModeChecker>
-      </BrowserRouter>
-    </Provider>
   )
 }

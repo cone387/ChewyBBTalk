@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { View } from 'react-native';
 
 /**
- * Web 专用：BBTalk 产品官网（公开路由 /）。
+ * Expo Web 开发预览页（非生产）。正式产品官网在 frontend/src/pages/LandingPage.tsx。
  *
  * 设计原则：
  * - 不依赖 Tailwind 自定义 config（直接用 arbitrary value `bg-[#hex]` 或 inline style），避免 CDN 时序问题

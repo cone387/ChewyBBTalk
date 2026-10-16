@@ -1,0 +1,48 @@
+.landing-root {
+  font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  color: #1C1C1E;
+  background: #FFFFFF;
+  min-height: 100vh;
+}
+.landing-root .grid-bg {
+  background-image:
+    radial-gradient(60% 50% at 15% 10%, rgba(10,132,255,0.10), transparent 70%),
+    radial-gradient(50% 40% at 85% 25%, rgba(168,85,247,0.10), transparent 70%);
+}
+.landing-root .glass {
+  background: rgba(255,255,255,0.72);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+.landing-root .text-gradient {
+  background: linear-gradient(135deg, #0A84FF 0%, #5E5CE6 60%, #BF5AF2 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.landing-root .shadow-soft { box-shadow: 0 20px 60px -12px rgba(0,0,0,0.18); }
+.landing-root .shadow-glow { box-shadow: 0 12px 40px -6px rgba(10,132,255,0.45); }
+.landing-root .hover-lift { transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease; }
+.landing-root .hover-lift:hover { transform: translateY(-4px); }
+.landing-root a { cursor: pointer; }
+.landing-root details > summary { list-style: none; }
+.landing-root details > summary::-webkit-details-marker { display: none; }
+@keyframes lpFadeUp { from { opacity: 0; transform: translateY(20px) } to { opacity: 1; transform: none } }
+@keyframes lpFloat  { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-10px) } }
+.landing-root .anim-fade-up { animation: lpFadeUp .7s ease-out both; }
+.landing-root .anim-float   { animation: lpFloat 6s ease-in-out infinite; }
+.landing-root .blob { position: absolute; border-radius: 9999px; filter: blur(48px); opacity: .45; pointer-events: none; }
+.landing-root .feature-icon-wrap { transition: transform .25s ease, background-color .25s ease, color .25s ease; }
+.landing-root .group:hover .feature-icon-wrap { transform: scale(1.06); }
+
+.landing-root section[id], .landing-root main { scroll-margin-top: 5rem; }
+.landing-root a:focus-visible, .landing-root summary:focus-visible {
+  outline: 3px solid #0052a3; outline-offset: 4px;
+}
+.landing-root nav a, .landing-root footer a { min-height: 44px; display: inline-flex; align-items: center; }
+.landing-root .landing-skip { position: absolute; top: -100px; left: 1rem; z-index: 60; padding: 1rem; background: white; }
+.landing-root .landing-skip:focus { top: 1rem; }
+@media (prefers-reduced-motion: reduce) {
+  .landing-root *, .landing-root *::before, .landing-root *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
