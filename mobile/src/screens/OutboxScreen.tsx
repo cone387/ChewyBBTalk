@@ -45,7 +45,8 @@ export default function OutboxScreen() {
       const editItem = original.editItem || (entry.recordId ? await bbtalkApi.getBBTalk(entry.recordId) : undefined);
       if (!isCurrentSession(session) || historyIsLocked()) return;
       const draftKey = `compose_draft:${session.scope}:locked:outbox_${entry.id}`;
-      await writeDraft(draftKey, { ...original, version: 1, content: original.content ?? `${(entry.payload.tags || []).map(t => `#${t} `).join('')}${entry.payload.content}`,
+      await writeDraft(draftKey, { ...original, version: 1, content: original.content ?? entry.payload.content,
+        tagNames: original.tagNames ?? (original.content == null ? entry.payload.tags || [] : undefined),
         visibility: entry.payload.visibility, attachments: entry.payload.attachments || [], pendingMedia: entry.pendingMedia,
         location: entry.payload.context?.location || null, baseUpdatedAt: entry.expectedUpdatedAt, editItem, outboxId: entry.id }, session);
       if (isCurrentSession(session) && !historyIsLocked()) navigation.navigate('Compose', { draftKey, editItem, outboxId: entry.id });

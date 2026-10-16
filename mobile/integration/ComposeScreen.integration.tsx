@@ -62,6 +62,24 @@ afterEach(cleanup);
 
 const existingRecord = () => ({ id: 'record-1', content: '原始内容', visibility: 'private', tags: [], attachments: [], updatedAt: wire.update_time });
 
+test('tag-only edits autosave and restore full names without changing the body', async () => {
+  mockParams = { editItem: { ...existingRecord(), tags: [{ name: 'New York' }, { name: 'C#' }] } };
+  const first = mount(); await act(async () => {});
+  fireEvent.press(first.getByLabelText('标签 C#'));
+  const key = `compose_draft:${getSession().scope}:edit:record-1`;
+  await waitFor(async () => {
+    const saved = JSON.parse((await AsyncStorage.getItem(key))!);
+    expect(saved).toMatchObject({ content: '原始内容', tagNames: ['New York'] });
+  });
+  first.unmount(); await act(async () => {});
+  const restored = mount(); await act(async () => {});
+  expect(restored.getByLabelText('记录内容').props.value).toBe('原始内容');
+  expect(restored.getByLabelText('标签 New York').props.accessibilityState.checked).toBe(true);
+  expect(restored.getByLabelText('标签 C#').props.accessibilityState.checked).toBe(false);
+  fireEvent.press(restored.getByLabelText('标签 C#'));
+  await waitFor(async () => expect(await AsyncStorage.getItem(key)).toBeNull());
+});
+
 test('opening and leaving an unchanged existing record does not create a draft', async () => {
   mockParams = { editItem: existingRecord() };
   const screen = mount(); await act(async () => {});

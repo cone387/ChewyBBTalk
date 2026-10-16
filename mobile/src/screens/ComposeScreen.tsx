@@ -212,17 +212,26 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
   const uploadBusy = useRef(false);
   const leavingRef = useRef(false);
 
-  const [content, setContent] = useState(() => {
-    if (!editItem) return '';
-    return editItem.tags.map(t => `#${t.name} `).join('') + editItem.content;
-  });
+  const [content, setContent] = useState(editItem?.content || '');
+  const [tagNames, setTagNames] = useState<string[]>(editItem?.tags.map(tag => tag.name) || []);
   const [cursorPos, setCursorPos] = useState(0);
+  const selectionRef = useRef({ start: 0, end: 0 });
+  const pendingSelection = useRef<{ start: number; end: number } | null>(null);
+  useEffect(() => {
+    const selection = pendingSelection.current;
+    if (!selection) return;
+    pendingSelection.current = null;
+    if (Platform.OS === 'web') {
+      (inputRef.current as unknown as HTMLTextAreaElement)?.setSelectionRange?.(selection.start, selection.end);
+    } else inputRef.current?.setSelection(selection.start, selection.end);
+    selectionRef.current = selection;
+    setCursorPos(selection.start);
+  }, [content]);
   const [visibility, setVisibility] = useState<BBTalk['visibility']>(editItem?.visibility || 'private');
   const [attachments, setAttachments] = useState<Attachment[]>(editItem?.attachments || []);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>((editItem?.context?.location as { latitude: number; longitude: number }) || null);
-  const [showQuickTags, setShowQuickTags] = useState(false);
   const [keyboardH, setKeyboardH] = useState(0);
   const [voiceRecording, setVoiceRecording] = useState(false);
   const holdRecording = useHoldToRecord(() => { Keyboard.dismiss(); setVoiceRecording(true); }, voiceRecording || uploading || submitting, () => { Keyboard.dismiss(); setVoiceRecording(true); });
@@ -251,7 +260,7 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
     submittingRef.current = true; setSubmitting(true);
     try {
       // Persist the current editor separately before resolving the original submission.
-      await writeDraft(draftKey, { version: 1, content, visibility, attachments, location, pendingMedia, baseUpdatedAt }, session);
+      await writeDraft(draftKey, { version: 1, content, tagNames, visibility, attachments, location, pendingMedia, baseUpdatedAt }, session);
       if (!isCurrentSession(session)) return;
       if (retry) await dispatch(createBBTalkAsync({ ...submission.payload, submissionKey: submission.key })).unwrap();
       else await bbtalkApi.submissionStatus(submission.key);
@@ -276,14 +285,14 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
   // 判断是否有未保存修改
   const hasUnsavedChanges = useCallback(() => {
     if (isEditing && editItem) {
-      return !isUnchangedEditDraft({ version: 1, content, visibility, attachments, pendingMedia, location, editItem });
+      return !isUnchangedEditDraft({ version: 1, content, tagNames, visibility, attachments, pendingMedia, location, editItem });
     }
-    return content.trim().length > 0 || attachments.length > 0 || pendingMedia.length > 0;
-  }, [content, visibility, attachments, editItem, isEditing, pendingMedia, location]);
+    return content.trim().length > 0 || tagNames.length > 0 || attachments.length > 0 || pendingMedia.length > 0;
+  }, [content, tagNames, visibility, attachments, editItem, isEditing, pendingMedia, location]);
 
   // Opening an existing record is not an edit. Reverting all changes also clears
   // its local draft, using the same dirty check as the leave-editor prompt.
-  const draftValue = React.useMemo(() => hasUnsavedChanges() ? { version: 1, draftId: `${captureId}_${queueSequence}`, content, visibility, attachments, location, pendingMedia, baseUpdatedAt, editItem, outboxId: route.params?.outboxId } : null, [hasUnsavedChanges, content, visibility, attachments, location, pendingMedia, baseUpdatedAt, editItem, route.params?.outboxId, captureId, queueSequence]);
+  const draftValue = React.useMemo(() => hasUnsavedChanges() ? { version: 1, draftId: `${captureId}_${queueSequence}`, content, tagNames, visibility, attachments, location, pendingMedia, baseUpdatedAt, editItem, outboxId: route.params?.outboxId } : null, [hasUnsavedChanges, content, tagNames, visibility, attachments, location, pendingMedia, baseUpdatedAt, editItem, route.params?.outboxId, captureId, queueSequence]);
   const latestDraft = useRef(draftValue); latestDraft.current = draftValue;
   const autosave = useDraftAutosave(draftKey, draftValue, draftReady, session);
 
@@ -311,6 +320,14 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
           try { saved = JSON.parse(draft); } catch { /* Legacy plain text. */ }
           if (saved?.version === 1 && typeof saved.content === 'string' && Array.isArray(saved.attachments)) {
             setContent(saved.content);
+            // Older drafts embedded selected tags in the body. Their common
+            // edit prefix can be migrated without changing the remaining text.
+            const legacyPrefix = editItem?.tags.map(tag => `#${tag.name} `).join('');
+            if (Array.isArray(saved.tagNames)) setTagNames(saved.tagNames.filter((name: unknown): name is string => typeof name === 'string'));
+            else if (legacyPrefix && saved.content.startsWith(legacyPrefix)) {
+              setContent(saved.content.slice(legacyPrefix.length));
+              setTagNames(editItem!.tags.map(tag => tag.name));
+            } else setTagNames([]);
             setVisibility(saved.visibility === 'public' || saved.visibility === 'friends' ? saved.visibility : 'private');
             setAttachments(saved.attachments);
             setLocation(saved.location || null);
@@ -345,7 +362,7 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
     if (submittingRef.current || uploading || !isCurrentSession(session)) return;
     try {
       if (hasUnsavedChanges()) {
-        await writeDraft(draftKey, { version: 1, content, visibility, attachments, location, pendingMedia, baseUpdatedAt }, session);
+        await writeDraft(draftKey, { version: 1, content, tagNames, visibility, attachments, location, pendingMedia, baseUpdatedAt }, session);
       } else await writeDraft(draftKey, null, session);
       if (isCurrentSession(session)) onRequestUnlock?.();
     } catch {
@@ -353,9 +370,10 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
     }
   };
 
-  const parseTags = (t: string): string[] => [...new Set(Array.from(t.matchAll(/(?:^|\s)#([^\s#]+)\s/g)).map(m => m[1]))];
-  const cleanContent = (t: string): string => t.replace(/(?:^|\s)#([^\s#]+)\s/g, ' ').trim();
-  const currentTags = parseTags(content + ' ');
+  const parseTags = (t: string): string[] => [...new Set(Array.from(t.matchAll(/(?:^|\s)#([^\s#]+)(?=\s|$)/g)).map(m => m[1]))];
+  const cleanContent = (t: string): string => t.replace(/(?:^|\s)#([^\s#]+)(?=\s|$)/g, ' ').trim();
+  const currentTags = [...new Set([...tagNames, ...parseTags(content)])];
+  const tagChoices = [...new Set([...(lockedCapture ? [] : [...existingTags.map(tag => tag.name), ...(editItem?.tags.map(tag => tag.name) || [])]), ...currentTags])];
 
   const uploadPending = async (items: PendingMedia[] = pendingMedia) => {
     if (uploadBusy.current || !isCurrentSession(session)) return;
@@ -394,7 +412,7 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
       for (const asset of assets) {
         const item = await retainMedia(asset.uri, asset.name, asset.mime, session);
         retained.push(item);
-        const next = { ...latestDraft.current, version: 1, draftId: `${captureId}_${queueSequence}`, content: latestDraft.current?.content ?? content, visibility, attachments: latestDraft.current?.attachments || attachments, location, pendingMedia: [...pendingMedia, ...retained], baseUpdatedAt, editItem, outboxId: route.params?.outboxId };
+        const next = { ...latestDraft.current, version: 1, draftId: `${captureId}_${queueSequence}`, content: latestDraft.current?.content ?? content, tagNames: latestDraft.current?.tagNames ?? tagNames, visibility, attachments: latestDraft.current?.attachments || attachments, location, pendingMedia: [...pendingMedia, ...retained], baseUpdatedAt, editItem, outboxId: route.params?.outboxId };
         latestDraft.current = next;
         setPendingMedia(next.pendingMedia);
         await writeDraft(draftKey, next, session);
@@ -438,16 +456,19 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
     setCursorPos(pos + s.length);
     setTimeout(() => inputRef.current?.focus(), 30);
   };
-  const insertTag = (n: string) => {
-    const pos = cursorPos;
-    const before = content.slice(0, pos);
-    const after = content.slice(pos);
-    const p = before.length > 0 && !before.endsWith(' ') && !before.endsWith('\n') ? ' ' : '';
-    const insert = `${p}#${n} `;
-    setContent(before + insert + after);
-    setCursorPos(pos + insert.length);
-    setShowQuickTags(false);
-    setTimeout(() => inputRef.current?.focus(), 30);
+  const toggleTag = (name: string) => {
+    const selected = currentTags.includes(name);
+    setTagNames(previous => selected ? previous.filter(tag => tag !== name) : [...previous, name]);
+    if (!selected || !parseTags(content).includes(name)) return;
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = new RegExp(`(^|\\s)#${escaped}(?=\\s|$)`, 'g');
+    const ranges = [...content.matchAll(pattern)].map(match => {
+      const start = match.index! + match[1].length;
+      return { start, end: start + name.length + 1 };
+    });
+    const mapOffset = (offset: number) => offset - ranges.reduce((removed, range) => removed + Math.max(0, Math.min(offset, range.end) - range.start), 0);
+    pendingSelection.current = { start: mapOffset(selectionRef.current.start), end: mapOffset(selectionRef.current.end) };
+    setContent(content.replace(pattern, '$1'));
   };
   const mdInsert = (k: string) => { const m: Record<string, string> = { bold: '**粗体**', italic: '*斜体*', heading: '\n## ', list: '\n- ', code: '`代码`', codeblock: '\n```\n\n```\n', link: '[文字](url)', quote: '\n> ' }; insertText(m[k] || ''); };
 
@@ -495,7 +516,7 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
       if (!isCurrentSession(session)) return;
       setQueueSequence(value => value + 1);
       if (lockedCapture) {
-        setContent(''); setAttachments([]); setPendingMedia([]); autosave.resume(); setLocation(null); setVisibility('private');
+        setContent(''); setTagNames([]); setAttachments([]); setPendingMedia([]); autosave.resume(); setLocation(null); setVisibility('private');
         setSubmission(undefined); setSubmissionMessage('已保存到本机，联网后自动同步');
         setCursorPos(0); setEditMode('edit'); inputRef.current?.focus();
       } else { publishedRef.current = true; navigation.goBack(); }
@@ -563,7 +584,7 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
             accessibilityLabel="记录内容"
             placeholder="此刻，有什么想记下来的？" placeholderTextColor={c.textTertiary}
             editable={!submitting && draftReady} value={content} onChangeText={value => { recordHistoryActivity(); setContent(value); }} multiline textAlignVertical="top" autoFocus={!isEditing}
-            onSelectionChange={(e) => setCursorPos(e.nativeEvent.selection.start)}
+            onSelectionChange={(e) => { selectionRef.current = { start: e.nativeEvent.selection.start, end: e.nativeEvent.selection.end ?? e.nativeEvent.selection.start }; setCursorPos(e.nativeEvent.selection.start); }}
             scrollEnabled={true} />
         </View>
       ) : (
@@ -613,19 +634,17 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
         {/* 标签 + 字数 */}
         <View style={styles.tagsRow}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always"
-          style={{ flex: 1 }} contentContainerStyle={{ paddingLeft: 12, gap: 6 }}>
-          {currentTags.map(tag => (
-            <View key={tag} style={[styles.parsedTag, { backgroundColor: c.primaryLight }]}>
-              <Ionicons name="pricetag" size={11} color={c.primary} />
-              <Text style={[styles.parsedTagText, { color: c.primary }]}>{tag}</Text>
-              <TouchableOpacity onPress={() => {
-                // 从内容中删除 #tag 
-                setContent(prev => prev.replace(new RegExp(`(^|\\s)#${tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s`, 'g'), '$1'));
-              }} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }} accessibilityRole="button" accessibilityLabel={`移除标签 ${tag}`}>
-                <Ionicons name="close-circle" size={14} color={c.primary + '80'} />
-              </TouchableOpacity>
-            </View>
-          ))}
+          testID="compose-tag-list" style={{ flex: 1 }} contentContainerStyle={styles.tagList}>
+          {tagChoices.map(tag => {
+            const selected = currentTags.includes(tag);
+            return <TouchableOpacity key={tag} style={styles.tagChoice}
+              onPress={() => toggleTag(tag)} accessibilityRole="checkbox"
+              accessibilityLabel={`标签 ${tag}`} accessibilityState={{ checked: selected }} aria-checked={selected}>
+              <Ionicons name={selected ? 'checkmark-circle' : 'ellipse-outline'} size={16} color={selected ? c.primary : c.textTertiary} />
+              <Text style={[styles.tagText, { color: selected ? c.primary : c.textSecondary, fontWeight: selected ? '600' : '400' }]} numberOfLines={1}>#{tag}</Text>
+            </TouchableOpacity>;
+          })}
+          {tagChoices.length === 0 && <Text style={[styles.tagHint, { color: c.textTertiary }]}>输入 # 添加标签</Text>}
         </ScrollView>
         <View style={styles.charCountWrap}>
           {uploading && <ActivityIndicator size="small" color={c.textSecondary} />}
@@ -636,54 +655,27 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
 
       {/* 工具栏 */}
       <GlassSurface theme={theme} radius={0} testID="compose-toolbar" style={[styles.toolbarWrap, { paddingBottom: bottomPad, marginBottom: Platform.OS === 'ios' ? keyboardH : 0 }]}>
-        {!lockedCapture && showQuickTags && existingTags.length > 0 && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always" style={styles.quickTagBar} contentContainerStyle={{ paddingHorizontal: 12, gap: 8 }}>
-            {existingTags.filter(t => !currentTags.includes(t.name)).slice(0, 15).map(tag => (
-              <TouchableOpacity key={tag.id} style={[styles.quickTagChip, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => insertTag(tag.name)}><Text style={[styles.quickTagText, { color: c.textSecondary }]}>#{tag.name}</Text></TouchableOpacity>
-            ))}
-          </ScrollView>
-        )}
         {location && (
           <View style={styles.locationBar}><Ionicons name="location" size={14} color="#10B981" /><Text style={styles.locationText}>{location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}</Text>
             <TouchableOpacity onPress={() => setLocation(null)} accessibilityRole="button" accessibilityLabel="移除位置"><Ionicons name="close-circle" size={16} color="#C4C4C4" /></TouchableOpacity></View>
         )}
         <View style={styles.toolbarInner}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always"
-            contentContainerStyle={styles.toolbarRow}>
+            testID="compose-tool-list" contentContainerStyle={styles.toolbarRow}>
             <TouchableOpacity style={styles.toolBtn} onPress={() => pickMedia('images')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.addImage}><Ionicons name="image-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
             <View style={[styles.toolBtn, { opacity: holdRecording.pressed ? 0.2 : 1 }]} {...holdRecording.handlers} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.recordAudio}><Ionicons name="mic-outline" size={21} color={c.textSecondary} /></View>
-            <TouchableOpacity style={styles.toolBtn} onPress={() => {
-              if (showQuickTags) {
-                // 第二次点击：隐藏快速标签
-                setShowQuickTags(false);
-              } else {
-                // 第一次点击：插入 # + 显示快速标签
-                const pos = cursorPos;
-                const before = content.slice(0, pos);
-                const after = content.slice(pos);
-                const prefix = before.length > 0 && !before.endsWith(' ') && !before.endsWith('\n') ? ' ' : '';
-                const newContent = before + prefix + '#' + after;
-                setContent(newContent);
-                setCursorPos(pos + prefix.length + 1);
-                setShowQuickTags(true);
-              }
-              setTimeout(() => inputRef.current?.focus(), 30);
-            }} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.insertTag}><Ionicons name="pricetag-outline" size={19} color={showQuickTags ? c.primary : c.textSecondary} /></TouchableOpacity>
             <TouchableOpacity style={styles.toolBtn} onPress={takePhoto} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.takePhoto}><Ionicons name="camera-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
             <TouchableOpacity style={styles.toolBtn} onPress={() => pickMedia('videos')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.addVideo}><Ionicons name="videocam-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
             <TouchableOpacity style={styles.toolBtn} onPress={pickFile} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.addFile}><Ionicons name="attach-outline" size={21} color={c.textSecondary} /></TouchableOpacity>
             <TouchableOpacity style={styles.toolBtn} onPress={getLocation} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.addLocation}><Ionicons name="location-outline" size={19} color={location ? '#10B981' : c.textSecondary} /></TouchableOpacity>
-          </ScrollView>
-        </View>
-        <View style={styles.toolbarInner}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always" contentContainerStyle={styles.toolbarRow}>
-            <TouchableOpacity style={[styles.mdBtn, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => mdInsert('bold')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.bold}><Text style={[styles.mdBold, { color: c.text }]}>B</Text></TouchableOpacity>
-            <TouchableOpacity style={[styles.mdBtn, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => mdInsert('italic')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.italic}><Text style={[styles.mdItalic, { color: c.text }]}>I</Text></TouchableOpacity>
-            <TouchableOpacity style={[styles.mdBtn, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => mdInsert('heading')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.heading}><Text style={[styles.mdBtnText, { color: c.textSecondary }]}>H</Text></TouchableOpacity>
-            <TouchableOpacity style={[styles.mdBtn, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => mdInsert('list')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.list}><Ionicons name="list" size={15} color={c.textSecondary} /></TouchableOpacity>
-            <TouchableOpacity style={[styles.mdBtn, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => mdInsert('quote')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.quote}><Ionicons name="chatbox-outline" size={15} color={c.textSecondary} /></TouchableOpacity>
-            <TouchableOpacity style={[styles.mdBtn, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => mdInsert('code')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.code}><Ionicons name="code-slash" size={15} color={c.textSecondary} /></TouchableOpacity>
-            <TouchableOpacity style={[styles.mdBtn, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => mdInsert('link')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.link}><Ionicons name="link-outline" size={15} color={c.textSecondary} /></TouchableOpacity>
+            <View style={[styles.toolDivider, { backgroundColor: c.border }]} />
+            <TouchableOpacity style={styles.mdBtn} onPress={() => mdInsert('bold')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.bold}><Text style={[styles.mdBold, { color: c.text }]}>B</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.mdBtn} onPress={() => mdInsert('italic')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.italic}><Text style={[styles.mdItalic, { color: c.text }]}>I</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.mdBtn} onPress={() => mdInsert('heading')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.heading}><Text style={[styles.mdBtnText, { color: c.textSecondary }]}>H</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.mdBtn} onPress={() => mdInsert('list')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.list}><Ionicons name="list" size={15} color={c.textSecondary} /></TouchableOpacity>
+            <TouchableOpacity style={styles.mdBtn} onPress={() => mdInsert('quote')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.quote}><Ionicons name="chatbox-outline" size={15} color={c.textSecondary} /></TouchableOpacity>
+            <TouchableOpacity style={styles.mdBtn} onPress={() => mdInsert('code')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.code}><Ionicons name="code-slash" size={15} color={c.textSecondary} /></TouchableOpacity>
+            <TouchableOpacity style={styles.mdBtn} onPress={() => mdInsert('link')} accessibilityRole="button" accessibilityLabel={COMPOSE_TOOLBAR_LABELS.link}><Ionicons name="link-outline" size={15} color={c.textSecondary} /></TouchableOpacity>
           </ScrollView>
           {previewButton}
         </View>
@@ -738,25 +730,25 @@ const styles = StyleSheet.create({
   previewContent: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20 },
   previewPlaceholder: { fontSize: 16, fontStyle: 'italic', textAlign: 'center', marginTop: 60 },
   bottomInfo: { },
-  tagsRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
+  tagsRow: { flexDirection: 'row', alignItems: 'center' },
   attachmentItem: { position: 'relative' },
   attachmentImage: { width: 60, height: 60, borderRadius: 8 },
   filePlaceholder: { width: 60, height: 60, borderRadius: 8, borderWidth: 1, justifyContent: 'center', alignItems: 'center', padding: 2 },
   fileName: { fontSize: 12, marginTop: 1, textAlign: 'center' },
   removeBtn: { position: 'absolute', top: -4, right: -4, width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
-  parsedTag: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5 },
-  parsedTagText: { fontSize: 13, fontWeight: '500' },
+  tagList: { paddingHorizontal: 12, gap: 16, alignItems: 'center', minHeight: 44 },
+  tagChoice: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 5 },
+  tagText: { fontSize: 13 },
+  tagHint: { fontSize: 12 },
   charCountWrap: { paddingHorizontal: 12 },
   charCount: { fontSize: 12 },
   toolbarWrap: { marginTop: 0 },
   toolbarInner: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 6 },
   previewActions: { alignItems: 'flex-end', paddingHorizontal: 16 },
-  quickTagBar: { paddingVertical: 6 },
-  quickTagChip: { minHeight: 44, justifyContent: 'center', borderWidth: 1, borderRadius: 22, paddingHorizontal: 12, paddingVertical: 5 },
-  quickTagText: { fontSize: 13 },
   locationBar: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 4 },
   locationText: { flex: 1, fontSize: 12, color: '#059669' },
-  toolbarRow: { flexDirection: 'row', alignItems: 'center', flexGrow: 1, justifyContent: 'space-between', paddingVertical: 2 },
+  toolbarRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 2 },
+  toolDivider: { width: 1, height: 18, marginHorizontal: 6 },
   toolBtn: { borderRadius: 22, width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
   mdBtn: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
   mdBold: { fontSize: 13, fontWeight: '800' },

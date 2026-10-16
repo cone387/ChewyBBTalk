@@ -8,7 +8,7 @@ import { setHistoryLocked } from '../src/services/historyPrivacy';
 import { xAlert } from '../src/utils/crossAlert';
 
 const mockDispatch = jest.fn();
-jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Icon' }));
+jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Icon', MaterialIcons: 'Icon' }));
 jest.mock('@react-native-async-storage/async-storage', () => require('@react-native-async-storage/async-storage/jest/async-storage-mock'));
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 24 }) }));
 jest.mock('../src/store/hooks', () => ({ useAppDispatch: () => mockDispatch }));

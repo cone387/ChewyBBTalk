@@ -531,16 +531,6 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
             <SearchInput searchText={searchText} onSearchTextChange={changeSearchText}
               onSubmit={saveSearchHistory} onFocus={() => setSearchVisible(true)}
               theme={theme} />
-            {privacy.showCountdown && privacy.privacyEnabled && privacy.privacySeconds !== null && privacy.privacySeconds > 0 && !privacy.locked && (
-              <TouchableOpacity style={[styles.countdownBadge, { backgroundColor: c.surface }]}
-                onPress={() => privacy.setLocked(true)} onLongPress={() => navigation.navigate('PrivacySettings')} activeOpacity={0.7}
-                accessibilityRole="button" accessibilityLabel="锁定内容">
-                <Ionicons name="lock-closed-outline" size={12} color={c.textSecondary} />
-                <Text style={[styles.countdownText, { color: c.textSecondary }]}>
-                  {privacy.privacySeconds >= 60 ? `${Math.floor(privacy.privacySeconds / 60)}:${(privacy.privacySeconds % 60).toString().padStart(2, '0')}` : `${privacy.privacySeconds}s`}
-                </Text>
-              </TouchableOpacity>
-            )}
           </View>
           <View onLayout={sticky.onNavigationLayout}>
             <TagTabs tags={visibleTags} selectedTag={selectedTag} selectedDate={selectedDate}
@@ -558,10 +548,25 @@ export default function HomeScreen({ selectedTag, selectedDate, onLockChange, on
       {!batch.batchMode && <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: insets.top, backgroundColor: c.background, zIndex: 21 }} />}
 
       {!batch.batchMode && (
+        <>
+        {privacy.showCountdown && privacy.privacyEnabled && privacy.privacySeconds !== null && privacy.privacySeconds > 0 && !privacy.locked && (
+          <GlassSurface theme={theme} radius={22} elevated
+            style={[styles.countdownBadge, { bottom: insets.bottom + UI.tabBarClearance + 82 }]}>
+            <TouchableOpacity style={styles.countdownTouch}
+              onPress={() => privacy.setLocked(true)} onLongPress={() => navigation.navigate('PrivacySettings')} activeOpacity={0.7}
+              accessibilityRole="button" accessibilityLabel="锁定内容">
+              <Ionicons name="lock-closed-outline" size={12} color={c.textSecondary} />
+              <Text style={[styles.countdownText, { color: c.textSecondary }]}>
+                {privacy.privacySeconds >= 60 ? `${Math.floor(privacy.privacySeconds / 60)}:${(privacy.privacySeconds % 60).toString().padStart(2, '0')}` : `${privacy.privacySeconds}s`}
+              </Text>
+            </TouchableOpacity>
+          </GlassSurface>
+        )}
         <GlassSurface theme={theme} radius={28} elevated style={[styles.fab, { bottom: insets.bottom + UI.tabBarClearance + 16 }]}
           {...holdRecording.handlers} accessibilityRole="button" accessibilityLabel="新建碎碎念">
           <Ionicons name="add" size={28} color={holdRecording.pressed ? c.text : c.primary} />
         </GlassSurface>
+        </>
       )}
 
       <Modal visible={!!previewImage} transparent presentationStyle="overFullScreen" animationType={reduceMotion ? "none" : "fade"} onRequestClose={() => setPreviewImage(null)}>
@@ -621,9 +626,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center',
   },
   countdownBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 8,
-    minHeight: 44, borderRadius: 22, paddingHorizontal: 12,
+    position: 'absolute', right: 20, borderRadius: 22,
   },
+  countdownTouch: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, minWidth: 56, minHeight: 44, paddingHorizontal: 10 },
   countdownText: { color: '#fff', fontSize: 12, fontWeight: '600' },
   previewOverlay: { flex: 1, backgroundColor: '#000' },
   previewClose: { position: 'absolute', top: 50, right: 20, zIndex: 10 },

@@ -28,7 +28,7 @@ jest.mock('@react-navigation/native', () => ({
   useRoute: () => ({ params: undefined }),
   useFocusEffect: (callback: () => void) => { require('react').useEffect(callback, [callback]); },
 }));
-jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Icon' }));
+jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Icon', MaterialIcons: 'Icon' }));
 jest.mock('expo-image', () => ({ Image: 'Image' }));
 jest.mock('expo-audio', () => ({ useAudioPlayer: jest.fn(), useAudioPlayerStatus: jest.fn(), setAudioModeAsync: jest.fn() }));
 jest.mock('expo-file-system/legacy', () => ({

@@ -42,6 +42,10 @@ appId: com.chewy.bbtalk
 - tapOn: ".*碎碎念：图片、语音和视频.*"
 - assertVisible: "记录内容.*"
 - assertVisible: "拍照"
+- scrollUntilVisible:
+    element:
+      text: "加粗"
+    direction: RIGHT
 - assertVisible: "加粗"
 - assertNotVisible: "更多工具"
 - takeScreenshot: media-detail-light

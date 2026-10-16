@@ -14,7 +14,11 @@ export function isUnchangedEditDraft(value: any): boolean {
       !original || typeof original.content !== 'string' || !['public', 'private'].includes(original.visibility) ||
       !Array.isArray(original.tags) || original.tags.some((tag: any) => typeof tag?.name !== 'string') ||
       !Array.isArray(original.attachments) || [...value.attachments, ...original.attachments].some((attachment: any) => typeof attachment?.uid !== 'string')) return false;
-  return value.content === original.tags.map((tag: any) => `#${tag.name} `).join('') + original.content &&
+  const sameTextAndTags = Array.isArray(value.tagNames)
+    ? value.content === original.content && value.tagNames.every((name: unknown) => typeof name === 'string') &&
+      JSON.stringify([...new Set(value.tagNames)].sort()) === JSON.stringify([...new Set(original.tags.map((tag: any) => tag.name))].sort())
+    : value.content === original.tags.map((tag: any) => `#${tag.name} `).join('') + original.content;
+  return sameTextAndTags &&
     value.visibility === original.visibility && value.pendingMedia.length === 0 &&
     JSON.stringify(value.attachments) === JSON.stringify(original.attachments) &&
     JSON.stringify(value.location || null) === JSON.stringify(original.context?.location || null);
@@ -37,9 +41,10 @@ export async function listDrafts(session: Session): Promise<DraftEntry[]> {
     if (isUnchangedEditDraft(value)) return [];
     const content = typeof value?.content === 'string' ? value.content.trim() : '';
     const pendingCount = Array.isArray(value?.pendingMedia) ? value.pendingMedia.length : 0;
-    if (!content && !pendingCount && !value?.attachments?.length) return [];
+    const tagNames: string[] = Array.isArray(value?.tagNames) ? value.tagNames.filter((name: unknown) => typeof name === 'string') : [];
+    if (!content && !pendingCount && !value?.attachments?.length && !tagNames.length) return [];
     const prefix = `compose_draft:${session.scope}:edit:`;
-    return [{ key, preview: content.slice(0, 100) || '附件记录', pendingCount,
+    return [{ key, preview: content.slice(0, 100) || (tagNames.length ? tagNames.map(name => `#${name}`).join(' ').slice(0, 100) : '附件记录'), pendingCount,
       ...(key.startsWith(prefix) ? { recordId: key.slice(prefix.length) } : {}) }];
   });
 }

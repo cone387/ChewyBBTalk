@@ -154,11 +154,13 @@ import { setSession, getSession } from '../../src/services/session';
 import type { Attachment, BBTalk } from '../../src/types';
 
 const { create, act } = require('react-test-renderer');
+const mockFocusInput = jest.fn();
+const mockSetSelection = jest.fn();
 
 // The editor focuses the input through a ref after toolbar inserts; host strings
 // have no focus(), so expose an imperative handle like the real TextInput.
 const mockTextInput = React.forwardRef(function MockTextInput(props: any, ref: any) {
-  React.useImperativeHandle(ref, () => ({ focus: jest.fn(), blur: jest.fn() }));
+  React.useImperativeHandle(ref, () => ({ focus: mockFocusInput, blur: jest.fn(), setSelection: mockSetSelection }));
   return null;
 });
 
@@ -223,6 +225,8 @@ function installWebWindow() {
 beforeAll(() => { setSession('https://api.example', '1'); });
 
 beforeEach(() => {
+  mockFocusInput.mockClear();
+  mockSetSelection.mockClear();
   require('../../src/services/historyPrivacy').setHistoryLocked(false);
   require('../../src/services/historyPrivacy').setHistoryPrivacyReady(true);
   require('../../src/services/historyPrivacy').setHistoryPrivacySuspended(false);
@@ -317,7 +321,8 @@ describe('ComposeScreen rendering and modes', () => {
   it('opens existing records ready to edit without requesting the keyboard', async () => {
     mockRoute.params = { editItem: makeEditItem() };
     await mountCompose();
-    expect(input().props.value).toBe('#工作 原始内容');
+    expect(input().props.value).toBe('原始内容');
+    expect(tappable('标签 工作').props.accessibilityState.checked).toBe(true);
     expect(input().props.autoFocus).toBe(false);
     expect(mockPrevent?.enabled).toBe(false);
     await typeIn('直接修改');
@@ -453,7 +458,7 @@ describe('ComposeScreen publish', () => {
     mockRoute.params = { editItem: makeEditItem() };
     await mountCompose();
     expect(hasText('编辑记录')).toBe(true);
-    expect(input().props.value).toBe('#工作 原始内容');
+    expect(input().props.value).toBe('原始内容');
     expect(tappable('更新')).toBeDefined();
     await typeIn('#工作 改后的内容');
     await press('更新');
@@ -687,12 +692,12 @@ describe('ComposeScreen locked capture', () => {
     expect(onRequestUnlock).not.toHaveBeenCalled();
   });
 
-  it('hides the quick tag chips inside the locked capture', async () => {
+  it('never exposes existing tag names inside the locked capture', async () => {
     mockTagList = [{ id: 't1', name: '工作', color: '', sortOrder: 0, bbtalkCount: 0 }];
     await mountCompose({ lockedCapture: true });
-    await press('插入标签');
-    expect(input().props.value).toBe('#');
-    expect(tappable('#工作')).toBeUndefined();
+    expect(tappable('标签 工作')).toBeUndefined();
+    await typeIn('#新标签 内容');
+    expect(tappable('标签 新标签').props.accessibilityState.checked).toBe(true);
   });
 });
 
@@ -831,33 +836,93 @@ describe('ComposeScreen toolbar', () => {
     expect(tappable('更多工具')).toBeUndefined();
   });
 
-  it('inserts a hash, offers quick tags, and inserts a chosen tag', async () => {
+  it('keeps tags visible and supports selecting and deselecting several tags', async () => {
     mockTagList = [
       { id: 't1', name: '工作', color: '', sortOrder: 0, bbtalkCount: 0 },
       { id: 't2', name: '生活', color: '', sortOrder: 0, bbtalkCount: 0 },
     ];
     await mountCompose();
-    await press('插入标签');
-    expect(input().props.value).toBe('#');
-    await press('#工作');
-    expect(input().props.value).toBe('# #工作 ');
-    expect(tappable('#工作')).toBeUndefined();
-    expect(tappable('移除标签 工作')).toBeDefined();
-    // insertTag closed the quick tags, so the next toolbar press inserts a new hash.
-    await press('插入标签');
-    expect(input().props.value).toBe('# #工作 #');
-    expect(tappable('#生活')).toBeDefined();
-    await press('插入标签');
-    expect(tappable('#生活')).toBeUndefined();
+    expect(tappable('插入标签')).toBeUndefined();
+    await press('标签 工作');
+    await press('标签 生活');
+    expect(tappable('标签 工作').props.accessibilityState.checked).toBe(true);
+    expect(tappable('标签 生活').props.accessibilityState.checked).toBe(true);
+    await press('标签 工作');
+    expect(tappable('标签 工作').props.accessibilityState.checked).toBe(false);
+    expect(tappable('标签 生活').props.accessibilityState.checked).toBe(true);
+    await typeIn(input().props.value + '正文');
+    await press('保存');
+    expect(mockEnqueue.mock.calls[0][0].payload).toMatchObject({ content: '正文', tags: ['生活'] });
   });
 
   it('removes a parsed tag from the content', async () => {
     await mountCompose();
     await typeIn('#tag1 hello #tag2 ');
-    await press('移除标签 tag1');
+    await press('标签 tag1');
     expect(input().props.value).toContain('hello #tag2 ');
-    expect(tappable('移除标签 tag1')).toBeUndefined();
-    expect(tappable('移除标签 tag2')).toBeDefined();
+    expect(tappable('标签 tag1')).toBeUndefined();
+    expect(tappable('标签 tag2').props.accessibilityState.checked).toBe(true);
+  });
+
+  it('keeps both adjacent selected tags in the submitted payload without focusing input', async () => {
+    mockTagList = ['工作', '生活'].map((name, i) => ({ id: String(i), name, color: '', sortOrder: i, bbtalkCount: 0 }));
+    await mountCompose();
+    await typeIn('正文');
+    await press('标签 工作');
+    await press('标签 生活');
+    await settle();
+    expect(mockFocusInput).not.toHaveBeenCalled();
+    await press('保存');
+    expect(mockEnqueue.mock.calls[0][0].payload).toMatchObject({ content: '正文', tags: ['工作', '生活'] });
+  });
+
+  it('offers every existing tag and removes only the exact matching hashtag', async () => {
+    mockTagList = Array.from({ length: 18 }, (_, i) => ({ id: String(i), name: `tag${i}`, color: '', sortOrder: i, bbtalkCount: 0 }));
+    await mountCompose();
+    expect(tappable('标签 tag17')).toBeDefined();
+    await typeIn('#C++ #C+ 正文 #C++');
+    await press('标签 C++');
+    expect(tappable('标签 C++')).toBeUndefined();
+    expect(tappable('标签 C+').props.accessibilityState.checked).toBe(true);
+    await press('保存');
+    expect(mockEnqueue.mock.calls[0][0].payload).toMatchObject({ content: '正文', tags: ['C+'] });
+  });
+
+  it('selects full tag names without changing body text or the input selection', async () => {
+    mockTagList = ['New York', 'C#'].map((name, i) => ({ id: String(i), name, color: '', sortOrder: i, bbtalkCount: 0 }));
+    await mountCompose();
+    await typeIn('abcdef');
+    await act(async () => { input().props.onSelectionChange({ nativeEvent: { selection: { start: 2, end: 4 } } }); });
+    await press('标签 New York');
+    await press('标签 C#');
+    expect(input().props.value).toBe('abcdef');
+    expect(tappable('标签 New York').props.accessibilityState.checked).toBe(true);
+    expect(tappable('标签 C#').props.accessibilityState.checked).toBe(true);
+    expect(mockFocusInput).not.toHaveBeenCalled();
+    await press('保存');
+    expect(mockEnqueue.mock.calls[0][0].payload).toMatchObject({ content: 'abcdef', tags: ['New York', 'C#'] });
+  });
+
+  it('restores selected tags from a saved draft separately from body text', async () => {
+    mockReadDraft.mockResolvedValue(draftJson({ version: 1, content: '正文', tagNames: ['New York', 'C#'], visibility: 'private', attachments: [] }));
+    await mountCompose();
+    expect(input().props.value).toBe('正文');
+    expect(tappable('标签 New York').props.accessibilityState.checked).toBe(true);
+    await press('保存');
+    expect(mockEnqueue.mock.calls[0][0]).toMatchObject({
+      payload: { content: '正文', tags: ['New York', 'C#'] },
+      draft: { content: '正文', tagNames: ['New York', 'C#'] },
+    });
+  });
+
+  it('preserves the native text selection when removing an inline hashtag', async () => {
+    await mountCompose();
+    await typeIn('#one abcdef');
+    await act(async () => { input().props.onSelectionChange({ nativeEvent: { selection: { start: 8, end: 10 } } }); });
+    await press('标签 one');
+    expect(input().props.value).toBe(' abcdef');
+    expect(mockSetSelection).toHaveBeenCalledWith(4, 6);
+    expect(mockFocusInput).not.toHaveBeenCalled();
   });
 
   it('inserts markdown snippets at the cursor', async () => {

@@ -41,7 +41,7 @@ jest.mock('react-native', () => ({
   UIManager: {}, Platform: { OS: 'ios', select: (options: any) => options.ios },
   StyleSheet: { create: (value: unknown) => value },
 }));
-jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Icon' }));
+jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Icon', MaterialIcons: 'Icon' }));
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 10, bottom: 12, left: 0, right: 0 }) }));
 jest.mock('../../src/theme/ThemeContext', () => ({ useTheme: () => ({ theme: require('../../src/theme/themes').THEMES[0] }) }));
 

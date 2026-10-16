@@ -6,7 +6,7 @@ import {
   View, Text, TouchableOpacity, StyleSheet, TextInput, Modal, KeyboardAvoidingView, Platform, ScrollView, Keyboard,
 } from 'react-native';
 import DragList from 'react-native-draglist';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
 import { tagApi } from '../services/api/tagApi';
@@ -162,7 +162,7 @@ export default function TagManagementScreen() {
                 }}
                 delayLongPress={220} onLongPress={onDragStart} onPressOut={onDragEnd}
                 style={[styles.tagAction, { opacity: busy || !!editingId || tags.length < 2 ? 0.35 : 1 }]}>
-                <Ionicons name="reorder-three-outline" size={24} color={isActive ? c.primary : c.textTertiary} />
+                <MaterialIcons name="drag-indicator" size={24} color={isActive ? c.primary : c.textTertiary} />
               </TouchableOpacity>
             </View>
 
