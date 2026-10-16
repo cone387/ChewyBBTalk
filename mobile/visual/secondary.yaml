@@ -33,9 +33,9 @@ appId: com.chewy.bbtalk
 - tapOn: "关闭评论"
 - assertNotVisible: "评论内容.*"
 - tapOn: ".*碎碎念：今天的风很舒服.*"
+- assertVisible: "记录内容.*"
 - takeScreenshot: record-detail
-- tapOn:
-    id: BackButton
+- tapOn: "取消"
 - tapOn:
     id: tab-mine
 - scrollUntilVisible:
