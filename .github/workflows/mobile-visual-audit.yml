@@ -90,7 +90,7 @@ jobs:
           bash "$RUNNER_TEMP/install-maestro.sh"
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
       - name: Boot simulator and install app
-        timeout-minutes: 5
+        timeout-minutes: 10
         run: |
           set -euxo pipefail
           node scripts/mobile-visual/fixture-server.cjs > mobile/test-results/native-visual/fixture.log 2>&1 &

@@ -3,8 +3,6 @@ import GlassSurface from '../components/GlassSurface';
 import DraftStatus from '../components/DraftStatus';
 import ImageViewer from '../components/ImageViewer';
 import GlassIconButton from '../components/GlassIconButton';
-import { THEMES } from '../theme/themes';
-import { useMediaStatusBar } from '../hooks/useMediaStatusBar';
 import { capturePrivacyPlaybackGuard, usePauseOnPrivacySuspension } from '../hooks/usePauseOnPrivacySuspension';
 import { readSubmission, confirmSubmission, type SubmissionIntent } from '../services/submissions';
 import { enqueueSubmission, reviseFailedSubmission } from '../services/outbox';
@@ -199,7 +197,6 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
   const { theme } = useTheme();
   const c = theme.colors;
   const [previewImage, setPreviewImage] = useState<string | null>(null);
-  useMediaStatusBar(navigation, previewImage !== null && !historyLocked, theme.key);
   useEffect(() => { if (historyLocked) setPreviewImage(null); }, [historyLocked]);
 
   const editItem: BBTalk | undefined = lockedCapture ? undefined : route.params?.editItem;
@@ -697,10 +694,14 @@ export default function ComposeScreen({ lockedCapture = false, onRequestUnlock }
 
       {previewImage !== null && <Modal transparent presentationStyle="overFullScreen" onRequestClose={() => setPreviewImage(null)}>
         <SafeAreaProvider>
-        <View style={{ flex: 1, backgroundColor: '#000' }}>
+        {/* The sheet's presenting controller retains status-bar appearance. Keep
+            the full-screen canvas in the same theme so its text stays legible. */}
+        <View style={{ flex: 1, backgroundColor: c.background }}>
           <ImageViewer imageUrl={previewImage} onClose={() => setPreviewImage(null)} />
+          <SafeAreaView edges={['top']} pointerEvents="none"
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: c.background }} />
           <SafeAreaView edges={['top']} pointerEvents="box-none" style={{ position: 'absolute', top: 0, right: 16, paddingTop: 12 }}>
-            <GlassIconButton theme={THEMES.find(t => t.key === 'dark')!} icon="close" accessibilityLabel="关闭照片"
+            <GlassIconButton theme={theme} icon="close" accessibilityLabel="关闭照片"
               onPress={() => setPreviewImage(null)} />
           </SafeAreaView>
         </View>
