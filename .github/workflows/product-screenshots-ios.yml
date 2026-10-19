@@ -54,6 +54,11 @@ jobs:
           printf '%s\n' "$SOURCE_COMMIT" > mobile/test-results/product-screenshots/binary-source.txt
           git rev-parse HEAD > mobile/test-results/product-screenshots/capture-source.txt
           tar -xzf "$RELEASED_APP/simulator-app.tar.gz" -C "$RUNNER_TEMP/product-app"
+          shopt -s nullglob
+          APPS=("$RUNNER_TEMP/product-app/"*.app)
+          test "${#APPS[@]}" -eq 1
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "${APPS[0]}/Info.plist")" = com.chewy.bbtalk
+          echo "PRODUCT_APP_PATH=${APPS[0]}" >> "$GITHUB_ENV"
       - name: Prepare native simulator
         run: |
           set -euo pipefail
@@ -74,7 +79,7 @@ jobs:
           xcrun simctl boot "$SIMULATOR_UDID" || true
           xcrun simctl bootstatus "$SIMULATOR_UDID" -b
           xcrun simctl status_bar "$SIMULATOR_UDID" override --time '9:41' --dataNetwork wifi --wifiMode active --wifiBars 3 --batteryState charged --batteryLevel 100
-          xcrun simctl install "$SIMULATOR_UDID" "$RUNNER_TEMP/product-app/BBTalk.app"
+          xcrun simctl install "$SIMULATOR_UDID" "$PRODUCT_APP_PATH"
           python3 scripts/mobile-visual/seed-settings.py "$SIMULATOR_UDID"
       - name: Sign in to local examples
         id: login
