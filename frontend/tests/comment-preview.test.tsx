@@ -10,7 +10,7 @@ vi.mock('../src/services/authSessionScope', () => ({ getAuthSessionScope: () => 
 vi.mock('../src/components/MarkdownRenderer', () => ({ default: ({ content }: { content: string }) => <p>{content}</p> }));
 vi.mock('../src/components/CachedImage', () => ({ default: () => null }));
 vi.mock('../src/components/AuthenticatedMedia', () => ({ AttachmentVideo: () => null, AttachmentDownload: () => null }));
-vi.mock('react-router-dom', () => ({ useHref: (path: string) => path }));
+vi.mock('react-router-dom', () => ({ useHref: (path: string) => path, useNavigate: () => vi.fn() }));
 
 function comment(n: number): Comment {
   return { uid: `c${n}`, user: 1, userDisplayName: 'Alice', userAvatar: '', userUsername: 'alice', content: `reply-${n}`, createdAt: '2026-10-10T00:00:00Z', updatedAt: '' };

@@ -2,6 +2,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const boundary = vi.hoisted(() => ({ initAuth: vi.fn() }));
+vi.mock('../src/services/api/welcomeApi', () => ({ welcomeApi: { next: async () => ({ quote: null }) } }));
 vi.mock('../src/services/auth', () => ({
   initAuth: boundary.initAuth,
   getCurrentUser: () => null,

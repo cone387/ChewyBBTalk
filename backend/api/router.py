@@ -3,7 +3,7 @@ from copy import copy
 from fastapi import APIRouter
 from fastapi.routing import APIRoute
 from api.openapi import COMMON_RESPONSES
-from api.routes import auth, data, pages, records, status, storage
+from api.routes import auth, data, pages, records, status, storage, welcome
 
 
 def install_routes(app):
@@ -13,6 +13,7 @@ def install_routes(app):
         storage.router,
         data.router,
         status.router,
+        welcome.router,
         records.router,
     ):
         native = APIRouter()

@@ -7,6 +7,8 @@ import Button from '../components/ui/Button';
 import SettingsLayout from '../components/layout/SettingsLayout';
 
 const settings = [
+  { title: '文案欢迎页', description: '自己的文案池，每次打开遇见一句', path: '/settings/welcome',
+    icon: 'M5 4h14v16H5zM8 8h8M8 12h6M8 16h4' },
   { title: '产品介绍', description: '了解 BBTalk、功能与自托管', path: '/about',
     icon: 'M12 8h.01M11 12h1v5h1M22 12a10 10 0 11-20 0 10 10 0 0120 0' },
   { title: '账户设置', description: '显示名称、邮箱、简介与登录密码', path: '/settings/account',

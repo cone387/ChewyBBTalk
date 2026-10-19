@@ -15,7 +15,7 @@ vi.mock('../src/components/CachedImage', () => ({
     <button type="button" data-testid="cached-image" data-src={src} onClick={onClick}>{alt}</button>
   ),
 }));
-vi.mock('react-router-dom', () => ({ useHref: (path: string) => path }));
+vi.mock('react-router-dom', () => ({ useHref: (path: string) => path, useNavigate: () => vi.fn() }));
 
 const now = Date.now();
 function item(overrides: Partial<BBTalk> = {}): BBTalk {

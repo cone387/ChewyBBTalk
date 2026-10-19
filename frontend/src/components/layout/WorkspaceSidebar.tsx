@@ -7,6 +7,7 @@ import { getPublicSetting } from '../../config'
 const destinations = [
   { path: '/', label: '记录', icon: 'M5 4h14v16H5zM8 8h8M8 12h8M8 16h5' },
   { path: '/settings', label: '设置', icon: 'M12 8a4 4 0 100 8 4 4 0 000-8M9 3h6l1 3 3 1 2 5-2 5-3 1-1 3H9l-1-3-3-1-2-5 2-5 3-1z' },
+  { path: '/settings/welcome', label: '扉页', icon: 'M5 4h14v16H5zM8 8h8M8 12h6M8 16h4' },
   { path: '/settings/privacy', label: '隐私', icon: 'M5 11h14v10H5zM8 11V7a4 4 0 018 0v4' },
   { path: '/settings/storage', label: '存储', icon: 'M4 5h16v6H4zM4 13h16v6H4zM8 8h.01M8 16h.01' },
   { path: '/settings/data', label: '数据', icon: 'M12 3v12m-4-4l4 4 4-4M4 16v5h16v-5' },

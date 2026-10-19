@@ -3,6 +3,7 @@ import { Provider } from 'react-redux'
 import { lazy, Suspense, useEffect, useState, useRef } from 'react'
 import { store } from './store'
 import { initAuth } from './services/auth'
+import WelcomeGate from './components/welcome/WelcomeGate'
 
 const BBTalkPage = lazy(() => import('./pages/BBTalkPage'))
 const LandingPage = lazy(() => import('./pages/LandingPage'))
@@ -18,6 +19,7 @@ const StatusPage = lazy(() => import('./pages/StatusPage'))
 const StorageSettingsPage = lazy(() => import('./pages/StorageSettingsPage'))
 const S3ConfigListPage = lazy(() => import('./pages/S3ConfigListPage'))
 const DataManagementPage = lazy(() => import('./pages/DataManagementPage'))
+const WelcomeSettingsPage = lazy(() => import('./pages/WelcomeSettingsPage'))
 
 interface AppProps {
   basename?: string;
@@ -171,8 +173,7 @@ function ApplicationRoutes() {
     )
   }
 
-  return (
-        <PrivacyModeChecker>
+  const routes = (
           <Suspense fallback={<RouteLoading />}>
           <Routes>
             <Route path="/app" element={<Navigate to={isAuthenticated ? '/' : '/login'} replace />} />
@@ -250,8 +251,9 @@ function ApplicationRoutes() {
             
             <Route path="/settings/status" element={isAuthenticated ? <StatusPage /> : <Navigate to="/login" replace />} />
             <Route path="/settings/account" element={isAuthenticated ? <AccountSettingsPage /> : <Navigate to="/login" replace />} />
+            <Route path="/settings/welcome" element={isAuthenticated ? <WelcomeSettingsPage /> : <Navigate to="/login" replace />} />
           </Routes>
           </Suspense>
-        </PrivacyModeChecker>
   )
+  return <PrivacyModeChecker>{isAuthenticated ? <WelcomeGate>{routes}</WelcomeGate> : routes}</PrivacyModeChecker>
 }

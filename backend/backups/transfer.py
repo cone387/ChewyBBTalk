@@ -17,11 +17,14 @@ from models import (
     Comment,
     StorageConfig,
     Tag,
+    WelcomeSettings,
     now,
     uid,
 )
 from schemas.identifiers import imported_uid
+from schemas.welcome import WelcomeContent
 from services.records import attachment_ids, sync_visibility
+from services.welcome import restore_configuration
 from storage.service import storage_data, store_for, upload_store
 
 FIELDS = ('tags', 'bbtalks', 'comments', 'attachments', 'storage_settings')
@@ -44,8 +47,10 @@ class DataExporter:
         )
         record_map = {record.id: record.uid for record in records}
         configs = list(db.scalars(select(StorageConfig).where(StorageConfig.user_id == user.id)))
+        welcome = db.get(WelcomeSettings, user.id)
         return {
             'version': '1.0',
+            'welcome': {'enabled': welcome.enabled, 'quotes': welcome.quotes} if welcome else None,
             'export_time': self.export_time.isoformat(),
             'user': {
                 **{
@@ -170,6 +175,8 @@ def read_import(content, max_size):
             data = json.loads(content.decode('utf8'))
         if not isinstance(data, dict) or data.get('version') != '1.0':
             raise ValueError('不支持的数据格式或版本')
+        if data.get('welcome') is not None:
+            WelcomeContent.model_validate(data['welcome'])
         for name in FIELDS:
             if not isinstance(data.get(name, []), list) or any(
                 not isinstance(row, dict) for row in data.get(name, [])
@@ -194,6 +201,8 @@ def restore_times(obj, values, settings, names=('create_time', 'update_time')):
 
 
 def import_data(db, settings, user, data, archive=None, complete=False, **options):
+    # Validate before any import side effects, also for callers bypassing load_data.
+    welcome = WelcomeContent.model_validate(data['welcome']) if data.get('welcome') is not None else None
     stats = {
         name + suffix: 0
         for name in ('tags', 'bbtalks', 'attachments', 'comments')
@@ -386,6 +395,8 @@ def import_data(db, settings, user, data, archive=None, complete=False, **option
                             stats['storage_settings_created'] += 1
                 except Exception as error:
                     stats['errors'].append(f'导入存储配置失败: {error}')
+        if welcome is not None:
+            restore_configuration(db, user.id, welcome)
         db.flush()
         affected = (
             set().union(*(attachment_ids(record.attachments) for record in record_map.values()))

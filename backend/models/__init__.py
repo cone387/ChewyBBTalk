@@ -106,6 +106,16 @@ class User(Base):
         return self.username
 
 
+class WelcomeSettings(Base):
+    __tablename__ = 'cb_welcome_settings'
+    user_id: Mapped[int] = mapped_column(ForeignKey('cb_users.id', ondelete='CASCADE'), primary_key=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    quotes: Mapped[list] = mapped_column(JSON().with_variant(JSONB(), 'postgresql'), default=list)
+    revision: Mapped[int] = mapped_column(Integer, default=0)
+    remaining: Mapped[list] = mapped_column(JSON().with_variant(JSONB(), 'postgresql'), default=list)
+    last_id: Mapped[str] = mapped_column(String(64), default='')
+
+
 class Identity(Base):
     __tablename__ = 'cb_identities'
     __table_args__ = (UniqueConstraint('identity_type', 'identifier'),)

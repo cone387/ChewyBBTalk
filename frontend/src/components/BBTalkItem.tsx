@@ -7,7 +7,7 @@ import MarkdownRenderer from './MarkdownRenderer'
 import CachedImage from './CachedImage'
 import { AttachmentVideo, AttachmentDownload } from './AuthenticatedMedia'
 import { useActionFeedback } from '../hooks/useActionFeedback'
-import { useHref } from 'react-router-dom'
+import { useHref, useNavigate } from 'react-router-dom'
 import { commentCache } from '../services/cache/commentCache'
 import { getAuthSessionScope } from '../services/authSessionScope'
 
@@ -251,6 +251,7 @@ const BBTalkItem: React.FC<BBTalkItemProps> = React.memo(function BBTalkItem({
   const menuRef = useRef<HTMLDivElement>(null)
   const shareFeedback = useActionFeedback()
   const detailPath = useHref(`/detail/${bbtalk.id}`)
+  const navigate = useNavigate()
 
   // 点击外部关闭更多菜单
   useEffect(() => {
@@ -387,7 +388,7 @@ const BBTalkItem: React.FC<BBTalkItemProps> = React.memo(function BBTalkItem({
           </button>
 
           {menuOpen && (
-            <div className="absolute right-0 mt-2 w-32 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
+            <div className="absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
               <button
                 className="app-menu-item"
                 onClick={handleCopyLink}
@@ -397,6 +398,11 @@ const BBTalkItem: React.FC<BBTalkItemProps> = React.memo(function BBTalkItem({
               </button>
               {!isPublic && (
                 <>
+                  {onEdit && <button className="app-menu-item" onClick={() => {
+                    if (getAuthSessionScope() !== recordSession) return
+                    setMenuOpen(false)
+                    navigate('/settings/welcome', { state: { welcomeText: bbtalk.content, welcomeScope: recordSession } })
+                  }}><Icon name="edit" size={16} />加入文案池</button>}
                   {onTogglePin && <button className="app-menu-item" onClick={() => { setMenuOpen(false); onTogglePin(bbtalk) }}><Icon name="pin" size={16} />{bbtalk.isPinned ? '取消置顶' : '置顶'}</button>}
                   {onEdit && (
                     <button

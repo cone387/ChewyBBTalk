@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 from alembic import command
 from alembic.config import Config
+from alembic.script import ScriptDirectory
 from fastapi.testclient import TestClient
 from sqlalchemy import event, inspect, select, text
 from sqlalchemy.orm import Session
@@ -330,7 +331,13 @@ def test_credentials_upgrade_resumes_after_committed_ddl(tmp_path):
         )
     )
     try:
-        upgrade(app.state.engine)
+        # Build the exact historical schema under test, not today's head plus
+        # a rewritten stamp (which would rerun unrelated later migrations).
+        migration = Config()
+        migration.set_main_option('script_location', str(Path(__file__).parents[2] / 'database/migrations'))
+        with app.state.engine.begin() as connection:
+            migration.attributes['connection'] = connection
+            command.upgrade(migration, '0004_native_credentials')
         # MySQL commits each ALTER before the credential updates and revision stamp.
         # Persist that exact intermediate schema with one unconverted and one
         # already converted record to exercise safe recovery of either state.
@@ -372,7 +379,7 @@ def test_credentials_upgrade_resumes_after_committed_ddl(tmp_path):
             assert values[1] == converted
             assert (
                 connection.execute(text('SELECT version_num FROM alembic_version')).scalar_one()
-                == '0004_native_credentials'
+                == ScriptDirectory.from_config(migration).get_current_head()
             )
     finally:
         app.state.engine.dispose()
