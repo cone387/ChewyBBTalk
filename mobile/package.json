@@ -36,6 +36,7 @@
     "expo-glass-effect": "~0.1.10",
     "expo-image": "~3.0.11",
     "expo-image-picker": "~17.0.11",
+    "expo-linear-gradient": "~15.0.8",
     "expo-local-authentication": "~17.0.9",
     "expo-location": "~19.0.8",
     "expo-screen-capture": "~8.0.10",
@@ -72,7 +73,9 @@
   "private": true,
   "expo": {
     "install": {
-      "exclude": ["react-native-screens"]
+      "exclude": [
+        "react-native-screens"
+      ]
     },
     "doctor": {
       "reactNativeDirectoryCheck": {

@@ -3,6 +3,8 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 let empty = false;
+let welcome = {enabled:false,quotes:[{id:'one',text:'慢慢来，\n比较快。',source:'我的手记'},{id:'two',text:'今天也值得\n被记下来。',source:''}],revision:0};
+let welcomeIndex = 0;
 const user = {id:'visual-preview', username:'preview', display_name:'林间', email:'preview@example.test', avatar:'http://localhost:8020/missing-avatar.png'};
 const tags = ['日常','阅读','旅行','工作'].map((name,i)=>({uid:'tag-'+i,name,bbtalk_count:4,color:'#64748B',sort_order:i}));
 const records = ['今天的风很舒服。','读完一本好书，记下喜欢的句子。','下班路上绕了一点远路，看到了很美的晚霞。\n\n偶尔慢下来，也挺好。','周末的计划\n\n1. 去公园走走\n2. 整理书架\n3. 做一道喜欢的饭'].map((content,i)=>({uid:'record-'+i,content,visibility:i===1?'friends':'private',tags:i===2?[tags[0]]:[],attachments:[],create_time:new Date().toISOString(),update_time:new Date().toISOString(),comment_count:0,context:{}}));
@@ -20,13 +22,14 @@ const fixtures = {
   video: [fs.readFileSync(path.resolve(__dirname,'../../backend/cli/demo_assets/sample.mp4')),'video/mp4'],
   document: [Buffer.from('%PDF-1.4'),'application/pdf'],
 };
-http.createServer((req,res)=>{
+http.createServer(async (req,res)=>{
   const url=new URL(req.url,'http://localhost:8020');
   const p=url.pathname;
   // Each audit phase changes fixture state; NSURLCache must not reuse old feeds.
   res.setHeader('cache-control','no-store');
   console.log(req.method,p);
   if(p==='/__visual__/empty' && req.method==='POST') { empty=true;res.writeHead(204);res.end();return; }
+  if(p==='/__visual__/welcome' && req.method==='POST') { welcome.enabled=true;welcomeIndex=0;res.writeHead(204);res.end();return; }
   if(p.startsWith('/fixtures/')) {
     const fixture=fixtures[p.slice('/fixtures/'.length)];
     if(!fixture){res.writeHead(404);res.end();return;}
@@ -40,7 +43,15 @@ http.createServer((req,res)=>{
     res.writeHead(range?206:200,headers);res.end(body.subarray(start,end+1));return;
   }
   let data;
-  if(p==='/api/v1/attachments/files' && req.method==='POST') { req.resume(); data=attachment('audio','audio','voice_fixture.wav'); }
+  if(p==='/api/v1/bbtalk/settings/welcome/next') data={quote:welcome.enabled&&welcome.quotes.length?welcome.quotes[welcomeIndex++%welcome.quotes.length]:null};
+  else if(p==='/api/v1/bbtalk/settings/welcome') {
+    if(req.method==='PATCH') {
+      const chunks=[];for await(const chunk of req) chunks.push(chunk);
+      welcome={...JSON.parse(Buffer.concat(chunks).toString()),revision:welcome.revision+1};
+    }
+    data=welcome;
+  }
+  else if(p==='/api/v1/attachments/files' && req.method==='POST') { req.resume(); data=attachment('audio','audio','voice_fixture.wav'); }
   else if(p.endsWith('/auth/token')||p.endsWith('/auth/token/refresh'))data={access:'visual-fixture',refresh:'visual-refresh',user};
   else if(p.endsWith('/user/me'))data=user;
   else if(p.endsWith('/tags'))data=tags;

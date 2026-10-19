@@ -2,6 +2,11 @@ name: iOS native visual audit
 on:
   workflow_dispatch:
     inputs:
+      audit_scope:
+        description: 'Native flows to run'
+        type: choice
+        options: [all, welcome]
+        default: all
       reuse_build_run:
         description: 'Optional previous audit run; reuse only when application sources are identical'
         type: string
@@ -107,11 +112,13 @@ jobs:
         continue-on-error: true
         run: maestro --device "$SIMULATOR_UDID" test --test-output-dir mobile/test-results/native-visual/maestro-login mobile/visual/login.yaml
       - name: Audit primary screens
+        if: inputs.audit_scope != 'welcome'
         id: primary
         timeout-minutes: 10
         continue-on-error: true
         run: maestro --device "$SIMULATOR_UDID" test --test-output-dir mobile/test-results/native-visual/maestro mobile/visual/primary.yaml
       - name: Audit secondary screens
+        if: inputs.audit_scope != 'welcome'
         id: secondary
         timeout-minutes: 10
         continue-on-error: true
@@ -119,6 +126,7 @@ jobs:
           xcrun simctl terminate "$SIMULATOR_UDID" com.chewy.bbtalk || true
           maestro --device "$SIMULATOR_UDID" test --test-output-dir mobile/test-results/native-visual/maestro-secondary mobile/visual/secondary.yaml
       - name: Audit large text and keyboard
+        if: inputs.audit_scope != 'welcome'
         id: large
         timeout-minutes: 10
         continue-on-error: true
@@ -128,6 +136,7 @@ jobs:
           maestro --device "$SIMULATOR_UDID" test --test-output-dir mobile/test-results/native-visual/maestro-large mobile/visual/large-text.yaml
           xcrun simctl io "$SIMULATOR_UDID" screenshot mobile/test-results/native-visual/account-large-direct.png
       - name: Audit media controls
+        if: inputs.audit_scope != 'welcome'
         id: media
         timeout-minutes: 10
         continue-on-error: true
@@ -136,6 +145,7 @@ jobs:
           xcrun simctl ui "$SIMULATOR_UDID" content_size large
           maestro --device "$SIMULATOR_UDID" test --test-output-dir mobile/test-results/native-visual/maestro-media mobile/visual/media.yaml
       - name: Audit recording and navigation restoration
+        if: inputs.audit_scope != 'welcome'
         id: voice
         timeout-minutes: 10
         continue-on-error: true
@@ -144,12 +154,22 @@ jobs:
           xcrun simctl terminate "$SIMULATOR_UDID" com.chewy.bbtalk || true
           maestro --device "$SIMULATOR_UDID" test --test-output-dir mobile/test-results/native-visual/maestro-voice mobile/visual/voice.yaml
       - name: Audit native edge back gesture
+        if: inputs.audit_scope != 'welcome'
         id: navigation
         timeout-minutes: 5
         continue-on-error: true
         run: |
           xcrun simctl terminate "$SIMULATOR_UDID" com.chewy.bbtalk || true
           maestro --device "$SIMULATOR_UDID" test --test-output-dir mobile/test-results/native-visual/maestro-navigation mobile/visual/navigation.yaml
+      - name: Audit personal welcome page
+        id: welcome
+        timeout-minutes: 10
+        continue-on-error: true
+        run: |
+          curl --fail --silent --show-error -X POST http://localhost:8020/__visual__/welcome
+          xcrun simctl terminate "$SIMULATOR_UDID" com.chewy.bbtalk || true
+          xcrun simctl ui "$SIMULATOR_UDID" content_size large
+          maestro --device "$SIMULATOR_UDID" test --test-output-dir mobile/test-results/native-visual/maestro-welcome mobile/visual/welcome.yaml
       - name: Collect native evidence
         if: always()
         timeout-minutes: 2
@@ -172,4 +192,10 @@ jobs:
           MEDIA: ${{ steps.media.outcome }}
           VOICE: ${{ steps.voice.outcome }}
           NAVIGATION: ${{ steps.navigation.outcome }}
-        run: test "$LOGIN" = success && test "$PRIMARY" = success && test "$SECONDARY" = success && test "$LARGE" = success && test "$MEDIA" = success && test "$VOICE" = success && test "$NAVIGATION" = success
+          WELCOME: ${{ steps.welcome.outcome }}
+          SCOPE: ${{ inputs.audit_scope }}
+        run: |
+          test "$LOGIN" = success && test "$WELCOME" = success
+          if [ "$SCOPE" != welcome ]; then
+            test "$PRIMARY" = success && test "$SECONDARY" = success && test "$LARGE" = success && test "$MEDIA" = success && test "$VOICE" = success && test "$NAVIGATION" = success
+          fi

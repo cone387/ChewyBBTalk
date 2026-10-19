@@ -32,6 +32,7 @@ const SECTIONS: MenuSection[] = [
     items: [
       { key: 'tags', title: '标签管理', subtitle: '整理标签、调整顺序与颜色', icon: 'pricetags-outline', bgColor: '#6366F1' },
       { key: 'theme', title: '外观', subtitle: '跟随系统、浅色与深色', icon: 'color-palette', bgColor: '#8B5CF6' },
+      { key: 'welcome', title: '文案欢迎页', subtitle: '用自己的一句话，开始新的一天', icon: 'sunny-outline', bgColor: '#ED975F' },
     ],
   },
   {
@@ -59,6 +60,7 @@ const ROUTES: Record<string, string> = {
   account: 'AccountSecurity',
   advanced: 'AdvancedSettings',
   theme: 'ThemeSettings',
+  welcome: 'WelcomeSettings',
   tags: 'TagManagement',
   privacy: 'PrivacySettings',
   storage: 'StorageSettings',

@@ -30,6 +30,8 @@ if (Platform.OS === 'web') {
 
 import LoginScreen from './src/screens/LoginScreen';
 import MainTabs from './src/navigation/MainTabs';
+import WelcomeGate from './src/components/WelcomeGate';
+import WelcomeSettingsScreen from './src/screens/WelcomeSettingsScreen';
 import ComposeScreen from './src/screens/ComposeScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import PrivacySettingsScreen from './src/screens/PrivacySettingsScreen';
@@ -70,6 +72,7 @@ const PrivateData = protectScreen(DataManagementScreen);
 const PrivateAudio = protectScreen(AudioPlayScreen);
 const PrivateCache = protectScreen(CacheManagementScreen);
 const PrivateTags = protectScreen(TagManagementScreen);
+const PrivateWelcomeSettings = protectScreen(WelcomeSettingsScreen, true);
 
 const Stack = createNativeStackNavigator();
 function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
@@ -133,6 +136,7 @@ function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
         AccountSecurity: 'settings/account',
         ProfileEdit: 'settings/profile',
         ThemeSettings: 'settings/theme',
+        WelcomeSettings: 'settings/welcome',
         PrivacySettings: 'settings/privacy',
         StorageSettings: 'settings/storage',
         DataManagement: 'settings/data',
@@ -150,7 +154,7 @@ function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
       {isAuthenticated ? (
         <Stack.Navigator screenOptions={stackScreenOptions}>
           <Stack.Screen name="Home" options={{ headerShown: false, title: '碎碎念' }}>
-            {() => <MainTabs onLogout={onLogout} />}
+            {({ navigation }) => <WelcomeGate onSettings={() => navigation.navigate('WelcomeSettings')}><MainTabs onLogout={onLogout} /></WelcomeGate>}
           </Stack.Screen>
           <Stack.Screen name="RecordDetail" component={PrivateRecordDetail} options={{ title: '记录', ...headerOptions }} />
           <Stack.Screen name="Drafts" component={PrivateDrafts} options={{ title: '未完成记录', ...headerOptions }} />
@@ -167,6 +171,8 @@ function ThemedNavigator({ isAuthenticated, onLoginSuccess, onLogout }: {
             options={{ title: '编辑个人信息', ...headerOptions }} />
           <Stack.Screen name="ThemeSettings" component={ThemeSettingsScreen}
             options={{ title: '主题设置', ...headerOptions }} />
+          <Stack.Screen name="WelcomeSettings" component={PrivateWelcomeSettings}
+            options={{ title: '文案欢迎页', ...headerOptions }} />
           <Stack.Screen name="PrivacySettings" component={PrivatePrivacySettings}
             options={{ title: '防窥设置', ...headerOptions }} />
           <Stack.Screen name="AdvancedSettings" component={AdvancedSettingsScreen} options={{ title: '高级设置', ...headerOptions }} />

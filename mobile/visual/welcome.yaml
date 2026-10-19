@@ -1,0 +1,36 @@
+appId: com.chewy.bbtalk
+---
+- launchApp
+- extendedWaitUntil:
+    visible: "写在今天之前"
+    timeout: 60000
+- takeScreenshot: welcome-light
+- tapOn: "换一句"
+- assertVisible: "今天也值得.*"
+- takeScreenshot: welcome-next
+- tapOn: "进入记录"
+- tapOn:
+    id: tab-mine
+- tapOn: "文案欢迎页"
+- assertVisible: "开启文案欢迎页"
+- takeScreenshot: welcome-settings
+- scrollUntilVisible:
+    element:
+      text: "预览文案 1"
+    direction: DOWN
+- tapOn: "预览文案 1"
+- assertVisible: "扉页预览"
+- takeScreenshot: welcome-preview
+- tapOn: "返回文案设置"
+- tapOn:
+    id: BackButton
+- tapOn: "外观"
+- tapOn: "深色主题"
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible: "写在今天之前"
+    timeout: 60000
+- takeScreenshot: welcome-dark
+- tapOn: "进入记录"
+- assertVisible: "新建碎碎念"
