@@ -7,7 +7,11 @@ afterEach(cleanup)
 
 it('distinguishes available clients and explains voice, offline and hosting limits', () => {
   render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><LandingPage /></MemoryRouter>)
-  expect(screen.getByRole('img', { name: 'BBTalk 移动端记录界面示意' })).toBeTruthy()
+  for (const name of ['BBTalk iOS 当前界面', 'BBTalk Web 当前界面', 'BBTalk 桌面快捷记录当前界面']) {
+    expect(screen.getByRole('img', { name }).getAttribute('src')).toBeTruthy()
+  }
+  expect(screen.getByRole('heading', { name: 'Web · 完整的记录空间' })).toBeTruthy()
+  expect(screen.getByRole('heading', { name: '桌面端 · 随手记一笔' })).toBeTruthy()
   expect(screen.getByRole('heading', { level: 1 }).querySelector('.text-gradient')?.textContent).toBe('私人碎碎念')
   expect(document.querySelector('.landing-root .glass')).toBeTruthy()
   expect(document.querySelector('.landing-root .grid-bg .anim-float')).toBeTruthy()

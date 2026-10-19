@@ -11,15 +11,24 @@ test('public product page is styled locally, responsive, and navigates to the ap
   await expect(page).toHaveTitle('BBTalk · 你的私人碎碎念')
   await expect(page.locator('.landing-root')).toHaveCSS('opacity', '1')
   await expect(page.getByRole('navigation', { name: '产品导航' })).toHaveCSS('display', 'flex')
-  await expect(page.getByRole('img', { name: 'BBTalk 移动端记录界面示意' })).toBeVisible()
+  await expect(page.getByRole('img', { name: 'BBTalk iOS 当前界面' })).toBeVisible()
+  await expect(page.getByRole('img', { name: 'BBTalk iOS 当前界面' })).toHaveJSProperty('naturalWidth', 1178)
   await expect(page.locator('h1 .text-gradient')).toHaveText('私人碎碎念')
   await expect(page.locator('header.glass')).toHaveCSS('backdrop-filter', 'saturate(1.8) blur(20px)')
   await expect(page.getByRole('link', { name: '立即开始', exact: true })).toHaveCSS('background-color', 'rgb(11, 11, 14)')
   await page.screenshot({ path: info.outputPath('product-page.png'), animations: 'disabled' })
-  for (const section of ['features', 'download', 'privacy', 'deploy', 'faq']) {
+  for (const section of ['screens', 'features', 'download', 'privacy', 'deploy', 'faq']) {
     await page.locator(`#${section}`).evaluate(el => el.scrollIntoView({ block: 'start' }))
     await page.screenshot({ path: info.outputPath(`product-${section}.png`), animations: 'disabled' })
   }
+  for (const [name, width] of [['BBTalk Web 当前界面', 1360], ['BBTalk 桌面快捷记录当前界面', 880]] as const) {
+    await expect(page.getByRole('img', { name })).toHaveJSProperty('naturalWidth', width)
+  }
+  const enlarged = page.waitForEvent('popup')
+  await page.getByRole('link', { name: '查看桌面端界面大图' }).click()
+  const imagePage = await enlarged
+  await expect(imagePage.locator('img')).toHaveJSProperty('naturalWidth', 880)
+  await imagePage.close()
   for (const width of [320, 375, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 })
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)

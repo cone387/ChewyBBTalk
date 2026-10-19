@@ -1,5 +1,8 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import iosHome from '../assets/product/ios-home.png'
+import webWorkspace from '../assets/product/workspace.png'
+import desktopCompose from '../assets/product/desktop-compose.png'
 import './LandingPage.css'
 
 // Production product page. Kept entirely in frontend; no Expo runtime or CDN.
@@ -21,6 +24,7 @@ export default function LandingPage() {
       <span className="text-lg font-semibold tracking-tight">BBTalk</span>
     </Link>
     <div className="hidden md:flex items-center gap-8 text-sm" style={{"color": "rgba(28,28,30,0.75)"}}>
+      <a href="#screens" className="hover:text-[#0A84FF] transition">界面</a>
       <a href="#features" className="hover:text-[#0A84FF] transition">特色</a>
       <a href="#privacy" className="hover:text-[#0A84FF] transition">隐私</a>
       <a href="#deploy" className="hover:text-[#0A84FF] transition">自托管</a>
@@ -68,78 +72,17 @@ export default function LandingPage() {
       </div>
     </div>
 
-    {/* 保留原有手机示意图；示例内容不代表所有客户端的完整界面。 */}
-    <div role="img" aria-label="BBTalk 移动端记录界面示意" className="relative anim-fade-up" style={{"animationDelay": ".15s"}}>
+    {/* 保留原有手机外框，内部展示当前 iOS 原生运行截图。 */}
+    <div className="relative anim-fade-up" style={{"animationDelay": ".15s"}}>
       <div className="blob" style={{"width": "240px", "height": "240px", "background": "#BFDBFE", "top": "-30px", "right": "-20px"}}></div>
       <div className="blob" style={{"width": "240px", "height": "240px", "background": "#E9D5FF", "bottom": "-30px", "left": "-20px"}}></div>
       <div className="relative mx-auto w-[260px] sm:w-[280px] md:w-[320px] max-w-full aspect-[9/19] rounded-[3rem] p-3 shadow-soft anim-float" style={{"background": "#0B0B0E"}}>
-        {/* notch */}
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 w-24 h-6 rounded-b-2xl z-10" style={{"background": "#0B0B0E"}}></div>
-        <div className="w-full h-full rounded-[2.5rem] overflow-hidden relative" style={{"background": "#F2F2F7"}}>
-          {/* App header: hamburger + search （和 HomeScreen 一致） */}
-          <div className="px-4 pt-10 pb-2 flex items-center justify-between" style={{"background": "#F2F2F7"}}>
-            <svg aria-hidden="true" focusable="false" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="#1C1C1E" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-            <svg aria-hidden="true" focusable="false" className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="#1C1C1E" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.5" y2="16.5"></line></svg>
-          </div>
-          {/* Tag tabs */}
-          <div className="px-4 pt-1 pb-2 flex items-center gap-2 overflow-hidden">
-            <span className="text-[10px] px-2.5 py-1 rounded-full text-white" style={{"background": "#0A84FF"}}>全部</span>
-            <span className="text-[10px] px-2.5 py-1 rounded-full" style={{"background": "#FFFFFF", "color": "rgba(28,28,30,0.6)"}}>读书</span>
-            <span className="text-[10px] px-2.5 py-1 rounded-full" style={{"background": "#FFFFFF", "color": "rgba(28,28,30,0.6)"}}>日常</span>
-            <span className="text-[10px] px-2.5 py-1 rounded-full" style={{"background": "#FFFFFF", "color": "rgba(28,28,30,0.6)"}}>灵感</span>
-          </div>
-          {/* Feed cards —— 完全还原 BBTalkCard 的结构 */}
-          <div className="px-3 pb-3 space-y-3">
-            {/* Card 1 */}
-            <div className="bg-white rounded-2xl p-3 relative">
-              <span className="absolute top-2 right-2 text-[12px] leading-none" style={{"color": "rgba(28,28,30,0.35)"}}>···</span>
-              <div className="text-[11px] leading-relaxed pr-4" style={{"color": "#1C1C1E"}}>下午的咖啡，配一本《禅与摩托车维修艺术》📖</div>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                <span className="text-[9px] px-2 py-0.5 rounded-xl text-white" style={{"background": "#A855F7"}}>读书</span>
-              </div>
-              <div className="mt-2 flex items-center justify-between">
-                <span className="text-[9px]" style={{"color": "rgba(28,28,30,0.4)"}}>10 分钟前</span>
-                <div className="flex items-center gap-1" style={{"color": "rgba(28,28,30,0.4)"}}>
-                  <svg aria-hidden="true" focusable="false" className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-                  <span className="text-[9px]">2</span>
-                </div>
-              </div>
-            </div>
-            {/* Card 2 with images */}
-            <div className="bg-white rounded-2xl p-3 relative">
-              <span className="absolute top-2 right-2 text-[12px] leading-none" style={{"color": "rgba(28,28,30,0.35)"}}>···</span>
-              <div className="text-[11px] leading-relaxed pr-4" style={{"color": "#1C1C1E"}}>今天写完了 BBTalk 的隐私锁功能 🔒 终于可以放心地把它装在自己的设备上了。</div>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                <span className="text-[9px] px-2 py-0.5 rounded-xl text-white" style={{"background": "#3B82F6"}}>开发</span>
-                <span className="text-[9px] px-2 py-0.5 rounded-xl text-white" style={{"background": "#10B981"}}>BBTalk</span>
-              </div>
-              <div className="mt-2 flex gap-1.5">
-                <div className="w-[52px] h-[52px] rounded-lg" style={{"background": "linear-gradient(135deg,#BFDBFE,#60A5FA)"}}></div>
-                <div className="w-[52px] h-[52px] rounded-lg" style={{"background": "linear-gradient(135deg,#FBCFE8,#FDBA74)"}}></div>
-              </div>
-              <div className="mt-2 flex items-center justify-between">
-                <span className="text-[9px]" style={{"color": "rgba(28,28,30,0.4)"}}>2 小时前</span>
-                <div className="flex items-center gap-2" style={{"color": "rgba(28,28,30,0.4)"}}>
-                  <svg aria-hidden="true" focusable="false" className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 21s-7-4.35-7-10a4 4 0 0 1 7-2.65A4 4 0 0 1 19 11c0 5.65-7 10-7 10z"></path></svg>
-                  <svg aria-hidden="true" focusable="false" className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-                </div>
-              </div>
-            </div>
-            {/* Card 3 */}
-            <div className="bg-white rounded-2xl p-3 relative">
-              <span className="absolute top-2 right-2 text-[12px] leading-none" style={{"color": "rgba(28,28,30,0.35)"}}>···</span>
-              <div className="text-[11px] leading-relaxed pr-4" style={{"color": "#1C1C1E"}}>想到的小灵感：碎碎念也可以是私密日记 💭</div>
-              <div className="mt-2 flex items-center justify-between">
-                <span className="text-[9px]" style={{"color": "rgba(28,28,30,0.4)"}}>昨天</span>
-              </div>
-            </div>
-          </div>
-          {/* FAB */}
-          <div className="absolute bottom-5 right-5 w-11 h-11 rounded-full flex items-center justify-center shadow-glow" style={{"background": "#0A84FF"}}>
-            <svg aria-hidden="true" focusable="false" className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14" strokeLinecap="round"></path></svg>
-          </div>
-        </div>
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 w-24 h-6 rounded-b-2xl z-10 pointer-events-none" style={{"background": "#0B0B0E"}}></div>
+        <a href={iosHome} target="_blank" rel="noopener noreferrer" aria-label="查看 iOS 界面大图" className="block w-full h-full rounded-[2.5rem] overflow-hidden" style={{"background": "#F2F2F7"}}>
+          <img src={iosHome} width="1178" height="2556" alt="BBTalk iOS 当前界面" className="w-full h-full object-contain" />
+        </a>
       </div>
+      <p className="mt-6 text-center text-xs" style={{"color": "rgba(28,28,30,0.6)"}}>iOS 1.3.17 · 实际界面，示例内容 · 点击查看大图</p>
     </div>
   </div>
 </section>
@@ -153,6 +96,41 @@ export default function LandingPage() {
     <span>Docker 自部署</span><span>·</span>
     <span>S3 兼容存储</span><span>·</span>
     <span>SQLite / PostgreSQL</span>
+  </div>
+</section>
+
+{/* Current client screenshots, using the existing rounded-card visual style. */}
+<section id="screens" className="pt-20 md:pt-28">
+  <div className="max-w-6xl mx-auto px-6">
+    <div className="text-center max-w-2xl mx-auto">
+      <span className="text-xs font-semibold uppercase tracking-widest" style={{"color": "#0A84FF"}}>ON YOUR DEVICES</span>
+      <h2 className="mt-3 text-3xl md:text-4xl font-bold tracking-tight">在不同设备上，接着记录</h2>
+      <p className="mt-4" style={{"color": "rgba(28,28,30,0.6)"}}>手机上记下日常，浏览器里整理回顾，工作时从桌面快速记一笔。</p>
+    </div>
+    <div className="mt-14 grid md:grid-cols-2 gap-5">
+      <figure className="bg-white rounded-3xl p-6 border border-black/5">
+        <a href={webWorkspace} target="_blank" rel="noopener noreferrer" aria-label="查看 Web 界面大图" className="flex items-center justify-center h-[240px] sm:h-[320px] rounded-2xl overflow-hidden border border-black/5" style={{"background": "#F2F2F7"}}>
+          <img src={webWorkspace} width="1360" height="980" loading="lazy" alt="BBTalk Web 当前界面" className="w-full h-full object-contain" />
+        </a>
+        <figcaption>
+          <h3 className="mt-5 text-lg font-semibold tracking-tight">Web · 完整的记录空间</h3>
+          <p className="mt-2 text-sm leading-relaxed" style={{"color": "rgba(28,28,30,0.6)"}}>在浏览器里编辑与发布，通过搜索、标签和置顶整理记录。草稿自动保存，附件上传失败可重试，存储与备份设置集中管理。</p>
+          <p className="mt-3 text-xs" style={{"color": "rgba(28,28,30,0.5)"}}>正式 Web 实际界面 · 示例内容 · 点击图片查看大图</p>
+          <Link to="/app" className="inline-flex items-center min-h-11 mt-3 text-sm font-medium hover:underline" style={{"color": "#0A84FF"}}>打开 Web 版 →</Link>
+        </figcaption>
+      </figure>
+      <figure className="bg-white rounded-3xl p-6 border border-black/5">
+        <a href={desktopCompose} target="_blank" rel="noopener noreferrer" aria-label="查看桌面端界面大图" className="flex items-center justify-center h-[240px] sm:h-[320px] p-3 rounded-2xl overflow-hidden border border-black/5" style={{"background": "#F2F2F7"}}>
+          <img src={desktopCompose} width="880" height="398" loading="lazy" alt="BBTalk 桌面快捷记录当前界面" className="w-full h-full object-contain" />
+        </a>
+        <figcaption>
+          <h3 className="mt-5 text-lg font-semibold tracking-tight">桌面端 · 随手记一笔</h3>
+          <p className="mt-2 text-sm leading-relaxed" style={{"color": "rgba(28,28,30,0.6)"}}>通过悬浮球、托盘或全局快捷键唤起小窗口。支持截图、拖拽附件与标签，关闭前保留草稿；发布后可在同一服务器的 Web 和手机端查看。</p>
+          <p className="mt-3 text-xs" style={{"color": "rgba(28,28,30,0.5)"}}>Windows 桌面端实际界面 · 示例内容 · 点击图片查看大图</p>
+          <a href="#download" className="inline-flex items-center min-h-11 mt-3 text-sm font-medium hover:underline" style={{"color": "#0A84FF"}}>查看桌面端获取方式 →</a>
+        </figcaption>
+      </figure>
+    </div>
   </div>
 </section>
 
