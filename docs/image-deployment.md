@@ -1,5 +1,19 @@
 # 使用构建镜像部署
 
+## 2026-10-19 个人文案欢迎页发布
+
+17:12:00（北京时间）上线 `bf8855c47a89e2fb1d06452ed115c9786238ba21`，新增正式 Web 的个人文案池、随机轮换与日落明信片欢迎页，支持手机布局和深色模式。现有账号默认关闭，在「设置 → 文案欢迎页」添加自己的文案并开启后生效；本次不发布新的原生或桌面安装包。
+
+- [镜像构建](https://github.com/cone387/ChewyBBTalk/actions/runs/39227175542)与[传输校验](https://github.com/cone387/ChewyBBTalk/actions/runs/39227318991)通过。固定镜像 `ghcr.io/cone387/chewy-bbtalk@sha256:85fba6457fdc5683ca50ee2a759f59ca45a7015756edf96d884b658b18a39371`，运行内容 ID `31afd3253c99f571f716ea9935b0eb23e3c2f5e40660f9f025afddd58cdee5ef`。
+- PostgreSQL 由 `0004_native_credentials` 升至 `0005_welcome_settings`，仅新增文案表。独立副本迁移、停写后的最终备份恢复及正式迁移均验证了 15 张历史业务表内容和编号序列不变。第一次恢复比对因源库 `Asia/Shanghai`、副本 `Etc/UTC` 的时间序列化差异而停止，未执行生产迁移并恢复旧服务；统一为 UTC 后全部数据摘要一致，再执行正式切换。
+- 完整数据库、数据文件、受限运行配置及校验清单保留在 `/home/bzl/projects/welcome-deployments/bf8855c/`，第一次切换前的备份另存于其 `attempt-1/`。5 份备份文件校验通过，旧容器 `chewy-bbtalk-before-welcome-bf8855c` 已停止并保留，现有运行环境、密钥、数据挂载和数据库地址保持一致。
+- 切换前、副本及正式实例均检查 4 个账号、97 条附件元数据和 96 个现存本地附件下载，原有 1 个缺失附件未增加；262 个原有数据文件摘要不变。文案保存、4 路并发换句无重复、账号隔离、409 冲突及关闭检查仅在独立副本执行，生产账号文案配置未修改。
+- 本地 Web 636 项单测、覆盖率门禁（行 96.07%、分支 92.00%）、lint、构建与 4 项欢迎页浏览器回归通过；后端 275 项测试通过，本地 11 项外部数据库测试跳过。[CI](https://github.com/cone387/ChewyBBTalk/actions/runs/39227175488)的后端、PostgreSQL、MySQL、Web 单测/覆盖率/lint/构建与桌面单测通过；记录时完整浏览器与 Electron 回归仍在执行。移动端仍有原有覆盖率门禁失败，不能称全仓 CI 全绿。
+- 公网 375px / 1440px 实测登录与介绍页无横向溢出或页面脚本错误，新欢迎页样式已加载；未认证欢迎页 API 返回 401。上线后再次只读复核账号、记录、附件与欢迎配置读取并验证运行版本及备份摘要。
+- 为保障备份和新镜像空间，只清理已校验导入的公开镜像传输压缩包；运行镜像、业务数据和历史备份均保留。
+
+发布记录：[Web 2026.10.19](https://github.com/cone387/ChewyBBTalk/releases/tag/web-2026.10.19)。功能及升级说明见[个人文案欢迎页](personal-welcome.md)。
+
 推送到 `master/main` 只构建和推送镜像，不通过 SSH 更新生产容器。生产部署需在 Actions 的
 `Build and Push Docker Images` 工作流手动运行，选择 `master` 并勾选 `deploy_production`。
 默认不勾选。执行前必须完成下文的历史数据保护步骤。
