@@ -7,7 +7,10 @@ afterEach(cleanup)
 
 it('distinguishes available clients and explains voice, offline and hosting limits', () => {
   render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><LandingPage /></MemoryRouter>)
-  expect(screen.getByRole('img', { name: /BBTalk Web 实际界面/ })).toBeTruthy()
+  expect(screen.getByRole('img', { name: 'BBTalk 移动端记录界面示意' })).toBeTruthy()
+  expect(screen.getByRole('heading', { level: 1 }).querySelector('.text-gradient')?.textContent).toBe('私人碎碎念')
+  expect(document.querySelector('.landing-root .glass')).toBeTruthy()
+  expect(document.querySelector('.landing-root .grid-bg .anim-float')).toBeTruthy()
   expect(screen.getByRole('link', { name: '查看 Windows 安装包' }).getAttribute('href')).toBe('https://github.com/cone387/ChewyBBTalk/releases/tag/desktop-stable')
   expect(screen.getByText(/TestFlight 内测/)).toBeTruthy()
   expect(screen.getByRole('link', { name: 'Android 构建说明' })).toBeTruthy()
