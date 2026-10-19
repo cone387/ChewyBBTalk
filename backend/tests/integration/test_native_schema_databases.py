@@ -296,7 +296,15 @@ def test_native_credentials_upgrade_preserves_passwords_and_revocations(
 
 def test_credentials_upgrade_resumes_committed_ddl(isolated_database):
     engine = isolated_database
-    upgrade(engine)
+    # Recreate the committed 0004 schema, not today's head with an old stamp:
+    # later migrations must still be pending when credential recovery resumes.
+    config = Config()
+    config.set_main_option(
+        'script_location', str(Path(__file__).parents[2] / 'database/migrations')
+    )
+    with engine.begin() as connection:
+        config.attributes['connection'] = connection
+        command.upgrade(config, '0004_native_credentials')
     timestamp = datetime(2026, 10, 9, 9, 0, 1, 123456, tzinfo=timezone.utc)
     digest = base64.b64encode(hashlib.pbkdf2_hmac('sha256', b'password', b'salt', 100)).decode()
     credential = 'pbkdf2_sha256$100$salt$' + digest
