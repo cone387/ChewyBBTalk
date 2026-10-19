@@ -84,7 +84,20 @@ jobs:
           SOURCE_COMMIT=$(cat "$PREVIOUS_AUDIT/commit.txt")
           [[ "$SOURCE_COMMIT" =~ ^[a-f0-9]{40}$ ]]
           git merge-base --is-ancestor "$SOURCE_COMMIT" HEAD
-          git diff --exit-code "$SOURCE_COMMIT" HEAD -- mobile ':!mobile/visual' ':!mobile/__tests__' ':!mobile/integration' scripts/mobile-visual/configure-build.cjs .github/workflows/mobile-visual-audit.yml
+          git diff --exit-code "$SOURCE_COMMIT" HEAD -- mobile ':!mobile/visual' ':!mobile/__tests__' ':!mobile/integration' scripts/mobile-visual/configure-build.cjs
+          # Test selectors and outcome gates may evolve without changing the binary.
+          # Still require the workflow's environment and native build steps to match.
+          python3 - "$SOURCE_COMMIT" <<'PY'
+          from pathlib import Path
+          import subprocess
+          import sys
+          workflow = '.github/workflows/mobile-visual-audit.yml'
+          marker = '      - name: Preserve simulator binary for additional flows'
+          original = subprocess.check_output(['git', 'show', f'{sys.argv[1]}:{workflow}'], text=True)
+          current = Path(workflow).read_text()
+          if marker not in original or original.split(marker)[0] != current.split(marker)[0]:
+              raise SystemExit('Native build configuration changed; rebuild the simulator app')
+          PY
           mkdir -p mobile/build/visual/Build/Products/Release-iphonesimulator
           tar -xzf "$PREVIOUS_AUDIT/simulator-app.tar.gz" -C mobile/build/visual/Build/Products/Release-iphonesimulator
           cp "$PREVIOUS_AUDIT/simulator-app.tar.gz" mobile/test-results/native-visual/
@@ -195,7 +208,10 @@ jobs:
           WELCOME: ${{ steps.welcome.outcome }}
           SCOPE: ${{ inputs.audit_scope }}
         run: |
-          test "$LOGIN" = success && test "$WELCOME" = success
+          test "$LOGIN" = success || exit 1
+          test "$WELCOME" = success || exit 1
           if [ "$SCOPE" != welcome ]; then
-            test "$PRIMARY" = success && test "$SECONDARY" = success && test "$LARGE" = success && test "$MEDIA" = success && test "$VOICE" = success && test "$NAVIGATION" = success
+            for outcome in "$PRIMARY" "$SECONDARY" "$LARGE" "$MEDIA" "$VOICE" "$NAVIGATION"; do
+              test "$outcome" = success || exit 1
+            done
           fi

@@ -8,7 +8,7 @@ appId: com.chewy.bbtalk
 - tapOn: "换一句"
 - assertVisible: "今天也值得.*"
 - takeScreenshot: welcome-next
-- tapOn: "进入记录"
+- tapOn: "进入记录.*"
 - tapOn:
     id: tab-mine
 - tapOn: "文案欢迎页"
@@ -21,7 +21,7 @@ appId: com.chewy.bbtalk
 - tapOn: "预览文案 1"
 - assertVisible: "扉页预览"
 - takeScreenshot: welcome-preview
-- tapOn: "返回文案设置"
+- tapOn: "返回文案设置.*"
 - tapOn:
     id: BackButton
 - tapOn: "外观"
@@ -32,5 +32,5 @@ appId: com.chewy.bbtalk
     visible: "写在今天之前"
     timeout: 60000
 - takeScreenshot: welcome-dark
-- tapOn: "进入记录"
+- tapOn: "进入记录.*"
 - assertVisible: "新建碎碎念"
