@@ -227,3 +227,13 @@ uv run --project backend --frozen python -m unittest discover -s scripts/tests -
 - 72 个后端与启动文件和上一版本一致，无数据库迁移、初始化或配置变更。停写备份位于 `/home/bzl/projects/web-deployments/cbfd776/`，旧容器 `chewy-bbtalk-before-web-cbfd776` 保留。切换前、只读候选和正式实例均通过 4 账户、96 条附件元数据与 95 个现存附件下载检查；原有 1 个缺失附件未增加，261 个原有文件摘要一致，5 份备份校验通过。仅清理本次与上一轮已完成部署的公共镜像传输压缩包，镜像、业务数据及备份保留。
 - 本地 623 项 Web 单测、覆盖率门禁（行 96.14%、分支 92.32%）、lint、构建及 12 项浏览器回归通过。公网 1440px / 375px 验证三图加载、原图逐字节一致、大图打开、原有视觉样式与登录跳转，无横向溢出或页面脚本错误。
 - [CI](https://github.com/cone387/ChewyBBTalk/actions/runs/39195042996)记录时 Web 单测、覆盖率、lint 与构建通过，完整浏览器及 Electron 回归仍在运行；移动端保留既有覆盖率门禁失败。本次没有发布客户端安装包。
+
+
+### 2026-10-19 清除产品截图中的测试占位图标
+
+12:06:11（北京时间）上线 `5ec19ee3e0f7a919b39d7ab3411864e11ad68678`。原手机截图底部的红色图标来自原生媒体测试数据中的 App 图标附件。此次使用同一 iOS 1.3.17 Release 模拟器应用和独立的纯文字产品示例重新拍摄，保留完整底部导航；只替换 `frontend/` 的图片和来源说明，页面布局、CSS、Web 与桌面截图保持不变。[原生重拍任务](https://github.com/cone387/ChewyBBTalk/actions/runs/39196495349)通过，默认媒体验收数据仍保留。
+
+- [镜像构建](https://github.com/cone387/ChewyBBTalk/actions/runs/39197299997)和[传输校验](https://github.com/cone387/ChewyBBTalk/actions/runs/39197525659)通过。固定镜像 `ghcr.io/cone387/chewy-bbtalk@sha256:c8e6ae2188e1b8e770a997a53ba1a396fb36270b3dd52909e10eea7abc2e3d9a`，内容 ID `460dba15af50948910a0217e8065654d30918ebf93eb9917ae1d4151a3e2583b`。
+- 72 个后端与启动文件一致，运行配置和挂载不变，无迁移或初始化。备份与独立验收记录位于 `/home/bzl/projects/web-deployments/5ec19ee/`，保留旧容器 `chewy-bbtalk-before-web-5ec19ee`。发布前、候选和发布后均通过 4 账户、96 条附件元数据、95 个现存本地附件下载检查；原有 1 个缺失附件未增加，261 个原有数据文件摘要一致，5 份备份校验通过。
+- 本地介绍页 2 项单测、生产构建、6 项浏览器回归通过。人工检查完整原图及页面截图，公网 1440px / 375px 验证三张图片与素材逐字节一致、原图打开、原有样式和登录跳转，无横向溢出和页面脚本错误。新 iOS 图 SHA-256 为 `244208a59706bd716b22b168ec88c372d18ad42c5bd812caf0c421da48d399cb`。
+- [CI](https://github.com/cone387/ChewyBBTalk/actions/runs/39197300021)记录时 Web 单测、覆盖率、lint、构建通过，完整浏览器及 Electron 回归仍在运行；移动端仍失败于覆盖率门禁。本次未发布客户端安装包。
