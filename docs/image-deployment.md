@@ -218,3 +218,12 @@ uv run --project backend --frozen python -m unittest discover -s scripts/tests -
 - 切换前、只读候选实例和上线后均完成 4 账户、96 条附件元数据、95 个现存本地附件下载验证；原有 1 个缺失附件没有增加，261 个原有数据文件摘要一致，5 份备份文件校验通过。
 - 本地 623 项 Web 单测、覆盖率门禁（行 96.13%、分支 92.36%）、lint、生产构建和 12 项浏览器回归通过。公网 1440px / 375px 核对原有渐变标题、玻璃导航、黑色按钮、手机示意图、下载入口、录音 FAQ 与登录往返，无横向溢出或页面脚本错误；公网资源匹配运行镜像。
 - [CI](https://github.com/cone387/ChewyBBTalk/actions/runs/39193171555)记录时 Web 单测、覆盖率、lint 和构建通过，完整浏览器与 Electron 回归尚未结束；移动端仍在既有覆盖率门禁失败。本次只更新正式 `frontend/` 产品介绍页，没有发布客户端安装包。
+
+### 2026-10-19 补齐当前三端截图
+
+11:36:29（北京时间）上线 `cbfd776bb6c28270f5f2556bf9591c6e6f1a179a`。介绍页保留原有渐变、按钮、手机外框和卡片样式，手机内部换为当前 iOS 1.3.17 原生运行截图；新增正式 Web 与 Windows Electron 快捷编辑窗口的真实截图、说明和大图入口。三张图片均使用隔离示例数据，原始来源见 `frontend/src/assets/product/README.md`，没有使用 Expo Web 代替正式 Web 或原生截图。
+
+- [镜像构建](https://github.com/cone387/ChewyBBTalk/actions/runs/39195043051)和[传输校验](https://github.com/cone387/ChewyBBTalk/actions/runs/39195212863)通过。固定镜像 `ghcr.io/cone387/chewy-bbtalk@sha256:406c7145a753241065f598549c873e834943565ae230b3ac2ca2ecceb3024524`，内容 ID `cf28ec039ac882236cca1e1cfa6ea875dfcb4931c728062dcb22ed3227a4a503`。
+- 72 个后端与启动文件和上一版本一致，无数据库迁移、初始化或配置变更。停写备份位于 `/home/bzl/projects/web-deployments/cbfd776/`，旧容器 `chewy-bbtalk-before-web-cbfd776` 保留。切换前、只读候选和正式实例均通过 4 账户、96 条附件元数据与 95 个现存附件下载检查；原有 1 个缺失附件未增加，261 个原有文件摘要一致，5 份备份校验通过。仅清理本次与上一轮已完成部署的公共镜像传输压缩包，镜像、业务数据及备份保留。
+- 本地 623 项 Web 单测、覆盖率门禁（行 96.14%、分支 92.32%）、lint、构建及 12 项浏览器回归通过。公网 1440px / 375px 验证三图加载、原图逐字节一致、大图打开、原有视觉样式与登录跳转，无横向溢出或页面脚本错误。
+- [CI](https://github.com/cone387/ChewyBBTalk/actions/runs/39195042996)记录时 Web 单测、覆盖率、lint 与构建通过，完整浏览器及 Electron 回归仍在运行；移动端保留既有覆盖率门禁失败。本次没有发布客户端安装包。
