@@ -7,7 +7,10 @@ const user = {id:'visual-preview', username:'preview', display_name:'林间', em
 const tags = ['日常','阅读','旅行','工作'].map((name,i)=>({uid:'tag-'+i,name,bbtalk_count:4,color:'#64748B',sort_order:i}));
 const records = ['今天的风很舒服。','读完一本好书，记下喜欢的句子。','下班路上绕了一点远路，看到了很美的晚霞。\n\n偶尔慢下来，也挺好。','周末的计划\n\n1. 去公园走走\n2. 整理书架\n3. 做一道喜欢的饭'].map((content,i)=>({uid:'record-'+i,content,visibility:i===1?'friends':'private',tags:i===2?[tags[0]]:[],attachments:[],create_time:new Date().toISOString(),update_time:new Date().toISOString(),comment_count:0,context:{}}));
 const attachment = (uid,type,name) => ({uid,type,original_filename:name,preview_url:`http://localhost:8020/fixtures/${uid}`,file_size:1024,mime_type:type==='image'?'image/png':type==='audio'?'audio/wav':type==='video'?'video/mp4':'application/pdf'});
-records.push({...records[0],uid:'record-media',content:'图片、语音和视频',attachments:[attachment('image1','image','照片一.png'),attachment('image2','image','照片二.png'),attachment('audio','audio','sample.wav'),attachment('video','video','sample.mp4'),attachment('document','file','附件.pdf')]});
+// Product captures use ordinary notes; the default audit keeps all media fixtures.
+if (process.env.BBTALK_VISUAL_FIXTURE !== 'product') {
+  records.push({...records[0],uid:'record-media',content:'图片、语音和视频',attachments:[attachment('image1','image','照片一.png'),attachment('image2','image','照片二.png'),attachment('audio','audio','sample.wav'),attachment('video','video','sample.mp4'),attachment('document','file','附件.pdf')]});
+}
 const wav = Buffer.alloc(44 + 16000 * 2 * 3);
 wav.write('RIFF',0);wav.writeUInt32LE(wav.length-8,4);wav.write('WAVEfmt ',8);wav.writeUInt32LE(16,16);wav.writeUInt16LE(1,20);wav.writeUInt16LE(1,22);wav.writeUInt32LE(16000,24);wav.writeUInt32LE(32000,28);wav.writeUInt16LE(2,32);wav.writeUInt16LE(16,34);wav.write('data',36);wav.writeUInt32LE(wav.length-44,40);
 const fixtures = {

@@ -1,0 +1,12 @@
+appId: com.chewy.bbtalk
+---
+- launchApp
+- extendedWaitUntil:
+    visible: ".*今天的风很舒服.*"
+    timeout: 60000
+- assertVisible: ".*周末的计划.*"
+- assertVisible:
+    id: tab-calendar
+- assertNotVisible: "查看图片 1"
+- waitForAnimationToEnd
+- takeScreenshot: product-home

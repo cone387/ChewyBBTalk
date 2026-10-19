@@ -1,0 +1,94 @@
+name: iOS product screenshots
+on:
+  workflow_dispatch:
+    inputs:
+      audit_run:
+        description: 'Native audit artifact containing the released simulator app'
+        required: true
+        default: '38852294885'
+      source_commit:
+        description: 'Exact source commit of that released binary (not the screenshot tooling)'
+        required: true
+        default: '04fb6cccb0c465b2a1e6cb20022e4d5190280c2d'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  capture:
+    runs-on: macos-15
+    timeout-minutes: 25
+    env:
+      CI: '1'
+      MAESTRO_CLI_NO_ANALYTICS: '1'
+      MAESTRO_DRIVER_STARTUP_TIMEOUT: '300000'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/download-artifact@v4
+        with:
+          name: ios-native-visual
+          run-id: ${{ inputs.audit_run }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/released-app
+      - name: Verify released application provenance
+        env:
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+          RELEASED_APP: ${{ runner.temp }}/released-app
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_COMMIT" =~ ^[a-f0-9]{40}$ ]]
+          test "$(cat "$RELEASED_APP/commit.txt")" = "$SOURCE_COMMIT"
+          if test -f "$RELEASED_APP/binary-source.txt"; then
+            test "$(cat "$RELEASED_APP/binary-source.txt")" = "$SOURCE_COMMIT"
+          fi
+          mkdir -p mobile/test-results/product-screenshots "$RUNNER_TEMP/product-app"
+          git show "$SOURCE_COMMIT:mobile/app.json" > mobile/test-results/product-screenshots/app-source.json
+          printf '%s\n' "$SOURCE_COMMIT" > mobile/test-results/product-screenshots/binary-source.txt
+          git rev-parse HEAD > mobile/test-results/product-screenshots/capture-source.txt
+          tar -xzf "$RELEASED_APP/simulator-app.tar.gz" -C "$RUNNER_TEMP/product-app"
+      - name: Prepare native simulator
+        run: |
+          set -euo pipefail
+          mkdir -p mobile/test-results/native-visual
+          XCODE_PATH=$(find /Applications -maxdepth 1 -name 'Xcode_26*.app' | sort -V | tail -1)
+          test -n "$XCODE_PATH"
+          sudo xcode-select -s "$XCODE_PATH/Contents/Developer"
+          xcrun simctl list devices available -j > mobile/test-results/native-visual/devices.json
+          python3 scripts/mobile-visual/prepare-simulator.py >> "$GITHUB_ENV"
+          curl -fsSL https://get.maestro.mobile.dev -o "$RUNNER_TEMP/install-maestro.sh"
+          bash "$RUNNER_TEMP/install-maestro.sh"
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+      - name: Install app with isolated product examples
+        timeout-minutes: 10
+        run: |
+          set -euo pipefail
+          BBTALK_VISUAL_FIXTURE=product node scripts/mobile-visual/fixture-server.cjs > mobile/test-results/product-screenshots/fixture.log 2>&1 &
+          xcrun simctl boot "$SIMULATOR_UDID" || true
+          xcrun simctl bootstatus "$SIMULATOR_UDID" -b
+          xcrun simctl status_bar "$SIMULATOR_UDID" override --time '9:41' --dataNetwork wifi --wifiMode active --wifiBars 3 --batteryState charged --batteryLevel 100
+          xcrun simctl install "$SIMULATOR_UDID" "$RUNNER_TEMP/product-app/BBTalk.app"
+          python3 scripts/mobile-visual/seed-settings.py "$SIMULATOR_UDID"
+      - name: Sign in to local examples
+        id: login
+        continue-on-error: true
+        timeout-minutes: 5
+        run: maestro --device "$SIMULATOR_UDID" test --test-output-dir mobile/test-results/product-screenshots/login mobile/visual/login.yaml
+      - name: Capture clean home screen
+        timeout-minutes: 5
+        run: |
+          xcrun simctl terminate "$SIMULATOR_UDID" com.chewy.bbtalk || true
+          maestro --device "$SIMULATOR_UDID" test --test-output-dir mobile/test-results/product-screenshots/home mobile/visual/product-home.yaml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-product-screenshots
+          path: mobile/test-results/product-screenshots/
+          retention-days: 30
